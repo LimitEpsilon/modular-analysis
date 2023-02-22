@@ -70,7 +70,13 @@ module Evaluator = struct
 
   let reduce_lexp e =
     let my_lbl = label e in
-    reduce (A (LEnv.empty, my_lbl))
+    let original_lbls = !num_of_lbls in
+    let reduced = reduce (A (LEnv.empty, my_lbl)) in
+    print_string
+      ("Number of syntactic locations: "
+      ^ string_of_int original_lbls
+      ^ "\nNumber of added locations: " ^ string_of_int !num_of_lbls ^ "\n");
+    reduced
 end
 
 module Printer = struct
