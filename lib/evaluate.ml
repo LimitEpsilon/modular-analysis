@@ -38,31 +38,32 @@ module Evaluator = struct
     | LApp (e1, e2) -> App (lbl_to_lexp e1, lbl_to_lexp e2)
 
   (* invariant: only initial labels go into the environment *)
-  let rec step (A (env, exp) : t) : t =
+  let rec step (A (env, exp) : t) (stack : t list) : t =
     match Hashtbl.find label_table exp with
     | LVar x -> (
         match LEnv.find x env with
-        | exception Not_found -> A (env, exp)
-        | A (env, exp) -> step (A (env, exp)))
-    | LLam (_, _) -> A (env, exp)
-    | LApp (e1, e2) -> (
-        let (A (new_env, lam)) = step (A (env, e1)) in
-        match Hashtbl.find label_table lam with
-        | LLam (x, e) ->
-            let updated_env =
-              LEnv.update x (fun _ -> Some (A (env, e2))) new_env
-            in
-            step (A (updated_env, e))
-        | _ ->
-            let lbl =
-              incr num_of_lbls;
-              !num_of_lbls
-            in
-            Hashtbl.add label_table lbl (LApp (lam, e2));
-            A (env, lbl))
+        | exception Not_found ->
+            List.fold_left
+              (fun (A (_, acc)) (A (env, arg)) ->
+                let lbl =
+                  incr num_of_lbls;
+                  !num_of_lbls
+                in
+                Hashtbl.add label_table lbl (LApp (acc, arg));
+                A (env, lbl))
+              (A (env, exp))
+              stack
+        | A (env, exp) -> step (A (env, exp)) stack)
+    | LLam (x, e) -> (
+        match stack with
+        | [] -> A (env, exp)
+        | hd :: tl ->
+            let updated_env = LEnv.update x (fun _ -> Some hd) env in
+            step (A (updated_env, e)) tl)
+    | LApp (e1, e2) -> step (A (env, e1)) (A (env, e2) :: stack)
 
   let rec reduce (A (env, exp) : t) : lexp =
-    let (A (env', exp')) = step (A (env, exp)) in
+    let (A (env', exp')) = step (A (env, exp)) [] in
     match Hashtbl.find label_table exp' with
     | LVar x -> Var x
     | LLam (x, e) -> Lam (x, reduce (A (LEnv.remove x env', e)))
@@ -129,7 +130,7 @@ module Printer = struct
 
   let rec finite_step_aux leftover_step to_eval =
     if leftover_step < 0 then print to_eval
-    else finite_step_aux (leftover_step - 1) (step to_eval)
+    else finite_step_aux (leftover_step - 1) (step to_eval [])
 
   let finite_step steps pgm =
     let exp = label pgm in
