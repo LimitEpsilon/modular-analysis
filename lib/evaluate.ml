@@ -37,7 +37,6 @@ module Evaluator = struct
     | LLam (x, e) -> Lam (x, lbl_to_lexp e)
     | LApp (e1, e2) -> App (lbl_to_lexp e1, lbl_to_lexp e2)
 
-  (* invariant: only initial labels go into the environment *)
   let rec step ((A (env, exp) : t), (stack : t list)) : t * t list =
     match Hashtbl.find label_table exp with
     | LVar x -> (
@@ -52,15 +51,21 @@ module Evaluator = struct
             step (A (updated_env, e), tl))
     | LApp (e1, e2) -> step (A (env, e1), A (env, e2) :: stack)
 
-  let rec reduce ((A (env, exp) : t), (stack : t list)) : lexp =
+  let rec reduce ((A (env, exp) : t), (stack : t list)) (ctx : lexp -> lexp) :
+      lexp =
     let A (env', exp'), stack' = step (A (env, exp), stack) in
     match stack' with
     | [] -> (
         match Hashtbl.find label_table exp' with
-        | LVar x -> Var x
-        | LLam (x, e) -> Lam (x, reduce (A (LEnv.remove x env', e), []))
-        | LApp (e1, e2) -> App (lbl_to_lexp e1, reduce (A (env', e2), [])))
-    | hd :: tl -> App (lbl_to_lexp exp', reduce (hd, tl))
+        | LVar x -> ctx (Var x)
+        | LLam (x, e) ->
+            reduce (A (LEnv.remove x env', e), []) (fun e -> ctx (Lam (x, e)))
+        | LApp (e1, e2) ->
+            let e1 = lbl_to_lexp e1 in
+            reduce (A (env', e2), []) (fun e -> ctx (App (e1, e))))
+    | hd :: tl ->
+        let exp' = lbl_to_lexp exp' in
+        reduce (hd, tl) (fun e -> ctx (App (exp', e)))
 
   let reduce_lexp e =
     let my_lbl = label e in
@@ -68,7 +73,7 @@ module Evaluator = struct
       print_string
         ("Number of syntactic locations: " ^ string_of_int !num_of_lbls ^ "\n")
     in
-    reduce (A (LEnv.empty, my_lbl), [])
+    reduce (A (LEnv.empty, my_lbl), []) (fun x -> x)
 end
 
 module Printer = struct
