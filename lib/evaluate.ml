@@ -124,11 +124,36 @@ module Printer = struct
     print_aux 0 exp;
     print_newline ()
 
-  let rec finite_step_aux leftover_step to_eval =
-    if leftover_step < 0 then print (fst to_eval)
-    else finite_step_aux (leftover_step - 1) (step to_eval)
+  let rec finite_step_aux leftover_step to_eval ctx =
+    if leftover_step <= 0 then Pp.Pp.pp (ctx (Var "[]"))
+    else
+      let A (env', exp'), stack' = step to_eval in
+      match stack' with
+      | [] -> (
+          match Hashtbl.find label_table exp' with
+          | LVar x -> Pp.Pp.pp (ctx (Var x))
+          | LLam (x, e) ->
+              finite_step_aux (leftover_step - 1)
+                (A (LEnv.remove x env', e), [])
+                (fun e -> ctx (Lam (x, e)))
+          | LApp (e1, e2) ->
+              let e1 = lbl_to_lexp e1 in
+              finite_step_aux (leftover_step - 1)
+                (A (env', e2), [])
+                (fun e -> ctx (App (e1, e))))
+      | hd :: tl ->
+          let exp' = lbl_to_lexp exp' in
+          finite_step_aux (leftover_step - 1) (hd, tl) (fun e ->
+              ctx (App (exp', e)))
 
   let finite_step steps pgm =
+    let () = print_endline "==========\nInput pgm\n==========" in
+    let () =
+      Pp.Pp.pp pgm;
+      print_newline ()
+    in
     let exp = label pgm in
-    finite_step_aux steps (A (LEnv.empty, exp), [])
+    let () = print_endline "===========\nPartial pgm\n===========" in
+    finite_step_aux steps (A (LEnv.empty, exp), []) (fun x -> x);
+    print_newline ()
 end
