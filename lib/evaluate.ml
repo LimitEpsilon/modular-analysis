@@ -38,46 +38,37 @@ module Evaluator = struct
     | LApp (e1, e2) -> App (lbl_to_lexp e1, lbl_to_lexp e2)
 
   (* invariant: only initial labels go into the environment *)
-  let rec step (A (env, exp) : t) (stack : t list) : t =
+  let rec step ((A (env, exp) : t), (stack : t list)) : t * t list =
     match Hashtbl.find label_table exp with
     | LVar x -> (
         match LEnv.find x env with
-        | exception Not_found ->
-            List.fold_left
-              (fun (A (_, acc)) (A (env, arg)) ->
-                let lbl =
-                  incr num_of_lbls;
-                  !num_of_lbls
-                in
-                Hashtbl.add label_table lbl (LApp (acc, arg));
-                A (env, lbl))
-              (A (env, exp))
-              stack
-        | A (env, exp) -> step (A (env, exp)) stack)
+        | exception Not_found -> (A (env, exp), stack)
+        | A (env, exp) -> step (A (env, exp), stack))
     | LLam (x, e) -> (
         match stack with
-        | [] -> A (env, exp)
+        | [] -> (A (env, exp), [])
         | hd :: tl ->
             let updated_env = LEnv.update x (fun _ -> Some hd) env in
-            step (A (updated_env, e)) tl)
-    | LApp (e1, e2) -> step (A (env, e1)) (A (env, e2) :: stack)
+            step (A (updated_env, e), tl))
+    | LApp (e1, e2) -> step (A (env, e1), A (env, e2) :: stack)
 
-  let rec reduce (A (env, exp) : t) : lexp =
-    let (A (env', exp')) = step (A (env, exp)) [] in
-    match Hashtbl.find label_table exp' with
-    | LVar x -> Var x
-    | LLam (x, e) -> Lam (x, reduce (A (LEnv.remove x env', e)))
-    | LApp (e1, e2) -> App (lbl_to_lexp e1, reduce (A (env', e2)))
+  let rec reduce ((A (env, exp) : t), (stack : t list)) : lexp =
+    let A (env', exp'), stack' = step (A (env, exp), stack) in
+    match stack' with
+    | [] -> (
+        match Hashtbl.find label_table exp' with
+        | LVar x -> Var x
+        | LLam (x, e) -> Lam (x, reduce (A (LEnv.remove x env', e), []))
+        | LApp (e1, e2) -> App (lbl_to_lexp e1, reduce (A (env', e2), [])))
+    | hd :: tl -> App (lbl_to_lexp exp', reduce (hd, tl))
 
   let reduce_lexp e =
     let my_lbl = label e in
-    let original_lbls = !num_of_lbls in
-    let reduced = reduce (A (LEnv.empty, my_lbl)) in
-    print_string
-      ("Number of syntactic locations: "
-      ^ string_of_int original_lbls
-      ^ "\nNumber of added locations: " ^ string_of_int !num_of_lbls ^ "\n");
-    reduced
+    let () =
+      print_string
+        ("Number of syntactic locations: " ^ string_of_int !num_of_lbls ^ "\n")
+    in
+    reduce (A (LEnv.empty, my_lbl), [])
 end
 
 module Printer = struct
@@ -129,10 +120,10 @@ module Printer = struct
     print_newline ()
 
   let rec finite_step_aux leftover_step to_eval =
-    if leftover_step < 0 then print to_eval
-    else finite_step_aux (leftover_step - 1) (step to_eval [])
+    if leftover_step < 0 then print (fst to_eval)
+    else finite_step_aux (leftover_step - 1) (step to_eval)
 
   let finite_step steps pgm =
     let exp = label pgm in
-    finite_step_aux steps (A (LEnv.empty, exp))
+    finite_step_aux steps (A (LEnv.empty, exp), [])
 end
