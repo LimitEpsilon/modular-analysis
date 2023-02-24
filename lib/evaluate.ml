@@ -31,13 +31,22 @@ module Evaluator = struct
 
   type t = A of t LEnv.t * lbl
 
-  let rec lbl_to_lexp lbl =
+  let[@tail_mod_cons] rec lbl_to_lexp_aux lbl ctx arg_stack =
     match Hashtbl.find label_table lbl with
-    | LVar x -> Var x
-    | LLam (x, e) -> Lam (x, lbl_to_lexp e)
-    | LApp (e1, e2) -> App (lbl_to_lexp e1, lbl_to_lexp e2)
+    | LVar x -> (
+        let exp = ctx (Var x) in
+        match arg_stack with
+        | [] -> exp
+        | hd :: tl ->
+            (lbl_to_lexp_aux [@tailcall]) hd (fun e -> App (exp, e)) tl)
+    | LLam (x, e) ->
+        (lbl_to_lexp_aux [@tailcall]) e (fun e -> Lam (x, e)) arg_stack
+    | LApp (e1, e2) -> (lbl_to_lexp_aux [@tailcall]) e1 Fun.id (e2 :: arg_stack)
 
-  let rec step ((A (env, exp) : t), (stack : t list)) : t * t list =
+  let lbl_to_lexp lbl = lbl_to_lexp_aux lbl Fun.id []
+
+  let[@tail_mod_cons] rec step ((A (env, exp) : t), (stack : t list)) :
+      t * t list =
     match Hashtbl.find label_table exp with
     | LVar x -> (
         match LEnv.find x env with
@@ -51,7 +60,7 @@ module Evaluator = struct
             (step [@tailcall]) (A (updated_env, e), tl))
     | LApp (e1, e2) -> (step [@tailcall]) (A (env, e1), A (env, e2) :: stack)
 
-  let rec reduce to_eval ctx arg_stack =
+  let[@tail_mod_cons] rec reduce to_eval ctx arg_stack =
     let A (env', exp'), leftover_args = step to_eval in
     match leftover_args with
     | [] -> (
@@ -89,7 +98,7 @@ module Evaluator = struct
       print_string
         ("Number of syntactic locations: " ^ string_of_int !num_of_lbls ^ "\n")
     in
-    let exp = reduce (A (LEnv.empty, my_lbl), []) (fun x -> x) [] in
+    let exp = reduce (A (LEnv.empty, my_lbl), []) Fun.id [] in
     let () =
       print_string
         ("Number of locations after evaluation: " ^ string_of_int !num_of_lbls
