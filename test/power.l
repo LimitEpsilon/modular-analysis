@@ -7,4 +7,4 @@ let F = \x.\y.y in
 let if0 = \m.m (\n.F) T in
 let power = \f.\n.\x.((if0 n) one (mul x (f (prec n) x))) in
 let Y = \f.(\x.f(x x))(\x.f(x x)) in
-x (Y power input)
+(\x.x) (\x.x) (Y power input)

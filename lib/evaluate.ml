@@ -31,19 +31,11 @@ module Evaluator = struct
 
   type t = A of t LEnv.t * lbl
 
-  let[@tail_mod_cons] rec lbl_to_lexp_aux lbl ctx arg_stack =
+  let rec lbl_to_lexp lbl =
     match Hashtbl.find label_table lbl with
-    | LVar x -> (
-        let exp = ctx (Var x) in
-        match arg_stack with
-        | [] -> exp
-        | hd :: tl ->
-            (lbl_to_lexp_aux [@tailcall]) hd (fun e -> App (exp, e)) tl)
-    | LLam (x, e) ->
-        (lbl_to_lexp_aux [@tailcall]) e (fun e -> Lam (x, e)) arg_stack
-    | LApp (e1, e2) -> (lbl_to_lexp_aux [@tailcall]) e1 Fun.id (e2 :: arg_stack)
-
-  let lbl_to_lexp lbl = lbl_to_lexp_aux lbl Fun.id []
+    | LVar x -> Var x
+    | LLam (x, e) -> Lam (x, lbl_to_lexp e)
+    | LApp (e1, e2) -> App (lbl_to_lexp e1, lbl_to_lexp e2)
 
   let[@tail_mod_cons] rec step ((A (env, exp) : t), (stack : t list)) :
       t * t list =
