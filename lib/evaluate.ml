@@ -56,18 +56,16 @@ module Evaluator = struct
     match leftover_args with
     | [] -> (
         match Hashtbl.find label_table exp' with
-        | LVar x ->
-            let rec loop exp = function
-              | [] -> exp
-              | hd :: tl -> (
-                  match hd with
-                  | [] -> (loop [@tailcall]) exp tl
-                  | hd' :: tl' ->
-                      (reduce [@tailcall]) (hd', [])
-                        (fun e -> App (exp, e))
-                        (tl' :: tl))
-            in
-            loop (ctx (Var x)) arg_stack
+        | LVar x -> (
+            let exp = ctx (Var x) in
+            match arg_stack with
+            | [] -> exp
+            | (hd, tl) :: arg_tl ->
+                (reduce [@tailcall]) (hd, [])
+                  (fun e -> App (exp, e))
+                  (match tl with
+                  | [] -> arg_tl
+                  | hd :: tl -> (hd, tl) :: arg_tl))
         | LLam (x, e) ->
             (reduce [@tailcall])
               (A (LEnv.remove x env', e), [])
@@ -83,7 +81,7 @@ module Evaluator = struct
         let exp' = lbl_to_lexp exp' in
         (reduce [@tailcall]) (hd, [])
           (fun e -> ctx (App (exp', e)))
-          (tl :: arg_stack)
+          (match tl with [] -> arg_stack | hd :: tl -> (hd, tl) :: arg_stack)
 
   let reduce_lexp e =
     let my_lbl = label e in
@@ -152,26 +150,23 @@ module Printer = struct
     if leftover_step <= 0 then
       Pp.Pp.pp
         (List.fold_left
-           (fun acc arg_list ->
-             List.fold_left (fun acc _ -> App (acc, Var "[]")) acc arg_list)
+           (fun acc _ -> App (acc, Var "[]"))
            (ctx (Var "[]")) arg_stack)
     else
       let A (env', exp'), leftover_args = step to_eval in
       match leftover_args with
       | [] -> (
           match Hashtbl.find label_table exp' with
-          | LVar x ->
-              let rec loop exp = function
-                | [] -> Pp.Pp.pp exp
-                | hd :: tl -> (
-                    match hd with
-                    | [] -> loop exp tl
-                    | hd' :: tl' ->
-                        finite_step_aux (leftover_step - 1) (hd', [])
-                          (fun e -> App (exp, e))
-                          (tl' :: tl))
-              in
-              loop (ctx (Var x)) arg_stack
+          | LVar x -> (
+              let exp = ctx (Var x) in
+              match arg_stack with
+              | [] -> Pp.Pp.pp exp
+              | (hd, tl) :: arg_tl ->
+                  finite_step_aux (leftover_step - 1) (hd, [])
+                    (fun e -> App (exp, e))
+                    (match tl with
+                    | [] -> arg_tl
+                    | hd :: tl -> (hd, tl) :: arg_tl))
           | LLam (x, e) ->
               finite_step_aux (leftover_step - 1)
                 (A (LEnv.remove x env', e), [])
@@ -187,7 +182,9 @@ module Printer = struct
           let exp' = lbl_to_lexp exp' in
           finite_step_aux (leftover_step - 1) (hd, [])
             (fun e -> ctx (App (exp', e)))
-            (tl :: arg_stack)
+            (match tl with
+            | [] -> arg_stack
+            | hd :: tl -> (hd, tl) :: arg_stack)
 
   let finite_step steps pgm =
     let () = print_endline "=========\nInput pgm\n=========" in
