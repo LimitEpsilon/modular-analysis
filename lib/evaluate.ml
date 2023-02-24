@@ -52,37 +52,42 @@ module Evaluator = struct
             (step [@tailcall]) (A (updated_env, e), tl))
     | LApp (e1, e2) -> (step [@tailcall]) (A (env, e1), A (env, e2) :: stack)
 
-  let[@tail_mod_cons] rec reduce to_eval ctx arg_stack =
-    let A (env', exp'), leftover_args = step to_eval in
-    match leftover_args with
-    | [] -> (
-        match Hashtbl.find label_table exp' with
-        | LVar x -> (
-            let exp = ctx (Var x) in
-            match arg_stack with
-            | [] -> exp
-            | (hd, tl) :: arg_tl ->
-                (reduce [@tailcall]) (hd, [])
-                  (fun e -> App (exp, e))
-                  (match tl with
-                  | [] -> arg_tl
-                  | hd :: tl -> (hd, tl) :: arg_tl))
-        | LLam (x, e) ->
+  let[@tail_mod_cons] rec reduce ctx (A (env, exp), args) arg_stack =
+    match Hashtbl.find label_table exp with
+    | LVar x -> (
+        match LEnv.find x env with
+        | exception Not_found -> (
+            match args with
+            | [] -> (
+                let exp' = ctx (Var x) in
+                match arg_stack with
+                | [] -> exp'
+                | (r, rl) :: tl ->
+                    (reduce [@tailcall])
+                      (fun e -> App (exp', e))
+                      (r, [])
+                      (match rl with [] -> tl | hd :: tl' -> (hd, tl') :: tl))
+            | r :: rl ->
+                (reduce [@tailcall])
+                  (fun e -> ctx (App (Var x, e)))
+                  (r, [])
+                  (match rl with
+                  | [] -> arg_stack
+                  | r' :: rl' -> (r', rl') :: arg_stack))
+        | r -> reduce ctx (r, args) arg_stack)
+    | LLam (x, e) -> (
+        match args with
+        | [] ->
             (reduce [@tailcall])
-              (A (LEnv.remove x env', e), [])
               (fun e -> ctx (Lam (x, e)))
+              (A (LEnv.remove x env, e), [])
               arg_stack
-        | LApp (e1, e2) ->
-            let e1 = lbl_to_lexp e1 in
-            (reduce [@tailcall])
-              (A (env', e2), [])
-              (fun e -> ctx (App (e1, e)))
+        | r :: tl ->
+            (reduce [@tailcall]) ctx
+              (A (LEnv.update x (fun _ -> Some r) env, e), tl)
               arg_stack)
-    | hd :: tl ->
-        let exp' = lbl_to_lexp exp' in
-        (reduce [@tailcall]) (hd, [])
-          (fun e -> ctx (App (exp', e)))
-          (match tl with [] -> arg_stack | hd :: tl -> (hd, tl) :: arg_stack)
+    | LApp (e1, e2) ->
+        (reduce [@tailcall]) ctx (A (env, e1), A (env, e2) :: args) arg_stack
 
   let reduce_lexp e =
     let my_lbl = label e in
@@ -90,7 +95,7 @@ module Evaluator = struct
       print_string
         ("Number of syntactic locations: " ^ string_of_int !num_of_lbls ^ "\n")
     in
-    let exp = reduce (A (LEnv.empty, my_lbl), []) Fun.id [] in
+    let exp = reduce Fun.id (A (LEnv.empty, my_lbl), []) [] in
     let () =
       print_string
         ("Number of locations after evaluation: " ^ string_of_int !num_of_lbls
@@ -173,12 +178,7 @@ module Printer = struct
                 (A (LEnv.remove x env', e), [])
                 (fun e -> ctx (Lam (x, e)))
                 arg_stack
-          | LApp (e1, e2) ->
-              let e1 = lbl_to_lexp e1 in
-              finite_step_aux (leftover_step - 1)
-                (A (env', e2), [])
-                (fun e -> ctx (App (e1, e)))
-                arg_stack)
+          | LApp (_, _) -> assert false)
       | hd :: tl ->
           let exp' = lbl_to_lexp exp' in
           finite_step_aux (leftover_step - 1) (hd, [])
