@@ -85,53 +85,6 @@ module Evaluator = struct
           (fun e -> ctx (App (exp', e)))
           (tl :: arg_stack)
 
-  let rec value (A (env, exp) : t) : lbl =
-    match Hashtbl.find label_table exp with
-    | LVar x -> (
-        match LEnv.find x env with
-        | exception Not_found -> exp
-        | found -> value found)
-    | LLam (x, e) ->
-        let e' = value (A (LEnv.remove x env, e)) in
-        let lbl' =
-          incr num_of_lbls;
-          !num_of_lbls
-        in
-        Hashtbl.add label_table lbl' (LLam (x, e'));
-        lbl'
-    | LApp (e1, e2) -> (
-        let (A (env', exp')) = free (A (env, e1)) in
-        match Hashtbl.find label_table exp' with
-        | LLam (x, e) ->
-            value (A (LEnv.update x (fun _ -> Some (A (env, e2))) env', e))
-        | _ ->
-            let lbl' =
-              incr num_of_lbls;
-              !num_of_lbls
-            in
-            Hashtbl.add label_table lbl' (LApp (exp', value (A (env, e2))));
-            lbl')
-
-  and free (A (env, exp) : t) : t =
-    match Hashtbl.find label_table exp with
-    | LVar x -> (
-        match LEnv.find x env with
-        | exception Not_found -> A (env, exp)
-        | found -> free found)
-    | LLam (_, _) -> A (env, exp)
-    | LApp (e1, e2) -> (
-        let (A (env', exp')) = free (A (env, e1)) in
-        match Hashtbl.find label_table exp' with
-        | LLam (x, e) ->
-            free (A (LEnv.update x (fun _ -> Some (A (env, e2))) env', e))
-        | _ ->
-            let lbl' =
-              incr num_of_lbls;
-              !num_of_lbls
-            in
-            Hashtbl.add label_table lbl' (LApp (exp', value (A (env, e2))));
-            A (env, lbl'))
-
   let reduce_lexp e =
     let my_lbl = label e in
     let () =
