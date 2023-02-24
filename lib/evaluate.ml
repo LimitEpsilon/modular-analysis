@@ -42,30 +42,95 @@ module Evaluator = struct
     | LVar x -> (
         match LEnv.find x env with
         | exception Not_found -> (A (env, exp), stack)
-        | A (env, exp) -> step (A (env, exp), stack))
+        | A (env, exp) -> (step [@tailcall]) (A (env, exp), stack))
     | LLam (x, e) -> (
         match stack with
         | [] -> (A (env, exp), [])
         | hd :: tl ->
             let updated_env = LEnv.update x (fun _ -> Some hd) env in
-            step (A (updated_env, e), tl))
-    | LApp (e1, e2) -> step (A (env, e1), A (env, e2) :: stack)
+            (step [@tailcall]) (A (updated_env, e), tl))
+    | LApp (e1, e2) -> (step [@tailcall]) (A (env, e1), A (env, e2) :: stack)
 
-  let rec reduce ((A (env, exp) : t), (stack : t list)) (ctx : lexp -> lexp) :
-      lexp =
-    let A (env', exp'), stack' = step (A (env, exp), stack) in
-    match stack' with
+  let rec reduce to_eval ctx arg_stack =
+    let A (env', exp'), leftover_args = step to_eval in
+    match leftover_args with
     | [] -> (
         match Hashtbl.find label_table exp' with
-        | LVar x -> ctx (Var x)
+        | LVar x ->
+            let rec loop exp = function
+              | [] -> exp
+              | hd :: tl -> (
+                  match hd with
+                  | [] -> (loop [@tailcall]) exp tl
+                  | hd' :: tl' ->
+                      (reduce [@tailcall]) (hd', [])
+                        (fun e -> App (exp, e))
+                        (tl' :: tl))
+            in
+            loop (ctx (Var x)) arg_stack
         | LLam (x, e) ->
-            reduce (A (LEnv.remove x env', e), []) (fun e -> ctx (Lam (x, e)))
+            (reduce [@tailcall])
+              (A (LEnv.remove x env', e), [])
+              (fun e -> ctx (Lam (x, e)))
+              arg_stack
         | LApp (e1, e2) ->
             let e1 = lbl_to_lexp e1 in
-            reduce (A (env', e2), []) (fun e -> ctx (App (e1, e))))
+            (reduce [@tailcall])
+              (A (env', e2), [])
+              (fun e -> ctx (App (e1, e)))
+              arg_stack)
     | hd :: tl ->
         let exp' = lbl_to_lexp exp' in
-        reduce (hd, tl) (fun e -> ctx (App (exp', e)))
+        (reduce [@tailcall]) (hd, [])
+          (fun e -> ctx (App (exp', e)))
+          (tl :: arg_stack)
+
+  let rec value (A (env, exp) : t) : lbl =
+    match Hashtbl.find label_table exp with
+    | LVar x -> (
+        match LEnv.find x env with
+        | exception Not_found -> exp
+        | found -> value found)
+    | LLam (x, e) ->
+        let e' = value (A (LEnv.remove x env, e)) in
+        let lbl' =
+          incr num_of_lbls;
+          !num_of_lbls
+        in
+        Hashtbl.add label_table lbl' (LLam (x, e'));
+        lbl'
+    | LApp (e1, e2) -> (
+        let (A (env', exp')) = free (A (env, e1)) in
+        match Hashtbl.find label_table exp' with
+        | LLam (x, e) ->
+            value (A (LEnv.update x (fun _ -> Some (A (env, e2))) env', e))
+        | _ ->
+            let lbl' =
+              incr num_of_lbls;
+              !num_of_lbls
+            in
+            Hashtbl.add label_table lbl' (LApp (exp', value (A (env, e2))));
+            lbl')
+
+  and free (A (env, exp) : t) : t =
+    match Hashtbl.find label_table exp with
+    | LVar x -> (
+        match LEnv.find x env with
+        | exception Not_found -> A (env, exp)
+        | found -> free found)
+    | LLam (_, _) -> A (env, exp)
+    | LApp (e1, e2) -> (
+        let (A (env', exp')) = free (A (env, e1)) in
+        match Hashtbl.find label_table exp' with
+        | LLam (x, e) ->
+            free (A (LEnv.update x (fun _ -> Some (A (env, e2))) env', e))
+        | _ ->
+            let lbl' =
+              incr num_of_lbls;
+              !num_of_lbls
+            in
+            Hashtbl.add label_table lbl' (LApp (exp', value (A (env, e2))));
+            A (env, lbl'))
 
   let reduce_lexp e =
     let my_lbl = label e in
@@ -73,7 +138,13 @@ module Evaluator = struct
       print_string
         ("Number of syntactic locations: " ^ string_of_int !num_of_lbls ^ "\n")
     in
-    reduce (A (LEnv.empty, my_lbl), []) (fun x -> x)
+    let exp = reduce (A (LEnv.empty, my_lbl), []) (fun x -> x) [] in
+    let () =
+      print_string
+        ("Number of locations after evaluation: " ^ string_of_int !num_of_lbls
+       ^ "\n")
+    in
+    exp
 end
 
 module Printer = struct
@@ -124,36 +195,55 @@ module Printer = struct
     print_aux 0 exp;
     print_newline ()
 
-  let rec finite_step_aux leftover_step to_eval ctx =
-    if leftover_step <= 0 then Pp.Pp.pp (ctx (Var "[]"))
+  let rec finite_step_aux leftover_step to_eval ctx arg_stack =
+    if leftover_step <= 0 then
+      Pp.Pp.pp
+        (List.fold_left
+           (fun acc arg_list ->
+             List.fold_left (fun acc _ -> App (acc, Var "[]")) acc arg_list)
+           (ctx (Var "[]")) arg_stack)
     else
-      let A (env', exp'), stack' = step to_eval in
-      match stack' with
+      let A (env', exp'), leftover_args = step to_eval in
+      match leftover_args with
       | [] -> (
           match Hashtbl.find label_table exp' with
-          | LVar x -> Pp.Pp.pp (ctx (Var x))
+          | LVar x ->
+              let rec loop exp = function
+                | [] -> Pp.Pp.pp exp
+                | hd :: tl -> (
+                    match hd with
+                    | [] -> loop exp tl
+                    | hd' :: tl' ->
+                        finite_step_aux (leftover_step - 1) (hd', [])
+                          (fun e -> App (exp, e))
+                          (tl' :: tl))
+              in
+              loop (ctx (Var x)) arg_stack
           | LLam (x, e) ->
               finite_step_aux (leftover_step - 1)
                 (A (LEnv.remove x env', e), [])
                 (fun e -> ctx (Lam (x, e)))
+                arg_stack
           | LApp (e1, e2) ->
               let e1 = lbl_to_lexp e1 in
               finite_step_aux (leftover_step - 1)
                 (A (env', e2), [])
-                (fun e -> ctx (App (e1, e))))
+                (fun e -> ctx (App (e1, e)))
+                arg_stack)
       | hd :: tl ->
           let exp' = lbl_to_lexp exp' in
-          finite_step_aux (leftover_step - 1) (hd, tl) (fun e ->
-              ctx (App (exp', e)))
+          finite_step_aux (leftover_step - 1) (hd, [])
+            (fun e -> ctx (App (exp', e)))
+            (tl :: arg_stack)
 
   let finite_step steps pgm =
-    let () = print_endline "==========\nInput pgm\n==========" in
+    let () = print_endline "=========\nInput pgm\n=========" in
     let () =
       Pp.Pp.pp pgm;
       print_newline ()
     in
     let exp = label pgm in
     let () = print_endline "===========\nPartial pgm\n===========" in
-    finite_step_aux steps (A (LEnv.empty, exp), []) (fun x -> x);
+    finite_step_aux steps (A (LEnv.empty, exp), []) (fun x -> x) [];
     print_newline ()
 end
