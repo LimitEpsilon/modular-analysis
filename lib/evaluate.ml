@@ -62,21 +62,21 @@ module Evaluator = struct
 
   exception Not_free of string * lbl * t LEnv.t
 
-  let rec value (A (env, exp) : t) (try_free : bool) : lexp =
+  let rec value (A (env, exp) : t) (expect_free : bool) : lexp =
     match Hashtbl.find label_table exp with
     | LVar x -> (
         match LEnv.find x env with
         | exception Not_found -> Var x
-        | found -> value found try_free)
+        | found -> value found expect_free)
     | LLam (x, e) ->
-        if try_free then raise (Not_free (x, e, env))
+        if expect_free then raise (Not_free (x, e, env))
         else Lam (x, value (A (LEnv.remove x env, e)) false)
     | LApp (e1, e2) -> (
         match value (A (env, e1)) true with
         | exception Not_free (x, e, env1) ->
             value
               (A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e))
-              try_free
+              expect_free
         | e1 -> App (e1, value (A (env, e2)) false))
 
   let reduce_lexp e =
