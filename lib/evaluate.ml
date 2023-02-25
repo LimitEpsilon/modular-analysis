@@ -15,6 +15,14 @@ module Evaluator = struct
 
   let label_table : (lbl, lblexp) Hashtbl.t = Hashtbl.create 10
 
+  let new_lbl e =
+    let lbl =
+      incr num_of_lbls;
+      !num_of_lbls
+    in
+    Hashtbl.add label_table lbl e;
+    lbl
+
   let rec label (e : lexp) =
     let lbl =
       incr num_of_lbls;
@@ -52,42 +60,24 @@ module Evaluator = struct
             (step [@tailcall]) (A (updated_env, e), tl))
     | LApp (e1, e2) -> (step [@tailcall]) (A (env, e1), A (env, e2) :: stack)
 
-  let[@tail_mod_cons] rec reduce ctx (A (env, exp), args) arg_stack =
+  exception Not_free of string * lbl * t LEnv.t
+
+  let rec value (A (env, exp) : t) (try_free : bool) : lexp =
     match Hashtbl.find label_table exp with
     | LVar x -> (
         match LEnv.find x env with
-        | exception Not_found -> (
-            match args with
-            | [] -> (
-                let exp' = ctx (Var x) in
-                match arg_stack with
-                | [] -> exp'
-                | (r, rl) :: tl ->
-                    (reduce [@tailcall])
-                      (fun e -> App (exp', e))
-                      (r, [])
-                      (match rl with [] -> tl | hd :: tl' -> (hd, tl') :: tl))
-            | r :: rl ->
-                (reduce [@tailcall])
-                  (fun e -> ctx (App (Var x, e)))
-                  (r, [])
-                  (match rl with
-                  | [] -> arg_stack
-                  | r' :: rl' -> (r', rl') :: arg_stack))
-        | r -> reduce ctx (r, args) arg_stack)
-    | LLam (x, e) -> (
-        match args with
-        | [] ->
-            (reduce [@tailcall])
-              (fun e -> ctx (Lam (x, e)))
-              (A (LEnv.remove x env, e), [])
-              arg_stack
-        | r :: tl ->
-            (reduce [@tailcall]) ctx
-              (A (LEnv.update x (fun _ -> Some r) env, e), tl)
-              arg_stack)
-    | LApp (e1, e2) ->
-        (reduce [@tailcall]) ctx (A (env, e1), A (env, e2) :: args) arg_stack
+        | exception Not_found -> Var x
+        | found -> value found try_free)
+    | LLam (x, e) ->
+        if try_free then raise (Not_free (x, e, env))
+        else Lam (x, value (A (LEnv.remove x env, e)) false)
+    | LApp (e1, e2) -> (
+        match value (A (env, e1)) true with
+        | exception Not_free (x, e, env1) ->
+            value
+              (A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e))
+              try_free
+        | e1 -> App (e1, value (A (env, e2)) false))
 
   let reduce_lexp e =
     let my_lbl = label e in
@@ -95,7 +85,7 @@ module Evaluator = struct
       print_string
         ("Number of syntactic locations: " ^ string_of_int !num_of_lbls ^ "\n")
     in
-    let exp = reduce Fun.id (A (LEnv.empty, my_lbl), []) [] in
+    let exp = value (A (LEnv.empty, my_lbl)) false in
     let () =
       print_string
         ("Number of locations after evaluation: " ^ string_of_int !num_of_lbls
@@ -195,6 +185,6 @@ module Printer = struct
     in
     let exp = label pgm in
     let () = print_endline "===========\nPartial pgm\n===========" in
-    finite_step_aux steps (A (LEnv.empty, exp), []) (fun x -> x) [];
+    finite_step_aux steps (A (LEnv.empty, exp), []) Fun.id [];
     print_newline ()
 end
