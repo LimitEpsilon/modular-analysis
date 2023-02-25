@@ -60,24 +60,36 @@ module Evaluator = struct
             (step [@tailcall]) (A (updated_env, e), tl))
     | LApp (e1, e2) -> (step [@tailcall]) (A (env, e1), A (env, e2) :: stack)
 
-  exception Not_free of string * lbl * t LEnv.t
-
-  let rec value (A (env, exp) : t) (expect_free : bool) : lexp =
+  let rec value (A (env, exp) : t) ctx =
     match Hashtbl.find label_table exp with
     | LVar x -> (
         match LEnv.find x env with
-        | exception Not_found -> Var x
-        | found -> value found expect_free)
+        | exception Not_found -> ctx (Var x)
+        | found -> value found ctx)
     | LLam (x, e) ->
-        if expect_free then raise (Not_free (x, e, env))
-        else Lam (x, value (A (LEnv.remove x env, e)) false)
+        value (A (LEnv.remove x env, e)) (fun e -> ctx (Lam (x, e)))
     | LApp (e1, e2) -> (
-        match value (A (env, e1)) true with
-        | exception Not_free (x, e, env1) ->
-            value
-              (A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e))
-              expect_free
-        | e1 -> App (e1, value (A (env, e2)) false))
+        match free (A (env, e1)) Fun.id with
+        | Error (x, e, env1) ->
+            value (A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e)) ctx
+        | Ok e1 -> value (A (env, e2)) (fun e -> ctx (App (e1, e))))
+
+  and free (A (env, exp) : t) ctx =
+    match Hashtbl.find label_table exp with
+    | LVar x -> (
+        match LEnv.find x env with
+        | exception Not_found -> ctx (Ok (Var x))
+        | found -> free found ctx)
+    | LLam (x, e) -> ctx (Error (x, e, env))
+    | LApp (e1, e2) ->
+        free
+          (A (env, e1))
+          (function
+            | Error (x, e, env1) ->
+                free
+                  (A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e))
+                  ctx
+            | Ok e1 -> Ok (App (e1, value (A (env, e2)) Fun.id)))
 
   let reduce_lexp e =
     let my_lbl = label e in
@@ -85,7 +97,7 @@ module Evaluator = struct
       print_string
         ("Number of syntactic locations: " ^ string_of_int !num_of_lbls ^ "\n")
     in
-    let exp = value (A (LEnv.empty, my_lbl)) false in
+    let exp = value (A (LEnv.empty, my_lbl)) Fun.id in
     let () =
       print_string
         ("Number of locations after evaluation: " ^ string_of_int !num_of_lbls
