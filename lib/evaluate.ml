@@ -45,40 +45,44 @@ module Evaluator = struct
     | LLam (x, e) -> Lam (x, lbl_to_lexp e)
     | LApp (e1, e2) -> App (lbl_to_lexp e1, lbl_to_lexp e2)
 
-  let[@tail_mod_cons] rec reduce (A (env, exp) : t) (expect_free : bool) ctx =
+  type ctx =
+    | Free of ((lexp, string * lbl * t LEnv.t) result -> lexp)
+    | Value of (lexp -> lexp)
+
+  let[@tail_mod_cons] rec reduce (A (env, exp) : t) ctx =
     match Hashtbl.find label_table exp with
     | LVar x -> (
         match LEnv.find x env with
-        | exception Not_found -> (ctx [@tailcall false]) (Ok (Var x))
-        | found -> reduce found expect_free ctx)
-    | LLam (x, e) ->
-        if expect_free then (ctx [@tailcall false]) (Error (x, e, env))
-        else
-          reduce
-            (A (LEnv.remove x env, e))
-            false
-            (fun e ->
-              let e = match e with Ok e -> e | Error _ -> assert false in
-              ctx (Ok (Lam (x, e))))
+        | exception Not_found -> (
+            match ctx with
+            | Free ctx -> (ctx [@tailcall false]) (Ok (Var x))
+            | Value ctx -> (ctx [@tailcall false]) (Var x))
+        | found -> reduce found ctx)
+    | LLam (x, e) -> (
+        match ctx with
+        | Free ctx -> (ctx [@tailcall false]) (Error (x, e, env))
+        | Value ctx ->
+            reduce
+              (A (LEnv.remove x env, e))
+              (Value (fun e -> ctx (Lam (x, e)))))
     | LApp (e1, e2) ->
         reduce
           (A (env, e1))
-          true
-          (fun e ->
-            match e with
-            | Error (x, e, env1) ->
-                reduce
-                  (A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e))
-                  expect_free ctx
-            | Ok e1 ->
-                reduce
-                  (A (env, e2))
-                  false
-                  (fun e2 ->
-                    let e2 =
-                      match e2 with Ok e2 -> e2 | Error _ -> assert false
-                    in
-                    ctx (Ok (App (e1, e2)))))
+          (Free
+             (fun e ->
+               match e with
+               | Error (x, e, env1) ->
+                   reduce
+                     (A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e))
+                     ctx
+               | Ok e1 ->
+                   reduce
+                     (A (env, e2))
+                     (Value
+                        (fun e2 ->
+                          match ctx with
+                          | Free ctx -> ctx (Ok (App (e1, e2)))
+                          | Value ctx -> ctx (App (e1, e2))))))
 
   let reduce_lexp e =
     let my_lbl = label e in
@@ -86,11 +90,7 @@ module Evaluator = struct
       print_string
         ("Number of syntactic locations: " ^ string_of_int !num_of_lbls ^ "\n")
     in
-    let exp =
-      match reduce (A (LEnv.empty, my_lbl)) false Fun.id with
-      | Ok e -> e
-      | Error _ -> assert false
-    in
+    let exp = reduce (A (LEnv.empty, my_lbl)) (Value Fun.id) in
     let () =
       print_string
         ("Number of locations after evaluation: " ^ string_of_int !num_of_lbls
@@ -163,13 +163,7 @@ module Printer = struct
                   (A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e))
                   ctx
             | Ok e1 ->
-                reduce
-                  (A (env, e2))
-                  false
-                  (fun e2 ->
-                    match e2 with
-                    | Ok e2 -> Ok (App (e1, e2))
-                    | Error _ -> assert false))
+                ctx (Ok (reduce (A (env, e2)) (Value (fun e2 -> App (e1, e2))))))
 
   let rec finite_value leftover_steps (A (env, exp) : t) ctx =
     if leftover_steps <= 0 then Pp.Pp.pp (ctx (Var "[]"))
