@@ -147,42 +147,52 @@ module Printer = struct
     print_aux 0 exp;
     print_newline ()
 
-  let rec finite_reduce leftover_step (A (env, exp)) expect_free ctx =
-    if leftover_step <= 0 then ctx (Ok (Var "[]"))
+  let rec free (A (env, exp) : t) ctx =
+    match Hashtbl.find label_table exp with
+    | LVar x -> (
+        match LEnv.find x env with
+        | exception Not_found -> ctx (Ok (Var x))
+        | found -> free found ctx)
+    | LLam (x, e) -> ctx (Error (x, e, env))
+    | LApp (e1, e2) ->
+        free
+          (A (env, e1))
+          (function
+            | Error (x, e, env1) ->
+                free
+                  (A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e))
+                  ctx
+            | Ok e1 ->
+                reduce
+                  (A (env, e2))
+                  false
+                  (fun e2 ->
+                    match e2 with
+                    | Ok e2 -> Ok (App (e1, e2))
+                    | Error _ -> assert false))
+
+  let rec finite_value leftover_steps (A (env, exp) : t) ctx =
+    if leftover_steps <= 0 then Pp.Pp.pp (ctx (Var "[]"))
     else
       match Hashtbl.find label_table exp with
       | LVar x -> (
           match LEnv.find x env with
-          | exception Not_found -> ctx (Ok (Var x))
-          | found -> finite_reduce (leftover_step - 1) found expect_free ctx)
+          | exception Not_found -> Pp.Pp.pp (ctx (Var x))
+          | found -> finite_value (leftover_steps - 1) found ctx)
       | LLam (x, e) ->
-          if expect_free then ctx (Error (x, e, env))
-          else
-            finite_reduce (leftover_step - 1)
-              (A (LEnv.remove x env, e))
-              false
-              (fun e ->
-                let e = match e with Ok e -> e | Error _ -> assert false in
-                ctx (Ok (Lam (x, e))))
-      | LApp (e1, e2) ->
-          finite_reduce (leftover_step - 1)
-            (A (env, e1))
-            true
-            (fun e ->
-              match e with
-              | Error (x, e, env1) ->
-                  finite_reduce (leftover_step - 1)
-                    (A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e))
-                    expect_free ctx
-              | Ok e1 ->
-                  finite_reduce (leftover_step - 1)
-                    (A (env, e2))
-                    false
-                    (fun e2 ->
-                      let e2 =
-                        match e2 with Ok e2 -> e2 | Error _ -> assert false
-                      in
-                      ctx (Ok (App (e1, e2)))))
+          finite_value (leftover_steps - 1)
+            (A (LEnv.remove x env, e))
+            (fun e -> ctx (Lam (x, e)))
+      | LApp (e1, e2) -> (
+          match free (A (env, e1)) Fun.id with
+          | Error (x, e, env1) ->
+              finite_value (leftover_steps - 1)
+                (A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e))
+                ctx
+          | Ok e1 ->
+              finite_value (leftover_steps - 1)
+                (A (env, e2))
+                (fun e -> ctx (App (e1, e))))
 
   let finite_step steps pgm =
     let () = print_endline "=========\nInput pgm\n=========" in
@@ -192,11 +202,6 @@ module Printer = struct
     in
     let exp = label pgm in
     let () = print_endline "===========\nPartial pgm\n===========" in
-    let e =
-      match finite_reduce steps (A (LEnv.empty, exp)) false Fun.id with
-      | Ok e -> e
-      | Error _ -> assert false
-    in
-    Pp.Pp.pp e;
+    finite_value steps (A (LEnv.empty, exp)) Fun.id;
     print_newline ()
 end
