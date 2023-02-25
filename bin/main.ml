@@ -14,12 +14,10 @@ let main () =
             (fun i ->
               finite := true;
               step := i),
-          "display parse tree" );
+          "print the partial program after <n> steps" );
       ]
       (fun x -> src := x)
-      ("Usage: "
-      ^ Filename.basename Sys.argv.(0)
-      ^ " [-step] [num_of_iters] [file]")
+      ("Usage: " ^ Filename.basename Sys.argv.(0) ^ " [-step] [n] [file]")
   in
   let lexbuf =
     Lexing.from_channel (if !src = "" then stdin else open_in !src)
