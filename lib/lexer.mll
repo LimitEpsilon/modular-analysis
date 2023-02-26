@@ -14,7 +14,7 @@
 let blank = [' ' '\n' '\t' '\r']+
 let alpha = ['a'-'z' 'A'-'Z']
 let allowed = alpha | ['0'-'9' '_']
-let id = alpha allowed*
+let id = allowed allowed*
 
 rule start =
  parse blank { start lexbuf }
