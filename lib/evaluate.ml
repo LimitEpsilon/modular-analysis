@@ -1,27 +1,40 @@
 open Lambda
 
 module Evaluator = struct
-  module LEnv = Map.Make (struct
-    type t = string
-
-    let compare = compare
-  end)
-
   type lbl = int
 
   let num_of_lbls = ref 0
 
-  type lblexp = LVar of string | LLam of string * lbl | LApp of lbl * lbl
+  type loc = int
+
+  let num_of_strings = ref 0
+
+  module LEnv = Map.Make (struct
+    type t = loc
+
+    let compare = compare
+  end)
+
+  type lblexp = LVar of loc | LLam of loc * lbl | LApp of lbl * lbl
 
   let label_table : (lbl, lblexp) Hashtbl.t = Hashtbl.create 10
+  let string_table : (string, loc) Hashtbl.t = Hashtbl.create 10
+  let location_table : (loc, string) Hashtbl.t = Hashtbl.create 10
 
-  let new_lbl e =
-    let lbl =
-      incr num_of_lbls;
-      !num_of_lbls
-    in
-    Hashtbl.add label_table lbl e;
-    lbl
+  let new_lbl () =
+    incr num_of_lbls;
+    !num_of_lbls
+
+  let get_loc s =
+    match Hashtbl.find string_table s with
+    | l -> l
+    | exception Not_found ->
+        incr num_of_strings;
+        Hashtbl.add string_table s !num_of_strings;
+        Hashtbl.add location_table !num_of_strings s;
+        !num_of_strings
+
+  let get_string l = Hashtbl.find location_table l
 
   let rec label (e : lexp) =
     let lbl =
@@ -30,22 +43,15 @@ module Evaluator = struct
     in
     let lblexp =
       match e with
-      | Var x -> LVar x
-      | Lam (x, e) -> LLam (x, label e)
+      | Var x -> LVar (get_loc x)
+      | Lam (x, e) -> LLam (get_loc x, label e)
       | App (e1, e2) -> LApp (label e1, label e2)
     in
     Hashtbl.add label_table lbl lblexp;
     lbl
 
   type t = A of t LEnv.t * lbl
-
-  let rec lbl_to_lexp lbl =
-    match Hashtbl.find label_table lbl with
-    | LVar x -> Var x
-    | LLam (x, e) -> Lam (x, lbl_to_lexp e)
-    | LApp (e1, e2) -> App (lbl_to_lexp e1, lbl_to_lexp e2)
-
-  type free = (lexp, string * lbl * t LEnv.t) result
+  type free = (lexp, loc * lbl * t LEnv.t) result
 
   type ctx = Free of (free -> continue) | Value of (lexp -> state)
   and continue = t * ctx
@@ -57,15 +63,18 @@ module Evaluator = struct
         match LEnv.find x env with
         | exception Not_found -> (
             match ctx with
-            | Free ctx -> reduce (ctx (Ok (Var x)))
+            | Free ctx -> reduce (ctx (Ok (Var (get_string x))))
             | Value ctx -> (
-                match ctx (Var x) with Halt e -> e | Continue k -> reduce k))
+                match ctx (Var (get_string x)) with
+                | Halt e -> e
+                | Continue k -> reduce k))
         | found -> reduce (found, ctx))
     | LLam (x, e) -> (
         match ctx with
         | Free ctx -> reduce (ctx (Error (x, e, env)))
         | Value ctx ->
-            reduce (A (LEnv.remove x env, e), Value (fun e -> ctx (Lam (x, e))))
+            let xs = get_string x in
+            reduce (A (LEnv.remove x env, e), Value (fun e -> ctx (Lam (xs, e))))
         )
     | LApp (e1, e2) ->
         let ok_case =
@@ -99,51 +108,6 @@ end
 module Printer = struct
   open Evaluator
 
-  let rec repeat times x =
-    if times <= 0 then ()
-    else (
-      print_string x;
-      repeat (times - 1) x)
-
-  let rec print_aux (depth : int) (A (env, exp) : t) =
-    repeat depth " ";
-    print_int exp;
-    print_string " under: {";
-    LEnv.iter
-      (fun x v ->
-        print_newline ();
-        repeat depth " ";
-        print_string x;
-        print_string "->";
-        print_aux (depth + 1) v)
-      env;
-    print_string "}"
-
-  let print exp =
-    print_string "Labels:\n";
-    Hashtbl.iter
-      (fun i exp ->
-        print_int i;
-        print_string ": ";
-        (match exp with
-        | LVar x -> print_string x
-        | LLam (x, e) ->
-            print_string "\\";
-            print_string x;
-            print_string ".";
-            print_int e
-        | LApp (e1, e2) ->
-            print_string "@ (";
-            print_int e1;
-            print_string ", ";
-            print_int e2;
-            print_string ")");
-        print_newline ())
-      label_table;
-    print_string "Expr:\n";
-    print_aux 0 exp;
-    print_newline ()
-
   let rec finite_reduce leftover_steps (A (env, exp), ctx) =
     if leftover_steps <= 0 then
       let temp_var = Var ("[" ^ string_of_int exp ^ "]") in
@@ -160,9 +124,10 @@ module Printer = struct
           | exception Not_found -> (
               match ctx with
               | Free ctx ->
-                  finite_reduce (leftover_steps - 1) (ctx (Ok (Var x)))
+                  finite_reduce (leftover_steps - 1)
+                    (ctx (Ok (Var (get_string x))))
               | Value ctx -> (
-                  match ctx (Var x) with
+                  match ctx (Var (get_string x)) with
                   | Halt e -> Pp.Pp.pp e
                   | Continue k -> finite_reduce (leftover_steps - 1) k))
           | found -> finite_reduce (leftover_steps - 1) (found, ctx))
@@ -171,8 +136,9 @@ module Printer = struct
           | Free ctx ->
               finite_reduce (leftover_steps - 1) (ctx (Error (x, e, env)))
           | Value ctx ->
+              let xs = get_string x in
               finite_reduce (leftover_steps - 1)
-                (A (LEnv.remove x env, e), Value (fun e -> ctx (Lam (x, e)))))
+                (A (LEnv.remove x env, e), Value (fun e -> ctx (Lam (xs, e)))))
       | LApp (e1, e2) ->
           let ok_case =
             match ctx with
@@ -192,6 +158,7 @@ module Printer = struct
     let () = print_endline "=========\nInput pgm\n=========" in
     let () =
       Pp.Pp.pp pgm;
+      print_newline ();
       print_newline ()
     in
     let exp = label pgm in
