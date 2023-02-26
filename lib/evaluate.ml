@@ -45,10 +45,11 @@ module Evaluator = struct
     | LLam (x, e) -> Lam (x, lbl_to_lexp e)
     | LApp (e1, e2) -> App (lbl_to_lexp e1, lbl_to_lexp e2)
 
-  type ctx = Free of (f -> s) | Value of (lexp -> state)
-  and f = (lexp, string * lbl * t LEnv.t) result
-  and s = t * ctx
-  and state = Halt of lexp | Continue of s
+  type free = (lexp, string * lbl * t LEnv.t) result
+
+  type ctx = Free of (free -> continue) | Value of (lexp -> state)
+  and continue = t * ctx
+  and state = Halt of lexp | Continue of continue
 
   let[@tail_mod_cons] rec reduce (A (env, exp), ctx) =
     match Hashtbl.find label_table exp with
