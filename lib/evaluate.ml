@@ -45,11 +45,10 @@ module Evaluator = struct
     | LLam (x, e) -> Lam (x, lbl_to_lexp e)
     | LApp (e1, e2) -> App (lbl_to_lexp e1, lbl_to_lexp e2)
 
-  type ctx =
-    | Free of ((lexp, string * lbl * t LEnv.t) result -> state)
-    | Value of (lexp -> state)
-
-  and state = Halt of lexp | Continue of (t * ctx)
+  type ctx = Free of (f -> s) | Value of (lexp -> state)
+  and f = (lexp, string * lbl * t LEnv.t) result
+  and s = t * ctx
+  and state = Halt of lexp | Continue of s
 
   let[@tail_mod_cons] rec reduce (A (env, exp), ctx) =
     match Hashtbl.find label_table exp with
@@ -57,26 +56,20 @@ module Evaluator = struct
         match LEnv.find x env with
         | exception Not_found -> (
             match ctx with
-            | Free ctx -> (
-                match ctx (Ok (Var x)) with
-                | Halt e -> e
-                | Continue k -> reduce k)
+            | Free ctx -> reduce (ctx (Ok (Var x)))
             | Value ctx -> (
                 match ctx (Var x) with Halt e -> e | Continue k -> reduce k))
         | found -> reduce (found, ctx))
     | LLam (x, e) -> (
         match ctx with
-        | Free ctx -> (
-            match ctx (Error (x, e, env)) with
-            | Halt e -> e
-            | Continue k -> reduce k)
+        | Free ctx -> reduce (ctx (Error (x, e, env)))
         | Value ctx ->
             reduce (A (LEnv.remove x env, e), Value (fun e -> ctx (Lam (x, e))))
         )
     | LApp (e1, e2) ->
         let ok_case =
           match ctx with
-          | Free ctx -> fun e1 e2 -> ctx (Ok (App (e1, e2)))
+          | Free ctx -> fun e1 e2 -> Continue (ctx (Ok (App (e1, e2))))
           | Value ctx -> fun e1 e2 -> ctx (App (e1, e2))
         in
         reduce
@@ -84,10 +77,8 @@ module Evaluator = struct
             Free
               (function
               | Error (x, e, env1) ->
-                  Continue
-                    ( A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e),
-                      ctx )
-              | Ok e1 -> Continue (A (env, e2), Value (ok_case e1))) )
+                  (A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e), ctx)
+              | Ok e1 -> (A (env, e2), Value (ok_case e1))) )
 
   let reduce_lexp e =
     let my_lbl = label e in
@@ -160,20 +151,15 @@ module Printer = struct
           match ctx temp_var with
           | Halt e -> Pp.Pp.pp e
           | Continue k -> finite_reduce leftover_steps k)
-      | Free ctx -> (
-          match ctx (Ok temp_var) with
-          | Halt e -> Pp.Pp.pp e
-          | Continue k -> finite_reduce leftover_steps k)
+      | Free ctx -> finite_reduce leftover_steps (ctx (Ok temp_var))
     else
       match Hashtbl.find label_table exp with
       | LVar x -> (
           match LEnv.find x env with
           | exception Not_found -> (
               match ctx with
-              | Free ctx -> (
-                  match ctx (Ok (Var x)) with
-                  | Halt e -> Pp.Pp.pp e
-                  | Continue k -> finite_reduce (leftover_steps - 1) k)
+              | Free ctx ->
+                  finite_reduce (leftover_steps - 1) (ctx (Ok (Var x)))
               | Value ctx -> (
                   match ctx (Var x) with
                   | Halt e -> Pp.Pp.pp e
@@ -181,17 +167,15 @@ module Printer = struct
           | found -> finite_reduce (leftover_steps - 1) (found, ctx))
       | LLam (x, e) -> (
           match ctx with
-          | Free ctx -> (
-              match ctx (Error (x, e, env)) with
-              | Halt e -> Pp.Pp.pp e
-              | Continue k -> finite_reduce (leftover_steps - 1) k)
+          | Free ctx ->
+              finite_reduce (leftover_steps - 1) (ctx (Error (x, e, env)))
           | Value ctx ->
               finite_reduce (leftover_steps - 1)
                 (A (LEnv.remove x env, e), Value (fun e -> ctx (Lam (x, e)))))
       | LApp (e1, e2) ->
           let ok_case =
             match ctx with
-            | Free ctx -> fun e1 e2 -> ctx (Ok (App (e1, e2)))
+            | Free ctx -> fun e1 e2 -> Continue (ctx (Ok (App (e1, e2))))
             | Value ctx -> fun e1 e2 -> ctx (App (e1, e2))
           in
           finite_reduce (leftover_steps - 1)
@@ -199,10 +183,9 @@ module Printer = struct
               Free
                 (function
                 | Error (x, e, env1) ->
-                    Continue
-                      ( A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e),
-                        ctx )
-                | Ok e1 -> Continue (A (env, e2), Value (ok_case e1))) )
+                    ( A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e),
+                      ctx )
+                | Ok e1 -> (A (env, e2), Value (ok_case e1))) )
 
   let finite_step steps pgm =
     let () = print_endline "=========\nInput pgm\n=========" in
