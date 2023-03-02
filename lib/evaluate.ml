@@ -37,10 +37,7 @@ module Evaluator = struct
   let get_string l = Hashtbl.find location_table l
 
   let rec label (e : lexp) =
-    let lbl =
-      incr num_of_lbls;
-      !num_of_lbls
-    in
+    let lbl = new_lbl () in
     let lblexp =
       match e with
       | Var x -> LVar (get_loc x)
@@ -90,6 +87,57 @@ module Evaluator = struct
                   (A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e), ctx)
               | Ok e1 -> (A (env, e2), Value (ok_case e1))) )
 
+  let num_of_envs = ref 0
+  let env_table : (loc, (lbl * loc) LEnv.t) Hashtbl.t = Hashtbl.create 10
+
+  let new_env_address env =
+    let loc = !num_of_envs in
+    incr num_of_envs;
+    Hashtbl.add env_table loc env;
+    loc
+
+  let changed = ref false
+
+  let rec lexp_of_lblexp = function
+    | LVar x -> Var (get_string x)
+    | LLam (x, e) ->
+        let e = Hashtbl.find label_table e in
+        Lam (get_string x, lexp_of_lblexp e)
+    | LApp (e1, e2) ->
+        let e1 = Hashtbl.find label_table e1 in
+        let e2 = Hashtbl.find label_table e2 in
+        App (lexp_of_lblexp e1, lexp_of_lblexp e2)
+
+  let for_each_entry tbl (lexp, lenv) (rexp, renv) =
+    match rexp with
+    | LVar x -> (
+        let renv = Hashtbl.find env_table renv in
+        match LEnv.find x renv with
+        | exception Not_found -> ()
+        | exp, env ->
+            changed := true;
+            let new_rexp = Hashtbl.find label_table exp in
+            Hashtbl.replace tbl (lexp, lenv) (new_rexp, env))
+    | LLam (_, _) -> ()
+    | LApp (e1, e2) -> (
+        match Hashtbl.find tbl (e1, renv) with
+        | exception Not_found ->
+            changed := true;
+            Hashtbl.add tbl (e1, renv) (Hashtbl.find label_table e1, renv)
+        | exp1, env1 -> (
+            match exp1 with
+            | LLam (x, e) ->
+                changed := true;
+                let new_renv =
+                  new_env_address
+                    (LEnv.update x
+                       (fun _ -> Some (e2, renv))
+                       (Hashtbl.find env_table env1))
+                in
+                Hashtbl.replace tbl (lexp, lenv)
+                  (Hashtbl.find label_table e, new_renv)
+            | _ -> ()))
+
   let reduce_lexp e =
     let my_lbl = label e in
     let () =
@@ -103,6 +151,19 @@ module Evaluator = struct
        ^ "\n")
     in
     exp
+
+  let weak_reduce_lexp e =
+    let lbl = label e in
+    let tbl = Hashtbl.create 10 in
+    let env = new_env_address LEnv.empty in
+    Hashtbl.add tbl (lbl, env) (Hashtbl.find label_table lbl, env);
+    changed := true;
+    while !changed do
+      changed := false;
+      Hashtbl.iter (for_each_entry tbl) tbl
+    done;
+    let lblexp, _ = Hashtbl.find tbl (lbl, env) in
+    lexp_of_lblexp lblexp
 end
 
 module Printer = struct

@@ -5,6 +5,7 @@ open Pp
 let main () =
   let step = ref 0 in
   let finite = ref false in
+  let eager = ref false in
   let src = ref "" in
   let _ =
     Arg.parse
@@ -15,6 +16,7 @@ let main () =
               finite := true;
               step := i),
           "print the partial program after <n> steps" );
+        ("-weak", Arg.Unit (fun () -> eager := true), "use weak reduction");
       ]
       (fun x -> src := x)
       ("Usage: " ^ Filename.basename Sys.argv.(0) ^ " [-step] [n] [file]")
@@ -33,7 +35,11 @@ let main () =
     print_string "\n\n\n==============\n";
     print_string "output program\n";
     print_string "==============\n";
-    Pp.pp (Evaluator.reduce_lexp pgm);
-    print_string "\n")
+    if !eager then (
+      Pp.pp (Evaluator.weak_reduce_lexp pgm);
+      print_newline ())
+    else (
+      Pp.pp (Evaluator.reduce_lexp pgm);
+      print_newline ()))
 
 let _ = main ()
