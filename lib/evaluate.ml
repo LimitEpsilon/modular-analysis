@@ -47,11 +47,11 @@ module Evaluator = struct
     Hashtbl.add label_table lbl lblexp;
     lbl
 
-  type t = A of t LEnv.t * lbl
-  type free = (lexp, loc * lbl * t LEnv.t) result
+  type a = A of a LEnv.t * lbl
+  type free = (lexp, loc * lbl * a LEnv.t) result
 
   type ctx = Free of (free -> continue) | Value of (lexp -> state)
-  and continue = t * ctx
+  and continue = a * ctx
   and state = Halt of lexp | Continue of continue
 
   let[@tail_mod_cons] rec reduce (A (env, exp), ctx) =
@@ -98,45 +98,62 @@ module Evaluator = struct
 
   let changed = ref false
 
-  let rec lexp_of_lblexp = function
+  let rec lexp_of_lbl lbl =
+    match Hashtbl.find label_table lbl with
     | LVar x -> Var (get_string x)
-    | LLam (x, e) ->
-        let e = Hashtbl.find label_table e in
-        Lam (get_string x, lexp_of_lblexp e)
-    | LApp (e1, e2) ->
-        let e1 = Hashtbl.find label_table e1 in
-        let e2 = Hashtbl.find label_table e2 in
-        App (lexp_of_lblexp e1, lexp_of_lblexp e2)
+    | LLam (x, e) -> Lam (get_string x, lexp_of_lbl e)
+    | LApp (e1, e2) -> App (lexp_of_lbl e1, lexp_of_lbl e2)
 
-  let for_each_entry tbl (lexp, lenv) (rexp, renv) =
-    match rexp with
-    | LVar x -> (
-        let renv = Hashtbl.find env_table renv in
-        match LEnv.find x renv with
-        | exception Not_found -> ()
-        | exp, env ->
-            changed := true;
-            let new_rexp = Hashtbl.find label_table exp in
-            Hashtbl.replace tbl (lexp, lenv) (new_rexp, env))
-    | LLam (_, _) -> ()
-    | LApp (e1, e2) -> (
-        match Hashtbl.find tbl (e1, renv) with
-        | exception Not_found ->
-            changed := true;
-            Hashtbl.add tbl (e1, renv) (Hashtbl.find label_table e1, renv)
-        | exp1, env1 -> (
-            match exp1 with
-            | LLam (x, e) ->
+  module State = Map.Make (struct
+    type t = a
+
+    let rec compare (A (env1, exp1)) (A (env2, exp2)) =
+      let first_compare = exp1 - exp2 in
+      if first_compare = 0 then LEnv.compare compare env1 env2
+      else first_compare
+  end)
+
+  let rec weak_reduce map =
+    let changed = ref false in
+    let for_each_relation (A (lenv, lexp)) (A (renv, rexp)) acc =
+      match Hashtbl.find label_table rexp with
+      | LVar x -> (
+          match LEnv.find x renv with
+          | exception Not_found ->
+              State.add (A (lenv, lexp)) (A (renv, rexp)) acc
+          | new_value ->
+              changed := true;
+              State.add (A (lenv, lexp)) new_value acc)
+      | LLam (_, _) -> State.add (A (lenv, lexp)) (A (renv, rexp)) acc
+      | LApp (e1, e2) ->
+          let try_e1 =
+            (* add A (lenv, lexp) to acc *)
+            match State.find (A (renv, e1)) map with
+            | exception Not_found ->
                 changed := true;
-                let new_renv =
-                  new_env_address
-                    (LEnv.update x
-                       (fun _ -> Some (e2, renv))
-                       (Hashtbl.find env_table env1))
-                in
-                Hashtbl.replace tbl (lexp, lenv)
-                  (Hashtbl.find label_table e, new_renv)
-            | _ -> ()))
+                let acc' = State.add (A (renv, e1)) (A (renv, e1)) acc in
+                State.add (A (lenv, lexp)) (A (renv, rexp)) acc'
+            | A (env1, exp1) -> (
+                match Hashtbl.find label_table exp1 with
+                | LLam (x, e) ->
+                    changed := true;
+                    let new_env =
+                      LEnv.update x (fun _ -> Some (A (renv, e2))) env1
+                    in
+                    State.add (A (lenv, lexp)) (A (new_env, e)) acc
+                | _ -> State.add (A (lenv, lexp)) (A (renv, rexp)) acc)
+          in
+          let try_e2 =
+            match State.find (A (renv, e2)) map with
+            | exception Not_found ->
+                changed := true;
+                State.add (A (renv, e2)) (A (renv, e2)) try_e1
+            | _ -> try_e1
+          in
+          try_e2
+    in
+    let new_map = State.fold for_each_relation map State.empty in
+    if !changed then weak_reduce new_map else new_map
 
   let reduce_lexp e =
     let my_lbl = label e in
@@ -154,16 +171,11 @@ module Evaluator = struct
 
   let weak_reduce_lexp e =
     let lbl = label e in
-    let tbl = Hashtbl.create 10 in
-    let env = new_env_address LEnv.empty in
-    Hashtbl.add tbl (lbl, env) (Hashtbl.find label_table lbl, env);
-    changed := true;
-    while !changed do
-      changed := false;
-      Hashtbl.iter (for_each_entry tbl) tbl
-    done;
-    let lblexp, _ = Hashtbl.find tbl (lbl, env) in
-    lexp_of_lblexp lblexp
+    let initial_exp = A (LEnv.empty, lbl) in
+    let initial_state = State.add initial_exp initial_exp State.empty in
+    let final_state = weak_reduce initial_state in
+    let (A (_, final_exp)) = State.find initial_exp final_state in
+    lexp_of_lbl final_exp
 end
 
 module Printer = struct
