@@ -127,23 +127,18 @@ module Evaluator = struct
           | exception Not_found -> State.add (A (renv, e1)) (A (renv, e1)) acc
           | A (env1, exp1) -> (
               match Hashtbl.find label_table exp1 with
-              | LLam (x, e) ->
-                  let try_e2 =
-                    match State.find (A (renv, e2)) map with
-                    | exception Not_found ->
-                        State.add (A (renv, e2)) (A (renv, e2)) acc
-                    | A (env2, exp2) -> (
-                        match Hashtbl.find label_table exp2 with
-                        | LLam (_, _) ->
-                            let new_env =
-                              LEnv.update x
-                                (fun _ -> Some (A (env2, exp2)))
-                                env1
-                            in
-                            State.add (A (lenv, lexp)) (A (new_env, e)) acc
-                        | _ -> acc)
-                  in
-                  try_e2
+              | LLam (x, e) -> (
+                  match State.find (A (renv, e2)) map with
+                  | exception Not_found ->
+                      State.add (A (renv, e2)) (A (renv, e2)) acc
+                  | A (env2, exp2) -> (
+                      match Hashtbl.find label_table exp2 with
+                      | LLam (_, _) ->
+                          let new_env =
+                            LEnv.update x (fun _ -> Some (A (env2, exp2))) env1
+                          in
+                          State.add (A (lenv, lexp)) (A (new_env, e)) acc
+                      | _ -> acc))
               | _ -> acc))
     in
     let new_map = State.fold for_each_relation map map in
