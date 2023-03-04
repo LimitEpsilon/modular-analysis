@@ -114,46 +114,41 @@ module Evaluator = struct
   end)
 
   let rec weak_reduce map =
-    let changed = ref false in
     let for_each_relation (A (lenv, lexp)) (A (renv, rexp)) acc =
       match Hashtbl.find label_table rexp with
       | LVar x -> (
           match LEnv.find x renv with
-          | exception Not_found ->
-              State.add (A (lenv, lexp)) (A (renv, rexp)) acc
-          | new_value ->
-              changed := true;
-              State.add (A (lenv, lexp)) new_value acc)
-      | LLam (_, _) -> State.add (A (lenv, lexp)) (A (renv, rexp)) acc
-      | LApp (e1, e2) ->
-          let try_e1 =
-            (* add A (lenv, lexp) to acc *)
-            match State.find (A (renv, e1)) map with
-            | exception Not_found ->
-                changed := true;
-                let acc' = State.add (A (renv, e1)) (A (renv, e1)) acc in
-                State.add (A (lenv, lexp)) (A (renv, rexp)) acc'
-            | A (env1, exp1) -> (
-                match Hashtbl.find label_table exp1 with
-                | LLam (x, e) ->
-                    changed := true;
-                    let new_env =
-                      LEnv.update x (fun _ -> Some (A (renv, e2))) env1
-                    in
-                    State.add (A (lenv, lexp)) (A (new_env, e)) acc
-                | _ -> State.add (A (lenv, lexp)) (A (renv, rexp)) acc)
-          in
-          let try_e2 =
-            match State.find (A (renv, e2)) map with
-            | exception Not_found ->
-                changed := true;
-                State.add (A (renv, e2)) (A (renv, e2)) try_e1
-            | _ -> try_e1
-          in
-          try_e2
+          | exception Not_found -> acc
+          | new_value -> State.add (A (lenv, lexp)) new_value acc)
+      | LLam (_, _) -> acc
+      | LApp (e1, e2) -> (
+          (* add A (lenv, lexp) to acc *)
+          match State.find (A (renv, e1)) map with
+          | exception Not_found -> State.add (A (renv, e1)) (A (renv, e1)) acc
+          | A (env1, exp1) -> (
+              match Hashtbl.find label_table exp1 with
+              | LLam (x, e) ->
+                  let try_e2 =
+                    match State.find (A (renv, e2)) map with
+                    | exception Not_found ->
+                        State.add (A (renv, e2)) (A (renv, e2)) acc
+                    | A (env2, exp2) -> (
+                        match Hashtbl.find label_table exp2 with
+                        | LLam (_, _) ->
+                            let new_env =
+                              LEnv.update x
+                                (fun _ -> Some (A (env2, exp2)))
+                                env1
+                            in
+                            State.add (A (lenv, lexp)) (A (new_env, e)) acc
+                        | _ -> acc)
+                  in
+                  try_e2
+              | _ -> acc))
     in
-    let new_map = State.fold for_each_relation map State.empty in
-    if !changed then weak_reduce new_map else new_map
+    let new_map = State.fold for_each_relation map map in
+    (* use physical inequality *)
+    if new_map != map then weak_reduce new_map else new_map
 
   let reduce_lexp e =
     let my_lbl = label e in
@@ -169,13 +164,23 @@ module Evaluator = struct
     in
     exp
 
+  let rec lexp_of_redex (A (env, exp)) =
+    match Hashtbl.find label_table exp with
+    | LVar x -> (
+        match LEnv.find x env with
+        | exception Not_found -> Var (get_string x)
+        | redex -> lexp_of_redex redex)
+    | LLam (x, e) -> Lam (get_string x, lexp_of_redex (A (LEnv.remove x env, e)))
+    | LApp (e1, e2) ->
+        App (lexp_of_redex (A (env, e1)), lexp_of_redex (A (env, e2)))
+
   let weak_reduce_lexp e =
     let lbl = label e in
     let initial_exp = A (LEnv.empty, lbl) in
     let initial_state = State.add initial_exp initial_exp State.empty in
     let final_state = weak_reduce initial_state in
-    let (A (_, final_exp)) = State.find initial_exp final_state in
-    lexp_of_lbl final_exp
+    let final_exp = State.find initial_exp final_state in
+    lexp_of_redex final_exp
 end
 
 module Printer = struct
