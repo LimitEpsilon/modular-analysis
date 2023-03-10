@@ -113,19 +113,25 @@ module Evaluator = struct
       else first_compare
   end)
 
+  let rec goto_leaf (A (env, exp)) =
+    match Hashtbl.find label_table exp with
+    | LVar x -> (
+        match LEnv.find x env with
+        | exception Not_found -> A (env, exp)
+        | found -> goto_leaf found)
+    | LLam (_, _) -> A (env, exp)
+    (* still computing *)
+    | LApp (_, _) -> A (env, exp)
+
   let rec weak_reduce map =
     let for_each_relation (A (lenv, lexp)) (A (renv, rexp)) acc =
       match Hashtbl.find label_table rexp with
-      | LVar x -> (
-          match LEnv.find x renv with
-          | exception Not_found -> acc
-          | new_value -> State.add (A (lenv, lexp)) new_value acc)
-      | LLam (_, _) -> acc
+      | LVar _ | LLam (_, _) -> acc
       | LApp (e1, e2) -> (
-          (* add A (lenv, lexp) to acc *)
           match State.find (A (renv, e1)) map with
           | exception Not_found -> State.add (A (renv, e1)) (A (renv, e1)) acc
-          | A (env1, exp1) -> (
+          | found -> (
+              let (A (env1, exp1)) = goto_leaf found in
               match Hashtbl.find label_table exp1 with
               | LLam (x, e) -> (
                   match State.find (A (renv, e2)) map with
@@ -133,7 +139,7 @@ module Evaluator = struct
                       State.add (A (renv, e2)) (A (renv, e2)) acc
                   | A (env2, exp2) -> (
                       match Hashtbl.find label_table exp2 with
-                      | LLam (_, _) ->
+                      | LLam (_, _) | LVar _ ->
                           let new_env =
                             LEnv.update x (fun _ -> Some (A (env2, exp2))) env1
                           in
