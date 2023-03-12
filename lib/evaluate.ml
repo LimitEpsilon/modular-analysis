@@ -137,7 +137,8 @@ module Evaluator = struct
                   match State.find (A (renv, e2)) map with
                   | exception Not_found ->
                       State.add (A (renv, e2)) (A (renv, e2)) acc
-                  | A (env2, exp2) -> (
+                  | found -> (
+                      let (A (env2, exp2)) = goto_leaf found in
                       match Hashtbl.find label_table exp2 with
                       | LLam (_, _) | LVar _ ->
                           let new_env =
