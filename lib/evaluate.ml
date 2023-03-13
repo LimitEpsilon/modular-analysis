@@ -146,6 +146,11 @@ module Evaluator = struct
                           in
                           State.add (A (lenv, lexp)) (A (new_env, e)) acc
                       | _ -> acc))
+              | LVar _ -> (
+                  match State.find (A (renv, e2)) map with
+                  | exception Not_found ->
+                      State.add (A (renv, e2)) (A (renv, e2)) acc
+                  | _ -> acc)
               | _ -> acc))
     in
     let new_map = State.fold for_each_relation map map in
