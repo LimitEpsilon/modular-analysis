@@ -150,22 +150,28 @@ module Evaluator = struct
     in
     exp
 
-  (* (\x.x) (x \x.x): not reducible *)
   let rec lexp_of_result = function
     | Pending (x, v, k) ->
         List.fold_left
           (fun e -> function
             | R v -> App (lexp_of_result (Resolved v), e)
-            | L (l, env) -> App (e, lexp_of_result (weak_reduce l env [])))
+            | L (l, env) -> App (e, lexp_of_lbl l env))
           (App (Var (get_string x), lexp_of_result (Resolved v)))
           k
     | Resolved v -> (
         match v with
         | FVar x -> Var (get_string x)
         | Closure (x, l, env) ->
-            Lam
-              ( get_string x,
-                lexp_of_result (weak_reduce l (LEnv.remove x env) []) ))
+            Lam (get_string x, lexp_of_lbl l (LEnv.remove x env)))
+
+  and lexp_of_lbl l env =
+    match Hashtbl.find label_table l with
+    | LVar x -> (
+        match LEnv.find x env with
+        | exception Not_found -> Var (get_string x)
+        | v -> lexp_of_result (Resolved v))
+    | LLam (x, l) -> Lam (get_string x, lexp_of_lbl l (LEnv.remove x env))
+    | LApp (l1, l2) -> App (lexp_of_lbl l1 env, lexp_of_lbl l2 env)
 
   let weak_reduce_lexp e =
     let lbl, _ = label e in
