@@ -15,11 +15,18 @@ module Evaluator = struct
     let compare = compare
   end)
 
+  module FVSet = Set.Make (struct
+    type t = loc
+
+    let compare = compare
+  end)
+
   type lblexp = LVar of loc | LLam of loc * lbl | LApp of lbl * lbl
 
   let label_table : (lbl, lblexp) Hashtbl.t = Hashtbl.create 10
   let string_table : (string, loc) Hashtbl.t = Hashtbl.create 10
   let location_table : (loc, string) Hashtbl.t = Hashtbl.create 10
+  let fv_table : (lbl, FVSet.t) Hashtbl.t = Hashtbl.create 10
 
   let new_lbl () =
     incr num_of_lbls;
@@ -38,20 +45,29 @@ module Evaluator = struct
 
   let rec label (e : lexp) =
     let lbl = new_lbl () in
-    let lblexp =
+    let lblexp, fvset =
       match e with
-      | Var x -> LVar (get_loc x)
-      | Lam (x, e) -> LLam (get_loc x, label e)
-      | App (e1, e2) -> LApp (label e1, label e2)
+      | Var x ->
+          let x = get_loc x in
+          (LVar x, FVSet.singleton x)
+      | Lam (x, e) ->
+          let x = get_loc x in
+          let lbl, fvset = label e in
+          (LLam (x, lbl), FVSet.remove x fvset)
+      | App (e1, e2) ->
+          let lbl1, fvset1 = label e1 in
+          let lbl2, fvset2 = label e2 in
+          (LApp (lbl1, lbl2), FVSet.union fvset1 fvset2)
     in
     Hashtbl.add label_table lbl lblexp;
-    lbl
+    Hashtbl.add fv_table lbl fvset;
+    (lbl, fvset)
 
-  type a = A of a LEnv.t * lbl
-  type free = (lexp, loc * lbl * a LEnv.t) result
+  type t = A of t LEnv.t * lbl
+  type free = (lexp, loc * lbl * t LEnv.t) result
 
   type ctx = Free of (free -> continue) | Value of (lexp -> state)
-  and continue = a * ctx
+  and continue = t * ctx
   and state = Halt of lexp | Continue of continue
 
   let[@tail_mod_cons] rec reduce (A (env, exp), ctx) =
@@ -79,86 +95,49 @@ module Evaluator = struct
           | Free ctx -> fun e1 e2 -> Continue (ctx (Ok (App (e1, e2))))
           | Value ctx -> fun e1 e2 -> ctx (App (e1, e2))
         in
+        let fvset1 = Hashtbl.find fv_table e1 in
+        let fvset2 = Hashtbl.find fv_table e2 in
+        let env1 = LEnv.filter (fun x _ -> FVSet.mem x fvset1) env in
+        let env2 = LEnv.filter (fun x _ -> FVSet.mem x fvset2) env in
         reduce
-          ( A (env, e1),
+          ( A (env1, e1),
             Free
               (function
               | Error (x, e, env1) ->
-                  (A (LEnv.update x (fun _ -> Some (A (env, e2))) env1, e), ctx)
-              | Ok e1 -> (A (env, e2), Value (ok_case e1))) )
+                  (A (LEnv.update x (fun _ -> Some (A (env2, e2))) env1, e), ctx)
+              | Ok e1 -> (A (env2, e2), Value (ok_case e1))) )
 
-  let num_of_envs = ref 0
-  let env_table : (loc, (lbl * loc) LEnv.t) Hashtbl.t = Hashtbl.create 10
+  type value = FVar of loc | Closure of loc * lbl * value LEnv.t
+  type frame = R of value | L of lbl * value LEnv.t
 
-  let new_env_address env =
-    let loc = !num_of_envs in
-    incr num_of_envs;
-    Hashtbl.add env_table loc env;
-    loc
+  type reduce_result =
+    | Pending of (loc * value * frame list)
+    | Resolved of value
 
-  let changed = ref false
-
-  let rec lexp_of_lbl lbl =
-    match Hashtbl.find label_table lbl with
-    | LVar x -> Var (get_string x)
-    | LLam (x, e) -> Lam (get_string x, lexp_of_lbl e)
-    | LApp (e1, e2) -> App (lexp_of_lbl e1, lexp_of_lbl e2)
-
-  module State = Map.Make (struct
-    type t = a
-
-    let rec compare (A (env1, exp1)) (A (env2, exp2)) =
-      let first_compare = exp1 - exp2 in
-      if first_compare = 0 then LEnv.compare compare env1 env2
-      else first_compare
-  end)
-
-  let rec goto_leaf (A (env, exp)) =
-    match Hashtbl.find label_table exp with
-    | LVar x -> (
-        match LEnv.find x env with
-        | exception Not_found -> A (env, exp)
-        | found -> goto_leaf found)
-    | LLam (_, _) -> A (env, exp)
-    (* still computing *)
-    | LApp (_, _) -> A (env, exp)
-
-  let rec weak_reduce map =
-    let for_each_relation (A (lenv, lexp)) (A (renv, rexp)) acc =
-      match Hashtbl.find label_table rexp with
-      | LVar _ | LLam (_, _) -> acc
-      | LApp (e1, e2) -> (
-          match State.find (A (renv, e1)) map with
-          | exception Not_found -> State.add (A (renv, e1)) (A (renv, e1)) acc
-          | found -> (
-              let (A (env1, exp1)) = goto_leaf found in
-              match Hashtbl.find label_table exp1 with
-              | LLam (x, e) -> (
-                  match State.find (A (renv, e2)) map with
-                  | exception Not_found ->
-                      State.add (A (renv, e2)) (A (renv, e2)) acc
-                  | found -> (
-                      let (A (env2, exp2)) = goto_leaf found in
-                      match Hashtbl.find label_table exp2 with
-                      | LLam (_, _) | LVar _ ->
-                          let new_env =
-                            LEnv.update x (fun _ -> Some (A (env2, exp2))) env1
-                          in
-                          State.add (A (lenv, lexp)) (A (new_env, e)) acc
-                      | _ -> acc))
-              | LVar _ -> (
-                  match State.find (A (renv, e2)) map with
-                  | exception Not_found ->
-                      State.add (A (renv, e2)) (A (renv, e2)) acc
-                  | _ -> acc)
-              | _ -> acc))
+  let rec weak_reduce (c : lbl) (e : value LEnv.t) (k : frame list) =
+    let process_k v = function
+      | [] -> Resolved v
+      | hd :: tl -> (
+          match hd with
+          | R (FVar x) -> Pending (x, v, tl)
+          | R (Closure (x, l, e)) -> weak_reduce l (LEnv.add x v e) tl
+          | L (l, e) -> weak_reduce l e (R v :: tl))
     in
-    let new_map = State.fold for_each_relation map map in
-    (* use physical inequality *)
-    if new_map != map then weak_reduce new_map else new_map
+    match Hashtbl.find label_table c with
+    | LVar x -> (
+        match LEnv.find x e with
+        | exception Not_found -> process_k (FVar x) k
+        | v -> process_k v k)
+    | LLam (x, l) -> process_k (Closure (x, l, e)) k
+    | LApp (l1, l2) ->
+        let fvset1 = Hashtbl.find fv_table l1 in
+        let fvset2 = Hashtbl.find fv_table l2 in
+        let env1 = LEnv.filter (fun x _ -> FVSet.mem x fvset1) e in
+        let env2 = LEnv.filter (fun x _ -> FVSet.mem x fvset2) e in
+        weak_reduce l1 env1 (L (l2, env2) :: k)
 
   let reduce_lexp e =
-    let my_lbl = label e in
+    let my_lbl, _ = label e in
     let () =
       print_string
         ("Number of syntactic locations: " ^ string_of_int !num_of_lbls ^ "\n")
@@ -171,23 +150,26 @@ module Evaluator = struct
     in
     exp
 
-  let rec lexp_of_redex (A (env, exp)) =
-    match Hashtbl.find label_table exp with
-    | LVar x -> (
-        match LEnv.find x env with
-        | exception Not_found -> Var (get_string x)
-        | redex -> lexp_of_redex redex)
-    | LLam (x, e) -> Lam (get_string x, lexp_of_redex (A (LEnv.remove x env, e)))
-    | LApp (e1, e2) ->
-        App (lexp_of_redex (A (env, e1)), lexp_of_redex (A (env, e2)))
+  (* (\x.x) (x \x.x): not reducible *)
+  let rec lexp_of_result = function
+    | Pending (x, v, k) ->
+        List.fold_left
+          (fun e -> function
+            | R v -> App (lexp_of_result (Resolved v), e)
+            | L (l, env) -> App (e, lexp_of_result (weak_reduce l env [])))
+          (App (Var (get_string x), lexp_of_result (Resolved v)))
+          k
+    | Resolved v -> (
+        match v with
+        | FVar x -> Var (get_string x)
+        | Closure (x, l, env) ->
+            Lam
+              ( get_string x,
+                lexp_of_result (weak_reduce l (LEnv.remove x env) []) ))
 
   let weak_reduce_lexp e =
-    let lbl = label e in
-    let initial_exp = A (LEnv.empty, lbl) in
-    let initial_state = State.add initial_exp initial_exp State.empty in
-    let final_state = weak_reduce initial_state in
-    let final_exp = State.find initial_exp final_state in
-    lexp_of_redex final_exp
+    let lbl, _ = label e in
+    lexp_of_result (weak_reduce lbl LEnv.empty [])
 end
 
 module Printer = struct
@@ -246,7 +228,7 @@ module Printer = struct
       print_newline ();
       print_newline ()
     in
-    let exp = label pgm in
+    let exp, _ = label pgm in
     let () = print_endline "===========\nPartial pgm\n===========" in
     finite_reduce steps (A (LEnv.empty, exp), Value (fun e -> Halt e));
     print_newline ()
