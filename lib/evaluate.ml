@@ -15,18 +15,12 @@ module Evaluator = struct
     let compare = compare
   end)
 
-  module FVSet = Set.Make (struct
-    type t = loc
-
-    let compare = compare
-  end)
-
   type lblexp = LVar of loc | LLam of loc * lbl | LApp of lbl * lbl
 
   let label_table : (lbl, lblexp) Hashtbl.t = Hashtbl.create 10
   let string_table : (string, loc) Hashtbl.t = Hashtbl.create 10
   let location_table : (loc, string) Hashtbl.t = Hashtbl.create 10
-  let fv_table : (lbl, FVSet.t) Hashtbl.t = Hashtbl.create 10
+  let de_bruijn : (lbl, int) Hashtbl.t = Hashtbl.create 10
 
   let new_lbl () =
     incr num_of_lbls;
@@ -43,25 +37,29 @@ module Evaluator = struct
 
   let get_string l = Hashtbl.find location_table l
 
-  let rec label (e : lexp) =
+  let rec label (e : lexp) (local_de_bruijn : int LEnv.t) =
     let lbl = new_lbl () in
-    let lblexp, fvset =
+    let lblexp =
       match e with
       | Var x ->
           let x = get_loc x in
-          (LVar x, FVSet.singleton x)
+          let idx = try LEnv.find x local_de_bruijn with _ -> -1 in
+          Hashtbl.add de_bruijn lbl idx;
+          LVar x
       | Lam (x, e) ->
           let x = get_loc x in
-          let lbl, fvset = label e in
-          (LLam (x, lbl), FVSet.remove x fvset)
+          let updated_de_bruijn =
+            LEnv.map (fun index -> index + 1) local_de_bruijn
+          in
+          let lbl = label e (LEnv.add x 0 updated_de_bruijn) in
+          LLam (x, lbl)
       | App (e1, e2) ->
-          let lbl1, fvset1 = label e1 in
-          let lbl2, fvset2 = label e2 in
-          (LApp (lbl1, lbl2), FVSet.union fvset1 fvset2)
+          let lbl1 = label e1 local_de_bruijn in
+          let lbl2 = label e2 local_de_bruijn in
+          LApp (lbl1, lbl2)
     in
     Hashtbl.add label_table lbl lblexp;
-    Hashtbl.add fv_table lbl fvset;
-    (lbl, fvset)
+    lbl
 
   type t = A of t LEnv.t * lbl
   type free = (lexp, loc * lbl * t LEnv.t) result
@@ -95,49 +93,54 @@ module Evaluator = struct
           | Free ctx -> fun e1 e2 -> Continue (ctx (Ok (App (e1, e2))))
           | Value ctx -> fun e1 e2 -> ctx (App (e1, e2))
         in
-        let fvset1 = Hashtbl.find fv_table e1 in
-        let fvset2 = Hashtbl.find fv_table e2 in
-        let env1 = LEnv.filter (fun x _ -> FVSet.mem x fvset1) env in
-        let env2 = LEnv.filter (fun x _ -> FVSet.mem x fvset2) env in
         reduce
-          ( A (env1, e1),
+          ( A (env, e1),
             Free
               (function
-              | Error (x, e, env1) ->
-                  (A (LEnv.update x (fun _ -> Some (A (env2, e2))) env1, e), ctx)
-              | Ok e1 -> (A (env2, e2), Value (ok_case e1))) )
+              | Error (x, e, env1) -> (A (LEnv.add x (A (env, e2)) env1, e), ctx)
+              | Ok e1 -> (A (env, e2), Value (ok_case e1))) )
 
-  type value = FVar of loc | Closure of loc * lbl * value LEnv.t
-  type frame = R of value | L of lbl * value LEnv.t
+  let rec pop_top_k l k =
+    match k with
+    | 0 -> l
+    | k when k > 0 -> (
+        match l with
+        | [] -> failwith "pop_top_k: empty list"
+        | _ :: tl -> pop_top_k tl (k - 1))
+    | _ -> failwith "pop_top_k: negative k"
 
-  type reduce_result =
-    | Pending of (loc * value * frame list)
-    | Resolved of value
+  let store : (int list, lbl * int list) Hashtbl.t = Hashtbl.create 10
 
-  let rec weak_reduce (c : lbl) (e : value LEnv.t) (k : frame list) =
-    let process_k v = function
-      | [] -> Resolved v
-      | hd :: tl -> (
-          match hd with
-          | R (FVar x) -> Pending (x, v, tl)
-          | R (Closure (x, l, e)) -> weak_reduce l (LEnv.add x v e) tl
-          | L (l, e) -> weak_reduce l e (R v :: tl))
-    in
+  let rec weak_reduce (c : lbl) (p : int list) (t : int) =
     match Hashtbl.find label_table c with
-    | LVar x -> (
-        match LEnv.find x e with
-        | exception Not_found -> process_k (FVar x) k
-        | v -> process_k v k)
-    | LLam (x, l) -> process_k (Closure (x, l, e)) k
-    | LApp (l1, l2) ->
-        let fvset1 = Hashtbl.find fv_table l1 in
-        let fvset2 = Hashtbl.find fv_table l2 in
-        let env1 = LEnv.filter (fun x _ -> FVSet.mem x fvset1) e in
-        let env2 = LEnv.filter (fun x _ -> FVSet.mem x fvset2) e in
-        weak_reduce l1 env1 (L (l2, env2) :: k)
+    | LVar _ ->
+        let addr = pop_top_k p (Hashtbl.find de_bruijn c) in
+        (Hashtbl.find store addr, t)
+    | LLam _ -> ((c, p), t)
+    | LApp (l1, l2) -> (
+        let (c1, p1), t1 = weak_reduce l1 p t in
+        let (c2, p2), t2 = weak_reduce l2 p t1 in
+        match Hashtbl.find label_table c1 with
+        | LLam (_, l) ->
+            let tick = t2 + 1 in
+            Hashtbl.add store (tick :: p1) (c2, p2);
+            weak_reduce l (tick :: p1) tick
+        | _ -> failwith "free variables")
+
+  let rec recover_lexp (c : lbl) (p : int list) =
+    match Hashtbl.find label_table c with
+    | LVar x ->
+        let index = Hashtbl.find de_bruijn c in
+        let kth = List.nth p index in
+        if kth < 0 then Var (get_string x)
+        else
+          let c, p = Hashtbl.find store (pop_top_k p index) in
+          recover_lexp c p
+    | LLam (x, l) -> Lam (get_string x, recover_lexp l (-1 :: p))
+    | LApp (l1, l2) -> App (recover_lexp l1 p, recover_lexp l2 p)
 
   let reduce_lexp e =
-    let my_lbl, _ = label e in
+    let my_lbl = label e LEnv.empty in
     let () =
       print_string
         ("Number of syntactic locations: " ^ string_of_int !num_of_lbls ^ "\n")
@@ -150,31 +153,28 @@ module Evaluator = struct
     in
     exp
 
-  let rec lexp_of_value = function
-    | FVar x -> Var (get_string x)
-    | Closure (x, l, env) ->
-        Lam (get_string x, lexp_of_lbl l (LEnv.remove x env))
-
-  and lexp_of_lbl l env =
-    match Hashtbl.find label_table l with
-    | LVar x -> (
-        match LEnv.find x env with
-        | exception Not_found -> Var (get_string x)
-        | v -> lexp_of_value v)
-    | LLam (x, l) -> Lam (get_string x, lexp_of_lbl l (LEnv.remove x env))
-    | LApp (l1, l2) -> App (lexp_of_lbl l1 env, lexp_of_lbl l2 env)
+  let print_store () =
+    Hashtbl.iter
+      (fun p_left (l, p_right) ->
+        let print_list l =
+          List.iter
+            (fun i ->
+              print_int i;
+              print_string " ")
+            l
+        in
+        print_list p_left;
+        print_string "->";
+        print_int l;
+        print_string "/";
+        print_list p_right;
+        print_newline ())
+      store
 
   let weak_reduce_lexp e =
-    let lbl, _ = label e in
-    match weak_reduce lbl LEnv.empty [] with
-    | Pending (x, v, k) ->
-        List.fold_left
-          (fun e -> function
-            | R v -> App (lexp_of_value v, e)
-            | L (l, env) -> App (e, lexp_of_lbl l env))
-          (App (Var (get_string x), lexp_of_value v))
-          k
-    | Resolved v -> lexp_of_value v
+    let lbl = label e LEnv.empty in
+    let (c, p), _ = weak_reduce lbl [] 0 in
+    recover_lexp c p
 end
 
 module Printer = struct
@@ -233,7 +233,7 @@ module Printer = struct
       print_newline ();
       print_newline ()
     in
-    let exp, _ = label pgm in
+    let exp = label pgm LEnv.empty in
     let () = print_endline "===========\nPartial pgm\n===========" in
     finite_reduce steps (A (LEnv.empty, exp), Value (fun e -> Halt e));
     print_newline ()
