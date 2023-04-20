@@ -109,9 +109,26 @@ module Evaluator = struct
         | _ :: tl -> pop_top_k tl (k - 1))
     | _ -> failwith "pop_top_k: negative k"
 
-  let store : (int list, lbl * int list) Hashtbl.t = Hashtbl.create 10
+  type time = lbl * int
 
-  let rec weak_reduce (c : lbl) (p : int list) (t : int) =
+  let init_time = (-1, 0)
+  let invalid_time = (-1, -1)
+
+  let print_time (t : time) =
+    let l, t = t in
+    print_string "(";
+    print_int l;
+    print_string ", ";
+    print_int t;
+    print_string ")"
+
+  let tick c _ t =
+    let _, t = t in
+    (c, t + 1)
+
+  let store : (time list, lbl * time list) Hashtbl.t = Hashtbl.create 10
+
+  let rec weak_reduce (c : lbl) (p : time list) (t : time) =
     match Hashtbl.find label_table c with
     | LVar _ ->
         let addr = pop_top_k p (Hashtbl.find de_bruijn c) in
@@ -122,21 +139,21 @@ module Evaluator = struct
         let (c2, p2), t2 = weak_reduce l2 p t1 in
         match Hashtbl.find label_table c1 with
         | LLam (_, l) ->
-            let tick = t2 + 1 in
-            Hashtbl.add store (tick :: p1) (c2, p2);
+            let tick = tick c p t2 in
+            Hashtbl.replace store (tick :: p1) (c2, p2);
             weak_reduce l (tick :: p1) tick
         | _ -> failwith "free variables")
 
-  let rec recover_lexp (c : lbl) (p : int list) =
+  let rec recover_lexp (c : lbl) (p : time list) =
     match Hashtbl.find label_table c with
     | LVar x ->
         let index = Hashtbl.find de_bruijn c in
-        let kth = List.nth p index in
-        if kth < 0 then Var (get_string x)
+        let kth_time = List.nth p index in
+        if kth_time = invalid_time then Var (get_string x)
         else
           let c, p = Hashtbl.find store (pop_top_k p index) in
           recover_lexp c p
-    | LLam (x, l) -> Lam (get_string x, recover_lexp l (-1 :: p))
+    | LLam (x, l) -> Lam (get_string x, recover_lexp l (invalid_time :: p))
     | LApp (l1, l2) -> App (recover_lexp l1 p, recover_lexp l2 p)
 
   let reduce_lexp e =
@@ -153,27 +170,74 @@ module Evaluator = struct
     in
     exp
 
-  let print_store () =
+  let print_label_table () =
     Hashtbl.iter
-      (fun p_left (l, p_right) ->
+      (fun l ->
+        print_int l;
+        print_string ": ";
+        function
+        | LVar x ->
+            print_string (get_string x);
+            print_newline ()
+        | LLam (x, e) ->
+            print_string ("\\" ^ get_string x ^ ".");
+            print_int e;
+            print_newline ()
+        | LApp (e1, e2) ->
+            print_int e1;
+            print_string "@";
+            print_int e2;
+            print_newline ())
+      label_table
+
+  let print_store t =
+    print_string "Number of applications: ";
+    print_time t;
+    print_newline ();
+    let join_table : (lbl list, (lbl * time list) list) Hashtbl.t =
+      Hashtbl.create 10
+    in
+    let update_join_table p_left (l, p_right) =
+      let lbl_list, _ = List.split p_left in
+      match Hashtbl.find join_table lbl_list with
+      | exception Not_found -> Hashtbl.add join_table lbl_list [ (l, p_right) ]
+      | original ->
+          Hashtbl.replace join_table lbl_list ((l, p_right) :: original)
+    in
+    let print_join_table list_left =
+      print_string "Joined from ";
+      List.iter
+        (fun l ->
+          print_int l;
+          print_string " ")
+        list_left;
+      print_newline ();
+      let print_entry list_right =
         let print_list l =
           List.iter
-            (fun i ->
-              print_int i;
+            (fun t ->
+              print_time t;
               print_string " ")
             l
         in
-        print_list p_left;
-        print_string "->";
-        print_int l;
-        print_string "/";
-        print_list p_right;
-        print_newline ())
-      store
+        List.iter
+          (fun (l, p_right) ->
+            print_string "->";
+            print_int l;
+            print_string "/";
+            print_list p_right;
+            print_newline ())
+          list_right
+      in
+      print_entry
+    in
+    Hashtbl.iter update_join_table store;
+    Hashtbl.iter print_join_table join_table
 
   let weak_reduce_lexp e =
     let lbl = label e LEnv.empty in
-    let (c, p), _ = weak_reduce lbl [] 0 in
+    let (c, p), t = weak_reduce lbl [] init_time in
+    print_store t;
     recover_lexp c p
 end
 
