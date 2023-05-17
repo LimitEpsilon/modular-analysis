@@ -1,0 +1,234 @@
+%! TEX program = xelatex
+\documentclass{article}
+\usepackage{geometry}
+\geometry{
+ a4paper,
+ total={170mm,257mm},
+ left=20mm,
+ top=20mm,
+}
+\usepackage{setspace} % setstretch
+
+\usepackage{graphicx}
+\usepackage{kotex}
+\usepackage{csquotes}
+
+\usepackage{tabularray}
+\UseTblrLibrary{booktabs}
+\UseTblrLibrary{counter}
+
+\usepackage{biblatex}
+\addbibresource{citations.bib}
+
+%%% Math settings
+\usepackage{amssymb,amsmath,mathtools} % Before unicode-math
+\usepackage[math-style=TeX,bold-style=TeX]{unicode-math}
+\newtheorem{clm}{Claim}[section]
+
+%%% Font settings
+\setmainfont{Libertinus Serif}
+\setsansfont{Libertinus Sans}[Scale=MatchUppercase]
+\setmonofont{JuliaMono}[Scale=MatchLowercase]
+\setmathfont{Libertinus Math} % Before set*hangulfont
+\setmathfont{TeX Gyre Pagella Math}[range={\lbrace,\rbrace},Scale=1.1]
+\setmainhangulfont{Noto Serif CJK KR}
+\setsanshangulfont[BoldFont={* Bold}]{KoPubWorld Dotum.ttf}
+\setmonohangulfont{D2Coding}
+
+%%% PL constructs
+\usepackage{ebproof}
+\ebproofset{left label template=\textsc{[\inserttext]}}
+
+% For simplebnf
+\newfontfamily{\fallbackfont}{EB Garamond}
+\DeclareTextFontCommand{\textfallback}{\fallbackfont}
+\usepackage{newunicodechar}
+\newunicodechar{⩴}{\textfallback{⩴}}
+
+\usepackage{simplebnf}
+\RenewDocumentCommand\SimpleBNFDefEq{}{\ensuremath{⩴}}
+
+% because of simplebnf
+\newcommand*{\vbar}{|}
+\newcommand*{\finto}{\xrightarrow{\text{\textrm{fin}}}}
+\newcommand*{\istype}{\mathrel{⩴}}
+\newcommand*{\ortype}{\mathrel{|}}
+
+% for complement
+\newcommand{\loverbar}[1]{\mkern 1.5mu\overline{\mkern-1.5mu#1\mkern-1.5mu}\mkern 1.5mu}
+
+\newcommand*{\Expr}{\mathit{Expr}}
+\newcommand*{\ExprVar}{\mathit{ExprVar}}
+\newcommand*{\Module}{\mathit{Module}}
+\newcommand*{\ModVar}{\mathit{ModVar}}
+\newcommand*{\link}[2]{{#1}\mathtt{!}{#2}}
+\newcommand*{\sembracket}[1]{\lBrack{#1}\rBrack}
+
+\title{Semantics for Modular Analysis}
+\author{Joonhyup Lee}
+\date{}
+\begin{document}
+\maketitle
+
+\section{Abstract Syntax}
+
+In this section we define the abstract syntax for a simple language that captures the essence of modules and linking.
+The language is basically an extension of untyped lambda calculus with modules and the linking operator.
+
+\begin{bnfgrammar}
+  $x$ : \in \ExprVar
+  ;;
+  $M$ : \in \ModVar
+  ;;
+  $m$ ::= $\varepsilon$ : empty module
+  | $M$ : identifier, module
+  | \texttt{let} $x$ $e$ $m$ : let-binding, expression
+  | \texttt{let} $M$ $m$ $m$ : let-binding, module
+  ;;
+  $e$ ::= $x$ : identifier, expression
+  | $\lambda x.e$ : function
+  | $e$ $e$ : application
+  | $\link{m}{e}$ : linked expression
+\end{bnfgrammar}
+
+\section{Big-Step Operational Semantics}
+
+In this section we give the big-step operational semantics for the dynamic execution of the language defined previously.
+The relation which gives the semantics relates the initial state(memory and time) and configuration(the subexpression being evaluated, the list of binding times, and the surrounding context) with the resulting state and configuration.
+
+This relation is nonstandard in that the \textit{environment} that is often used to define closures in the call-by-value dynamics is not a finite map from variables to values.
+Rather, the surrounding context and the list of binding times give when the variables were bound, which can then be looked up from the memory.
+Concretely, the $i$-th time of the $p$ component of the configuration gives when the $i$-th variable counted from the hole upwards in $C$ was bound.
+$i$ is called the ``De Bruijn index'' of the variable.
+
+The reason the semantics is defined as such is for the convenience and precision of abstraction.
+One only has to finitize the time component to make the search space finite.
+Furthermore, by including the $C$ component as an essential part of the configuration, one can reason precisely about how the syntactic change on the surrounding context affects the evaluation of the subexpression.
+
+\begin{prooftree*}
+  \hypo{i=\mathsf{index}(C,x)}
+  \hypo{p_{x}=\mathsf{pop}^{i}(p)}
+  \infer[left label=ExprVar]2{
+  (x, p, C), (\sigma, t)
+  \Downarrow
+  \sigma(p_{x}), (\sigma, t)
+  }
+\end{prooftree*}
+
+\begin{prooftree*}
+  \infer[left label=Fn]0{
+  (\lambda x.e, p, C), (\sigma, t)
+  \Downarrow
+  (\lambda x.e, p, C), (\sigma, t)
+  }
+\end{prooftree*}
+
+\begin{prooftree*}
+  \hypo{
+    \begin{matrix}
+      (e_{1}, p, C[[]\:e_{2}]), (\sigma, t)
+      \Downarrow
+      (\lambda x.e_{\lambda}, p_{\lambda}, C_{\lambda}), (\sigma_{\lambda}, t_{\lambda}) \\
+      (e_{2}, p, C[e_{1}\:[]]), (\sigma_{\lambda}, t_{\lambda})
+      \Downarrow
+      (a, p_{a}, C_{a}), (\sigma_{a}, t_{a})                                             \\
+      (e_{\lambda}, t_{a}::p_{\lambda}, C_{\lambda}[\lambda x.[]]), (\sigma_{a}[t_{a}::p_{\lambda}\mapsto(a, p_{a}, C_{a})], t_{a} + 1)
+      \Downarrow
+      (v, p_{v}, C_{v}), (\sigma_{v}, t_{v})
+    \end{matrix}
+  }
+  \infer[left label={App}]1{
+  (e_{1}\:e_{2}, p, C), (\sigma, t)
+  \Downarrow
+  (v, p_{v}, C_{v}), (\sigma_{v}, t_{v})
+  }
+\end{prooftree*}
+
+\begin{prooftree*}
+  \hypo{
+    \begin{matrix}
+      (m, p, C), (\sigma, t)
+      \Downarrow
+      (p_{m}, C_{m}), (\sigma_{m}, t_{m}) \\
+      (e, p_{m}, C_{m}), (\sigma_{m}, t_{m})
+      \Downarrow
+      (v, p_{v}, C_{v}), (\sigma_{v}, t_{v})
+    \end{matrix}
+  }
+  \infer[left label=Linking]1{
+  (\link{m}{e}, p, C), (\sigma, t)
+  \Downarrow
+  (v, p_{v}, C_{v}), (\sigma_{v}, t_{v})
+  }
+\end{prooftree*}
+
+\begin{prooftree*}
+  \infer[left label=Empty]0{
+    (\varepsilon, p, C), (\sigma, t)
+    \Downarrow
+    (p, C), (\sigma, t)
+  }
+\end{prooftree*}
+
+\begin{prooftree*}
+  \hypo{i=\mathsf{index}(C,M)}
+  \hypo{p_{M}=\mathsf{pop}^{i}(p)}
+  \infer[left label=ModVar]2{
+  (M, p, C), (\sigma, t)
+  \Downarrow
+  \sigma(p_{M}), (\sigma, t)
+  }
+\end{prooftree*}
+
+\begin{prooftree*}
+  \hypo{
+    \begin{matrix}
+      (e, p, C), (\sigma, t)
+      \Downarrow
+      (v, p_{v}, C_{v}), (\sigma_{v}, t_{v}) \\
+      (m, t_{v}::p, C[\mathtt{let}\:x\:e\:[]]), (\sigma_{v}[t_{v}::p\mapsto(v, p_{v}, C_{v})], t_{v}+1)
+      \Downarrow
+      (p_{m}, C_{m}), (\sigma_{m}, t_{m})
+    \end{matrix}
+  }
+  \infer[left label=LetE]1{
+  (\mathtt{let}\:x\:e\:m, p, C), (\sigma, t)
+  \Downarrow
+  (p_{m}, C_{m}), (\sigma_{m}, t_{m})
+  }
+\end{prooftree*}
+
+\begin{prooftree*}
+  \hypo{
+    \begin{matrix}
+      (m_{1}, p, C), (\sigma, t)
+      \Downarrow
+      (p', C'), (\sigma', t') \\
+      (m_{2}, t'::p, C[\mathtt{let}\:M\:m_{1}\:[]]), (\sigma'[t'::p\mapsto(p', C')], t'+1)
+      \Downarrow
+      (p_{m}, C_{m}), (\sigma_{m}, t_{m})
+    \end{matrix}
+  }
+  \infer[left label=LetM]1{
+  (\mathtt{let}\:M\:m_{1}\:m_{2}, p, C), (\sigma, t)
+  \Downarrow
+  (p_{m}, C_{m}), (\sigma_{m}, t_{m})
+  }
+\end{prooftree*}
+
+Before there were modules, all valid configurations $(e, p, C)$ from the initial configuration $(e_{0}, \mathsf{nil}, [])$ satisfied $C[e]=e_{0}$.
+However, because of the linking rule, this is no longer true.
+It is still, true, however, that the $C$ component of a configuration is determined from the syntax of the initial expression, and is thus always bounded by the ``depth'' of $e_{0}$.
+How do we express this property now?
+
+\section{Collecting Semantics}
+
+Now we make the semantics of a module $m$ and the semantics of an expression $e$ explicit.
+
+\printbibliography
+\end{document}
+%%% Local Variables: 
+%%% coding: utf-8
+%%% mode: latex
+%%% TeX-engine: xetex
+%%% End:
