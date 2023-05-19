@@ -230,10 +230,12 @@ with MevalR (p : path) (C : ctx) (st : state)
 Scheme EevalR_ind_mut := Induction for EevalR Sort Prop
 with MevalR_ind_mut := Induction for MevalR Sort Prop.
 
+Definition Reach (tm1 tm2 : Type) := tm1 -> path -> ctx -> state -> tm2 -> Prop.
+
 (* Reachability relation *)
 Inductive EreachE (p : path) (C : ctx) (st : state)
-    : expr_tm -> path -> ctx -> state -> expr_tm -> Prop :=
-  | ere_refl e 
+    : Reach expr_tm expr_tm :=
+  | ere_refl e
     : EreachE p C st e 
               p C st e
   | ere_app_left e1 e2 p' C' st' e'
@@ -254,7 +256,8 @@ Inductive EreachE (p : path) (C : ctx) (st : state)
                              (Closure x e_lam p_lam C_lam) st_lam)
                  (ARG : EevalR p (C [|c_app_right e1 c_hole|]) st_lam e2
                                arg (ST e_mem m_mem t_a))
-                 (REACHb : EreachE (t_a :: p_lam) (C_lam[|c_lam x c_hole|]) (ST ((t_a :: p_lam) !-> arg ; e_mem) m_mem (update_t t_a)) e_lam
+                 (REACHb : EreachE (t_a :: p_lam) (C_lam[|c_lam x c_hole|]) 
+                                   (ST ((t_a :: p_lam) !-> arg ; e_mem) m_mem (update_t t_a)) e_lam
                                     p' C' st' e')
     : EreachE p C st (e_app e1 e2)
               p' C' st' e'
@@ -271,7 +274,7 @@ Inductive EreachE (p : path) (C : ctx) (st : state)
               p' C' st' e'
 
 with MreachE (p : path) (C : ctx) (st : state)
-    : mod_tm -> path -> ctx -> state -> expr_tm -> Prop :=
+    : Reach mod_tm expr_tm :=
   | mre_lete_e x e m p' C' st' e'
                (REACHe : EreachE p C st e
                                  p' C' st' e')
@@ -293,7 +296,7 @@ with MreachE (p : path) (C : ctx) (st : state)
              p' C' st' e'
              (EVALM : MevalR p C st m1 v (ST e_mem m_mem t_m))
              (REACHm : MreachE (t_m :: p) (C[|c_letm M m1 c_hole|]) (ST e_mem ((t_m :: p) !-> v ; m_mem) (update_t t_m)) m2
-                                p' C' st' e' )
+                                p' C' st' e')
     : MreachE p C st (m_letm M m1 m2)
               p' C' st' e'
 .
@@ -302,7 +305,7 @@ Scheme EreachE_ind_mut := Induction for EreachE Sort Prop
 with MreachE_ind_mut := Induction for MreachE Sort Prop.
 
 Inductive MreachM (p : path) (C : ctx) (st : state)
-    : mod_tm -> path -> ctx -> state -> mod_tm -> Prop :=
+    : Reach mod_tm mod_tm :=
   | mrm_refl m
     : MreachM p C st m
               p C st m
@@ -327,12 +330,12 @@ Inductive MreachM (p : path) (C : ctx) (st : state)
              p' C' st' m'
              (EVALM : MevalR p C st m1 v (ST e_mem m_mem t_m))
              (REACHm : MreachM (t_m :: p) (C[|c_letm M m1 c_hole|]) (ST e_mem ((t_m :: p) !-> v ; m_mem) (update_t t_m)) m2
-                                p' C' st' m' )
+                                p' C' st' m')
     : MreachM p C st (m_letm M m1 m2)
               p' C' st' m'
 
 with EreachM (p : path) (C : ctx) (st : state)
-    : expr_tm -> path -> ctx -> state -> mod_tm -> Prop :=
+    : Reach expr_tm mod_tm :=
   | erm_app_left e1 e2 p' C' st' m'
                  (REACHl : EreachM p (C [|c_app_left c_hole e2|]) st e1
                                    p' C' st' m')
@@ -371,170 +374,141 @@ with EreachM (p : path) (C : ctx) (st : state)
 Scheme MreachM_ind_mut := Induction for MreachM Sort Prop
 with EreachM_ind_mut := Induction for EreachM Sort Prop.
 
-(* Tactics from Gil Hur, from his Software Foundations Class *)
+Notation "'<e|' p1 C1 st1 tm1 '~>' p2 C2 st2 tm2 '|e>'" := (EreachE p1 C1 st1 tm1 p2 C2 st2 tm2) 
+                                               (at level 10, 
+                                                p1 at next level, C1 at next level, st1 at next level, tm1 at next level,
+                                                p2 at next level, C2 at next level, st2 at next level, tm2 at next level).
 
-Ltac on_last_hyp tac :=
-  match goal with [ H : _ |- _ ] => first [ tac H | fail 1 ] end.
+Notation "'<m|' p1 C1 st1 tm1 '~>' p2 C2 st2 tm2 '|e>'" := (MreachE p1 C1 st1 tm1 p2 C2 st2 tm2) 
+                                               (at level 10, 
+                                                p1 at next level, C1 at next level, st1 at next level, tm1 at next level,
+                                                p2 at next level, C2 at next level, st2 at next level, tm2 at next level).
 
-(* revert until id *)
-Ltac revert_until id :=
-  on_last_hyp
-    ltac:(fun id' =>
-            match id' with
-            | id => idtac
-            | _ => revert id' ; revert_until id
-            end).
+Notation "'<m|' p1 C1 st1 tm1 '~>' p2 C2 st2 tm2 '|m>'" := (MreachM p1 C1 st1 tm1 p2 C2 st2 tm2) 
+                                               (at level 10, 
+                                                p1 at next level, C1 at next level, st1 at next level, tm1 at next level,
+                                                p2 at next level, C2 at next level, st2 at next level, tm2 at next level).
 
-(* most general induction *)
-Ltac ginduction H :=
-  move H at top; revert_until H; induction H.
-
-Ltac inv H := inversion H; subst; clear H.
+Notation "'<e|' p1 C1 st1 tm1 '~>' p2 C2 st2 tm2 '|m>'" := (EreachM p1 C1 st1 tm1 p2 C2 st2 tm2) 
+                                               (at level 10, 
+                                                p1 at next level, C1 at next level, st1 at next level, tm1 at next level,
+                                                p2 at next level, C2 at next level, st2 at next level, tm2 at next level).
 
 Lemma ere_trans : forall p1 C1 st1 e1
                          p2 C2 st2 e2
                          p3 C3 st3 e3
-                         (REACH1 : EreachE p1 C1 st1 e1
-                                           p2 C2 st2 e2)
-                         (REACH2 : EreachE p2 C2 st2 e2
-                                           p3 C3 st3 e3),
-                         EreachE p1 C1 st1 e1
-                                 p3 C3 st3 e3.
+                         (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>)
+                         (REACH2 : <e| p2 C2 st2 e2 ~> p3 C3 st3 e3 |e>),
+                         <e| p1 C1 st1 e1 ~> p3 C3 st3 e3 |e>.
 Proof.
   intros. generalize dependent e3.
   revert p3 C3 st3.
   apply (EreachE_ind_mut
     (fun p1 C1 st1 e1 
          p2 C2 st2 e2 
-         (REACH1 : EreachE p1 C1 st1 e1
-                           p2 C2 st2 e2)=> 
-         forall p3 C3 st3 e3 (REACH2 : EreachE p2 C2 st2 e2
-                                               p3 C3 st3 e3),
-                EreachE p1 C1 st1 e1
-                        p3 C3 st3 e3)
+         (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>)=> 
+         forall p3 C3 st3 e3 
+                (REACH2 : <e| p2 C2 st2 e2 ~> p3 C3 st3 e3 |e>),
+                <e| p1 C1 st1 e1 ~> p3 C3 st3 e3 |e>)
     (fun p1 C1 st1 m1
          p2 C2 st2 e2
-         (REACH1 : MreachE p1 C1 st1 m1
-                           p2 C2 st2 e2) =>
-         forall p3 C3 st3 e3 (REACH2 : EreachE p2 C2 st2 e2
-                                               p3 C3 st3 e3),
-                MreachE p1 C1 st1 m1
-                        p3 C3 st3 e3));
+         (REACH1 : <m| p1 C1 st1 m1 ~> p2 C2 st2 e2 |e>) =>
+         forall p3 C3 st3 e3 
+                (REACH2 : <e| p2 C2 st2 e2 ~> p3 C3 st3 e3 |e>),
+                <m| p1 C1 st1 m1 ~> p3 C3 st3 e3 |e>));
    eauto using EreachE, MreachE.
 Qed.
 
 Lemma mrm_trans : forall p1 C1 st1 m1
                          p2 C2 st2 m2
                          p3 C3 st3 m3
-                         (REACH1 : MreachM p1 C1 st1 m1
-                                           p2 C2 st2 m2)
-                         (REACH2 : MreachM p2 C2 st2 m2
-                                           p3 C3 st3 m3),
-                         MreachM p1 C1 st1 m1
-                                 p3 C3 st3 m3.
+                         (REACH1 : <m| p1 C1 st1 m1 ~> p2 C2 st2 m2 |m>)
+                         (REACH2 : <m| p2 C2 st2 m2 ~> p3 C3 st3 m3 |m>),
+                         <m| p1 C1 st1 m1 ~> p3 C3 st3 m3 |m>.
 Proof.
   intros. generalize dependent m3.
   revert p3 C3 st3.
   apply (MreachM_ind_mut
     (fun p1 C1 st1 m1 
          p2 C2 st2 m2 
-         (REACH1 : MreachM p1 C1 st1 m1
-                           p2 C2 st2 m2)=> 
-         forall p3 C3 st3 m3 (REACH2 : MreachM p2 C2 st2 m2
-                                               p3 C3 st3 m3),
-                MreachM p1 C1 st1 m1
-                        p3 C3 st3 m3)
+         (REACH1 : <m| p1 C1 st1 m1 ~> p2 C2 st2 m2 |m>)=> 
+         forall p3 C3 st3 m3 
+                (REACH2 : <m| p2 C2 st2 m2 ~> p3 C3 st3 m3 |m>),
+                <m| p1 C1 st1 m1 ~> p3 C3 st3 m3 |m>)
     (fun p1 C1 st1 e1
          p2 C2 st2 m2
-         (REACH1 : EreachM p1 C1 st1 e1
-                           p2 C2 st2 m2) =>
-         forall p3 C3 st3 m3 (REACH2 : MreachM p2 C2 st2 m2
-                                               p3 C3 st3 m3),
-                EreachM p1 C1 st1 e1
-                        p3 C3 st3 m3));
+         (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 m2 |m>) =>
+         forall p3 C3 st3 m3 
+                (REACH2 : <m| p2 C2 st2 m2 ~> p3 C3 st3 m3 |m>),
+                <e| p1 C1 st1 e1 ~> p3 C3 st3 m3 |m>));
    eauto using MreachM, EreachM.
 Qed.
 
 Lemma ermre_trans : forall p1 C1 st1 e1
                            p2 C2 st2 m2
                            p3 C3 st3 e3
-                           (REACH1 : EreachM p1 C1 st1 e1
-                                             p2 C2 st2 m2)
-                           (REACH2 : MreachE p2 C2 st2 m2
-                                             p3 C3 st3 e3),
-                           EreachE p1 C1 st1 e1
-                                   p3 C3 st3 e3. 
+                           (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 m2 |m>)
+                           (REACH2 : <m| p2 C2 st2 m2 ~> p3 C3 st3 e3 |e>),
+                           <e| p1 C1 st1 e1 ~> p3 C3 st3 e3 |e>. 
 Proof.
   intros. generalize dependent e3.
   revert p3 C3 st3.
   apply (EreachM_ind_mut
     (fun p1 C1 st1 m1
          p2 C2 st2 m2
-         (REACH1 : MreachM p1 C1 st1 m1
-                           p2 C2 st2 m2)=>
-         forall p3 C3 st3 e3 (REACH2 : MreachE p2 C2 st2 m2
-                                               p3 C3 st3 e3),
-                MreachE p1 C1 st1 m1
-                        p3 C3 st3 e3)
+         (REACH1 : <m| p1 C1 st1 m1 ~> p2 C2 st2 m2 |m>)=>
+         forall p3 C3 st3 e3 
+                (REACH2 : <m| p2 C2 st2 m2 ~> p3 C3 st3 e3 |e>),
+                <m| p1 C1 st1 m1 ~> p3 C3 st3 e3 |e>)
     (fun p1 C1 st1 e1
          p2 C2 st2 m2
-         (REACH1 : EreachM p1 C1 st1 e1
-                           p2 C2 st2 m2)=>
-         forall p3 C3 st3 e3 (REACH2 : MreachE p2 C2 st2 m2
-                                               p3 C3 st3 e3),
-                EreachE p1 C1 st1 e1
-                        p3 C3 st3 e3));
+         (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 m2 |m>)=>
+         forall p3 C3 st3 e3 
+                (REACH2 : <m| p2 C2 st2 m2 ~> p3 C3 st3 e3 |e>),
+                <e| p1 C1 st1 e1 ~> p3 C3 st3 e3 |e>));
     eauto using EreachE, EreachM, MreachE, MreachM.
 Qed.
 
 Lemma mrerm_trans : forall p1 C1 st1 m1
                            p2 C2 st2 e2
                            p3 C3 st3 m3
-                           (REACH1 : MreachE p1 C1 st1 m1
-                                             p2 C2 st2 e2)
-                           (REACH2 : EreachM p2 C2 st2 e2
-                                             p3 C3 st3 m3),
-                           MreachM p1 C1 st1 m1
-                                   p3 C3 st3 m3. 
+                           (REACH1 : <m| p1 C1 st1 m1 ~> p2 C2 st2 e2 |e>)
+                           (REACH2 : <e| p2 C2 st2 e2 ~> p3 C3 st3 m3 |m>),
+                           <m| p1 C1 st1 m1 ~> p3 C3 st3 m3 |m>. 
 Proof.
   intros. generalize dependent m3.
   revert p3 C3 st3.
   apply (MreachE_ind_mut
     (fun p1 C1 st1 e1
          p2 C2 st2 e2
-         (REACH1 : EreachE p1 C1 st1 e1
-                           p2 C2 st2 e2)=>
-         forall p3 C3 st3 m3 (REACH2 : EreachM p2 C2 st2 e2
-                                               p3 C3 st3 m3),
-                EreachM p1 C1 st1 e1
-                        p3 C3 st3 m3)
+         (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>) =>
+         forall p3 C3 st3 m3 
+                (REACH2 : <e| p2 C2 st2 e2 ~> p3 C3 st3 m3 |m>),
+                <e| p1 C1 st1 e1 ~> p3 C3 st3 m3 |m>)
     (fun p1 C1 st1 m1
          p2 C2 st2 e2
-         (REACH1 : MreachE p1 C1 st1 m1
-                           p2 C2 st2 e2)=>
-         forall p3 C3 st3 m3 (REACH2 : EreachM p2 C2 st2 e2
-                                               p3 C3 st3 m3),
-                MreachM p1 C1 st1 m1
-                        p3 C3 st3 m3));
+         (REACH1 : <m| p1 C1 st1 m1 ~> p2 C2 st2 e2 |e>)=>
+         forall p3 C3 st3 m3
+                (REACH2 : <e| p2 C2 st2 e2 ~> p3 C3 st3 m3 |m>),
+                <m| p1 C1 st1 m1 ~> p3 C3 st3 m3 |m>));
     eauto using EreachE, EreachM, MreachE, MreachM.
 Qed.
 
 Lemma c_plugin_assoc : forall C1 C2 C3, C1[| C2[| C3 |] |] = ((C1[|C2|])[|C3|]).
 Proof.
-  induction C1; eauto using ctx; 
+  induction C1; eauto; 
   intros; simpl; try rewrite IHC1; eauto.
 Qed.
 
 Lemma c_plugin_adds_level : forall C1 C2, level(C1[|C2|]) = level C1 + level C2.
 Proof.
-  induction C1; eauto using ctx;
+  induction C1; eauto;
   intros; simpl; try rewrite IHC1; eauto.
 Qed.
 
 (* Want to show this *)
 Lemma ere_len_p_is_level : 
-    forall e st p C st' e'
-           (REACH : EreachE [] c_hole st e
-                            p C st' e'),
+    forall e st p C st' e' (REACH : EreachE [] c_hole st e 
+                                            p C st' e'),
             len_p p = level C.
 Proof. Admitted.
