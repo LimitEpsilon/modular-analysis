@@ -53,16 +53,23 @@
 \newcommand*{\finto}{\xrightarrow{\text{\textrm{fin}}}}
 \newcommand*{\istype}{\mathrel{⩴}}
 \newcommand*{\ortype}{\mathrel{|}}
+\newcommand*{\cons}{::}
 
 % for complement
 \newcommand{\loverbar}[1]{\mkern 1.5mu\overline{\mkern-1.5mu#1\mkern-1.5mu}\mkern 1.5mu}
-
 \newcommand*{\Expr}{\mathit{Expr}}
 \newcommand*{\ExprVar}{\mathit{ExprVar}}
 \newcommand*{\Module}{\mathit{Module}}
 \newcommand*{\ModVar}{\mathit{ModVar}}
+\newcommand*{\Ctx}{\text{Ctx}}
 \newcommand*{\link}[2]{{#1}\mathtt{!}{#2}}
 \newcommand*{\sembracket}[1]{\lBrack{#1}\rBrack}
+\newcommand*{\fin}[2]{{#1}\xrightarrow{\text{fin}}{#2}}
+\newcommand*{\IndexExprAux}{\mathsf{index\_expr\_aux}}
+\newcommand*{\IndexExpr}{\mathsf{index\_expr}}
+\newcommand*{\IndexModAux}{\mathsf{index\_mod\_aux}}
+\newcommand*{\IndexMod}{\mathsf{index\_mod}}
+\newcommand*{\Pop}{\mathsf{pop}}
 
 \title{Semantics for Modular Analysis}
 \author{Joonhyup Lee}
@@ -99,15 +106,81 @@ The relation which gives the semantics relates the initial state(memory and time
 This relation is nonstandard in that the \textit{environment} that is often used to define closures in the call-by-value dynamics is not a finite map from variables to values.
 Rather, the surrounding context and the list of binding times give when the variables were bound, which can then be looked up from the memory.
 Concretely, the $i$-th time of the $p$ component of the configuration gives when the $i$-th variable counted from the hole upwards in $C$ was bound.
-$i$ is called the ``De Bruijn index'' of the variable.
+$i$ is called the ``de Bruijn index'' of the variable.
 
 The reason the semantics is defined as such is for the convenience and precision of abstraction.
 One only has to finitize the time component to make the search space finite.
-Furthermore, by including the $C$ component as an essential part of the configuration, one can reason precisely about how the syntactic change on the surrounding context affects the evaluation of the subexpression.
+Furthermore, one can reason precisely about how the syntactic change on the surrounding context affects the evaluation of the expression inside the hole of $C$ by including $C$ in the configuration.
+
+Before presenting the inference rules for the big-step relation, we first present the domains for the state($\sigma, t$) and configuration($e, p, C$).
+The concrete time $t$ is defined to be a natural number, the binding path $p$ is inside a set $\mathbb{P}$ that is inductively defined to be a list of times, and $C$ is inside the inductively defined set $\Ctx$.
+Finally, $\sigma$ is a finite map from $\mathbb{P}$ to $\underbrace{\mathbb{E}\times\mathbb{P}\times\Ctx}_{\text{expression}}+\underbrace{\mathbb{P}\times\Ctx}_{\text{module}}$.
+\begin{bnfgrammar}
+  $t$ : \in \mathbb{N}
+  ;;
+  $p$ : \in \mathbb{P}
+  ;;
+  $C$ : \in \Ctx
+  ;;
+  $\sigma$ : \in \fin{\mathbb{P}}{\mathbb{E}\times\mathbb{P}\times\mathbb{C}+\mathbb{P}\times\mathbb{C}}
+  ;;
+  $p$ ::= \textsf{nil} : nil
+  | $t$\cons$p$ : cons
+  ;;
+  $C$ ::= [] : hole
+  | $\lambda x.C$
+  | $C$ $e$
+  | $e$ $C$
+  | \texttt{let} $x$ $e$ $C$
+  | \texttt{let} $M$ $m$ $C$
+\end{bnfgrammar}
+
+Also, the functions that calculates the de Bruijn index from a context $C$ and a variable $x$/$M$ also needs to be inductively defined.
+Note that the index is an option of a natural number, and the addition operator is defined to evaluate to $\mathsf{Some}\:i$ iff the two operands are $\mathsf{Some}$.
+
+\[
+  \IndexExprAux(C, x, o) \coloneq
+  \begin{cases}
+     o & (C=[])\\
+     \IndexExprAux(C', x, o) & (C=C'\:e\lor C=e\:C')\\
+     \IndexExprAux(C', x, \mathsf{Some}\:0) & (C=\lambda x.C'\lor C=\mathtt{let}\:x\:e\:C')\\
+     \IndexExprAux(C', x, \mathsf{Some}\:1 + o) & (C=\lambda x'.C'\lor C=\mathtt{let}\:x'\:e\:C'\lor C=\mathtt{let}\:M\:m\:C', x' \neq x)
+  \end{cases}
+\]
+
+\[
+  \IndexExpr(C, x)\coloneq \IndexExprAux(C, x, \mathsf{None})
+\]
+
+\[
+  \IndexModAux(C, M, o) \coloneq
+  \begin{cases}
+     o & (C=[])\\
+     \IndexModAux(C', M, o) & (C=C'\:e\lor C=e\:C')\\
+     \IndexModAux(C', M, \mathsf{Some}\:0) & (C=\mathtt{let}\:M\:m\:C')\\
+     \IndexModAux(C', M, \mathsf{Some}\:i + o) & (C=\lambda x.C'\lor C=\mathtt{let}\:x\:e\:C'\lor C=\mathtt{let}\:M'\:m\:C', M' \neq M)
+  \end{cases}
+\]
+
+\[
+  \IndexMod(C, M)\coloneq \IndexModAux(C, M, \mathsf{None})
+\]
+
+We also define the $\Pop$ operator that maps a path to a option of a path.
+
+\[
+  \Pop(p)\coloneq
+  \begin{cases}
+    \mathsf{None} & (p=\mathsf{nil})\\
+    \mathsf{Some}\:tl & (p=hd\cons tl)
+  \end{cases}
+\]
+
+Now we are in a position to define the big-step relation.
 
 \begin{prooftree*}
-  \hypo{i=\mathsf{index}(C,x)}
-  \hypo{p_{x}=\mathsf{pop}^{i}(p)}
+  \hypo{\mathsf{Some}\:i=\IndexExpr(C,x)}
+  \hypo{\mathsf{Some}\:p_{x}=\Pop^{i}(p)}
   \infer[left label=ExprVar]2{
   (x, p, C), (\sigma, t)
   \Downarrow
@@ -171,8 +244,8 @@ Furthermore, by including the $C$ component as an essential part of the configur
 \end{prooftree*}
 
 \begin{prooftree*}
-  \hypo{i=\mathsf{index}(C,M)}
-  \hypo{p_{M}=\mathsf{pop}^{i}(p)}
+  \hypo{\mathsf{Some}\:i=\IndexMod(C,M)}
+  \hypo{\mathsf{Some}\:p_{M}=\Pop^{i}(p)}
   \infer[left label=ModVar]2{
   (M, p, C), (\sigma, t)
   \Downarrow
@@ -218,8 +291,11 @@ Furthermore, by including the $C$ component as an essential part of the configur
 
 Before there were modules, all valid configurations $(e, p, C)$ from the initial configuration $(e_{0}, \mathsf{nil}, [])$ satisfied $C[e]=e_{0}$.
 However, because of the linking rule, this is no longer true.
-It is still, true, however, that the $C$ component of a configuration is determined from the syntax of the initial expression, and is thus always bounded by the ``depth'' of $e_{0}$.
+It is still true, however, that the $C$ component of a configuration is determined from the syntax of the initial expression, and is thus always bounded by the ``depth'' of $e_{0}$.
 How do we express this property now?
+
+The problem seems to be when the module $m$ that is linked with $e$ in $\link{m}{e}$ is an identifier $M$.
+Since the syntax of modules enforce the identifers for modules to be bound only in \texttt{let} expressions, we want to claim that what the module identifier $M$ is can be known statically.
 
 \section{Collecting Semantics}
 
