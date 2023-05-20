@@ -29,26 +29,26 @@ with expr_tm :=
   | e_link (m : mod_tm) (e : expr_tm)
 .
 
+Inductive value : expr_tm -> Prop :=
+  | v_fn (x : expr_id) (e : expr_tm) : value (e_lam x e)
+.
+
 Scheme expr_ind_mut := Induction for expr_tm Sort Prop
 with mod_ind_mut := Induction for mod_tm Sort Prop.
 
 Inductive ctx :=
   | c_hole
   | c_lam (x: expr_id) (C : ctx)
-  | c_app_left (C : ctx) (e : expr_tm)
-  | c_app_right (e : expr_tm) (C : ctx)
-  | c_lete (x : expr_id) (e : expr_tm) (C : ctx)
-  | c_letm (M : mod_id) (m : mod_tm) (C : ctx)
+  | c_lete (x : expr_id) (C : ctx)
+  | c_letm (M : mod_id) (C : ctx)
 .
 
 Fixpoint plugin_c Cout Cin :=
   match Cout with
   | c_hole => Cin
   | c_lam x C' => c_lam x (plugin_c C' Cin)
-  | c_app_left C' e => c_app_left (plugin_c C' Cin) e
-  | c_app_right e C' => c_app_right e (plugin_c C' Cin)
-  | c_lete x e C' => c_lete x e (plugin_c C' Cin)
-  | c_letm M m C' => c_letm M m (plugin_c C' Cin)
+  | c_lete x C' => c_lete x (plugin_c C' Cin)
+  | c_letm M C' => c_letm M (plugin_c C' Cin)
   end.
 
 Definition time := nat.
@@ -84,20 +84,28 @@ Definition eq_mid id1 id2 :=
 Fixpoint level (C : ctx) :=
   match C with
   | c_hole => 0
-  | c_app_left C' _
-  | c_app_right _ C' => level C'
   | c_lam _ C'
-  | c_lete _ _ C' 
-  | c_letm _ _ C' => S (level C')
+  | c_lete _  C' 
+  | c_letm _  C' => S (level C')
+  end.
+
+Fixpoint index_expr (C : ctx) (x : expr_id) :=
+  match C with
+  | c_hole => None
+  | c_lam x' C' 
+  | c_lete x' C' =>
+    match index_expr C' x with
+    | None => if eq_eid x x' then Some (level C') else None
+    | Some i => Some i
+    end
+  | c_letm _ C' => index_expr C' x
   end.
 
 Fixpoint index_expr_aux (C : ctx) (x : expr_id) (o : option nat) :=
   match C with
   | c_hole => o
-  | c_app_left C' _
-  | c_app_right _ C' => index_expr_aux C' x o
   | c_lam x' C' 
-  | c_lete x' _ C' => 
+  | c_lete x' C' => 
     if eq_eid x x' then (
       index_expr_aux C' x (Some 0)
     ) else (
@@ -106,38 +114,112 @@ Fixpoint index_expr_aux (C : ctx) (x : expr_id) (o : option nat) :=
       | None => index_expr_aux C' x None
       end
     )
-  | c_letm M _ C' =>
+  | c_letm _ C' =>
     match o with
     | Some i => index_expr_aux C' x (Some (S i))
     | None => index_expr_aux C' x None
     end
   end.
 
-Definition index_expr C x := index_expr_aux C x None.
+Lemma index_expr_util1 :
+  (forall C x x', index_expr (c_lam x' C) x = None ->
+                  index_expr C x = None) /\
+  (forall C x x', index_expr (c_lete x' C) x = None ->
+                  index_expr C x = None) /\
+  (forall C x M, index_expr (c_letm M C) x = None ->
+                 index_expr C x = None) /\
+  (forall C x m n, index_expr_aux C x None = Some n ->
+                   index_expr_aux C x (Some m) = Some n).
+Proof.
+  repeat split; try (intros; simpl in *; destruct (index_expr C x); eauto; fail);
+                induction C; eauto using ctx; intros; try (inversion H; fail);
+                try (simpl in *; destruct (eq_eid x0 x); eauto; fail).
+Qed.
+
+Lemma index_expr_util2 : forall C n x (NOx : index_expr C x = None),
+                        index_expr_aux C x (Some n) = Some (n + level C).
+Proof.
+  pose proof index_expr_util1 as H; destruct H as [LAM [LETe [LETm IRREL]]].
+  induction C; eauto using ctx;
+  induction n; intros; simpl; eauto; try (
+  try (intros; simpl; fail);
+  remember (eq_eid x0 x) as eid_sub; destruct eid_sub;
+  try (simpl in NOx; rewrite <- Heqeid_sub in NOx;
+  destruct (index_expr C x0); simpl in NOx; inversion NOx; fail));
+  try (replace (S (n + S (level C))) with (S (S n) + level C) by eauto); eauto.
+Qed.
+
+Ltac index_expr_util :=
+  pose proof index_expr_util1 as H; destruct H as [LAM [LETe [LETm IRREL]]];
+  pose proof index_expr_util2 as LEVEL.
+
+Lemma index_expr_eqv_None : forall C x (NOx : index_expr C x = None),
+                        index_expr_aux C x None = None.
+Proof.
+  induction C; eauto using ctx; intros; simpl in NOx;
+  remember (eq_eid x0 x) as eid_sub; destruct eid_sub;
+  try (simpl; destruct (index_expr C x0) in NOx; inversion NOx; fail); 
+  try (
+    remember (index_expr C x0) as i_sub; destruct i_sub; inversion NOx;
+    simpl; rewrite <- Heqeid_sub; apply IHC; eauto; fail).
+Qed.
+
+Lemma index_expr_eqv_Some : forall C x n (SOMEx : index_expr C x = Some n),
+                               index_expr_aux C x None = Some n.
+Proof.
+  index_expr_util. induction C; eauto using ctx; intros.
+  - simpl in SOMEx. remember (index_expr C x0) as i_sub. destruct i_sub.
+    + rewrite SOMEx in *; clear SOMEx.
+      simpl. remember (eq_eid x0 x) as eid_sub. destruct eid_sub;
+      try apply IRREL; apply IHC; eauto.
+    + remember (eq_eid x0 x) as eid_sub. destruct eid_sub.
+      * rewrite <- SOMEx in *. simpl. rewrite <- Heqeid_sub. eauto.
+      * inversion SOMEx.
+  - simpl in SOMEx. remember (index_expr C x0) as i_sub. destruct i_sub.
+    + rewrite SOMEx in *; clear SOMEx.
+      simpl. remember (eq_eid x0 x) as eid_sub. destruct eid_sub;
+      try apply IRREL; apply IHC; eauto.
+    + remember (eq_eid x0 x) as eid_sub. destruct eid_sub.
+      * rewrite <- SOMEx in *. simpl. rewrite <- Heqeid_sub. eauto.
+      * inversion SOMEx.
+Qed.
+
+Theorem index_expr_eqv : forall C x, index_expr C x = index_expr_aux C x None.
+Proof.
+  intros. remember (index_expr C x) as i. destruct i.
+  - symmetry. apply index_expr_eqv_Some; eauto.
+  - symmetry. apply index_expr_eqv_None; eauto.
+Qed.
+
+Fixpoint index_mod (C : ctx) (M : mod_id) :=
+  match C with
+  | c_hole => None
+  | c_lam _ C' 
+  | c_lete _ C' => index_mod C' M
+  | c_letm M' C' => 
+    match index_mod C' M with
+    | None => if eq_mid M M' then Some (level C') else None
+    | Some i => Some i
+    end
+  end.
 
 Fixpoint index_mod_aux (C : ctx) (M : mod_id) (o : option nat) :=
   match C with
   | c_hole => o
-  | c_app_left C' _
-  | c_app_right _ C' => index_mod_aux C' M o
   | c_lam _ C'
-  | c_lete _ _ C' =>
+  | c_lete _ C' =>
     match o with
     | Some i => index_mod_aux C' M (Some (S i))
     | None => index_mod_aux C' M None
     end
-  | c_letm M' _ C' =>
-    if eq_mid M M' then (
+  | c_letm M' C' =>
+    if eq_mid M M' then
       index_mod_aux C' M (Some 0)
-    ) else (
-      match o with
+    else match o with
       | Some i => index_mod_aux C' M (Some (S i))
       | None => index_mod_aux C' M None
-      end
-    )
+    end
   end.
-
-Definition index_mod C M := index_mod_aux C M None.
 
 Fixpoint pop (p : path) (i : nat) := 
   match i with
@@ -153,14 +235,15 @@ Inductive mod_value :=
   | Mod (p : path) (C : ctx)
 .
 
+(* a term, a proof, a path, a context *)
 Inductive expr_value :=
-  | Closure (x : expr_id) (e : expr_tm) (p : path) (C : ctx)
+  | Val (e : expr_tm) (v : value e) (p : path) (C : ctx)
 .
 
 Inductive state :=
   | ST (e_mem : path -> option expr_value)
        (m_mem : path -> option mod_value)
-       (t : nat)
+       (t : time)
 .
 
 Definition update_m {X} mem (p : path) (x : X) :=
@@ -183,18 +266,19 @@ Inductive EevalR (p : path) (C : ctx) (st : state)
              (ACCESS : Some v = e_mem p_x)
     : EevalR p C st (e_var x) v st
   | Eeval_lam x e
-    : EevalR p C st (e_lam x e) (Closure x e p C) st
+    : EevalR p C st (e_lam x e) 
+            (Val (e_lam x e) (v_fn x e) p C) st
   | Eeval_app e1 e2 
-              x e_lam p_lam C_lam st_lam
+              x e p_lam C_lam st_lam
               arg e_mem m_mem t
               v st_v
-              (FN : EevalR p (C [|c_app_left c_hole e2|]) st
-                           e1 (Closure x e_lam p_lam C_lam) st_lam)
-              (ARG : EevalR p (C [|c_app_right e1 c_hole|]) st_lam
-                            e2 arg (ST e_mem m_mem t))
+              (FN : EevalR p C st e1
+                           (Val (e_lam x e) (v_fn x e) p_lam C_lam) st_lam)
+              (ARG : EevalR p C st_lam e2
+                            arg (ST e_mem m_mem t))
               (BODY : EevalR (t :: p_lam) (C_lam [|c_lam x c_hole|])
                              (ST ((t :: p_lam) !-> arg ; e_mem) m_mem (update_t t))
-                              e_lam v st_v)
+                              e v st_v)
     : EevalR p C st (e_app e1 e2) v st_v
   | Eeval_link m e p_m C_m st_m v st_v
                (MOD : MevalR p C st m (Mod p_m C_m) st_m)
@@ -214,14 +298,14 @@ with MevalR (p : path) (C : ctx) (st : state)
   | Meval_lete x e v_e e_mem m_mem t
                m v_m st_m
                (EVALe : EevalR p C st e v_e (ST e_mem m_mem t))
-               (EVALm : MevalR (t :: p) (C [|c_lete x e c_hole|]) 
+               (EVALm : MevalR (t :: p) (C [|c_lete x c_hole|]) 
                         (ST ((t :: p) !-> v_e ; e_mem) m_mem (update_t t))
                         m v_m st_m)
     : MevalR p C st (m_lete x e m) v_m st_m
   | Meval_letm M m1 v_m1 e_mem m_mem t
                m2 v_m2 st_m2
                (EVALm1 : MevalR p C st m1 v_m1 (ST e_mem m_mem t))
-               (EVALm2 : MevalR (t :: p) (C [|c_letm M m1 c_hole|])
+               (EVALm2 : MevalR (t :: p) (C [|c_letm M c_hole|])
                          (ST e_mem ((t :: p) !-> v_m1 ; m_mem) (update_t t))
                          m2 v_m2 st_m2)
     : MevalR p C st (m_letm M m1 m2) v_m2 st_m2
@@ -238,26 +322,36 @@ Inductive EreachE (p : path) (C : ctx) (st : state)
   | ere_refl e
     : EreachE p C st e 
               p C st e
+  | ere_var x i e_mem m_mem t p_x e' pf p' C'
+            (STATE : st = ST e_mem m_mem t)
+            (INDEX : Some i = index_expr C x)
+            (POP : Some p_x = pop p i)
+            (ACCESS : Some (Val e' pf p' C') = e_mem p_x)
+    : EreachE p C st (e_var x)
+              p' C' st e'
   | ere_app_left e1 e2 p' C' st' e'
-                 (REACHl : EreachE p (C [|c_app_left c_hole e2|]) st e1
+                 (REACHl : EreachE p C st e1
                                    p' C' st' e')
     : EreachE p C st (e_app e1 e2) 
               p' C' st' e'
-  | ere_app_right e1 e2 v1 st1 p' C' st' e'
-                  (FN : EevalR p (C [|c_app_left c_hole e2|]) st e1 v1 st1)
-                  (REACHr : EreachE p (C[|c_app_right e1 c_hole|]) st1 e2
+  | ere_app_right e1 e2 p1 C1 st1 v1 p' C' st' e'
+                  (FN : EreachE p C st e1
+                                p1 C1 st1 v1)
+                  (FNV : value v1)
+                  (REACHr : EreachE p C st1 e2
                                     p' C' st' e')
     : EreachE p C st (e_app e1 e2)
               p' C' st' e'
-  | ere_app_body e1 e2 x e_lam p_lam C_lam st_lam
-                 arg e_mem m_mem t_a
+  | ere_app_body e1 e2 x e p_lam C_lam st_lam
+                 p_arg C_arg arg e_mem m_mem t
                  p' C' st' e'
-                 (FN : EevalR p (C [|c_app_left c_hole e2|]) st e1 
-                             (Closure x e_lam p_lam C_lam) st_lam)
-                 (ARG : EevalR p (C [|c_app_right e1 c_hole|]) st_lam e2
-                               arg (ST e_mem m_mem t_a))
-                 (REACHb : EreachE (t_a :: p_lam) (C_lam[|c_lam x c_hole|]) 
-                                   (ST ((t_a :: p_lam) !-> arg ; e_mem) m_mem (update_t t_a)) e_lam
+                 (FN : EreachE p C st e1 
+                               p_lam C_lam st_lam (e_lam x e))
+                 (ARG : EreachE p C st_lam e2
+                                p_arg C_arg (ST e_mem m_mem t) arg)
+                 (ARGV : value arg)
+                 (REACHb : EreachE (t :: p_lam) (C_lam[|c_lam x c_hole|]) 
+                                   (ST ((t :: p_lam) !-> (Val arg ARGV p_arg C_arg) ; e_mem) m_mem (update_t t)) e
                                     p' C' st' e')
     : EreachE p C st (e_app e1 e2)
               p' C' st' e'
@@ -267,7 +361,8 @@ Inductive EreachE (p : path) (C : ctx) (st : state)
     : EreachE p C st (e_link m e)
               p' C' st' e'
   | ere_link_e m e p_m C_m st_m p' C' st' e'
-               (MOD : MevalR p C st m (Mod p_m C_m) st_m)
+               (MOD : MreachM p C st m 
+                              p_m C_m st_m m_empty)
                (REACHe : EreachE p_m C_m st_m e
                                  p' C' st' e')
     : EreachE p C st (e_link m e)
@@ -280,10 +375,13 @@ with MreachE (p : path) (C : ctx) (st : state)
                                  p' C' st' e')
     : MreachE p C st (m_lete x e m)
               p' C' st' e'
-  | mre_lete_m x e m v e_mem m_mem t_e
+  | mre_lete_m x e m p1 C1 v e_mem m_mem t
              p' C' st' e'
-             (EVALx : EevalR p C st e v (ST e_mem m_mem t_e))
-             (REACHm : MreachE (t_e :: p) (C[|c_lete x e c_hole|]) (ST ((t_e :: p) !-> v ; e_mem) m_mem (update_t t_e)) m
+             (EVALx : EreachE p C st e
+                              p1 C1 (ST e_mem m_mem t) v)
+             (xV : value v)
+             (REACHm : MreachE (t :: p) (C[|c_lete x c_hole|])
+                               (ST ((t :: p) !-> (Val v xV p1 C1) ; e_mem) m_mem (update_t t)) m
                                 p' C' st' e')
     : MreachE p C st (m_lete x e m)
               p' C' st' e'
@@ -292,32 +390,40 @@ with MreachE (p : path) (C : ctx) (st : state)
                                  p' C' st' e')
     : MreachE p C st (m_letm M m1 m2)
               p' C' st' e'
-  | mre_letm_m2 M m1 m2 v e_mem m_mem t_m
+  | mre_letm_m2 M m1 m2 p1 C1 e_mem m_mem t
              p' C' st' e'
-             (EVALM : MevalR p C st m1 v (ST e_mem m_mem t_m))
-             (REACHm : MreachE (t_m :: p) (C[|c_letm M m1 c_hole|]) (ST e_mem ((t_m :: p) !-> v ; m_mem) (update_t t_m)) m2
+             (EVALM : MreachM p C st m1
+                              p1 C1 (ST e_mem m_mem t) m_empty)
+             (REACHm : MreachE (t :: p) (C[|c_letm M c_hole|]) 
+                               (ST e_mem ((t :: p) !-> (Mod p1 C1) ; m_mem) (update_t t)) m2
                                 p' C' st' e')
     : MreachE p C st (m_letm M m1 m2)
               p' C' st' e'
-.
 
-Scheme EreachE_ind_mut := Induction for EreachE Sort Prop
-with MreachE_ind_mut := Induction for MreachE Sort Prop.
-
-Inductive MreachM (p : path) (C : ctx) (st : state)
+with MreachM (p : path) (C : ctx) (st : state)
     : Reach mod_tm mod_tm :=
   | mrm_refl m
     : MreachM p C st m
               p C st m
+  | mrm_var M i e_mem m_mem t p_M p' C'
+            (STATE : st = ST e_mem m_mem t)
+            (INDEX : Some i = index_mod C M)
+            (POP : Some p_M = pop p i)
+            (ACCESS : Some (Mod p' C') = m_mem p_M)
+    : MreachM p C st (m_var M)
+              p' C' st m_empty
   | mrm_lete_e x e m p' C' st' m'
                (REACHe : EreachM p C st e
                                  p' C' st' m')
     : MreachM p C st (m_lete x e m)
               p' C' st' m'
-  | mrm_lete_m x e m v e_mem m_mem t_e
+  | mrm_lete_m x e m p1 C1 v e_mem m_mem t
              p' C' st' m'
-             (EVALx : EevalR p C st e v (ST e_mem m_mem t_e))
-             (REACHm : MreachM (t_e :: p) (C[|c_lete x e c_hole|]) (ST ((t_e :: p) !-> v ; e_mem) m_mem (update_t t_e)) m
+             (EVALx : EreachE p C st e 
+                              p1 C1 (ST e_mem m_mem t) v)
+             (xV : value v)
+             (REACHm : MreachM (t :: p) (C[|c_lete x c_hole|]) 
+                               (ST ((t :: p) !-> (Val v xV p1 C1) ; e_mem) m_mem (update_t t)) m
                                 p' C' st' m')
     : MreachM p C st (m_lete x e m)
               p' C' st' m'
@@ -326,10 +432,12 @@ Inductive MreachM (p : path) (C : ctx) (st : state)
                                  p' C' st' m')
     : MreachM p C st (m_letm M m1 m2)
               p' C' st' m'
-  | mrm_letm_m2 M m1 m2 v e_mem m_mem t_m
+  | mrm_letm_m2 M m1 m2 p1 C1 e_mem m_mem t
              p' C' st' m'
-             (EVALM : MevalR p C st m1 v (ST e_mem m_mem t_m))
-             (REACHm : MreachM (t_m :: p) (C[|c_letm M m1 c_hole|]) (ST e_mem ((t_m :: p) !-> v ; m_mem) (update_t t_m)) m2
+             (EVALM : MreachM p C st m1 
+                              p1 C1 (ST e_mem m_mem t) m_empty)
+             (REACHm : MreachM (t :: p) (C[|c_letm M c_hole|]) 
+                               (ST e_mem ((t :: p) !-> (Mod p1 C1) ; m_mem) (update_t t)) m2
                                 p' C' st' m')
     : MreachM p C st (m_letm M m1 m2)
               p' C' st' m'
@@ -337,24 +445,28 @@ Inductive MreachM (p : path) (C : ctx) (st : state)
 with EreachM (p : path) (C : ctx) (st : state)
     : Reach expr_tm mod_tm :=
   | erm_app_left e1 e2 p' C' st' m'
-                 (REACHl : EreachM p (C [|c_app_left c_hole e2|]) st e1
+                 (REACHl : EreachM p C st e1
                                    p' C' st' m')
     : EreachM p C st (e_app e1 e2) 
               p' C' st' m'
-  | erm_app_right e1 e2 v1 st1 p' C' st' m'
-                  (FN : EevalR p (C [|c_app_left c_hole e2|]) st e1 v1 st1)
-                  (REACHr : EreachM p (C[|c_app_right e1 c_hole|]) st1 e2
+  | erm_app_right e1 e2 p1 C1 v1 st1 p' C' st' m'
+                  (FN : EreachE p C st e1 
+                                p1 C1 st1 v1)
+                  (FNV : value v1)
+                  (REACHr : EreachM p C st1 e2
                                     p' C' st' m')
     : EreachM p C st (e_app e1 e2)
               p' C' st' m'
-  | erm_app_body e1 e2 x e_lam p_lam C_lam st_lam
-                 arg e_mem m_mem t_a
+  | erm_app_body e1 e2 x e p_lam C_lam st_lam
+                 p_arg C_arg arg e_mem m_mem t
                  p' C' st' m'
-                 (FN : EevalR p (C [|c_app_left c_hole e2|]) st e1 
-                             (Closure x e_lam p_lam C_lam) st_lam)
-                 (ARG : EevalR p (C [|c_app_right e1 c_hole|]) st_lam e2
-                               arg (ST e_mem m_mem t_a))
-                 (REACHb : EreachM (t_a :: p_lam) (C_lam[|c_lam x c_hole|]) (ST ((t_a :: p_lam) !-> arg ; e_mem) m_mem (update_t t_a)) e_lam
+                 (FN : EreachE p C st e1 
+                               p_lam C_lam st_lam (e_lam x e))
+                 (ARG : EreachE p C st_lam e2
+                                p_arg C_arg (ST e_mem m_mem t) arg)
+                 (ARGV : value arg)
+                 (REACHb : EreachM (t :: p_lam) (C_lam[|c_lam x c_hole|]) 
+                                   (ST ((t :: p_lam) !-> (Val arg ARGV p_arg C_arg) ; e_mem) m_mem (update_t t)) e
                                     p' C' st' m')
     : EreachM p C st (e_app e1 e2)
               p' C' st' m'
@@ -364,15 +476,17 @@ with EreachM (p : path) (C : ctx) (st : state)
     : EreachM p C st (e_link m e)
               p' C' st' m'
   | erm_link_e m e p_m C_m st_m p' C' st' m'
-               (MOD : MevalR p C st m (Mod p_m C_m) st_m)
+               (MOD : MreachM p C st m p_m C_m st_m m_empty)
                (REACHe : EreachM p_m C_m st_m e
                                  p' C' st' m')
     : EreachM p C st (e_link m e)
               p' C' st' m'
 .
 
-Scheme MreachM_ind_mut := Induction for MreachM Sort Prop
-with EreachM_ind_mut := Induction for EreachM Sort Prop.
+Scheme EreachE_ind_mut := Induction for EreachE Sort Prop
+with EreachM_ind_mut := Induction for EreachM Sort Prop
+with MreachE_ind_mut := Induction for MreachE Sort Prop
+with MreachM_ind_mut := Induction for MreachM Sort Prop.
 
 Notation "'<e|' p1 C1 st1 tm1 '~>' p2 C2 st2 tm2 '|e>'" := (EreachE p1 C1 st1 tm1 p2 C2 st2 tm2) 
                                                (at level 10, 
@@ -394,6 +508,9 @@ Notation "'<e|' p1 C1 st1 tm1 '~>' p2 C2 st2 tm2 '|m>'" := (EreachM p1 C1 st1 tm
                                                 p1 at next level, C1 at next level, st1 at next level, tm1 at next level,
                                                 p2 at next level, C2 at next level, st2 at next level, tm2 at next level).
 
+Check EreachE_ind_mut.
+
+(* sanity check *)
 Lemma ere_trans : forall p1 C1 st1 e1
                          p2 C2 st2 e2
                          p3 C3 st3 e3
@@ -410,13 +527,27 @@ Proof.
          forall p3 C3 st3 e3 
                 (REACH2 : <e| p2 C2 st2 e2 ~> p3 C3 st3 e3 |e>),
                 <e| p1 C1 st1 e1 ~> p3 C3 st3 e3 |e>)
+    (fun p1 C1 st1 e1 
+         p2 C2 st2 m2 
+         (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 m2 |m>)=> 
+         forall p3 C3 st3 e3 
+                (REACH2 : <m| p2 C2 st2 m2 ~> p3 C3 st3 e3 |e>),
+                <e| p1 C1 st1 e1 ~> p3 C3 st3 e3 |e>)
     (fun p1 C1 st1 m1
          p2 C2 st2 e2
          (REACH1 : <m| p1 C1 st1 m1 ~> p2 C2 st2 e2 |e>) =>
          forall p3 C3 st3 e3 
                 (REACH2 : <e| p2 C2 st2 e2 ~> p3 C3 st3 e3 |e>),
+                <m| p1 C1 st1 m1 ~> p3 C3 st3 e3 |e>)
+    (fun p1 C1 st1 m1 
+         p2 C2 st2 m2 
+         (REACH1 : <m| p1 C1 st1 m1 ~> p2 C2 st2 m2 |m>)=> 
+         forall p3 C3 st3 e3 
+                (REACH2 : <m| p2 C2 st2 m2 ~> p3 C3 st3 e3 |e>),
                 <m| p1 C1 st1 m1 ~> p3 C3 st3 e3 |e>));
-   eauto using EreachE, MreachE.
+   eauto using EreachE, EreachM, MreachE, MreachM;
+   intros; try inversion pf; subst; inversion REACH2; subst;
+   eauto using EreachE, EreachM, MreachE, MreachM.
 Qed.
 
 Lemma mrm_trans : forall p1 C1 st1 m1
@@ -429,19 +560,33 @@ Proof.
   intros. generalize dependent m3.
   revert p3 C3 st3.
   apply (MreachM_ind_mut
+    (fun p1 C1 st1 e1 
+         p2 C2 st2 e2 
+         (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>)=> 
+         forall p3 C3 st3 m3
+                (REACH2 : <e| p2 C2 st2 e2 ~> p3 C3 st3 m3 |m>),
+                <e| p1 C1 st1 e1 ~> p3 C3 st3 m3 |m>)
+    (fun p1 C1 st1 e1 
+         p2 C2 st2 m2 
+         (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 m2 |m>)=> 
+         forall p3 C3 st3 m3 
+                (REACH2 : <m| p2 C2 st2 m2 ~> p3 C3 st3 m3 |m>),
+                <e| p1 C1 st1 e1 ~> p3 C3 st3 m3 |m>)
+    (fun p1 C1 st1 m1
+         p2 C2 st2 e2
+         (REACH1 : <m| p1 C1 st1 m1 ~> p2 C2 st2 e2 |e>) =>
+         forall p3 C3 st3 m3 
+                (REACH2 : <e| p2 C2 st2 e2 ~> p3 C3 st3 m3 |m>),
+                <m| p1 C1 st1 m1 ~> p3 C3 st3 m3 |m>)
     (fun p1 C1 st1 m1 
          p2 C2 st2 m2 
          (REACH1 : <m| p1 C1 st1 m1 ~> p2 C2 st2 m2 |m>)=> 
          forall p3 C3 st3 m3 
                 (REACH2 : <m| p2 C2 st2 m2 ~> p3 C3 st3 m3 |m>),
-                <m| p1 C1 st1 m1 ~> p3 C3 st3 m3 |m>)
-    (fun p1 C1 st1 e1
-         p2 C2 st2 m2
-         (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 m2 |m>) =>
-         forall p3 C3 st3 m3 
-                (REACH2 : <m| p2 C2 st2 m2 ~> p3 C3 st3 m3 |m>),
-                <e| p1 C1 st1 e1 ~> p3 C3 st3 m3 |m>));
-   eauto using MreachM, EreachM.
+                <m| p1 C1 st1 m1 ~> p3 C3 st3 m3 |m>));
+   eauto using EreachE, EreachM, MreachE, MreachM;
+   intros; try inversion pf; subst; inversion REACH2; subst;
+   eauto using EreachE, EreachM, MreachE, MreachM.
 Qed.
 
 Lemma ermre_trans : forall p1 C1 st1 e1
@@ -454,19 +599,33 @@ Proof.
   intros. generalize dependent e3.
   revert p3 C3 st3.
   apply (EreachM_ind_mut
+    (fun p1 C1 st1 e1 
+         p2 C2 st2 e2 
+         (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>)=> 
+         forall p3 C3 st3 e3 
+                (REACH2 : <e| p2 C2 st2 e2 ~> p3 C3 st3 e3 |e>),
+                <e| p1 C1 st1 e1 ~> p3 C3 st3 e3 |e>)
+    (fun p1 C1 st1 e1 
+         p2 C2 st2 m2 
+         (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 m2 |m>)=> 
+         forall p3 C3 st3 e3 
+                (REACH2 : <m| p2 C2 st2 m2 ~> p3 C3 st3 e3 |e>),
+                <e| p1 C1 st1 e1 ~> p3 C3 st3 e3 |e>)
     (fun p1 C1 st1 m1
-         p2 C2 st2 m2
-         (REACH1 : <m| p1 C1 st1 m1 ~> p2 C2 st2 m2 |m>)=>
+         p2 C2 st2 e2
+         (REACH1 : <m| p1 C1 st1 m1 ~> p2 C2 st2 e2 |e>) =>
          forall p3 C3 st3 e3 
-                (REACH2 : <m| p2 C2 st2 m2 ~> p3 C3 st3 e3 |e>),
+                (REACH2 : <e| p2 C2 st2 e2 ~> p3 C3 st3 e3 |e>),
                 <m| p1 C1 st1 m1 ~> p3 C3 st3 e3 |e>)
-    (fun p1 C1 st1 e1
-         p2 C2 st2 m2
-         (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 m2 |m>)=>
+    (fun p1 C1 st1 m1 
+         p2 C2 st2 m2 
+         (REACH1 : <m| p1 C1 st1 m1 ~> p2 C2 st2 m2 |m>)=> 
          forall p3 C3 st3 e3 
                 (REACH2 : <m| p2 C2 st2 m2 ~> p3 C3 st3 e3 |e>),
-                <e| p1 C1 st1 e1 ~> p3 C3 st3 e3 |e>));
-    eauto using EreachE, EreachM, MreachE, MreachM.
+                <m| p1 C1 st1 m1 ~> p3 C3 st3 e3 |e>));
+   eauto using EreachE, EreachM, MreachE, MreachM;
+   intros; try inversion pf; subst; inversion REACH2; subst;
+   eauto using EreachE, EreachM, MreachE, MreachM.
 Qed.
 
 Lemma mrerm_trans : forall p1 C1 st1 m1
@@ -479,19 +638,33 @@ Proof.
   intros. generalize dependent m3.
   revert p3 C3 st3.
   apply (MreachE_ind_mut
-    (fun p1 C1 st1 e1
-         p2 C2 st2 e2
-         (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>) =>
-         forall p3 C3 st3 m3 
+    (fun p1 C1 st1 e1 
+         p2 C2 st2 e2 
+         (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>)=> 
+         forall p3 C3 st3 m3
                 (REACH2 : <e| p2 C2 st2 e2 ~> p3 C3 st3 m3 |m>),
+                <e| p1 C1 st1 e1 ~> p3 C3 st3 m3 |m>)
+    (fun p1 C1 st1 e1 
+         p2 C2 st2 m2 
+         (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 m2 |m>)=> 
+         forall p3 C3 st3 m3 
+                (REACH2 : <m| p2 C2 st2 m2 ~> p3 C3 st3 m3 |m>),
                 <e| p1 C1 st1 e1 ~> p3 C3 st3 m3 |m>)
     (fun p1 C1 st1 m1
          p2 C2 st2 e2
-         (REACH1 : <m| p1 C1 st1 m1 ~> p2 C2 st2 e2 |e>)=>
-         forall p3 C3 st3 m3
+         (REACH1 : <m| p1 C1 st1 m1 ~> p2 C2 st2 e2 |e>) =>
+         forall p3 C3 st3 m3 
                 (REACH2 : <e| p2 C2 st2 e2 ~> p3 C3 st3 m3 |m>),
+                <m| p1 C1 st1 m1 ~> p3 C3 st3 m3 |m>)
+    (fun p1 C1 st1 m1 
+         p2 C2 st2 m2 
+         (REACH1 : <m| p1 C1 st1 m1 ~> p2 C2 st2 m2 |m>)=> 
+         forall p3 C3 st3 m3 
+                (REACH2 : <m| p2 C2 st2 m2 ~> p3 C3 st3 m3 |m>),
                 <m| p1 C1 st1 m1 ~> p3 C3 st3 m3 |m>));
-    eauto using EreachE, EreachM, MreachE, MreachM.
+   eauto using EreachE, EreachM, MreachE, MreachM;
+   intros; try inversion pf; subst; inversion REACH2; subst;
+   eauto using EreachE, EreachM, MreachE, MreachM.
 Qed.
 
 Lemma c_plugin_assoc : forall C1 C2 C3, C1[| C2[| C3 |] |] = ((C1[|C2|])[|C3|]).
@@ -506,9 +679,192 @@ Proof.
   intros; simpl; try rewrite IHC1; eauto.
 Qed.
 
-(* Want to show this *)
-Lemma ere_len_p_is_level : 
-    forall e st p C st' e' (REACH : EreachE [] c_hole st e 
-                                            p C st' e'),
-            len_p p = level C.
-Proof. Admitted.
+Definition st_len e_mem m_mem p C :=
+        (forall (addr : path) v pf p' C', 
+                e_mem addr = Some (Val v pf p' C') ->
+                len_p p + level C' = len_p p' + level C) /\
+        (forall (addr : path) p' C',
+                m_mem addr = Some (Mod p' C') ->
+                len_p p + level C' = len_p p' + level C).
+
+Lemma ere_p_is_level : 
+    forall p1 C1 st1 e1
+           p2 C2 st2 e2
+          (REACH : <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>)
+           e_mem1 m_mem1 t1 e_mem2 m_mem2 t2
+          (STATE1 : st1 = ST e_mem1 m_mem1 t1)
+          (STATE2 : st2 = ST e_mem2 m_mem2 t2)
+          (INIT : st_len e_mem1 m_mem1 p1 C1),
+        st_len e_mem2 m_mem2 p1 C1 /\
+        len_p p1 + level C2 = len_p p2 + level C1.
+Proof. 
+  apply (EreachE_ind_mut
+    (fun p1 C1 st1 e1 
+         p2 C2 st2 e2 
+         (REACH : <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>) =>
+         forall e_mem1 m_mem1 t1 e_mem2 m_mem2 t2
+            (STATE1 : st1 = ST e_mem1 m_mem1 t1)
+            (STATE2 : st2 = ST e_mem2 m_mem2 t2)
+            (INIT : st_len e_mem1 m_mem1 p1 C1),
+            st_len e_mem2 m_mem2 p1 C1 /\
+            len_p p1 + level C2 = len_p p2 + level C1)
+    (fun p1 C1 st1 e1 
+         p2 C2 st2 m2 
+         (REACH : <e| p1 C1 st1 e1 ~> p2 C2 st2 m2 |m>) =>
+         forall e_mem1 m_mem1 t1 e_mem2 m_mem2 t2
+            (STATE1 : st1 = ST e_mem1 m_mem1 t1)
+            (STATE2 : st2 = ST e_mem2 m_mem2 t2)
+            (INIT : st_len e_mem1 m_mem1 p1 C1),
+            st_len e_mem2 m_mem2 p1 C1 /\
+            len_p p1 + level C2 = len_p p2 + level C1)
+    (fun p1 C1 st1 m1 
+         p2 C2 st2 e2
+         (REACH : <m| p1 C1 st1 m1 ~> p2 C2 st2 e2 |e>) =>
+         forall e_mem1 m_mem1 t1 e_mem2 m_mem2 t2
+            (STATE1 : st1 = ST e_mem1 m_mem1 t1)
+            (STATE2 : st2 = ST e_mem2 m_mem2 t2)
+            (INIT : st_len e_mem1 m_mem1 p1 C1),
+            st_len e_mem2 m_mem2 p1 C1 /\
+            len_p p1 + level C2 = len_p p2 + level C1)
+    (fun p1 C1 st1 m1 
+         p2 C2 st2 m2 
+         (REACH : <m| p1 C1 st1 m1 ~> p2 C2 st2 m2 |m>) =>
+         forall e_mem1 m_mem1 t1 e_mem2 m_mem2 t2
+            (STATE1 : st1 = ST e_mem1 m_mem1 t1)
+            (STATE2 : st2 = ST e_mem2 m_mem2 t2)
+            (INIT : st_len e_mem1 m_mem1 p1 C1),
+            st_len e_mem2 m_mem2 p1 C1 /\
+            len_p p1 + level C2 = len_p p2 + level C1));
+   unfold st_len in *; repeat split; simpl in *;
+   try inversion INIT as [INITe INITm]; eauto;
+   try rewrite STATE1 in *; inversion STATE2; subst; eauto;
+   try (inversion STATE; subst; eauto; fail);
+   try (eapply (H e_mem1 m_mem1 t1 e_mem2 m_mem2 t2); eauto; fail);
+   try (destruct st1 as [e_mem3 m_mem3 t3]; subst;
+        eapply (H0 e_mem3 m_mem3 t3 e_mem2 m_mem2 t2); eauto;
+        eapply (H e_mem1 m_mem1 t1 e_mem3 m_mem3 t3); eauto; fail);
+   intros; 
+   try destruct st_lam as [e_mem3 m_mem3 t3]; subst;
+   try destruct st_m as [e_mem3 m_mem3 t3]; subst;
+   try specialize (H e_mem1 m_mem1 t1 e_mem3 m_mem3 t3 eq_refl eq_refl);
+   try specialize (H0 e_mem3 m_mem3 t3 e_mem m_mem t eq_refl eq_refl);
+   try specialize (H1 (t :: p_lam !-> Val arg ARGV p_arg C_arg; e_mem) m_mem (update_t t)
+                   e_mem2 m_mem2 t2 eq_refl eq_refl);
+   try apply H in INIT; destruct INIT as [INIT' EQ'];
+   try apply H0 in INIT'; try destruct INIT' as [INIT'' EQ''];
+   try destruct INIT'' as [INITe' INITm'];
+   try (specialize (H0 e_mem3 m_mem3 t3 e_mem2 m_mem2 t2 eq_refl eq_refl);
+       destruct H as [A B]; eauto;
+       destruct A as [INITe' INITm']).
+   - assert ((forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            (t :: p_lam !-> Val arg ARGV p_arg C_arg; e_mem) addr =
+            Some (Val v pf p' C') ->
+            S (len_p p_lam + level C') =
+            len_p p' + level (C_lam [|c_lam x c_hole|])) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem addr = Some (Mod p' C') ->
+            S (len_p p_lam + level C') =
+            len_p p' + level (C_lam [|c_lam x c_hole|]))).
+    {
+        split; intros; unfold update_m in *; destruct (eq_p addr0 (t :: p_lam));
+        rewrite c_plugin_adds_level; simpl; 
+        replace (level C_lam + 1) with (S (level C_lam)) by nia;
+        try inversion H4; subst;
+        assert (len_p p + level C'1 = len_p p'1 + level C); eauto; try nia.
+     }
+     apply H1 in H4. destruct H4 as [INIT''' EQ'''].
+     rewrite c_plugin_adds_level in *. simpl in *.
+     replace (level C_lam + 1) with (S (level C_lam)) in * by nia.
+     destruct INIT''' as [INITe'' INITm''].
+     assert (S (len_p p_lam + level C'0) = len_p p'0 + S (level C_lam)). eauto.
+     nia.
+   - assert ((forall (addr : path) (v : expr_tm) (pf : value v) 
+        (p' : path) (C' : ctx),
+        (t :: p_lam !-> Val arg ARGV p_arg C_arg; e_mem) addr =
+        Some (Val v pf p' C') ->
+        S (len_p p_lam + level C') =
+        len_p p' + level (C_lam [|c_lam x c_hole|])) /\
+        (forall (addr p' : path) (C' : ctx),
+        m_mem addr = Some (Mod p' C') ->
+        S (len_p p_lam + level C') =
+        len_p p' + level (C_lam [|c_lam x c_hole|]))).
+    {
+        split; intros; unfold update_m in *; destruct (eq_p addr0 (t :: p_lam));
+        rewrite c_plugin_adds_level; simpl; 
+        replace (level C_lam + 1) with (S (level C_lam)) by nia;
+        try inversion H4; subst;
+        assert (len_p p + level C'1 = len_p p'1 + level C); eauto; try nia.
+     }
+     apply H1 in H4. destruct H4 as [INIT''' EQ'''];
+     rewrite c_plugin_adds_level in *. simpl in *.
+     replace (level C_lam + 1) with (S (level C_lam)) in * by nia.
+     destruct INIT''' as [INITe'' INITm''].
+     assert (S (len_p p_lam + level C'0) = len_p p'0 + S (level C_lam)). eauto.
+     nia.
+   - assert ((forall (addr : path) (v : expr_tm) (pf : value v) 
+        (p' : path) (C' : ctx),
+        (t :: p_lam !-> Val arg ARGV p_arg C_arg; e_mem) addr =
+        Some (Val v pf p' C') ->
+        S (len_p p_lam + level C') =
+        len_p p' + level (C_lam [|c_lam x c_hole|])) /\
+        (forall (addr p' : path) (C' : ctx),
+        m_mem addr = Some (Mod p' C') ->
+        S (len_p p_lam + level C') =
+        len_p p' + level (C_lam [|c_lam x c_hole|]))).
+    {
+        split; intros; unfold update_m in *; destruct (eq_p addr (t :: p_lam));
+        rewrite c_plugin_adds_level; simpl; 
+        replace (level C_lam + 1) with (S (level C_lam)) by nia;
+        try inversion H3; subst;
+        assert (len_p p + level C'0 = len_p p'0 + level C); eauto; try nia.
+     }
+     apply H1 in H3. destruct H3 as [INIT''' EQ'''];
+     rewrite c_plugin_adds_level in *. simpl in *.
+     replace (level C_lam + 1) with (S (level C_lam)) in * by nia.
+     destruct INIT''' as [INITe'' INITm''].
+     assert (S (len_p p_lam + level C') = len_p p' + S (level C_lam)). eauto.
+     nia.
+   - assert ((forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem3 addr = Some (Val v pf p' C') ->
+            len_p p_m + level C' = len_p p' + level C_m) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem3 addr = Some (Mod p' C') ->
+            len_p p_m + level C' = len_p p' + level C_m)).
+    {
+        split; intros;
+        assert (len_p p + level C'1 = len_p p'1 + level C); eauto; nia.
+    }
+    apply H0 in H. 
+    destruct H as [[INITe'' INITm''] EQ'''].
+    assert (len_p p_m + level C'0 = len_p p'0 + level C_m); eauto. nia.
+  - assert ((forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem3 addr = Some (Val v pf p' C') ->
+            len_p p_m + level C' = len_p p' + level C_m) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem3 addr = Some (Mod p' C') ->
+            len_p p_m + level C' = len_p p' + level C_m)).
+    {
+        split; intros;
+        assert (len_p p + level C'1 = len_p p'1 + level C); eauto; nia.
+    }
+    apply H0 in H. 
+    destruct H as [[INITe'' INITm''] EQ'''].
+    assert (len_p p_m + level C'0 = len_p p'0 + level C_m); eauto. nia.
+ - assert ((forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem3 addr = Some (Val v pf p' C') ->
+            len_p p_m + level C' = len_p p' + level C_m) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem3 addr = Some (Mod p' C') ->
+            len_p p_m + level C' = len_p p' + level C_m)).
+    {
+        split; intros;
+        assert (len_p p + level C'0 = len_p p'0 + level C); eauto; nia.
+    }
+    apply H0 in H. 
+    destruct H as [[INITe'' INITm''] EQ'''].
+    assert (len_p p_m + level C' = len_p p' + level C_m); eauto. nia.
+  Admitted.
