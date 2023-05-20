@@ -1334,3 +1334,47 @@ Proof.
                 len_p p' + level (C [|c_letm M c_hole|])); eauto.
     rewrite c_plugin_adds_level in *; simpl in *. nia.
 Qed.
+
+Theorem p_len_eq_level : forall st e p' C' st' e' e_mem m_mem t
+        (REACH : <e| [] c_hole st e ~> p' C' st' e' |e>)
+        (STATE1 : st = ST empty_mem empty_mem 0)
+        (STATE2 : st' = ST e_mem m_mem t),
+        st_len e_mem m_mem [] c_hole /\
+        len_p p' = level C'.
+Proof.
+  intros.
+  assert (INIT : st_len empty_mem empty_mem [] c_hole).
+  { split; intros; inversion H. }
+  specialize (ere_p_is_level [] c_hole st e
+                             p' C' st' e'
+                             REACH empty_mem empty_mem 0 e_mem m_mem t
+                             STATE1 STATE2 INIT) as [FST SND].
+  simpl in *. split; eauto; try nia.
+Qed.
+
+Theorem eval_then_reach : forall p1 C1 st1 e1 v st2
+                                 (EVAL : EevalR p1 C1 st1 e1 v st2)
+                                 e2 pf p2 C2
+                                 (VAL : v = Val e2 pf p2 C2),
+                                 <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>.
+Proof.
+  apply (EevalR_ind_mut 
+            (fun p1 C1 st1 e1 v st2
+                 (EVAL : EevalR p1 C1 st1 e1 v st2) =>
+                 forall e2 pf p2 C2
+                        (VAL : v = Val e2 pf p2 C2),
+                        <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>)
+            (fun p1 C1 st1 m1 v st2
+                 (EVAL : MevalR p1 C1 st1 m1 v st2) =>
+                 forall p2 C2 (VAL : v = Mod p2 C2),
+                        <m| p1 C1 st1 m1 ~> p2 C2 st2 m_empty |m>));
+  intros;
+  try rewrite VAL in *; try destruct arg; inversion VAL;
+  eauto using EreachE, EreachM, MreachE, MreachM, MevalR, EevalR.
+  - apply mrm_trans with (p2 := t :: p) (C2 := C [|c_lete x c_hole|])
+                         (st2 := ST ((t :: p) !-> v_e; e_mem) m_mem (update_t t)) (m2 := m);
+    destruct v_e; eauto using MreachM.
+  - apply mrm_trans with (p2 := t :: p) (C2 := C [|c_letm M c_hole|])
+                         (st2 := ST e_mem ((t :: p) !-> v_m1; m_mem) (update_t t)) (m2 := m2);
+    destruct v_m1; eauto using MreachM.
+Qed.
