@@ -867,4 +867,470 @@ Proof.
     apply H0 in H. 
     destruct H as [[INITe'' INITm''] EQ'''].
     assert (len_p p_m + level C' = len_p p' + level C_m); eauto. nia.
-  Admitted.
+  - assert (H1' : (forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            (t :: p_lam !-> Val arg ARGV p_arg C_arg; e_mem) addr =
+            Some (Val v pf p' C') ->
+            S (len_p p_lam + level C') =
+            len_p p' + level (C_lam [|c_lam x c_hole|])) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem addr = Some (Mod p' C') ->
+            S (len_p p_lam + level C') =
+            len_p p' + level (C_lam [|c_lam x c_hole|]))).
+    {
+      split; intros; unfold update_m in *; destruct (eq_p addr0 (t :: p_lam));
+      rewrite c_plugin_adds_level; simpl; 
+      replace (level C_lam + 1) with (S (level C_lam)) by nia;
+      try inversion H4; subst;
+      assert (len_p p + level C'1 = len_p p'1 + level C); eauto; try nia.
+    }
+    apply H1 in H1'; clear H1. destruct H1' as [INIT'' EQ].
+    destruct INIT'' as [INITe'' INITm''].
+    assert (H3' : S (len_p p_lam + level C'0) =
+                len_p p'0 + level (C_lam [|c_lam x c_hole|])); eauto.
+    rewrite c_plugin_adds_level in *; simpl in *. nia.
+  - assert (H1' : (forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            (t :: p_lam !-> Val arg ARGV p_arg C_arg; e_mem) addr =
+            Some (Val v pf p' C') ->
+            S (len_p p_lam + level C') =
+            len_p p' + level (C_lam [|c_lam x c_hole|])) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem addr = Some (Mod p' C') ->
+            S (len_p p_lam + level C') =
+            len_p p' + level (C_lam [|c_lam x c_hole|]))).
+    {
+      split; intros; unfold update_m in *; destruct (eq_p addr0 (t :: p_lam));
+      rewrite c_plugin_adds_level; simpl; 
+      replace (level C_lam + 1) with (S (level C_lam)) by nia;
+      try inversion H4; subst;
+      assert (len_p p + level C'1 = len_p p'1 + level C); eauto; try nia.
+    }
+    apply H1 in H1'; clear H1. destruct H1' as [INIT'' EQ].
+    destruct INIT'' as [INITe'' INITm''].
+    assert (H3' : S (len_p p_lam + level C'0) =
+                len_p p'0 + level (C_lam [|c_lam x c_hole|])); eauto.
+    rewrite c_plugin_adds_level in *; simpl in *. nia.
+  - assert (H1' : (forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            (t :: p_lam !-> Val arg ARGV p_arg C_arg; e_mem) addr =
+            Some (Val v pf p' C') ->
+            S (len_p p_lam + level C') =
+            len_p p' + level (C_lam [|c_lam x c_hole|])) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem addr = Some (Mod p' C') ->
+            S (len_p p_lam + level C') =
+            len_p p' + level (C_lam [|c_lam x c_hole|]))).
+    {
+      split; intros; unfold update_m in *; destruct (eq_p addr (t :: p_lam));
+      rewrite c_plugin_adds_level; simpl; 
+      replace (level C_lam + 1) with (S (level C_lam)) by nia;
+      try inversion H3; subst;
+      assert (len_p p + level C'0 = len_p p'0 + level C); eauto; try nia.
+    }
+    apply H1 in H1'; clear H1. destruct H1' as [INIT'' EQ].
+    destruct INIT'' as [INITe'' INITm''].
+    rewrite c_plugin_adds_level in *; simpl in *. nia.
+  - assert ((forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem3 addr = Some (Val v pf p' C') ->
+            len_p p_m + level C' = len_p p' + level C_m) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem3 addr = Some (Mod p' C') ->
+            len_p p_m + level C' = len_p p' + level C_m)).
+    {
+        split; intros;
+        assert (len_p p + level C'1 = len_p p'1 + level C); eauto; nia.
+    }
+    apply H0 in H. 
+    destruct H as [[INITe'' INITm''] EQ'''].
+    assert (len_p p_m + level C'0 = len_p p'0 + level C_m); eauto. nia.
+  - assert ((forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem3 addr = Some (Val v pf p' C') ->
+            len_p p_m + level C' = len_p p' + level C_m) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem3 addr = Some (Mod p' C') ->
+            len_p p_m + level C' = len_p p' + level C_m)).
+    {
+        split; intros;
+        assert (len_p p + level C'1 = len_p p'1 + level C); eauto; nia.
+    }
+    apply H0 in H. 
+    destruct H as [[INITe'' INITm''] EQ'''].
+    assert (len_p p_m + level C'0 = len_p p'0 + level C_m); eauto. nia.
+  - assert ((forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem3 addr = Some (Val v pf p' C') ->
+            len_p p_m + level C' = len_p p' + level C_m) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem3 addr = Some (Mod p' C') ->
+            len_p p_m + level C' = len_p p' + level C_m)).
+    {
+        split; intros;
+        assert (len_p p + level C'0 = len_p p'0 + level C); eauto; nia.
+    }
+    apply H0 in H. 
+    destruct H as [[INITe'' INITm''] EQ'''].
+    assert (len_p p_m + level C' = len_p p' + level C_m); eauto. nia.
+  - specialize (H e_mem1 m_mem1 t1 e_mem m_mem t eq_refl eq_refl).
+    specialize (H0 (t :: p !-> Val v xV p1 C1; e_mem) m_mem (update_t t)
+                    e_mem2 m_mem2 t2 eq_refl eq_refl).
+    assert (RR : (forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem1 addr = Some (Val v pf p' C') ->
+            len_p p + level C' = len_p p' + level C) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem1 addr = Some (Mod p' C') ->
+            len_p p + level C' = len_p p' + level C)). 
+    { split; eauto. }
+    apply H in RR; clear H; destruct RR as [[INITe' INITm'] EQ].
+    assert ((forall (addr : path) (v0 : expr_tm) (pf : value v0) 
+            (p' : path) (C' : ctx),
+            (t :: p !-> Val v xV p1 C1; e_mem) addr = Some (Val v0 pf p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_lete x c_hole|])) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem addr = Some (Mod p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_lete x c_hole|]))).
+    {
+      split; intros; unfold update_m in *; destruct (eq_p addr0 (t :: p));
+      rewrite c_plugin_adds_level; simpl;
+      replace (level C + 1) with (S (level C)) by nia;
+      try inversion H; subst;
+      assert (len_p p + level C'1 = len_p p'1 + level C); eauto; try nia.
+    }
+    apply H0 in H; clear H0; destruct H as [[INITe'' INITm''] EQ''].
+    assert (H3' : S (len_p p + level C'0) =
+                len_p p'0 + level (C [|c_lete x c_hole|])); eauto.
+    rewrite c_plugin_adds_level in *; simpl in *. nia.
+  - specialize (H e_mem1 m_mem1 t1 e_mem m_mem t eq_refl eq_refl).
+    specialize (H0 (t :: p !-> Val v xV p1 C1; e_mem) m_mem (update_t t)
+                    e_mem2 m_mem2 t2 eq_refl eq_refl).
+    assert (RR : (forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem1 addr = Some (Val v pf p' C') ->
+            len_p p + level C' = len_p p' + level C) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem1 addr = Some (Mod p' C') ->
+            len_p p + level C' = len_p p' + level C)). 
+    { split; eauto. }
+    apply H in RR; clear H; destruct RR as [[INITe' INITm'] EQ].
+    assert ((forall (addr : path) (v0 : expr_tm) (pf : value v0) 
+            (p' : path) (C' : ctx),
+            (t :: p !-> Val v xV p1 C1; e_mem) addr = Some (Val v0 pf p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_lete x c_hole|])) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem addr = Some (Mod p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_lete x c_hole|]))).
+    {
+      split; intros; unfold update_m in *; destruct (eq_p addr0 (t :: p));
+      rewrite c_plugin_adds_level; simpl;
+      replace (level C + 1) with (S (level C)) by nia;
+      try inversion H; subst;
+      assert (len_p p + level C'1 = len_p p'1 + level C); eauto; try nia.
+    }
+    apply H0 in H; clear H0; destruct H as [[INITe'' INITm''] EQ''].
+    assert (H3' : S (len_p p + level C'0) =
+                len_p p'0 + level (C [|c_lete x c_hole|])); eauto.
+    rewrite c_plugin_adds_level in *; simpl in *. nia.
+  - specialize (H e_mem1 m_mem1 t1 e_mem m_mem t eq_refl eq_refl).
+    specialize (H0 (t :: p !-> Val v xV p1 C1; e_mem) m_mem (update_t t)
+                    e_mem2 m_mem2 t2 eq_refl eq_refl).
+    assert (RR : (forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem1 addr = Some (Val v pf p' C') ->
+            len_p p + level C' = len_p p' + level C) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem1 addr = Some (Mod p' C') ->
+            len_p p + level C' = len_p p' + level C)). 
+    { split; eauto. }
+    apply H in RR; clear H; destruct RR as [[INITe' INITm'] EQ].
+    assert ((forall (addr : path) (v0 : expr_tm) (pf : value v0) 
+            (p' : path) (C' : ctx),
+            (t :: p !-> Val v xV p1 C1; e_mem) addr = Some (Val v0 pf p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_lete x c_hole|])) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem addr = Some (Mod p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_lete x c_hole|]))).
+    {
+      split; intros; unfold update_m in *; destruct (eq_p addr (t :: p));
+      rewrite c_plugin_adds_level; simpl;
+      replace (level C + 1) with (S (level C)) by nia;
+      try inversion H; subst;
+      assert (len_p p + level C'0 = len_p p'0 + level C); eauto; try nia.
+    }
+    apply H0 in H; clear H0; destruct H as [[INITe'' INITm''] EQ''].
+    assert (H3' : S (len_p p + level C') =
+                len_p p' + level (C [|c_lete x c_hole|])); eauto.
+    rewrite c_plugin_adds_level in *; simpl in *. nia.
+  - specialize (H e_mem1 m_mem1 t1 e_mem m_mem t eq_refl eq_refl).
+    specialize (H0 e_mem (t :: p !-> Mod p1 C1; m_mem) (update_t t)
+                    e_mem2 m_mem2 t2 eq_refl eq_refl).
+    assert (RR : (forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem1 addr = Some (Val v pf p' C') ->
+            len_p p + level C' = len_p p' + level C) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem1 addr = Some (Mod p' C') ->
+            len_p p + level C' = len_p p' + level C)). 
+    { split; eauto. }
+    apply H in RR; clear H; destruct RR as [[INITe' INITm'] EQ].
+    assert ((forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem addr = Some (Val v pf p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_letm M c_hole|])) /\
+            (forall (addr p' : path) (C' : ctx),
+            (t :: p !-> Mod p1 C1; m_mem) addr = Some (Mod p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_letm M c_hole|]))).
+    {
+      split; intros; unfold update_m in *; destruct (eq_p addr0 (t :: p));
+      rewrite c_plugin_adds_level; simpl;
+      replace (level C + 1) with (S (level C)) by nia;
+      try inversion H; subst;
+      assert (len_p p + level C'1 = len_p p'1 + level C); eauto; try nia.
+    }
+    apply H0 in H; clear H0; destruct H as [[INITe'' INITm''] EQ''].
+    assert (H3' : S (len_p p + level C'0) =
+                len_p p'0 + level (C [|c_letm M c_hole|])); eauto.
+    rewrite c_plugin_adds_level in *; simpl in *. nia.
+  - specialize (H e_mem1 m_mem1 t1 e_mem m_mem t eq_refl eq_refl).
+    specialize (H0 e_mem (t :: p !-> Mod p1 C1; m_mem) (update_t t)
+                    e_mem2 m_mem2 t2 eq_refl eq_refl).
+    assert (RR : (forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem1 addr = Some (Val v pf p' C') ->
+            len_p p + level C' = len_p p' + level C) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem1 addr = Some (Mod p' C') ->
+            len_p p + level C' = len_p p' + level C)). 
+    { split; eauto. }
+    apply H in RR; clear H; destruct RR as [[INITe' INITm'] EQ].
+    assert ((forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem addr = Some (Val v pf p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_letm M c_hole|])) /\
+            (forall (addr p' : path) (C' : ctx),
+            (t :: p !-> Mod p1 C1; m_mem) addr = Some (Mod p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_letm M c_hole|]))).
+    {
+      split; intros; unfold update_m in *; destruct (eq_p addr0 (t :: p));
+      rewrite c_plugin_adds_level; simpl;
+      replace (level C + 1) with (S (level C)) by nia;
+      try inversion H; subst;
+      assert (len_p p + level C'1 = len_p p'1 + level C); eauto; try nia.
+    }
+    apply H0 in H; clear H0; destruct H as [[INITe'' INITm''] EQ''].
+    assert (H3' : S (len_p p + level C'0) =
+                len_p p'0 + level (C [|c_letm M c_hole|])); eauto.
+    rewrite c_plugin_adds_level in *; simpl in *. nia.
+  - specialize (H e_mem1 m_mem1 t1 e_mem m_mem t eq_refl eq_refl).
+    specialize (H0 e_mem (t :: p !-> Mod p1 C1; m_mem) (update_t t)
+                    e_mem2 m_mem2 t2 eq_refl eq_refl).
+    assert (RR : (forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem1 addr = Some (Val v pf p' C') ->
+            len_p p + level C' = len_p p' + level C) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem1 addr = Some (Mod p' C') ->
+            len_p p + level C' = len_p p' + level C)). 
+    { split; eauto. }
+    apply H in RR; clear H; destruct RR as [[INITe' INITm'] EQ].
+    assert ((forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem addr = Some (Val v pf p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_letm M c_hole|])) /\
+            (forall (addr p' : path) (C' : ctx),
+            (t :: p !-> Mod p1 C1; m_mem) addr = Some (Mod p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_letm M c_hole|]))).
+    {
+      split; intros; unfold update_m in *; destruct (eq_p addr (t :: p));
+      rewrite c_plugin_adds_level; simpl;
+      replace (level C + 1) with (S (level C)) by nia;
+      try inversion H; subst;
+      assert (len_p p + level C'0 = len_p p'0 + level C); eauto; try nia.
+    }
+    apply H0 in H; clear H0; destruct H as [[INITe'' INITm''] EQ''].
+    assert (H3' : S (len_p p + level C') =
+                len_p p' + level (C [|c_letm M c_hole|])); eauto.
+    rewrite c_plugin_adds_level in *; simpl in *. nia.
+  - specialize (H e_mem1 m_mem1 t1 e_mem m_mem t eq_refl eq_refl).
+    specialize (H0 (t :: p !-> Val v xV p1 C1; e_mem) m_mem (update_t t)
+                    e_mem2 m_mem2 t2 eq_refl eq_refl).
+    assert (RR : (forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem1 addr = Some (Val v pf p' C') ->
+            len_p p + level C' = len_p p' + level C) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem1 addr = Some (Mod p' C') ->
+            len_p p + level C' = len_p p' + level C)). 
+    { split; eauto. }
+    apply H in RR; clear H; destruct RR as [[INITe' INITm'] EQ].
+    assert ((forall (addr : path) (v0 : expr_tm) (pf : value v0) 
+            (p' : path) (C' : ctx),
+            (t :: p !-> Val v xV p1 C1; e_mem) addr = Some (Val v0 pf p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_lete x c_hole|])) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem addr = Some (Mod p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_lete x c_hole|]))).
+    {
+      split; intros; unfold update_m in *; destruct (eq_p addr0 (t :: p));
+      rewrite c_plugin_adds_level; simpl;
+      replace (level C + 1) with (S (level C)) by nia;
+      try inversion H; subst;
+      assert (len_p p + level C'1 = len_p p'1 + level C); eauto; try nia.
+    }
+    apply H0 in H; clear H0; destruct H as [[INITe'' INITm''] EQ''].
+    assert (H3' : S (len_p p + level C'0) =
+                len_p p'0 + level (C [|c_lete x c_hole|])); eauto.
+    rewrite c_plugin_adds_level in *; simpl in *. nia.
+  - specialize (H e_mem1 m_mem1 t1 e_mem m_mem t eq_refl eq_refl).
+    specialize (H0 (t :: p !-> Val v xV p1 C1; e_mem) m_mem (update_t t)
+                    e_mem2 m_mem2 t2 eq_refl eq_refl).
+    assert (RR : (forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem1 addr = Some (Val v pf p' C') ->
+            len_p p + level C' = len_p p' + level C) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem1 addr = Some (Mod p' C') ->
+            len_p p + level C' = len_p p' + level C)). 
+    { split; eauto. }
+    apply H in RR; clear H; destruct RR as [[INITe' INITm'] EQ].
+    assert ((forall (addr : path) (v0 : expr_tm) (pf : value v0) 
+            (p' : path) (C' : ctx),
+            (t :: p !-> Val v xV p1 C1; e_mem) addr = Some (Val v0 pf p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_lete x c_hole|])) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem addr = Some (Mod p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_lete x c_hole|]))).
+    {
+      split; intros; unfold update_m in *; destruct (eq_p addr0 (t :: p));
+      rewrite c_plugin_adds_level; simpl;
+      replace (level C + 1) with (S (level C)) by nia;
+      try inversion H; subst;
+      assert (len_p p + level C'1 = len_p p'1 + level C); eauto; try nia.
+    }
+    apply H0 in H; clear H0; destruct H as [[INITe'' INITm''] EQ''].
+    assert (H3' : S (len_p p + level C'0) =
+                len_p p'0 + level (C [|c_lete x c_hole|])); eauto.
+    rewrite c_plugin_adds_level in *; simpl in *. nia.
+  - specialize (H e_mem1 m_mem1 t1 e_mem m_mem t eq_refl eq_refl).
+    specialize (H0 (t :: p !-> Val v xV p1 C1; e_mem) m_mem (update_t t)
+                    e_mem2 m_mem2 t2 eq_refl eq_refl).
+    assert (RR : (forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem1 addr = Some (Val v pf p' C') ->
+            len_p p + level C' = len_p p' + level C) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem1 addr = Some (Mod p' C') ->
+            len_p p + level C' = len_p p' + level C)). 
+    { split; eauto. }
+    apply H in RR; clear H; destruct RR as [[INITe' INITm'] EQ].
+    assert ((forall (addr : path) (v0 : expr_tm) (pf : value v0) 
+            (p' : path) (C' : ctx),
+            (t :: p !-> Val v xV p1 C1; e_mem) addr = Some (Val v0 pf p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_lete x c_hole|])) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem addr = Some (Mod p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_lete x c_hole|]))).
+    {
+      split; intros; unfold update_m in *; destruct (eq_p addr (t :: p));
+      rewrite c_plugin_adds_level; simpl;
+      replace (level C + 1) with (S (level C)) by nia;
+      try inversion H; subst;
+      assert (len_p p + level C'0 = len_p p'0 + level C); eauto; try nia.
+    }
+    apply H0 in H; clear H0; destruct H as [[INITe'' INITm''] EQ''].
+    assert (H3' : S (len_p p + level C') =
+                len_p p' + level (C [|c_lete x c_hole|])); eauto.
+    rewrite c_plugin_adds_level in *; simpl in *. nia.
+  - specialize (H e_mem1 m_mem1 t1 e_mem m_mem t eq_refl eq_refl).
+    specialize (H0 e_mem (t :: p !-> Mod p1 C1; m_mem) (update_t t)
+                    e_mem2 m_mem2 t2 eq_refl eq_refl).
+    assert (RR : (forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem1 addr = Some (Val v pf p' C') ->
+            len_p p + level C' = len_p p' + level C) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem1 addr = Some (Mod p' C') ->
+            len_p p + level C' = len_p p' + level C)). 
+    { split; eauto. }
+    apply H in RR; clear H; destruct RR as [[INITe' INITm'] EQ].
+    assert ((forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem addr = Some (Val v pf p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_letm M c_hole|])) /\
+            (forall (addr p' : path) (C' : ctx),
+            (t :: p !-> Mod p1 C1; m_mem) addr = Some (Mod p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_letm M c_hole|]))).
+    {
+      split; intros; unfold update_m in *; destruct (eq_p addr0 (t :: p));
+      rewrite c_plugin_adds_level; simpl;
+      replace (level C + 1) with (S (level C)) by nia;
+      try inversion H; subst;
+      assert (len_p p + level C'1 = len_p p'1 + level C); eauto; try nia.
+    }
+    apply H0 in H; clear H0; destruct H as [[INITe'' INITm''] EQ''].
+    assert (H3' : S (len_p p + level C'0) =
+                len_p p'0 + level (C [|c_letm M c_hole|])); eauto.
+    rewrite c_plugin_adds_level in *; simpl in *. nia.
+  - specialize (H e_mem1 m_mem1 t1 e_mem m_mem t eq_refl eq_refl).
+    specialize (H0 e_mem (t :: p !-> Mod p1 C1; m_mem) (update_t t)
+                    e_mem2 m_mem2 t2 eq_refl eq_refl).
+    assert (RR : (forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem1 addr = Some (Val v pf p' C') ->
+            len_p p + level C' = len_p p' + level C) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem1 addr = Some (Mod p' C') ->
+            len_p p + level C' = len_p p' + level C)). 
+    { split; eauto. }
+    apply H in RR; clear H; destruct RR as [[INITe' INITm'] EQ].
+    assert ((forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem addr = Some (Val v pf p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_letm M c_hole|])) /\
+            (forall (addr p' : path) (C' : ctx),
+            (t :: p !-> Mod p1 C1; m_mem) addr = Some (Mod p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_letm M c_hole|]))).
+    {
+      split; intros; unfold update_m in *; destruct (eq_p addr0 (t :: p));
+      rewrite c_plugin_adds_level; simpl;
+      replace (level C + 1) with (S (level C)) by nia;
+      try inversion H; subst;
+      assert (len_p p + level C'1 = len_p p'1 + level C); eauto; try nia.
+    }
+    apply H0 in H; clear H0; destruct H as [[INITe'' INITm''] EQ''].
+    assert (H3' : S (len_p p + level C'0) =
+                len_p p'0 + level (C [|c_letm M c_hole|])); eauto.
+    rewrite c_plugin_adds_level in *; simpl in *. nia.
+  - specialize (H e_mem1 m_mem1 t1 e_mem m_mem t eq_refl eq_refl).
+    specialize (H0 e_mem (t :: p !-> Mod p1 C1; m_mem) (update_t t)
+                    e_mem2 m_mem2 t2 eq_refl eq_refl).
+    assert (RR : (forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem1 addr = Some (Val v pf p' C') ->
+            len_p p + level C' = len_p p' + level C) /\
+            (forall (addr p' : path) (C' : ctx),
+            m_mem1 addr = Some (Mod p' C') ->
+            len_p p + level C' = len_p p' + level C)). 
+    { split; eauto. }
+    apply H in RR; clear H; destruct RR as [[INITe' INITm'] EQ].
+    assert ((forall (addr : path) (v : expr_tm) (pf : value v) 
+            (p' : path) (C' : ctx),
+            e_mem addr = Some (Val v pf p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_letm M c_hole|])) /\
+            (forall (addr p' : path) (C' : ctx),
+            (t :: p !-> Mod p1 C1; m_mem) addr = Some (Mod p' C') ->
+            S (len_p p + level C') = len_p p' + level (C [|c_letm M c_hole|]))).
+    {
+      split; intros; unfold update_m in *; destruct (eq_p addr (t :: p));
+      rewrite c_plugin_adds_level; simpl;
+      replace (level C + 1) with (S (level C)) by nia;
+      try inversion H; subst;
+      assert (len_p p + level C'0 = len_p p'0 + level C); eauto; try nia.
+    }
+    apply H0 in H; clear H0; destruct H as [[INITe'' INITm''] EQ''].
+    assert (H3' : S (len_p p + level C') =
+                len_p p' + level (C [|c_letm M c_hole|])); eauto.
+    rewrite c_plugin_adds_level in *; simpl in *. nia.
+Qed.
