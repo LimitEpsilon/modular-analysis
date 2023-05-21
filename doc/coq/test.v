@@ -316,42 +316,201 @@ with MevalR_ind_mut := Induction for MevalR Sort Prop.
 
 Definition Reach (tm1 tm2 : Type) := tm1 -> path -> ctx -> state -> tm2 -> Prop.
 
-(* Reachability relation *)
+(* Reachability relation, sensible version *)
+Inductive _EreachE (p : path) (C : ctx) (st : state)
+    : Reach expr_tm expr_tm :=
+  | _ere_refl e
+    : _EreachE p C st e 
+               p C st e
+  | _ere_var x i p_x e_mem m_mem t v pf p_v C_v
+            (STATE : ST e_mem m_mem t = st)
+            (INDEX : Some i = index_expr C x)
+            (POP : Some p_x = pop p i)
+            (ACCESS : Some (Val v pf p_v C_v) = e_mem p_x)
+    : _EreachE p C st (e_var x) 
+               p_v C_v st v
+  | _ere_app_left e1 e2 p' C' st' e'
+                 (REACHl : _EreachE p C st e1
+                                    p' C' st' e')
+    : _EreachE p C st (e_app e1 e2) 
+               p' C' st' e'
+  | _ere_app_right e1 e2 st1 v p' C' st' e'
+                  (FN : EevalR p C st e1 v st1)
+                  (REACHr : _EreachE p C st1 e2
+                                     p' C' st' e')
+    : _EreachE p C st (e_app e1 e2)
+               p' C' st' e'
+  | _ere_app_body e1 e2 x e p_lam C_lam st_lam
+                 arg e_mem m_mem t
+                 p' C' st' e'
+                 (FN : EevalR p C st e1 
+                             (Val (e_lam x e) (v_fn x e) p_lam C_lam) st_lam)
+                 (ARG : EevalR p C st_lam e2
+                               arg (ST e_mem m_mem t))
+                 (REACHb : _EreachE (t :: p_lam) (C_lam[|c_lam x c_hole|]) 
+                                    (ST ((t :: p_lam) !-> arg ; e_mem) m_mem (update_t t)) e
+                                     p' C' st' e')
+    : _EreachE p C st (e_app e1 e2)
+               p' C' st' e'
+  | _ere_link_m m e p' C' st' e'
+               (REACHm : _MreachE p C st m
+                                  p' C' st' e')
+    : _EreachE p C st (e_link m e)
+               p' C' st' e'
+  | _ere_link_e m e p_m C_m st_m p' C' st' e'
+               (MOD : MevalR p C st m (Mod p_m C_m) st_m)
+               (REACHe : _EreachE p_m C_m st_m e
+                                  p' C' st' e')
+    : _EreachE p C st (e_link m e)
+               p' C' st' e'
+
+with _MreachE (p : path) (C : ctx) (st : state)
+    : Reach mod_tm expr_tm :=
+  | _mre_lete_e x e m p' C' st' e'
+               (REACHe : _EreachE p C st e
+                                  p' C' st' e')
+    : _MreachE p C st (m_lete x e m)
+               p' C' st' e'
+  | _mre_lete_m x e m v e_mem m_mem t
+             p' C' st' e'
+             (EVALx : EevalR p C st e v (ST e_mem m_mem t))
+             (REACHm : _MreachE (t :: p) (C[|c_lete x c_hole|])
+                                (ST ((t :: p) !-> v ; e_mem) m_mem (update_t t)) m
+                                 p' C' st' e')
+    : _MreachE p C st (m_lete x e m)
+               p' C' st' e'
+  | _mre_letm_m1 M m1 m2 p' C' st' e'
+               (REACHm : _MreachE p C st m1
+                                  p' C' st' e')
+    : _MreachE p C st (m_letm M m1 m2)
+              p' C' st' e'
+  | _mre_letm_m2 M m1 m2 v e_mem m_mem t
+             p' C' st' e'
+             (EVALM : MevalR p C st m1 v (ST e_mem m_mem t))
+             (REACHm : _MreachE (t :: p) (C[|c_letm M c_hole|]) 
+                                (ST e_mem ((t :: p) !-> v ; m_mem) (update_t t)) m2
+                                 p' C' st' e')
+    : _MreachE p C st (m_letm M m1 m2)
+               p' C' st' e'.
+
+Scheme __EreachE_ind_mut := Induction for _EreachE Sort Prop
+with __MreachE_ind_mut := Induction for _MreachE Sort Prop.
+
+Inductive _MreachM (p : path) (C : ctx) (st : state)
+    : Reach mod_tm mod_tm :=
+  | _mrm_refl m
+    : _MreachM p C st m
+               p C st m
+  | _mrm_var M i p_M e_mem m_mem t p_v C_v
+            (STATE : ST e_mem m_mem t = st)
+            (INDEX : Some i = index_mod C M)
+            (POP : Some p_M = pop p i)
+            (ACCESS : Some (Mod p_v C_v) = m_mem p_M)
+    : _MreachM p C st (m_var M)
+               p_v C_v st m_empty
+  | _mrm_lete_e x e m p' C' st' m'
+               (REACHe : _EreachM p C st e
+                                  p' C' st' m')
+    : _MreachM p C st (m_lete x e m)
+               p' C' st' m'
+  | _mrm_lete_m x e m v e_mem m_mem t
+             p' C' st' m'
+             (EVALx : EevalR p C st e v (ST e_mem m_mem t))
+             (REACHm : _MreachM (t :: p) (C[|c_lete x c_hole|]) 
+                                (ST ((t :: p) !-> v ; e_mem) m_mem (update_t t)) m
+                                 p' C' st' m')
+    : _MreachM p C st (m_lete x e m)
+               p' C' st' m'
+  | _mrm_letm_m1 M m1 m2 p' C' st' m'
+               (REACHm : _MreachM p C st m1
+                                  p' C' st' m')
+    : _MreachM p C st (m_letm M m1 m2)
+               p' C' st' m'
+  | _mrm_letm_m2 M m1 m2 v e_mem m_mem t
+             p' C' st' m'
+             (EVALM : MevalR p C st m1 v (ST e_mem m_mem t))
+             (REACHm : _MreachM (t :: p) (C[|c_letm M c_hole|]) 
+                                (ST e_mem ((t :: p) !-> v ; m_mem) (update_t t)) m2
+                                 p' C' st' m')
+    : _MreachM p C st (m_letm M m1 m2)
+               p' C' st' m'
+
+with _EreachM (p : path) (C : ctx) (st : state)
+    : Reach expr_tm mod_tm :=
+  | _erm_app_left e1 e2 p' C' st' m'
+                 (REACHl : _EreachM p C st e1
+                                    p' C' st' m')
+    : _EreachM p C st (e_app e1 e2) 
+               p' C' st' m'
+  | _erm_app_right e1 e2 v1 st1 p' C' st' m'
+                  (FN : EevalR p C st e1 v1 st1)
+                  (REACHr : _EreachM p C st1 e2
+                                     p' C' st' m')
+    : _EreachM p C st (e_app e1 e2)
+               p' C' st' m'
+  | _erm_app_body e1 e2 x e p_lam C_lam st_lam
+                 arg e_mem m_mem t
+                 p' C' st' m'
+                 (FN : EevalR p C st e1 
+                              (Val (e_lam x e) (v_fn x e) p_lam C_lam) st_lam)
+                 (ARG : EevalR p C st_lam e2 arg (ST e_mem m_mem t))
+                 (REACHb : _EreachM (t :: p_lam) (C_lam[|c_lam x c_hole|]) 
+                                    (ST ((t :: p_lam) !-> arg ; e_mem) m_mem (update_t t)) e
+                                     p' C' st' m')
+    : _EreachM p C st (e_app e1 e2)
+               p' C' st' m'
+  | _erm_link_m m e p' C' st' m'
+               (REACHm : _MreachM p C st m
+                                  p' C' st' m')
+    : _EreachM p C st (e_link m e)
+               p' C' st' m'
+  | _erm_link_e m e p_m C_m st_m p' C' st' m'
+               (MOD : MevalR p C st m (Mod p_m C_m) st_m)
+               (REACHe : _EreachM p_m C_m st_m e
+                                  p' C' st' m')
+    : _EreachM p C st (e_link m e)
+               p' C' st' m'
+.
+
+Scheme __EreachM_ind_mut := Induction for _EreachM Sort Prop
+with __MreachM_ind_mut := Induction for _MreachM Sort Prop.
+
+(* for proofs *)
 Inductive EreachE (p : path) (C : ctx) (st : state)
     : Reach expr_tm expr_tm :=
   | ere_refl e
     : EreachE p C st e 
               p C st e
-  | ere_var x i e_mem m_mem t p_x e' pf p' C'
-            (STATE : st = ST e_mem m_mem t)
+  | ere_var x i p_x e_mem m_mem t v pf p_v C_v
+            (STATE : ST e_mem m_mem t = st)
             (INDEX : Some i = index_expr C x)
             (POP : Some p_x = pop p i)
-            (ACCESS : Some (Val e' pf p' C') = e_mem p_x)
-    : EreachE p C st (e_var x)
-              p' C' st e'
+            (ACCESS : Some (Val v pf p_v C_v) = e_mem p_x)
+    : EreachE p C st (e_var x) 
+              p_v C_v st v
   | ere_app_left e1 e2 p' C' st' e'
                  (REACHl : EreachE p C st e1
                                    p' C' st' e')
     : EreachE p C st (e_app e1 e2) 
               p' C' st' e'
-  | ere_app_right e1 e2 p1 C1 st1 v1 p' C' st' e'
-                  (FN : EreachE p C st e1
-                                p1 C1 st1 v1)
-                  (FNV : value v1)
+  | ere_app_right e1 e2 st1 v pf p1 C1 p' C' st' e'
+                  (FN : EevalR p C st e1 (Val v pf p1 C1) st1)
+                  (FNr : EreachE p C st e1 p1 C1 st1 v)
                   (REACHr : EreachE p C st1 e2
                                     p' C' st' e')
     : EreachE p C st (e_app e1 e2)
               p' C' st' e'
   | ere_app_body e1 e2 x e p_lam C_lam st_lam
-                 p_arg C_arg arg e_mem m_mem t
+                 arg pf p_arg C_arg e_mem m_mem t
                  p' C' st' e'
-                 (FN : EreachE p C st e1 
-                               p_lam C_lam st_lam (e_lam x e))
-                 (ARG : EreachE p C st_lam e2
-                                p_arg C_arg (ST e_mem m_mem t) arg)
-                 (ARGV : value arg)
+                 (FN : EevalR p C st e1 
+                             (Val (e_lam x e) (v_fn x e) p_lam C_lam) st_lam)
+                 (FNr : EreachE p C st e1 p_lam C_lam st_lam (e_lam x e))
+                 (ARG : EevalR p C st_lam e2
+                               (Val arg pf p_arg C_arg) (ST e_mem m_mem t))
+                 (ARGr : EreachE p C st_lam e2 p_arg C_arg (ST e_mem m_mem t) arg)
                  (REACHb : EreachE (t :: p_lam) (C_lam[|c_lam x c_hole|]) 
-                                   (ST ((t :: p_lam) !-> (Val arg ARGV p_arg C_arg) ; e_mem) m_mem (update_t t)) e
+                                   (ST ((t :: p_lam) !-> (Val arg pf p_arg C_arg) ; e_mem) m_mem (update_t t)) e
                                     p' C' st' e')
     : EreachE p C st (e_app e1 e2)
               p' C' st' e'
@@ -361,8 +520,8 @@ Inductive EreachE (p : path) (C : ctx) (st : state)
     : EreachE p C st (e_link m e)
               p' C' st' e'
   | ere_link_e m e p_m C_m st_m p' C' st' e'
-               (MOD : MreachM p C st m 
-                              p_m C_m st_m m_empty)
+               (MOD : MevalR p C st m (Mod p_m C_m) st_m)
+               (MODr : MreachM p C st m p_m C_m st_m m_empty)
                (REACHe : EreachE p_m C_m st_m e
                                  p' C' st' e')
     : EreachE p C st (e_link m e)
@@ -375,13 +534,12 @@ with MreachE (p : path) (C : ctx) (st : state)
                                  p' C' st' e')
     : MreachE p C st (m_lete x e m)
               p' C' st' e'
-  | mre_lete_m x e m p1 C1 v e_mem m_mem t
+  | mre_lete_m x e m v pf p1 C1 e_mem m_mem t
              p' C' st' e'
-             (EVALx : EreachE p C st e
-                              p1 C1 (ST e_mem m_mem t) v)
-             (xV : value v)
+             (EVALx : EevalR p C st e (Val v pf p1 C1) (ST e_mem m_mem t))
+             (EVALxr : EreachE p C st e p1 C1 (ST e_mem m_mem t) v)
              (REACHm : MreachE (t :: p) (C[|c_lete x c_hole|])
-                               (ST ((t :: p) !-> (Val v xV p1 C1) ; e_mem) m_mem (update_t t)) m
+                               (ST ((t :: p) !-> (Val v pf p1 C1) ; e_mem) m_mem (update_t t)) m
                                 p' C' st' e')
     : MreachE p C st (m_lete x e m)
               p' C' st' e'
@@ -390,12 +548,12 @@ with MreachE (p : path) (C : ctx) (st : state)
                                  p' C' st' e')
     : MreachE p C st (m_letm M m1 m2)
               p' C' st' e'
-  | mre_letm_m2 M m1 m2 p1 C1 e_mem m_mem t
+  | mre_letm_m2 M m1 m2 p_m C_m e_mem m_mem t
              p' C' st' e'
-             (EVALM : MreachM p C st m1
-                              p1 C1 (ST e_mem m_mem t) m_empty)
+             (EVALM : MevalR p C st m1 (Mod p_m C_m) (ST e_mem m_mem t))
+             (EVALMr : MreachM p C st m1 p_m C_m (ST e_mem m_mem t) m_empty)
              (REACHm : MreachE (t :: p) (C[|c_letm M c_hole|]) 
-                               (ST e_mem ((t :: p) !-> (Mod p1 C1) ; m_mem) (update_t t)) m2
+                               (ST e_mem ((t :: p) !-> (Mod p_m C_m) ; m_mem) (update_t t)) m2
                                 p' C' st' e')
     : MreachE p C st (m_letm M m1 m2)
               p' C' st' e'
@@ -405,25 +563,24 @@ with MreachM (p : path) (C : ctx) (st : state)
   | mrm_refl m
     : MreachM p C st m
               p C st m
-  | mrm_var M i e_mem m_mem t p_M p' C'
-            (STATE : st = ST e_mem m_mem t)
+  | mrm_var M i p_M e_mem m_mem t p_v C_v
+            (STATE : ST e_mem m_mem t = st)
             (INDEX : Some i = index_mod C M)
             (POP : Some p_M = pop p i)
-            (ACCESS : Some (Mod p' C') = m_mem p_M)
+            (ACCESS : Some (Mod p_v C_v) = m_mem p_M)
     : MreachM p C st (m_var M)
-              p' C' st m_empty
+              p_v C_v st m_empty
   | mrm_lete_e x e m p' C' st' m'
                (REACHe : EreachM p C st e
                                  p' C' st' m')
     : MreachM p C st (m_lete x e m)
               p' C' st' m'
-  | mrm_lete_m x e m p1 C1 v e_mem m_mem t
+  | mrm_lete_m x e m v pf p1 C1 e_mem m_mem t
              p' C' st' m'
-             (EVALx : EreachE p C st e 
-                              p1 C1 (ST e_mem m_mem t) v)
-             (xV : value v)
-             (REACHm : MreachM (t :: p) (C[|c_lete x c_hole|]) 
-                               (ST ((t :: p) !-> (Val v xV p1 C1) ; e_mem) m_mem (update_t t)) m
+             (EVALx : EevalR p C st e (Val v pf p1 C1) (ST e_mem m_mem t))
+             (EVALxr : EreachE p C st e p1 C1 (ST e_mem m_mem t) v)
+             (REACHm : MreachM (t :: p) (C[|c_lete x c_hole|])
+                               (ST ((t :: p) !-> (Val v pf p1 C1) ; e_mem) m_mem (update_t t)) m
                                 p' C' st' m')
     : MreachM p C st (m_lete x e m)
               p' C' st' m'
@@ -432,12 +589,12 @@ with MreachM (p : path) (C : ctx) (st : state)
                                  p' C' st' m')
     : MreachM p C st (m_letm M m1 m2)
               p' C' st' m'
-  | mrm_letm_m2 M m1 m2 p1 C1 e_mem m_mem t
+  | mrm_letm_m2 M m1 m2 p_m C_m e_mem m_mem t
              p' C' st' m'
-             (EVALM : MreachM p C st m1 
-                              p1 C1 (ST e_mem m_mem t) m_empty)
+             (EVALM : MevalR p C st m1 (Mod p_m C_m) (ST e_mem m_mem t))
+             (EVALMr : MreachM p C st m1 p_m C_m (ST e_mem m_mem t) m_empty)
              (REACHm : MreachM (t :: p) (C[|c_letm M c_hole|]) 
-                               (ST e_mem ((t :: p) !-> (Mod p1 C1) ; m_mem) (update_t t)) m2
+                               (ST e_mem ((t :: p) !-> (Mod p_m C_m) ; m_mem) (update_t t)) m2
                                 p' C' st' m')
     : MreachM p C st (m_letm M m1 m2)
               p' C' st' m'
@@ -449,24 +606,24 @@ with EreachM (p : path) (C : ctx) (st : state)
                                    p' C' st' m')
     : EreachM p C st (e_app e1 e2) 
               p' C' st' m'
-  | erm_app_right e1 e2 p1 C1 v1 st1 p' C' st' m'
-                  (FN : EreachE p C st e1 
-                                p1 C1 st1 v1)
-                  (FNV : value v1)
+  | erm_app_right e1 e2 st1 v pf p1 C1 p' C' st' m'
+                  (FN : EevalR p C st e1 (Val v pf p1 C1) st1)
+                  (FNr : EreachE p C st e1 p1 C1 st1 v)
                   (REACHr : EreachM p C st1 e2
                                     p' C' st' m')
     : EreachM p C st (e_app e1 e2)
               p' C' st' m'
   | erm_app_body e1 e2 x e p_lam C_lam st_lam
-                 p_arg C_arg arg e_mem m_mem t
+                 arg pf p_arg C_arg e_mem m_mem t
                  p' C' st' m'
-                 (FN : EreachE p C st e1 
-                               p_lam C_lam st_lam (e_lam x e))
-                 (ARG : EreachE p C st_lam e2
-                                p_arg C_arg (ST e_mem m_mem t) arg)
-                 (ARGV : value arg)
+                 (FN : EevalR p C st e1 
+                             (Val (e_lam x e) (v_fn x e) p_lam C_lam) st_lam)
+                 (FNr : EreachE p C st e1 p_lam C_lam st_lam (e_lam x e))
+                 (ARG : EevalR p C st_lam e2
+                               (Val arg pf p_arg C_arg) (ST e_mem m_mem t))
+                 (ARGr : EreachE p C st_lam e2 p_arg C_arg (ST e_mem m_mem t) arg)
                  (REACHb : EreachM (t :: p_lam) (C_lam[|c_lam x c_hole|]) 
-                                   (ST ((t :: p_lam) !-> (Val arg ARGV p_arg C_arg) ; e_mem) m_mem (update_t t)) e
+                                   (ST ((t :: p_lam) !-> (Val arg pf p_arg C_arg) ; e_mem) m_mem (update_t t)) e
                                     p' C' st' m')
     : EreachM p C st (e_app e1 e2)
               p' C' st' m'
@@ -476,17 +633,18 @@ with EreachM (p : path) (C : ctx) (st : state)
     : EreachM p C st (e_link m e)
               p' C' st' m'
   | erm_link_e m e p_m C_m st_m p' C' st' m'
-               (MOD : MreachM p C st m p_m C_m st_m m_empty)
+               (MOD : MevalR p C st m (Mod p_m C_m) st_m)
+               (MODr : MreachM p C st m p_m C_m st_m m_empty)
                (REACHe : EreachM p_m C_m st_m e
                                  p' C' st' m')
     : EreachM p C st (e_link m e)
               p' C' st' m'
 .
 
-Scheme EreachE_ind_mut := Induction for EreachE Sort Prop
-with EreachM_ind_mut := Induction for EreachM Sort Prop
-with MreachE_ind_mut := Induction for MreachE Sort Prop
-with MreachM_ind_mut := Induction for MreachM Sort Prop.
+Scheme _EreachE_ind_mut := Induction for EreachE Sort Prop
+with _EreachM_ind_mut := Induction for EreachM Sort Prop
+with _MreachE_ind_mut := Induction for MreachE Sort Prop
+with _MreachM_ind_mut := Induction for MreachM Sort Prop.
 
 Notation "'<e|' p1 C1 st1 tm1 '~>' p2 C2 st2 tm2 '|e>'" := (EreachE p1 C1 st1 tm1 p2 C2 st2 tm2) 
                                                (at level 10, 
@@ -508,8 +666,6 @@ Notation "'<e|' p1 C1 st1 tm1 '~>' p2 C2 st2 tm2 '|m>'" := (EreachM p1 C1 st1 tm
                                                 p1 at next level, C1 at next level, st1 at next level, tm1 at next level,
                                                 p2 at next level, C2 at next level, st2 at next level, tm2 at next level).
 
-Check EreachE_ind_mut.
-
 (* sanity check *)
 Lemma ere_trans : forall p1 C1 st1 e1
                          p2 C2 st2 e2
@@ -520,7 +676,7 @@ Lemma ere_trans : forall p1 C1 st1 e1
 Proof.
   intros. generalize dependent e3.
   revert p3 C3 st3.
-  apply (EreachE_ind_mut
+  apply (_EreachE_ind_mut
     (fun p1 C1 st1 e1 
          p2 C2 st2 e2 
          (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>)=> 
@@ -559,7 +715,7 @@ Lemma mrm_trans : forall p1 C1 st1 m1
 Proof.
   intros. generalize dependent m3.
   revert p3 C3 st3.
-  apply (MreachM_ind_mut
+  apply (_MreachM_ind_mut
     (fun p1 C1 st1 e1 
          p2 C2 st2 e2 
          (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>)=> 
@@ -598,7 +754,7 @@ Lemma ermre_trans : forall p1 C1 st1 e1
 Proof.
   intros. generalize dependent e3.
   revert p3 C3 st3.
-  apply (EreachM_ind_mut
+  apply (_EreachM_ind_mut
     (fun p1 C1 st1 e1 
          p2 C2 st2 e2 
          (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>)=> 
@@ -637,7 +793,7 @@ Lemma mrerm_trans : forall p1 C1 st1 m1
 Proof.
   intros. generalize dependent m3.
   revert p3 C3 st3.
-  apply (MreachE_ind_mut
+  apply (_MreachE_ind_mut
     (fun p1 C1 st1 e1 
          p2 C2 st2 e2 
          (REACH1 : <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>)=> 
@@ -679,83 +835,283 @@ Proof.
   intros; simpl; try rewrite IHC1; eauto.
 Qed.
 
-Definition st_len e_mem m_mem p C :=
-        (forall (addr : path) v pf p' C', 
+(* equivalence between reachability relations *)
+Lemma Eeval_then_reach :
+    forall pi Ci sti ei v stv
+           (EVAL : EevalR pi Ci sti ei v stv)
+           ev pf pv Cv e_mem m_mem t
+           (VAL : v = Val ev pf pv Cv)
+           (STATE : stv = ST e_mem m_mem t),
+          <e| pi Ci sti ei ~> pv Cv stv ev |e>.
+Proof.
+  apply (EevalR_ind_mut
+    (fun pi Ci sti ei v stv
+        (EVAL : EevalR pi Ci sti ei v stv) =>
+        forall ev pf pv Cv e_mem m_mem t
+              (VAL : v = Val ev pf pv Cv)
+              (STATE : stv = ST e_mem m_mem t),
+        <e| pi Ci sti ei ~> pv Cv stv ev |e>)
+    (fun pi Ci sti mi v stv
+        (EVAL : MevalR pi Ci sti mi v stv) =>
+        forall pv Cv e_mem m_mem t
+              (VAL : v = Mod pv Cv)
+              (STATE : stv = ST e_mem m_mem t),
+        <m| pi Ci sti mi ~> pv Cv stv m_empty |m>));
+  intros; try inversion STATE0; try inversion STATE;
+          try inversion VAL; try destruct st_lam;
+          try destruct st_m; try destruct v_e;
+          try destruct v_m1; try destruct arg; subst; 
+          eauto using EreachE, EreachM, MreachE, MreachM.
+  - inversion STATE; subst. destruct st; subst.
+    eapply mrm_lete_m. eapply EVALe.
+    eapply H. eauto. eauto. eapply H0. eauto. eauto.
+Qed.
+
+Lemma Meval_then_reach :
+    forall pi Ci sti mi v stv
+           (EVAL : MevalR pi Ci sti mi v stv)
+           pv Cv e_mem m_mem t
+           (VAL : v = Mod pv Cv)
+           (STATE : stv = ST e_mem m_mem t),
+           <m| pi Ci sti mi ~> pv Cv stv m_empty |m>.
+Proof.
+  apply (MevalR_ind_mut
+    (fun pi Ci sti ei v stv
+        (EVAL : EevalR pi Ci sti ei v stv) =>
+        forall ev pf pv Cv e_mem m_mem t
+              (VAL : v = Val ev pf pv Cv)
+              (STATE : stv = ST e_mem m_mem t),
+        <e| pi Ci sti ei ~> pv Cv stv ev |e>)
+    (fun pi Ci sti mi v stv
+        (EVAL : MevalR pi Ci sti mi v stv) =>
+        forall pv Cv e_mem m_mem t
+              (VAL : v = Mod pv Cv)
+              (STATE : stv = ST e_mem m_mem t),
+        <m| pi Ci sti mi ~> pv Cv stv m_empty |m>));
+  intros; try inversion STATE0; try inversion STATE;
+          try inversion VAL; try destruct st_lam;
+          try destruct st_m; try destruct v_e;
+          try destruct v_m1; try destruct arg; subst; 
+          eauto using EreachE, EreachM, MreachE, MreachM.
+  - inversion STATE; subst. destruct st; subst.
+    eapply mrm_lete_m. eapply EVALe.
+    eapply H. eauto. eauto. eapply H0. eauto. eauto.
+Qed.
+
+Lemma EreachE_equiv_left :
+    forall p1 C1 st1 e1 p2 C2 st2 e2,
+          <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e> ->
+          _EreachE p1 C1 st1 e1 p2 C2 st2 e2.
+Proof.
+  apply (_EreachE_ind_mut 
+    (fun p1 C1 st1 e1 p2 C2 st2 e2
+        (REACH : <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>) =>
+        _EreachE p1 C1 st1 e1 p2 C2 st2 e2)
+    (fun p1 C1 st1 e1 p2 C2 st2 m2
+        (REACH : <e| p1 C1 st1 e1 ~> p2 C2 st2 m2 |m>) =>
+        _EreachM p1 C1 st1 e1 p2 C2 st2 m2)
+    (fun p1 C1 st1 m1 p2 C2 st2 e2
+        (REACH : <m| p1 C1 st1 m1 ~> p2 C2 st2 e2 |e>) =>
+        _MreachE p1 C1 st1 m1 p2 C2 st2 e2)
+    (fun p1 C1 st1 m1 p2 C2 st2 m2
+        (REACH : <m| p1 C1 st1 m1 ~> p2 C2 st2 m2 |m>) =>
+        _MreachM p1 C1 st1 m1 p2 C2 st2 m2));
+  intros; eauto using EreachE, EreachM, MreachE, MreachM, _EreachE, _MreachE, _EreachM, _MreachM.
+Qed.
+
+Lemma EreachE_equiv_right :
+    forall p1 C1 st1 e1 p2 C2 st2 e2,
+          _EreachE p1 C1 st1 e1 p2 C2 st2 e2 ->
+          <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>.
+Proof.
+  apply (__EreachE_ind_mut 
+    (fun p1 C1 st1 e1 p2 C2 st2 e2
+        (REACH : _EreachE p1 C1 st1 e1 p2 C2 st2 e2) =>
+        <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>)
+    (fun p1 C1 st1 m1 p2 C2 st2 e2
+        (REACH : _MreachE p1 C1 st1 m1 p2 C2 st2 e2) =>
+        <m| p1 C1 st1 m1 ~> p2 C2 st2 e2 |e>));
+  intros; try destruct v; try destruct st; try destruct st1; try destruct st_lam;
+  try destruct arg; try destruct st_m; try destruct st';
+  eauto using EreachE, EreachM, MreachE, MreachM, _EreachE, _MreachE, _EreachM, _MreachM.
+  - eapply Eeval_then_reach in FN as FNr; eauto using EreachE.
+  - eapply Eeval_then_reach in FN as FNr; eauto using EreachE.
+    eapply Eeval_then_reach in ARG as ARGr; eauto using EreachE.
+  - eapply Meval_then_reach in MOD as MODr; eauto using EreachE.
+  - eapply Eeval_then_reach in EVALx as EVALxr; eauto using MreachE.
+  - eapply Meval_then_reach in EVALM as EVALMr; eauto using MreachE.
+Qed.
+
+Theorem EreachE_equiv : 
+  forall p1 C1 st1 e1 p2 C2 st2 e2,
+          _EreachE p1 C1 st1 e1 p2 C2 st2 e2 <->
+          <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>.
+Proof. 
+  intros; split; try apply EreachE_equiv_left; try apply EreachE_equiv_right. 
+Qed.
+
+(* Induction principle: preserves a predicate on p, C, st *)
+Lemma EreachE_ind_mut : 
+  forall (P : forall (p : path) (C : ctx) (st : state), Prop),
+    (forall p C st, (P p C st) -> 
+        (match st with
+        | ST e_mem m_mem _ =>
+            forall addr,
+            match e_mem addr with
+              | None => True
+              | Some (Val _ _ p' C') => P p' C' st
+            end /\
+            match m_mem addr with
+              | None => True
+              | Some (Mod p' C') => P p' C' st
+            end
+        end)) ->
+    (forall p C st p' C' st'
+            (INIT : P p C st)
+            (REACH : P p' C' st'),
+            P p C st') ->
+    (forall p C st 
+            x p_lam C_lam st_lam 
+            v pf p_arg C_arg e_mem m_mem t
+            (INIT : P p C st)
+            (FN: P p_lam C_lam st_lam)
+            (ARG : P p_arg C_arg (ST e_mem m_mem t)),
+            P (t :: p_lam) (C_lam[|c_lam x c_hole|])
+              (ST ((t :: p_lam) !-> (Val v pf p_arg C_arg); e_mem) m_mem (update_t t))) ->
+    (forall p C st x
+            v (pf : value v) p_x C_x e_mem m_mem t
+            (INIT : P p C st)
+            (EVx : P p_x C_x (ST e_mem m_mem t)),
+            P (t :: p) (C[|c_lete x c_hole|])
+              (ST ((t :: p) !-> (Val v pf p_x C_x); e_mem) m_mem (update_t t))) ->
+    (forall p C st M
+            p_M C_M e_mem m_mem t
+            (INIT : P p C st)
+            (EVM : P p_M C_M (ST e_mem m_mem t)),
+            P (t :: p) (C[|c_letm M c_hole|])
+              (ST e_mem ((t :: p) !-> (Mod p_M C_M); m_mem) (update_t t))) ->
+    (forall p C st e p' C' st' e'
+            (INIT : P p C st)
+            (REACH : <e| p C st e ~> p' C' st' e' |e>),
+            P p' C' st').
+Proof. 
+(* intros just before our goal, then fix 10, on REACH, 
+   with mutual induction on EreachM, MreachE, MreachM *)
+  intros P condP transP LAM LETe LETm.
+  fix IHere 10 with 
+    (IHerm p C st e p' C' st' m'
+          (INIT : P p C st)
+          (REACH : <e| p C st e ~> p' C' st' m' |m>)
+          { struct REACH }
+          : P p' C' st')
+    (IHmre p C st m p' C' st' e'
+          (INIT : P p C st)
+          (REACH : <m| p C st m ~> p' C' st' e' |e>)
+          { struct REACH }
+          : P p' C' st')
+    (IHmrm p C st m p' C' st' m'
+          (INIT : P p C st)
+          (REACH : <m| p C st m ~> p' C' st' m' |m>)
+          { struct REACH }
+          : P p' C' st').
+  - intros. destruct REACH.
+    + exact INIT.
+    + specialize (condP p C st INIT).
+      rewrite <- STATE in *. destruct (condP p_x) as [valcase modcase].
+      rewrite <- ACCESS in *. exact valcase.
+    + apply (IHere p C st e1 p' C' st' e'). exact INIT. exact REACH.
+    + apply (IHere p C st1 e2 p' C' st' e').
+      assert (P p1 C1 st1) as trans.
+      apply (IHere p C st e1 p1 C1 st1 v).
+      exact INIT. exact REACH1. eapply transP.
+      exact INIT. exact trans. exact REACH2.
+    + apply (IHere (t :: p_lam) (C_lam [|c_lam x c_hole|])
+            (ST (t :: p_lam !-> (Val arg pf p_arg C_arg); e_mem) m_mem (update_t t)) e
+            p' C' st' e').
+      assert (P p_lam C_lam st_lam) as trans.
+      apply (IHere p C st e1 p_lam C_lam st_lam (e_lam x e)).
+      exact INIT. exact REACH1.
+      apply LAM with (p := p) (C := C) (st := st) (st_lam := st_lam).
+      exact INIT. exact trans. apply (IHere p C st_lam e2 p_arg C_arg (ST e_mem m_mem t) arg).
+      eapply transP. eapply INIT. eapply trans. apply REACH2. exact REACH3.
+    + apply (IHmre p C st m p' C' st' e'). exact INIT. exact REACHm.
+    + apply (IHere p_m C_m st_m e p' C' st' e').
+      apply (IHmrm p C st m p_m C_m st_m m_empty).
+      exact INIT. exact MODr. exact REACH.
+  - intros. destruct REACH.
+    + apply (IHerm p C st e1 p' C' st' m'). exact INIT. exact REACH.
+    + apply (IHerm p C st1 e2 p' C' st' m').
+      assert (P p1 C1 st1) as trans.
+      apply (IHere p C st e1 p1 C1 st1 v).
+      exact INIT. exact FNr. eapply transP.
+      exact INIT. exact trans. exact REACH.
+    + apply (IHerm (t :: p_lam) (C_lam [|c_lam x c_hole|])
+            (ST (t :: p_lam !-> Val arg pf p_arg C_arg; e_mem) m_mem (update_t t)) e
+            p' C' st' m').
+      assert (P p_lam C_lam st_lam) as trans.
+      apply (IHere p C st e1 p_lam C_lam st_lam (e_lam x e)).
+      exact INIT. exact FNr.
+      apply LAM with (p := p) (C := C) (st := st) (st_lam := st_lam).
+      exact INIT. exact trans. apply (IHere p C st_lam e2 p_arg C_arg (ST e_mem m_mem t) arg).
+      eapply transP. eapply INIT. eapply trans. apply ARGr. exact REACH.
+    + apply (IHmrm p C st m p' C' st' m'). exact INIT. exact REACHm.
+    + apply (IHerm p_m C_m st_m e p' C' st' m').
+      apply (IHmrm p C st m p_m C_m st_m m_empty).
+      exact INIT. exact MODr. exact REACH.
+  - intros. destruct REACH.
+    + apply (IHere p C st e p' C' st' e'). exact INIT. exact REACHe.
+    + apply (IHmre (t :: p) (C [|c_lete x c_hole|])
+        (ST (t :: p !-> Val v pf p1 C1; e_mem) m_mem (update_t t)) m
+        p' C' st' e').
+      eapply LETe. exact INIT. apply (IHere p C st e p1 C1 (ST e_mem m_mem t) v).
+      exact INIT. exact EVALxr. exact REACH.
+    + apply (IHmre p C st m1 p' C' st' e'). exact INIT. exact REACH.
+    + apply (IHmre (t :: p) (C [|c_letm M c_hole|])
+        (ST e_mem (t :: p !-> Mod p_m C_m; m_mem) (update_t t)) m2 p'
+        C' st' e' ).
+      eapply LETm. exact INIT. apply (IHmrm p C st m1 p_m C_m (ST e_mem m_mem t) m_empty).
+      exact INIT. exact EVALMr. exact REACH.
+  - intros. destruct REACH.
+    + exact INIT.
+    + specialize (condP p C st INIT).
+      rewrite <- STATE in *. destruct (condP p_M) as [valcase modcase].
+      rewrite <- ACCESS in *. exact modcase.
+    + apply (IHerm p C st e p' C' st' m'). exact INIT. exact REACHe.
+    + apply (IHmrm (t :: p) (C [|c_lete x c_hole|])
+        (ST (t :: p !-> Val v pf p1 C1; e_mem) m_mem (update_t t)) m
+        p' C' st' m').
+      eapply LETe. exact INIT. apply (IHere p C st e p1 C1 (ST e_mem m_mem t) v).
+      exact INIT. exact EVALxr. exact REACH.
+    + apply (IHmrm p C st m1 p' C' st' m'). exact INIT. exact REACH.
+    + apply (IHmrm (t :: p) (C [|c_letm M c_hole|])
+        (ST e_mem (t :: p !-> Mod p_m C_m; m_mem) (update_t t)) m2 p'
+        C' st' m' ).
+      eapply LETm. exact INIT. apply (IHmrm p C st m1 p_m C_m (ST e_mem m_mem t) m_empty).
+      exact INIT. exact REACH1. exact REACH2.
+Qed.
+
+Definition st_len m n p C st :=
+    match st with
+    | ST e_mem m_mem t =>
+        (forall (addr : path) v pf p' C',
                 e_mem addr = Some (Val v pf p' C') ->
-                len_p p + level C' = len_p p' + level C) /\
+                len_p p' + m = level C' + n) /\
         (forall (addr : path) p' C',
                 m_mem addr = Some (Mod p' C') ->
-                len_p p + level C' = len_p p' + level C).
+                len_p p' + m = level C' + n) /\
+        len_p p + m = level C + n
+    end.
 
 Lemma ere_p_is_level : 
-    forall p1 C1 st1 e1
-           p2 C2 st2 e2
-          (REACH : <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>)
-           e_mem1 m_mem1 t1 e_mem2 m_mem2 t2
-          (STATE1 : st1 = ST e_mem1 m_mem1 t1)
-          (STATE2 : st2 = ST e_mem2 m_mem2 t2)
-          (INIT : st_len e_mem1 m_mem1 p1 C1),
-        st_len e_mem2 m_mem2 p1 C1 /\
-        len_p p1 + level C2 = len_p p2 + level C1.
+    forall m n
+           pi Ci sti ei
+           pr Cr str er
+          (INIT : st_len m n pi Ci sti)
+          (REACH : <e| pi Ci sti ei ~> pr Cr str er |e>),
+          st_len m n pr Cr str.
 Proof. 
-  apply (EreachE_ind_mut
-    (fun p1 C1 st1 e1 
-         p2 C2 st2 e2 
-         (REACH : <e| p1 C1 st1 e1 ~> p2 C2 st2 e2 |e>) =>
-         forall e_mem1 m_mem1 t1 e_mem2 m_mem2 t2
-            (STATE1 : st1 = ST e_mem1 m_mem1 t1)
-            (STATE2 : st2 = ST e_mem2 m_mem2 t2)
-            (INIT : st_len e_mem1 m_mem1 p1 C1),
-            st_len e_mem2 m_mem2 p1 C1 /\
-            len_p p1 + level C2 = len_p p2 + level C1)
-    (fun p1 C1 st1 e1 
-         p2 C2 st2 m2 
-         (REACH : <e| p1 C1 st1 e1 ~> p2 C2 st2 m2 |m>) =>
-         forall e_mem1 m_mem1 t1 e_mem2 m_mem2 t2
-            (STATE1 : st1 = ST e_mem1 m_mem1 t1)
-            (STATE2 : st2 = ST e_mem2 m_mem2 t2)
-            (INIT : st_len e_mem1 m_mem1 p1 C1),
-            st_len e_mem2 m_mem2 p1 C1 /\
-            len_p p1 + level C2 = len_p p2 + level C1)
-    (fun p1 C1 st1 m1 
-         p2 C2 st2 e2
-         (REACH : <m| p1 C1 st1 m1 ~> p2 C2 st2 e2 |e>) =>
-         forall e_mem1 m_mem1 t1 e_mem2 m_mem2 t2
-            (STATE1 : st1 = ST e_mem1 m_mem1 t1)
-            (STATE2 : st2 = ST e_mem2 m_mem2 t2)
-            (INIT : st_len e_mem1 m_mem1 p1 C1),
-            st_len e_mem2 m_mem2 p1 C1 /\
-            len_p p1 + level C2 = len_p p2 + level C1)
-    (fun p1 C1 st1 m1 
-         p2 C2 st2 m2 
-         (REACH : <m| p1 C1 st1 m1 ~> p2 C2 st2 m2 |m>) =>
-         forall e_mem1 m_mem1 t1 e_mem2 m_mem2 t2
-            (STATE1 : st1 = ST e_mem1 m_mem1 t1)
-            (STATE2 : st2 = ST e_mem2 m_mem2 t2)
-            (INIT : st_len e_mem1 m_mem1 p1 C1),
-            st_len e_mem2 m_mem2 p1 C1 /\
-            len_p p1 + level C2 = len_p p2 + level C1));
-   unfold st_len in *; repeat split; simpl in *;
-   try inversion INIT as [INITe INITm]; eauto;
-   try rewrite STATE1 in *; inversion STATE2; subst; eauto;
-   try (inversion STATE; subst; eauto; fail);
-   try (eapply (H e_mem1 m_mem1 t1 e_mem2 m_mem2 t2); eauto; fail);
-   try (destruct st1 as [e_mem3 m_mem3 t3]; subst;
-        eapply (H0 e_mem3 m_mem3 t3 e_mem2 m_mem2 t2); eauto;
-        eapply (H e_mem1 m_mem1 t1 e_mem3 m_mem3 t3); eauto; fail);
-   intros; 
-   try destruct st_lam as [e_mem3 m_mem3 t3]; subst;
-   try destruct st_m as [e_mem3 m_mem3 t3]; subst;
-   try specialize (H e_mem1 m_mem1 t1 e_mem3 m_mem3 t3 eq_refl eq_refl);
-   try specialize (H0 e_mem3 m_mem3 t3 e_mem m_mem t eq_refl eq_refl);
-   try specialize (H1 (t :: p_lam !-> Val arg ARGV p_arg C_arg; e_mem) m_mem (update_t t)
-                   e_mem2 m_mem2 t2 eq_refl eq_refl);
-   try apply H in INIT; destruct INIT as [INIT' EQ'];
-   try apply H0 in INIT'; try destruct INIT' as [INIT'' EQ''];
-   try destruct INIT'' as [INITe' INITm'];
-   try (specialize (H0 e_mem3 m_mem3 t3 e_mem2 m_mem2 t2 eq_refl eq_refl);
-       destruct H as [A B]; eauto;
-       destruct A as [INITe' INITm']).
+  intros m n.
+  apply EreachE_ind_mut with (P := st_len m n).
    - assert ((forall (addr : path) (v : expr_tm) (pf : value v) 
             (p' : path) (C' : ctx),
             (t :: p_lam !-> Val arg ARGV p_arg C_arg; e_mem) addr =
