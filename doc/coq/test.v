@@ -1092,6 +1092,7 @@ Lemma EreachE_ind_mut :
             Pm C st (m_letm M m1 m2) -> Pm C st m1) ->
     (forall C st M m1 m2 C_M st_M,
             Pm C st (m_letm M m1 m2) ->
+            (MevalR C st m1 C_M st_M) ->
             Pm C_M st_M m_empty ->
             Pm (C[|dy_c_letm M C_M dy_c_hole|]) st_M m2) ->
     (forall C st e C' st' e'
@@ -1181,7 +1182,7 @@ Proof.
     + apply (IHmre C st m1 C' st' e').
       eapply LETm1. exact INIT. exact REACH.
     + apply (IHmre (C [|dy_c_letm M C_M dy_c_hole|]) st_M m2 C' st' e').
-      eapply LETm2. exact INIT.
+      eapply LETm2. exact INIT. exact EVALM.
       apply (IHmrm C st m1 C_M st_M m_empty).
       eapply LETm1. exact INIT. exact EVALM0. exact REACH.
   - intros. destruct REACH.
@@ -1199,7 +1200,7 @@ Proof.
     + apply (IHmrm C st m1 C' st' m').
       eapply LETm1. exact INIT. exact REACH.
     + apply (IHmrm (C [|dy_c_letm M C_M dy_c_hole|]) st_M m2 C' st' m').
-      eapply LETm2. exact INIT.
+      eapply LETm2. exact INIT. exact EVALM.
       apply (IHmrm C st m1 C_M st_M m_empty).
       eapply LETm1. exact INIT. exact REACH1. exact REACH2.
 Qed.
@@ -1280,5 +1281,51 @@ Proof.
     apply Meval_then_level in meval.
     simpl in expr. simpl in exprm. remember (level_mod (dy_to_st C) m) as lv.
     destruct lv; destruct o. rewrite <- meval. nia. inversion meval.
-  - 
-  Admitted.
+  - intros C st M C_M ACCESS [mem expr].
+    split. exact mem. simpl in expr.
+    pose proof mod_is_static_some as MOD.
+    specialize (MOD C M). destruct MOD as [MODl MODr].
+    symmetry in ACCESS. specialize (MODl C_M ACCESS).
+    rewrite MODl in expr. simpl. nia.
+  - intros C st x e m [mem expr].
+    split. exact mem. simpl in expr.
+    destruct (level_mod (st_c_plugin (dy_to_st C) (st_c_lete x st_c_hole)) m).
+    nia.
+  - intros C st x e m C_x mem t v pf 
+    [memi expri] [memm exprm]. split.
+    + unfold level_bound. unfold update_m. intro addr.
+      destruct (eq_p addr (dy_level C ++ [t])). exact exprm.
+      apply memm.
+    + simpl in expri. rewrite dy_to_st_plugin. simpl.
+      destruct (level_mod (st_c_plugin (dy_to_st C) (st_c_lete x st_c_hole)) m).
+      nia.
+  - intros C st M m1 m2 [mem expr]. split. exact mem. simpl in expr.
+    destruct (level_mod (dy_to_st C) m1). destruct o; eauto.
+    destruct (level_mod (st_c_plugin (dy_to_st C) (st_c_letm M s st_c_hole)) m2). destruct o; nia.
+  - intros C st M m1 m2 C_M st_M [memi expri] meval [memm exprm].
+    apply Meval_then_level in meval. simpl in expri. simpl in exprm.
+    remember (level_mod (dy_to_st C) m1) as lv1. destruct lv1; destruct o;
+    rewrite dy_to_st_plugin; simpl.
+    rewrite <- meval. split. exact memm.
+    destruct (level_mod (st_c_plugin (dy_to_st C) (st_c_letm M s st_c_hole)) m2). nia.
+    inversion meval.
+Qed.
+
+Lemma dy_level_len_is_st_level :
+  forall dC, len_p (dy_level dC) = st_level (dy_to_st dC).
+Proof.
+  induction dC; simpl; eauto.
+Qed.
+
+Theorem addr_bound :
+  forall e C' st' e'
+         (REACH : <e| dy_c_hole (ST empty_mem 0) e ~> C' st' e' |e>),
+         level_expr (dy_to_st C') e' <= level_expr st_c_hole e.
+Proof.
+  intros.
+  pose proof (ere_level_bound (level_expr st_c_hole e) dy_c_hole (ST empty_mem 0) e C' st' e') as H.
+  assert (level_bound (level_expr st_c_hole e) (ST empty_mem 0) /\
+          level_expr (dy_to_st dy_c_hole) e <= level_expr st_c_hole e) as FINAL.
+  - split; simpl; eauto.
+  - apply H in FINAL. destruct FINAL as [TRIVIAL KILLER]. exact KILLER. exact REACH.
+Qed.
