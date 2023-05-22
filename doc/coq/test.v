@@ -862,6 +862,15 @@ Fixpoint st_c_plugin (Cout : st_ctx) (Cin : st_ctx) :=
   | st_c_letm M' CM' C' => st_c_letm M' CM' (st_c_plugin C' Cin)
   end.
 
+Lemma st_c_plugin_assoc : forall C1 C2 C3,
+  st_c_plugin (st_c_plugin C1 C2) C3 =
+  st_c_plugin C1 (st_c_plugin C2 C3). 
+Proof.
+  induction C1; eauto; 
+  intros; simpl; try rewrite IHC1; eauto.
+  rewrite IHC1_2. eauto.
+Qed.
+
 (* given a static context and an expression, 
    return the maximum level of the context
    that can be reached from here *)
@@ -973,6 +982,37 @@ Proof.
   rewrite IHCout2. eauto.
 Qed. 
 
+Lemma st_ctx_M_plugin :
+  forall Cout Cin M,
+    st_ctx_M (st_c_plugin Cout Cin) M =
+      match st_ctx_M Cin M with
+      | Some CM => Some CM
+      | None =>
+        match st_ctx_M Cout M with
+        | Some CM => Some CM
+        | None => None
+        end
+      end.
+Proof.
+  induction Cout; intros; simpl; eauto.
+  - destruct (st_ctx_M Cin M); eauto.
+  - specialize (IHCout2 Cin M0). 
+    destruct (st_ctx_M Cin M0). 
+    rewrite IHCout2. eauto. 
+    rewrite IHCout2.
+    destruct (st_ctx_M Cout2 M0). eauto.
+    assert (RR : forall Cout0 Cin0, 
+    st_ctx_M (st_c_plugin Cout0 Cin0) M0 = None -> st_ctx_M Cin0 M0 = None).
+    { induction Cout0; intros; simpl; eauto. 
+      simpl in H. apply IHCout0_2.
+      destruct (st_ctx_M (st_c_plugin Cout0_2 Cin0) M0).
+      inversion H. eauto. }
+    specialize (IHCout1 Cin M0).
+    rewrite (RR Cout2 Cin IHCout2) in IHCout1.
+    destruct (eq_mid M0 M).
+    eauto. eauto.
+Qed. 
+
 Lemma mod_is_static_none : forall (dC : dy_ctx) (M : mod_id),
   (ctx_M dC M = None <-> st_ctx_M (dy_to_st dC) M = None).
 Proof. 
@@ -1037,7 +1077,7 @@ Lemma EreachE_ind_mut :
               (ST ((dy_level C_lam ++ [t]) !-> (Val arg pf C_arg) ; mem) (update_t t)) e) ->
     (forall C st m e, Pe C st (e_link m e) -> Pm C st m) ->
     (forall C st m e C_m st_m,
-            Pe C st (e_link m e) ->
+            Pe C st (e_link m e) -> (MevalR C st m C_m st_m) ->
             Pm C_m st_m m_empty -> Pe C_m st_m e) ->
     (forall C st M C_M (ACCESS : Some C_M = ctx_M C M),
             Pm C st (m_var M) -> Pm C_M st m_empty) ->
@@ -1103,7 +1143,7 @@ Proof.
       exact INIT. exact LAM. exact REACH2. exact REACH3.
     + apply (IHmre C st m C' st' e'). apply LINKm with (e := e). exact INIT. exact REACHm.
     + apply (IHere C_m st_m e C' st' e'). apply LINKe with (C := C) (st := st) (m := m).
-      exact INIT.
+      exact INIT. exact MOD.
       apply (IHmrm C st m C_m st_m m_empty).
       eapply LINKm. exact INIT. exact MODr. exact REACH.
   - intros. destruct REACH.
@@ -1126,7 +1166,7 @@ Proof.
     + apply (IHmrm C st m C' st' m').
       eapply LINKm. exact INIT. exact REACHm.
     + apply (IHerm C_m st_m e C' st' m').
-      eapply LINKe. exact INIT.
+      eapply LINKe. exact INIT. exact MOD.
       apply (IHmrm C st m C_m st_m m_empty).
       eapply LINKm. exact INIT. exact MODr. exact REACH.
   - intros. destruct REACH.
@@ -1174,6 +1214,31 @@ Definition level_bound ub st :=
           end)
     end.
 
+Lemma Meval_then_level :
+  forall C st m C_m st_m
+         (EVAL : MevalR C st m C_m st_m),
+        match level_mod (dy_to_st C) m with
+        | (Some C_m', _) => C_m' = dy_to_st C_m
+        | (None, _) => False
+        end.
+Proof.
+  intros. induction EVAL; simpl; eauto.
+  - pose proof mod_is_static_some as H.
+    specialize (H C M). destruct H as [A B].
+    specialize (A C_M). symmetry in ACCESS.
+    specialize (A ACCESS). rewrite A. eauto.
+  - rewrite dy_to_st_plugin in IHEVAL.
+    simpl in IHEVAL.
+    remember (level_mod (st_c_plugin (dy_to_st C) (st_c_lete x st_c_hole)) m) as lev.
+    destruct lev. exact IHEVAL.
+  - rewrite dy_to_st_plugin in IHEVAL2. simpl in IHEVAL2.
+    destruct (level_mod (dy_to_st C) m1). destruct o; try apply IHEVAL1.
+    rewrite <- IHEVAL1 in IHEVAL2.
+    destruct (level_mod
+              (st_c_plugin (dy_to_st C) (st_c_letm M s st_c_hole)) m2).
+    exact IHEVAL2.
+Qed.
+
 Lemma ere_level_bound : 
     forall ub
            C st e
@@ -1190,4 +1255,30 @@ Proof.
     (fun C st m => 
           level_bound ub st /\ 
           let (o, l) := level_mod (dy_to_st C) m in l <= ub)).
+  - intros C st e [mem expr].
+    unfold level_bound in *. destruct st.
+    intros addr. specialize (mem addr) as valtrue.
+    remember (mem0 addr) as val.
+    destruct val. destruct e0. split. exact mem. exact valtrue. eauto.
+  - intros C st e1 e2 [mem expr].
+    split. exact mem. remember (dy_to_st C) as st_C.
+    simpl in expr. nia.
+  - intros C st e1 e2 C_lam st_lam lam [memi expri] [memlam exprlam].
+    split. exact memlam. remember (dy_to_st C) as st_C.
+    simpl in expri. nia.
+  - intros C st e1 e2 C_lam st_lam x e C_arg mem t arg pf
+    [memi expri] [memlam exprlam] [memarg exprarg]. split.
+    + unfold level_bound. unfold update_m. intro addr.
+      destruct (eq_p addr (dy_level C_lam ++ [t])). exact exprarg.
+      apply memarg.
+    + rewrite dy_to_st_plugin. simpl. remember (dy_to_st C_lam) as st_C.
+      simpl in exprlam. eauto.
+  - intros C st m e [mem expr]. split. exact mem.
+    simpl in expr. remember (level_mod (dy_to_st C) m) as lev.
+    destruct lev. destruct o. nia. eauto.
+  - intros C st m e C_m st_m [mem expr] meval [memm exprm]. split. exact memm.
+    apply Meval_then_level in meval.
+    simpl in expr. simpl in exprm. remember (level_mod (dy_to_st C) m) as lv.
+    destruct lv; destruct o. rewrite <- meval. nia. inversion meval.
+  - 
   Admitted.
