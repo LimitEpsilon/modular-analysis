@@ -120,7 +120,7 @@ Fixpoint ctx_M (C : dy_ctx) (M : mod_id) :=
 
 (* a term, a proof, a path, a context *)
 Inductive expr_value :=
-  | Val (e : expr_tm) (v : value e) (C : dy_ctx)
+  | Val (v : expr_tm) (pf : value v) (C : dy_ctx)
 .
 
 Inductive state :=
@@ -1358,6 +1358,6 @@ Lemma value_reach_only_itself_m :
          (REACH : <e| C st v ~> C' st' m' |m>),
          False.
 Proof.
-  intros; repeat split; inversion pf; inversion REACH; subst; eauto using EreachE, EreachM;
+  intros; repeat split; inversion pf; inversion REACH; subst; eauto using EreachM;
   try inversion H0.
 Qed.
