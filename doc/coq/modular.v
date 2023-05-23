@@ -349,18 +349,18 @@ Inductive EreachE (C : dy_ctx) (st : state)
     : Reach expr_tm expr_tm :=
   | ere_refl e
     : EreachE C st e 
-               C st e
+              C st e
   | ere_var x mem t v pf C_v
             (STATE : ST mem t = st)
             (ADDR : [] <> addr_x C x)
             (ACCESS : Some (Val v pf C_v) = mem (addr_x C x))
     : EreachE C st (e_var x) 
-               C_v st v
+              C_v st v
   | ere_app_left e1 e2 C' st' e'
                  (REACHl : EreachE C st e1
                                    C' st' e')
     : EreachE C st (e_app e1 e2) 
-               C' st' e'
+              C' st' e'
   | ere_app_right e1 e2 st_lam v pf C_lam C' st' e'
                   (FN : EevalR C st e1 (Val v pf C_lam) st_lam)
                   (FNr : EreachE C st e1 C_lam st_lam v)
@@ -1060,7 +1060,7 @@ Lemma EreachE_ind_mut :
           forall addr,
           match mem addr with
             | None => True
-            | Some (Val v _ C') => Pe C' st v
+            | Some (Val v pf C') => Pe C' st v
           end
       end)) ->
     (forall C st e1 e2,
@@ -1340,4 +1340,24 @@ Proof.
   assert (st_level (dy_to_st C') <= level_expr (dy_to_st C') e').
   - apply level_increase.
   - nia.
+Qed.
+
+Lemma value_reach_only_itself_e :
+  forall C st v (pf : value v)
+         C' st' e'
+         (REACH : <e| C st v ~> C' st' e' |e>),
+         C = C' /\ st = st' /\ v = e'.
+Proof.
+  intros; repeat split; inversion pf; inversion REACH; subst; eauto using EreachE;
+  try inversion H0.
+Qed.
+
+Lemma value_reach_only_itself_m :
+  forall C st v (pf : value v)
+         C' st' m'
+         (REACH : <e| C st v ~> C' st' m' |m>),
+         False.
+Proof.
+  intros; repeat split; inversion pf; inversion REACH; subst; eauto using EreachE, EreachM;
+  try inversion H0.
 Qed.
