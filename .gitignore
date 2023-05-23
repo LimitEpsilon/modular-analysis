@@ -344,3 +344,6 @@ TSWLatexianTemp*
 
 # glossaries
 *.glstex
+
+### Coq ###
+.nia.cache

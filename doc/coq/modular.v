@@ -1317,7 +1317,7 @@ Proof.
   induction dC; simpl; eauto.
 Qed.
 
-Theorem addr_bound :
+Theorem expr_level_bound :
   forall e C' st' e'
          (REACH : <e| dy_c_hole (ST empty_mem 0) e ~> C' st' e' |e>),
          level_expr (dy_to_st C') e' <= level_expr st_c_hole e.
@@ -1328,4 +1328,16 @@ Proof.
           level_expr (dy_to_st dy_c_hole) e <= level_expr st_c_hole e) as FINAL.
   - split; simpl; eauto.
   - apply H in FINAL. destruct FINAL as [TRIVIAL KILLER]. exact KILLER. exact REACH.
+Qed.
+
+Theorem expr_addr_bound :
+  forall e C' st' e'
+         (REACH : <e| dy_c_hole (ST empty_mem 0) e ~> C' st' e' |e>),
+         len_p (dy_level C') <= level_expr st_c_hole e.
+Proof.
+  intros. pose proof (expr_level_bound e C' st' e' REACH) as H.
+  rewrite dy_level_len_is_st_level.
+  assert (st_level (dy_to_st C') <= level_expr (dy_to_st C') e').
+  - apply level_increase.
+  - nia.
 Qed.
