@@ -871,46 +871,6 @@ Proof.
   rewrite IHC1_2. eauto.
 Qed.
 
-(* given a static context and an expression, 
-   return the maximum level of the context
-   that can be reached from here *)
-Fixpoint level_expr (C : st_ctx) e :=
-  match e with
-  | e_var x => st_level C
-  | e_lam x e' => level_expr (st_c_plugin C (st_c_lam x st_c_hole)) e'
-  | e_app e1 e2 => Nat.max (level_expr C e1) (level_expr C e2)
-  | e_link m e =>
-    match level_mod C m with
-    | (Some C_m, l) => Nat.max (level_expr C_m e) l
-    | (None, l) => l
-    end
-  end
-
-with level_mod (C : st_ctx) m :=
-  match m with
-  | m_empty => (Some C, st_level C)
-  | m_var M =>
-    match st_ctx_M C M with
-    | None => (None, st_level C)
-    | Some C_m => (Some C_m, Nat.max (st_level C) (st_level C_m))
-    end
-  | m_lete x e m' => 
-    match level_expr C e with
-    | l_e => 
-      match level_mod (st_c_plugin C (st_c_lete x st_c_hole)) m' with
-      | (context, l_m) => (context, Nat.max l_e l_m)
-      end
-    end
-  | m_letm M m1 m2 =>
-    match level_mod C m1 with
-    | (Some C_m, l1) =>
-      match level_mod (st_c_plugin C (st_c_letm M C_m st_c_hole)) m2 with
-      | (context, l2) => (context, Nat.max l1 l2)
-      end
-    | (None, l1) => (None, l1)
-    end
-  end.
-
 Lemma st_c_plugin_add_level :
   forall C1 C2, st_level (st_c_plugin C1 C2) = st_level C1 + st_level C2.
 Proof.
@@ -924,46 +884,6 @@ Proof.
   - assert (RR : st_level (st_c_letm M0 C2_1 C2_2) = st_level C2_2); eauto.
     specialize (IHC1_2 (st_c_letm M0 C2_1 C2_2)).
     rewrite IHC1_2. rewrite RR. eauto.
-Qed.
-
-(* sanity check *)
-Lemma level_increase : forall e C, st_level C <= level_expr C e.
-Proof.
-  apply (expr_ind_mut
-    (fun e =>
-      forall C, st_level C <= level_expr C e)
-    (fun m =>
-      forall C, 
-      match level_mod C m with
-        | (_, l) => st_level C <= l
-      end)); 
-  intros; simpl in *; try nia.
-  induction C; intros; simpl in *; try nia.
-  - assert (RR : st_level (st_c_lam x0 (st_c_plugin C (st_c_lam x st_c_hole))) =
-            S (S(st_level C))); simpl; try rewrite st_c_plugin_add_level; simpl; try nia;
-      assert (middle : S (S (st_level C)) <= level_expr (st_c_lam x0 (st_c_plugin C (st_c_lam x st_c_hole))) e);
-      try rewrite <- RR; try apply H; try nia.
-  - assert (RR : st_level (st_c_lete x0 (st_c_plugin C (st_c_lam x st_c_hole))) =
-            S (S(st_level C))); simpl; try rewrite st_c_plugin_add_level; simpl; try nia;
-    assert (middle : S (S (st_level C)) <= level_expr (st_c_lete x0 (st_c_plugin C (st_c_lam x st_c_hole))) e);
-    try rewrite <- RR; try apply H; try nia.
-  - assert (RR : st_level (st_c_letm M C1 (st_c_plugin C2 (st_c_lam x st_c_hole))) =
-            (st_level C2) + 1); simpl; repeat try rewrite st_c_plugin_add_level; simpl; eauto; try nia.
-    assert (middle : (st_level C2) + 1 <= level_expr (st_c_letm M C1 (st_c_plugin C2 (st_c_lam x st_c_hole))) e);
-    try rewrite <- RR; try apply H; try nia.
-  - specialize (H C). specialize (H0 C). nia.
-  - remember (level_mod C m) as ol. destruct ol.
-    destruct o; specialize (H C); rewrite <- Heqol in H; nia.
-  - remember (st_ctx_M C M) as o. destruct o; nia.
-  - remember (level_mod (st_c_plugin C (st_c_lete x st_c_hole)) m) as ol. destruct ol.
-    specialize (H0 (st_c_plugin C (st_c_lete x st_c_hole))). rewrite <- Heqol in H0.
-    rewrite st_c_plugin_add_level in H0. simpl in H0. nia.
-  - remember (level_mod C m1) as ol1. destruct ol1.
-    destruct o;
-    try remember (level_mod (st_c_plugin C (st_c_letm M s st_c_hole)) m2) as ol2; try destruct ol2;
-    try specialize (H C); eauto; try specialize (H0 (st_c_plugin C (st_c_letm M s st_c_hole)));
-    rewrite <- Heqol1 in H; try rewrite <- Heqol2 in H0;
-    try rewrite st_c_plugin_add_level in H0; try simpl in H0; try nia.
 Qed.
 
 Fixpoint dy_to_st C :=
@@ -1205,143 +1125,6 @@ Proof.
       eapply LETm1. exact INIT. exact REACH1. exact REACH2.
 Qed.
 
-Definition level_bound ub st :=
-    match st with
-    | ST mem _ =>
-        (forall (addr : path),
-          match mem addr with
-          | Some (Val v _ C_v) => level_expr (dy_to_st C_v) v <= ub
-          | None => True
-          end)
-    end.
-
-Lemma Meval_then_level :
-  forall C st m C_m st_m
-         (EVAL : MevalR C st m C_m st_m),
-        match level_mod (dy_to_st C) m with
-        | (Some C_m', _) => C_m' = dy_to_st C_m
-        | (None, _) => False
-        end.
-Proof.
-  intros. induction EVAL; simpl; eauto.
-  - pose proof mod_is_static_some as H.
-    specialize (H C M). destruct H as [A B].
-    specialize (A C_M). symmetry in ACCESS.
-    specialize (A ACCESS). rewrite A. eauto.
-  - rewrite dy_to_st_plugin in IHEVAL.
-    simpl in IHEVAL.
-    remember (level_mod (st_c_plugin (dy_to_st C) (st_c_lete x st_c_hole)) m) as lev.
-    destruct lev. exact IHEVAL.
-  - rewrite dy_to_st_plugin in IHEVAL2. simpl in IHEVAL2.
-    destruct (level_mod (dy_to_st C) m1). destruct o; try apply IHEVAL1.
-    rewrite <- IHEVAL1 in IHEVAL2.
-    destruct (level_mod
-              (st_c_plugin (dy_to_st C) (st_c_letm M s st_c_hole)) m2).
-    exact IHEVAL2.
-Qed.
-
-Lemma ere_level_bound : 
-    forall ub
-           C st e
-           C' st' e'
-          (INIT : level_bound ub st /\ level_expr (dy_to_st C) e <= ub)
-          (REACH : <e| C st e ~> C' st' e' |e>),
-          level_bound ub st' /\ level_expr (dy_to_st C') e' <= ub.
-Proof. 
-  intros ub.
-  apply (EreachE_ind_mut
-    (fun C st e =>
-          level_bound ub st /\ 
-          level_expr (dy_to_st C) e <= ub)
-    (fun C st m => 
-          level_bound ub st /\ 
-          let (o, l) := level_mod (dy_to_st C) m in l <= ub)).
-  - intros C st e [mem expr].
-    unfold level_bound in *. destruct st.
-    intros addr. specialize (mem addr) as valtrue.
-    remember (mem0 addr) as val.
-    destruct val. destruct e0. split. exact mem. exact valtrue. eauto.
-  - intros C st e1 e2 [mem expr].
-    split. exact mem. remember (dy_to_st C) as st_C.
-    simpl in expr. nia.
-  - intros C st e1 e2 C_lam st_lam lam [memi expri] [memlam exprlam].
-    split. exact memlam. remember (dy_to_st C) as st_C.
-    simpl in expri. nia.
-  - intros C st e1 e2 C_lam st_lam x e C_arg mem t arg pf
-    [memi expri] [memlam exprlam] [memarg exprarg]. split.
-    + unfold level_bound. unfold update_m. intro addr.
-      destruct (eq_p addr (dy_level C_lam ++ [t])). exact exprarg.
-      apply memarg.
-    + rewrite dy_to_st_plugin. simpl. remember (dy_to_st C_lam) as st_C.
-      simpl in exprlam. eauto.
-  - intros C st m e [mem expr]. split. exact mem.
-    simpl in expr. remember (level_mod (dy_to_st C) m) as lev.
-    destruct lev. destruct o. nia. eauto.
-  - intros C st m e C_m st_m [mem expr] meval [memm exprm]. split. exact memm.
-    apply Meval_then_level in meval.
-    simpl in expr. simpl in exprm. remember (level_mod (dy_to_st C) m) as lv.
-    destruct lv; destruct o. rewrite <- meval. nia. inversion meval.
-  - intros C st M C_M ACCESS [mem expr].
-    split. exact mem. simpl in expr.
-    pose proof mod_is_static_some as MOD.
-    specialize (MOD C M). destruct MOD as [MODl MODr].
-    symmetry in ACCESS. specialize (MODl C_M ACCESS).
-    rewrite MODl in expr. simpl. nia.
-  - intros C st x e m [mem expr].
-    split. exact mem. simpl in expr.
-    destruct (level_mod (st_c_plugin (dy_to_st C) (st_c_lete x st_c_hole)) m).
-    nia.
-  - intros C st x e m C_x mem t v pf 
-    [memi expri] [memm exprm]. split.
-    + unfold level_bound. unfold update_m. intro addr.
-      destruct (eq_p addr (dy_level C ++ [t])). exact exprm.
-      apply memm.
-    + simpl in expri. rewrite dy_to_st_plugin. simpl.
-      destruct (level_mod (st_c_plugin (dy_to_st C) (st_c_lete x st_c_hole)) m).
-      nia.
-  - intros C st M m1 m2 [mem expr]. split. exact mem. simpl in expr.
-    destruct (level_mod (dy_to_st C) m1). destruct o; eauto.
-    destruct (level_mod (st_c_plugin (dy_to_st C) (st_c_letm M s st_c_hole)) m2). destruct o; nia.
-  - intros C st M m1 m2 C_M st_M [memi expri] meval [memm exprm].
-    apply Meval_then_level in meval. simpl in expri. simpl in exprm.
-    remember (level_mod (dy_to_st C) m1) as lv1. destruct lv1; destruct o;
-    rewrite dy_to_st_plugin; simpl.
-    rewrite <- meval. split. exact memm.
-    destruct (level_mod (st_c_plugin (dy_to_st C) (st_c_letm M s st_c_hole)) m2). nia.
-    inversion meval.
-Qed.
-
-Lemma dy_level_len_is_st_level :
-  forall dC, len_p (dy_level dC) = st_level (dy_to_st dC).
-Proof.
-  induction dC; simpl; eauto.
-Qed.
-
-Theorem expr_level_bound :
-  forall e C' st' e'
-         (REACH : <e| dy_c_hole (ST empty_mem 0) e ~> C' st' e' |e>),
-         level_expr (dy_to_st C') e' <= level_expr st_c_hole e.
-Proof.
-  intros.
-  pose proof (ere_level_bound (level_expr st_c_hole e) dy_c_hole (ST empty_mem 0) e C' st' e') as H.
-  assert (level_bound (level_expr st_c_hole e) (ST empty_mem 0) /\
-          level_expr (dy_to_st dy_c_hole) e <= level_expr st_c_hole e) as FINAL.
-  - split; simpl; eauto.
-  - apply H in FINAL. destruct FINAL as [TRIVIAL KILLER]. exact KILLER. exact REACH.
-Qed.
-
-Theorem expr_addr_bound :
-  forall e C' st' e'
-         (REACH : <e| dy_c_hole (ST empty_mem 0) e ~> C' st' e' |e>),
-         len_p (dy_level C') <= level_expr st_c_hole e.
-Proof.
-  intros. pose proof (expr_level_bound e C' st' e' REACH) as H.
-  rewrite dy_level_len_is_st_level.
-  assert (st_level (dy_to_st C') <= level_expr (dy_to_st C') e').
-  - apply level_increase.
-  - nia.
-Qed.
-
 Lemma value_reach_only_itself_e :
   forall C st v (pf : value v)
          C' st' e'
@@ -1361,3 +1144,230 @@ Proof.
   intros; repeat split; inversion pf; inversion REACH; subst; eauto using EreachM;
   try inversion H0.
 Qed.
+
+Notation "Cout '[[|' Cin '|]]'" := (st_c_plugin Cout Cin)
+                              (at level 100, Cin at next level, right associativity).
+
+Notation "'[[||]]'" := (st_c_hole) (at level 100).
+
+(* collect all static contexts reachable from the current configuration *)
+Fixpoint collect_ctx_expr C e :=
+  match e with
+  | e_var x => [C]
+  | e_lam x e' => C :: collect_ctx_expr
+                       (C [[|st_c_lam x ([[||]]) |]]) e'
+  | e_app e1 e2 =>
+    let ctxs1 := collect_ctx_expr C e1 in
+    let ctxs2 := collect_ctx_expr C e2 in
+    ctxs1 ++ ctxs2
+  | e_link m e' =>
+    match collect_ctx_mod C m with
+    | (Some C_m, ctxs_m) => 
+      let ctxs_e := collect_ctx_expr C_m e' in
+      ctxs_m ++ ctxs_e
+    | (None, ctxs_m) => ctxs_m
+    end
+  end
+
+with collect_ctx_mod C m :=
+  match m with
+  | m_empty => (Some C, [C])
+  | m_var M =>
+    match st_ctx_M C M with
+    | Some C_M => (Some C_M, [C ; C_M])
+    | None => (None, [C])
+    end
+  | m_lete x e m' =>
+    let ctxs_e := collect_ctx_expr C e in
+    let (ctx_o, ctxs_m) := collect_ctx_mod 
+                           (C [[| st_c_lete x ([[||]]) |]]) m' in
+    (ctx_o, ctxs_e ++ ctxs_m)
+  | m_letm M m1 m2 =>
+    match collect_ctx_mod C m1 with
+    | (Some C_M, ctxs_m1) => 
+      let (ctx_o, ctxs_m2) := collect_ctx_mod
+                              (C [[| st_c_letm M C_M ([[||]]) |]]) m2 in
+      (ctx_o, ctxs_m1 ++ ctxs_m2)
+    | (None, ctxs_m1) => (None, ctxs_m1)
+    end
+  end.
+
+Compute collect_ctx_expr ([[||]]) (e_app (e_lam (eid 0) (e_var (eid 0)))
+                                  (e_lam (eid 0) (e_var (eid 0)))).
+
+Search In _ (_ ++ _).
+Search In _ (_ :: _).
+Print In.
+
+Lemma collect_ctx_expr_refl : forall e C, In C (collect_ctx_expr C e).
+Proof.
+  apply (expr_ind_mut
+    (fun e =>
+      forall C, In C (collect_ctx_expr C e))
+    (fun m =>
+      forall C, 
+        let (o, ctxs) := collect_ctx_mod C m in In C ctxs));
+  intros; simpl; eauto.
+  - apply in_app_iff. left. apply H.
+  - remember (collect_ctx_mod C m) as ol. destruct ol as [o l].
+    specialize (H C). rewrite <- Heqol in H.
+    destruct o; eauto. apply in_app_iff. left. eauto.
+  - destruct (st_ctx_M C M); simpl; left; eauto.
+  - destruct (collect_ctx_mod (C [[|st_c_lete x ([[||]])|]]) m).
+    apply in_app_iff. left. apply H.
+  - remember (collect_ctx_mod C m1) as ol.
+    destruct ol as [o l]. specialize (H C). rewrite <- Heqol in H.
+    destruct o; eauto.
+    + destruct (collect_ctx_mod (C [[|st_c_letm M s ([[||]])|]]) m2).
+      apply in_app_iff. left. eauto. 
+Qed.
+
+Lemma Meval_then_collect :
+  forall C st m C_m st_m
+         (EVAL : MevalR C st m C_m st_m),
+        match collect_ctx_mod (dy_to_st C) m with
+        | (Some C_m', _) => C_m' = dy_to_st C_m
+        | (None, _) => False
+        end.
+Proof.
+  intros. induction EVAL; simpl; eauto.
+  - pose proof mod_is_static_some as H.
+    specialize (H C M). destruct H as [A B].
+    specialize (A C_M). symmetry in ACCESS.
+    specialize (A ACCESS). rewrite A. eauto.
+  - rewrite dy_to_st_plugin in IHEVAL.
+    simpl in IHEVAL.
+    remember (collect_ctx_mod (dy_to_st C [[|st_c_lete x ([[||]])|]]) m) as ol.
+    destruct ol. exact IHEVAL.
+  - rewrite dy_to_st_plugin in IHEVAL2. simpl in IHEVAL2.
+    destruct (collect_ctx_mod (dy_to_st C) m1). destruct o; try apply IHEVAL1.
+    rewrite <- IHEVAL1 in IHEVAL2.
+    destruct (collect_ctx_mod (dy_to_st C [[|st_c_letm M s ([[||]])|]]) m2).
+    exact IHEVAL2.
+Qed.
+
+Definition ctx_bound_st ub st:=
+  match st with
+  | ST mem t =>
+    forall addr,
+      match mem addr with
+      | Some (Val v _ C_v) =>
+        forall sC (IN : In sC (collect_ctx_expr (dy_to_st C_v) v)),
+               In sC ub
+      | None => True
+      end
+  end.
+
+Definition ctx_bound_expr ub C st e :=
+  ctx_bound_st ub st /\
+  forall sC (IN : In sC (collect_ctx_expr (dy_to_st C) e)),
+         In sC ub.
+
+Definition ctx_bound_mod ub C st m :=
+  ctx_bound_st ub st /\
+  let (o, ctxs) := collect_ctx_mod (dy_to_st C) m in
+  forall sC (IN : In sC ctxs),
+         In sC ub.
+
+Lemma ere_ctx_bound :
+  forall ub
+         C st e
+         C' st' e'
+         (INIT : ctx_bound_expr ub C st e)
+         (REACH : <e| C st e ~> C' st' e' |e>),
+    ctx_bound_expr ub C' st' e'.
+Proof.
+  intros ub.
+  apply (EreachE_ind_mut (ctx_bound_expr ub) (ctx_bound_mod ub)).
+  - intros. unfold ctx_bound_expr in *. destruct H as [mem expr].
+    destruct st. intros. remember (mem0 addr) as v.
+    destruct v; eauto. destruct e0.
+    split; eauto.
+    unfold ctx_bound_st in *. specialize (mem addr).
+    rewrite <- Heqv in mem. eauto.
+  - intros. unfold ctx_bound_expr in *. destruct H as [mem expr].
+    split; eauto. intros. specialize (expr sC).
+    assert (In sC (collect_ctx_expr (dy_to_st C) (e_app e1 e2))).
+    simpl. apply in_app_iff. left. eauto. eauto.
+  - intros. unfold ctx_bound_expr in *. destruct H as [memi expri].
+    destruct H0 as [memlam exprlam]. split; eauto.
+    intros. specialize (expri sC). specialize (exprlam sC).
+    assert (In sC (collect_ctx_expr (dy_to_st C) (e_app e1 e2))).
+    simpl. apply in_app_iff. right. eauto. eauto.
+  - intros. unfold ctx_bound_expr in *. destruct H as [memi expri].
+    destruct H0 as [memlam exprlam]. destruct H1 as [memarg exprarg].
+    split. 
+    + unfold ctx_bound_st. unfold update_m. intro addr.
+      destruct (eq_p addr (dy_level C_lam ++ [t])). exact exprarg.
+      apply memarg. 
+    + rewrite dy_to_st_plugin. simpl. remember (dy_to_st C_lam) as st_C.
+      simpl in exprlam. eauto.
+  - intros C st m e [mem expr]. split. exact mem.
+    simpl in expr. remember (collect_ctx_mod (dy_to_st C) m) as ol.
+    destruct ol. destruct o; intros; specialize (expr sC).
+    + assert (In sC (l ++ collect_ctx_expr s e)) as HINT.
+      apply in_app_iff. left; eauto. eauto.
+    + apply expr. eauto.
+  - intros C st m e C_m st_m [mem expr] meval [memm exprm]. split. exact memm.
+    apply Meval_then_collect in meval.
+    simpl in expr. simpl in exprm. remember (collect_ctx_mod (dy_to_st C) m) as ol.
+    destruct ol; destruct o; intros; specialize (expr sC). 
+    + rewrite <- meval in *. 
+      assert (In sC (l ++ collect_ctx_expr s e)) as HINT.
+      apply in_app_iff. right. eauto. eauto.
+    + inversion meval.
+  - intros C st M C_M ACCESS [mem expr].
+    split. exact mem. simpl in expr.
+    pose proof mod_is_static_some as MOD.
+    specialize (MOD C M). destruct MOD as [MODl MODr].
+    symmetry in ACCESS. specialize (MODl C_M ACCESS).
+    rewrite MODl in expr. simpl. intros; inversion IN; try inversion H.
+    specialize (expr (dy_to_st C_M)).
+    assert (In (dy_to_st C_M) [dy_to_st C; dy_to_st C_M]) as HINT.
+    simpl; right; eauto. eauto.
+  - intros C st x e m [mem expr].
+    split. exact mem. simpl in expr.
+    destruct (collect_ctx_mod (st_c_plugin (dy_to_st C) (st_c_lete x st_c_hole)) m).
+    intros. specialize (expr sC).
+    assert (In sC (collect_ctx_expr (dy_to_st C) e ++ l)) as HINT.
+    apply in_app_iff. left. eauto. eauto.
+  - intros C st x e m C_x mem t v pf 
+    [memi expri] [memm exprm]. split.
+    + unfold ctx_bound_st. unfold update_m. intro addr.
+      destruct (eq_p addr (dy_level C ++ [t])). exact exprm.
+      apply memm.
+    + simpl in expri. rewrite dy_to_st_plugin. simpl.
+      destruct (collect_ctx_mod (st_c_plugin (dy_to_st C) (st_c_lete x st_c_hole)) m).
+      intros. specialize (expri sC).
+      assert (In sC (collect_ctx_expr (dy_to_st C) e ++ l)) as HINT.
+      apply in_app_iff. right. eauto. eauto.
+  - intros C st M m1 m2 [mem expr]. split. exact mem. simpl in expr.
+    destruct (collect_ctx_mod (dy_to_st C) m1). destruct o; eauto.
+    destruct (collect_ctx_mod (st_c_plugin (dy_to_st C) (st_c_letm M s st_c_hole)) m2). destruct o;
+    intros; specialize (expr sC); 
+    assert (In sC (l ++ l0)) as HINT; try apply in_app_iff; try left; eauto.
+  - intros C st M m1 m2 C_M st_M [memi expri] meval [memm exprm].
+    apply Meval_then_collect in meval. simpl in expri. simpl in exprm.
+    remember (collect_ctx_mod (dy_to_st C) m1) as ol1. 
+    destruct ol1. destruct o; unfold ctx_bound_mod in *;
+    rewrite dy_to_st_plugin in *; simpl; split; try inversion meval; 
+    try rewrite <- meval; eauto.
+    destruct (collect_ctx_mod (dy_to_st C [[|st_c_letm M s ([[||]])|]]) m2).
+    intros. assert (In sC (l ++ l0)) as HINT. apply in_app_iff. right. eauto. eauto.
+Qed.
+
+Theorem expr_ctx_bound :
+  forall e C' st' e'
+         (REACH : <e| dy_c_hole (ST empty_mem 0) e ~> C' st' e' |e>),
+         In (dy_to_st C') (collect_ctx_expr ([[||]]) e).
+Proof.
+  intros.
+  pose proof (ere_ctx_bound (collect_ctx_expr st_c_hole e) dy_c_hole (ST empty_mem 0) e C' st' e') as H.
+  assert (ctx_bound_expr (collect_ctx_expr ([[||]]) e) dy_c_hole
+          (ST empty_mem 0) e) as FINAL.
+  - unfold ctx_bound_expr; split; simpl; eauto.
+  - apply H in FINAL; try apply REACH. 
+    destruct FINAL as [MEM KILLER].
+    apply KILLER. apply collect_ctx_expr_refl.
+Qed.
+(* Soundness of big-step relation : equivalence to definitional interpreter with fuel *)
