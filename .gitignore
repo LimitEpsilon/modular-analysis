@@ -346,11 +346,12 @@ TSWLatexianTemp*
 *.glstex
 
 ### Coq ###
-.nia.cache
 *.native
 *.o
+*.coq.d
 *.v.d
 *.vio
+*.glob
 *.vo
 *.vok
 *.vos
