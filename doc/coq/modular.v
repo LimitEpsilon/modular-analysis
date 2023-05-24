@@ -138,6 +138,7 @@ Notation "p '!->' v ';' mem" := (update_m mem p v)
 
 Notation "Cout '[|' Cin '|]'" := (dy_plugin_c Cout Cin)
                               (at level 100, Cin at next level, right associativity).
+Notation "'[||]'" := (dy_c_hole) (at level 100).
 
 Inductive EevalR (C : dy_ctx) (st : state)
     : expr_tm -> expr_value -> state -> Prop :=
@@ -157,7 +158,7 @@ Inductive EevalR (C : dy_ctx) (st : state)
                            (Val (e_lam x e) (v_fn x e) C_lam) st_lam)
               (ARG : EevalR C st_lam e2
                             arg (ST mem t))
-              (BODY : EevalR (C_lam [|dy_c_lam x t dy_c_hole|])
+              (BODY : EevalR (C_lam [|dy_c_lam x t  ([||])|])
                              (ST ((dy_level C_lam) ++ [t] !-> arg ; mem) (update_t t))
                               e v st_v)
     : EevalR C st (e_app e1 e2) v st_v
@@ -175,14 +176,14 @@ with MevalR (C : dy_ctx) (st : state)
   | Meval_lete x e v_e mem t
                m C_m st_m
                (EVALe : EevalR C st e v_e (ST mem t))
-               (EVALm : MevalR (C [|dy_c_lete x t dy_c_hole|]) 
+               (EVALm : MevalR (C [|dy_c_lete x t  ([||])|]) 
                         (ST ((dy_level C ++ [t]) !-> v_e ; mem) (update_t t))
                         m C_m st_m)
     : MevalR C st (m_lete x e m) C_m st_m
   | Meval_letm M m1 C_m1 st_m1
                m2 C_m2 st_m2
                (EVALm1 : MevalR C st m1 C_m1 st_m1)
-               (EVALm2 : MevalR (C [|dy_c_letm M C_m1 dy_c_hole|]) st_m1
+               (EVALm2 : MevalR (C [|dy_c_letm M C_m1  ([||])|]) st_m1
                          m2 C_m2 st_m2)
     : MevalR C st (m_letm M m1 m2) C_m2 st_m2
 .
@@ -222,7 +223,7 @@ Inductive _EreachE (C : dy_ctx) (st : state)
                              (Val (e_lam x e) (v_fn x e) C_lam) st_lam)
                  (ARG : EevalR C st_lam e2
                                arg (ST mem t))
-                 (REACHb : _EreachE (C_lam[|dy_c_lam x t dy_c_hole|]) 
+                 (REACHb : _EreachE (C_lam[|dy_c_lam x t  ([||])|]) 
                                     (ST ((dy_level C_lam ++ [t]) !-> arg ; mem) (update_t t)) e
                                      C' st' e')
     : _EreachE C st (e_app e1 e2)
@@ -249,7 +250,7 @@ with _MreachE (C : dy_ctx) (st : state)
   | _mre_lete_m x e m v mem t
                 C' st' e'
              (EVALx : EevalR C st e v (ST mem t))
-             (REACHm : _MreachE (C[|dy_c_lete x t dy_c_hole|])
+             (REACHm : _MreachE (C[|dy_c_lete x t  ([||])|])
                                 (ST ((dy_level C ++ [t]) !-> v ; mem) (update_t t)) m
                                  C' st' e')
     : _MreachE C st (m_lete x e m)
@@ -262,7 +263,7 @@ with _MreachE (C : dy_ctx) (st : state)
   | _mre_letm_m2 M m1 m2 C_M st_M
                  C' st' e'
              (EVALM : MevalR C st m1 C_M st_M)
-             (REACHm : _MreachE (C[|dy_c_letm M C_M dy_c_hole|]) st_M m2
+             (REACHm : _MreachE (C[|dy_c_letm M C_M  ([||])|]) st_M m2
                                  C' st' e')
     : _MreachE C st (m_letm M m1 m2)
                C' st' e'.
@@ -286,7 +287,7 @@ Inductive _MreachM (C : dy_ctx) (st : state)
   | _mrm_lete_m x e m v mem t
                 C' st' m'
              (EVALx : EevalR C st e v (ST mem t))
-             (REACHm : _MreachM (C[|dy_c_lete x t dy_c_hole|]) 
+             (REACHm : _MreachM (C[|dy_c_lete x t  ([||])|]) 
                                 (ST ((dy_level C ++ [t]) !-> v ; mem) (update_t t)) m
                                  C' st' m')
     : _MreachM C st (m_lete x e m)
@@ -299,7 +300,7 @@ Inductive _MreachM (C : dy_ctx) (st : state)
   | _mrm_letm_m2 M m1 m2 C_M st_M
                  C' st' m'
              (EVALM : MevalR C st m1 C_M st_M)
-             (REACHm : _MreachM (C[|dy_c_letm M C_M dy_c_hole|]) st_M m2
+             (REACHm : _MreachM (C[|dy_c_letm M C_M  ([||])|]) st_M m2
                                  C' st' m')
     : _MreachM C st (m_letm M m1 m2)
                C' st' m'
@@ -323,7 +324,7 @@ with _EreachM (C : dy_ctx) (st : state)
                  (FN : EevalR C st e1 
                               (Val (e_lam x e) (v_fn x e) C_lam) st_lam)
                  (ARG : EevalR C st_lam e2 arg (ST mem t))
-                 (REACHb : _EreachM (C_lam[|dy_c_lam x t dy_c_hole|]) 
+                 (REACHb : _EreachM (C_lam[|dy_c_lam x t ([||])|]) 
                                     (ST ((dy_level C_lam ++ [t]) !-> arg ; mem) (update_t t)) e
                                      C' st' m')
     : _EreachM C st (e_app e1 e2)
@@ -377,7 +378,7 @@ Inductive EreachE (C : dy_ctx) (st : state)
                  (ARG : EevalR C st_lam e2
                                (Val arg pf C_arg) (ST mem t))
                  (ARGr : EreachE C st_lam e2 C_arg (ST mem t) arg)
-                 (REACHb : EreachE (C_lam[|dy_c_lam x t dy_c_hole|]) 
+                 (REACHb : EreachE (C_lam[|dy_c_lam x t ([||])|]) 
                                     (ST ((dy_level C_lam ++ [t]) !-> (Val arg pf C_arg) ; mem) (update_t t)) e
                                      C' st' e')
     : EreachE C st (e_app e1 e2)
@@ -406,7 +407,7 @@ with MreachE (C : dy_ctx) (st : state)
                C' st' e'
              (EVALx : EevalR C st e (Val v pf C_x) (ST mem t))
              (EVALxr : EreachE C st e C_x (ST mem t) v)
-             (REACHm : MreachE (C[|dy_c_lete x t dy_c_hole|])
+             (REACHm : MreachE (C[|dy_c_lete x t ([||])|])
                                 (ST ((dy_level C ++ [t]) !-> (Val v pf C_x) ; mem) (update_t t)) m
                                  C' st' e')
     : MreachE C st (m_lete x e m)
@@ -420,7 +421,7 @@ with MreachE (C : dy_ctx) (st : state)
                 C' st' e'
              (EVALM : MevalR C st m1 C_M st_M)
              (EVALM : MreachM C st m1 C_M st_M m_empty)
-             (REACHm : MreachE (C[|dy_c_letm M C_M dy_c_hole|]) st_M m2
+             (REACHm : MreachE (C[|dy_c_letm M C_M ([||])|]) st_M m2
                                 C' st' e')
     : MreachE C st (m_letm M m1 m2)
               C' st' e'
@@ -442,7 +443,7 @@ with MreachM (C : dy_ctx) (st : state)
                C' st' m'
              (EVALx : EevalR C st e (Val v pf C_x) (ST mem t))
              (EVALxr : EreachE C st e C_x (ST mem t) v)
-             (REACHm : MreachM (C[|dy_c_lete x t dy_c_hole|]) 
+             (REACHm : MreachM (C[|dy_c_lete x t ([||])|]) 
                                (ST ((dy_level C ++ [t]) !-> (Val v pf C_x) ; mem) (update_t t)) m
                                 C' st' m')
     : MreachM C st (m_lete x e m)
@@ -456,7 +457,7 @@ with MreachM (C : dy_ctx) (st : state)
                 C' st' m'
              (EVALM : MevalR C st m1 C_M st_M)
              (EVALMr : MreachM C st m1 C_M st_M m_empty)
-             (REACHm : MreachM (C[|dy_c_letm M C_M dy_c_hole|]) st_M m2
+             (REACHm : MreachM (C[|dy_c_letm M C_M  ([||])|]) st_M m2
                                 C' st' m')
     : MreachM C st (m_letm M m1 m2)
               C' st' m'
@@ -484,7 +485,7 @@ with EreachM (C : dy_ctx) (st : state)
                                 C_lam st_lam (e_lam x e))
                  (ARG : EevalR C st_lam e2 (Val arg pf C_arg) (ST mem t))
                  (ARGr : EreachE C st_lam e2 C_arg (ST mem t) arg)
-                 (REACHb : EreachM (C_lam[|dy_c_lam x t dy_c_hole|]) 
+                 (REACHb : EreachM (C_lam[|dy_c_lam x t ([||])|]) 
                                    (ST ((dy_level C_lam ++ [t]) !-> (Val arg pf C_arg) ; mem) (update_t t)) e
                                     C' st' m')
     : EreachM C st (e_app e1 e2)
@@ -888,7 +889,7 @@ Qed.
 
 Fixpoint dy_to_st C :=
   match C with
-  | dy_c_hole => st_c_hole
+  |  ([||]) => st_c_hole
   | dy_c_lam x _ C' => st_c_lam x (dy_to_st C')
   | dy_c_lete x _ C' => st_c_lete x (dy_to_st C')
   | dy_c_letm M CM C' => st_c_letm M (dy_to_st CM) (dy_to_st C')
@@ -993,7 +994,7 @@ Lemma EreachE_ind_mut :
             Pe C st (e_app e1 e2) ->
             Pe C_lam st_lam (e_lam x e) ->
             Pe C_arg (ST mem t) arg ->
-            Pe (C_lam[|dy_c_lam x t dy_c_hole|])
+            Pe (C_lam[|dy_c_lam x t  ([||])|])
               (ST ((dy_level C_lam ++ [t]) !-> (Val arg pf C_arg) ; mem) (update_t t)) e) ->
     (forall C st m e, Pe C st (e_link m e) -> Pm C st m) ->
     (forall C st m e C_m st_m,
@@ -1006,7 +1007,7 @@ Lemma EreachE_ind_mut :
     (forall C st x e m C_x mem t v pf,
             Pm C st (m_lete x e m) ->
             Pe C_x (ST mem t) v ->
-            Pm (C[|dy_c_lete x t dy_c_hole|])
+            Pm (C[|dy_c_lete x t  ([||])|])
               (ST ((dy_level C ++ [t]) !-> (Val v pf C_x) ; mem) (update_t t)) m) ->
     (forall C st M m1 m2,
             Pm C st (m_letm M m1 m2) -> Pm C st m1) ->
@@ -1014,7 +1015,7 @@ Lemma EreachE_ind_mut :
             Pm C st (m_letm M m1 m2) ->
             (MevalR C st m1 C_M st_M) ->
             Pm C_M st_M m_empty ->
-            Pm (C[|dy_c_letm M C_M dy_c_hole|]) st_M m2) ->
+            Pm (C[|dy_c_letm M C_M  ([||])|]) st_M m2) ->
     (forall C st e C' st' e'
             (INIT : Pe C st e)
             (REACH : <e| C st e ~> C' st' e' |e>),
@@ -1054,7 +1055,7 @@ Proof.
     + assert (LAM : Pe C_lam st_lam (e_lam x e)).
       apply (IHere C st e1 C_lam st_lam (e_lam x e)).
       eapply APPl. exact INIT. exact REACH1.
-      apply (IHere (C_lam [|dy_c_lam x t dy_c_hole|])
+      apply (IHere (C_lam [|dy_c_lam x t ([||])|])
             (ST (dy_level C_lam ++ [t] !-> Val arg pf C_arg; mem)
             (update_t t)) e C' st' e').
       apply APPb with (C := C) (st := st) (e1 := e1) (e2 := e2) (st_lam := st_lam).
@@ -1077,7 +1078,7 @@ Proof.
     + assert (LAM : Pe C_lam st_lam (e_lam x e)).
       apply (IHere C st e1 C_lam st_lam (e_lam x e)).
       eapply APPl. exact INIT. exact FNr.
-      apply (IHerm (C_lam [|dy_c_lam x t dy_c_hole|])
+      apply (IHerm (C_lam [|dy_c_lam x t ([||])|])
             (ST (dy_level C_lam ++ [t] !-> Val arg pf C_arg; mem)
             (update_t t)) e C' st' m').
       eapply APPb with (st_lam := st_lam). exact INIT. exact LAM.
@@ -1093,7 +1094,7 @@ Proof.
   - intros. destruct REACH.
     + apply (IHere C st e C' st' e').
       eapply LETex. exact INIT. exact REACHe.
-    + apply (IHmre (C [|dy_c_lete x t dy_c_hole|])
+    + apply (IHmre (C [|dy_c_lete x t ([||])|])
         (ST (dy_level C ++ [t] !-> Val v pf C_x; mem) (update_t t)) m
         C' st' e').
       eapply LETem. exact INIT.
@@ -1101,7 +1102,7 @@ Proof.
       eapply LETex. exact INIT. exact EVALxr. exact REACH.
     + apply (IHmre C st m1 C' st' e').
       eapply LETm1. exact INIT. exact REACH.
-    + apply (IHmre (C [|dy_c_letm M C_M dy_c_hole|]) st_M m2 C' st' e').
+    + apply (IHmre (C [|dy_c_letm M C_M ([||])|]) st_M m2 C' st' e').
       eapply LETm2. exact INIT. exact EVALM.
       apply (IHmrm C st m1 C_M st_M m_empty).
       eapply LETm1. exact INIT. exact EVALM0. exact REACH.
@@ -1111,7 +1112,7 @@ Proof.
       apply MVAR. exact INIT.
     + apply (IHerm C st e C' st' m').
       eapply LETex. exact INIT. exact REACHe.
-    + apply (IHmrm (C [|dy_c_lete x t dy_c_hole|])
+    + apply (IHmrm (C [|dy_c_lete x t ([||])|])
         (ST (dy_level C ++ [t] !-> Val v pf C_x; mem) (update_t t)) m
         C' st' m').
       eapply LETem. exact INIT.
@@ -1119,7 +1120,7 @@ Proof.
       eapply LETex. exact INIT. exact EVALxr. exact REACH.
     + apply (IHmrm C st m1 C' st' m').
       eapply LETm1. exact INIT. exact REACH.
-    + apply (IHmrm (C [|dy_c_letm M C_M dy_c_hole|]) st_M m2 C' st' m').
+    + apply (IHmrm (C [|dy_c_letm M C_M ([||])|]) st_M m2 C' st' m').
       eapply LETm2. exact INIT. exact EVALM.
       apply (IHmrm C st m1 C_M st_M m_empty).
       eapply LETm1. exact INIT. exact REACH1. exact REACH2.
@@ -1219,7 +1220,7 @@ Proof.
     destruct ol as [o l]. specialize (H C). rewrite <- Heqol in H.
     destruct o; eauto.
     + destruct (collect_ctx_mod (C [[|st_c_letm M s ([[||]])|]]) m2).
-      apply in_app_iff. left. eauto. 
+      apply in_app_iff. left. eauto.
 Qed.
 
 Lemma Meval_then_collect :
@@ -1358,12 +1359,12 @@ Qed.
 
 Theorem expr_ctx_bound :
   forall e C' st' e'
-         (REACH : <e| dy_c_hole (ST empty_mem 0) e ~> C' st' e' |e>),
+         (REACH : <e|  ([||]) (ST empty_mem 0) e ~> C' st' e' |e>),
          In (dy_to_st C') (collect_ctx_expr ([[||]]) e).
 Proof.
   intros.
-  pose proof (ere_ctx_bound (collect_ctx_expr st_c_hole e) dy_c_hole (ST empty_mem 0) e C' st' e') as H.
-  assert (ctx_bound_expr (collect_ctx_expr ([[||]]) e) dy_c_hole
+  pose proof (ere_ctx_bound (collect_ctx_expr st_c_hole e)  ([||]) (ST empty_mem 0) e C' st' e') as H.
+  assert (ctx_bound_expr (collect_ctx_expr ([[||]]) e)  ([||])
           (ST empty_mem 0) e) as FINAL.
   - unfold ctx_bound_expr; split; simpl; eauto.
   - apply H in FINAL; try apply REACH. 
