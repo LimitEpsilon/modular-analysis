@@ -1,4 +1,4 @@
-COQMFFLAGS := -Q . Modular
+COQMFFLAGS := -Q . MODULAR
 
 ALLVFILES := Syntax.v Abstract.v Concrete.v
 
