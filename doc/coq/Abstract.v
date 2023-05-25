@@ -85,20 +85,17 @@ Inductive expr_value :=
 .
 
 Inductive state :=
-  | ST (mem : path -> option (list expr_value))
+  | ST (mem : path -> list expr_value)
        (t : time)
 .
 
 Definition update_m {X} mem (p : path) (x : X) :=
   fun p1 => 
   if eq_p p1 p then
-    match mem p with
-      | Some l => Some (x :: l)
-      | None => Some [x]
-    end
+    x :: (mem p)
   else mem p1.
 
-Definition empty_mem {X} (p : path) : option X := None.
+Definition empty_mem {X} (p : path) : list X := [].
 
 Notation "p '!#->' v ';' mem" := (update_m mem p v)
                               (at level 100, v at next level, right associativity).
@@ -109,11 +106,10 @@ Notation "'[#||#]'" := (dy_c_hole) (at level 100).
 
 Inductive EevalR (C : dy_ctx) (st : state)
     : expr_tm -> expr_value -> state -> Prop :=
-  | Eeval_var x vl v mem t
+  | Eeval_var x v mem t
              (STATE : ST mem t = st)
              (ADDR : [] <> addr_x C x)
-             (ACCESS : Some vl = mem (addr_x C x))
-             (IN : In v vl)
+             (ACCESS : In v (mem (addr_x C x)))
     : EevalR C st (e_var x) v st
   | Eeval_lam x e
     : EevalR C st (e_lam x e)
@@ -167,11 +163,10 @@ Inductive _EreachE (C : dy_ctx) (st : state)
   | _ere_refl e
     : _EreachE C st e 
                C st e
-  | _ere_var x mem t vl v pf C_v
+  | _ere_var x mem t v pf C_v
             (STATE : ST mem t = st)
             (ADDR : [] <> addr_x C x)
-            (ACCESS : Some vl = mem (addr_x C x))
-            (IN : In (Val v pf C_v) vl)
+            (ACCESS : In (Val v pf C_v) (mem (addr_x C x)))
     : _EreachE C st (e_var x) 
                C_v st v
   | _ere_app_left e1 e2 C' st' e'
@@ -320,11 +315,10 @@ Inductive EreachE (C : dy_ctx) (st : state)
   | ere_refl e
     : EreachE C st e 
               C st e
-  | ere_var x mem t vl v pf C_v
+  | ere_var x mem t v pf C_v
             (STATE : ST mem t = st)
             (ADDR : [] <> addr_x C x)
-            (ACCESS : Some vl = mem (addr_x C x))
-            (IN : In (Val v pf C_v) vl)
+            (ACCESS : In (Val v pf C_v) (mem (addr_x C x)))
     : EreachE C st (e_var x) 
               C_v st v
   | ere_app_left e1 e2 C' st' e'
@@ -894,13 +888,9 @@ Lemma EreachE_ind_mut :
     (forall C st e, (Pe C st e) -> 
       (match st with
       | ST mem _ =>
-          forall addr,
-          match mem addr with
-            | None => True
-            | Some vl => 
-              forall v pf C_v (IN : In (Val v pf C_v) vl),
+          forall addr v pf C_v
+                 (IN : In (Val v pf C_v) (mem addr)),
                 Pe C_v st v
-          end
       end)) ->
     (forall C st e1 e2,
             Pe C st (e_app e1 e2) -> Pe C st e1) ->
@@ -962,7 +952,7 @@ Proof.
     + exact INIT.
     + specialize (MEM C st (e_var x) INIT).
       destruct st. specialize (MEM (addr_x C x)).
-      inversion STATE; subst. rewrite <- ACCESS in MEM.
+      inversion STATE; subst.
       eapply MEM. eauto.
     + apply (IHere C st e1 C' st' e'). eapply APPl.
       exact INIT. exact REACH.
@@ -1114,14 +1104,9 @@ Qed.
 Definition ctx_bound_st ub st:=
   match st with
   | ST mem t =>
-    forall addr,
-      match mem addr with
-      | Some vl =>
-        forall v pf C_v (INvl : In (Val v pf C_v) vl)
+    forall addr v pf C_v (INvl : In (Val v pf C_v) (mem addr))
                sC (IN : In sC (collect_ctx_expr (dy_to_st C_v) v)),
-               In sC ub
-      | None => True
-      end
+            In sC ub
   end.
 
 Definition ctx_bound_expr ub C st e :=
@@ -1146,11 +1131,7 @@ Proof.
   intros ub.
   apply (EreachE_ind_mut (ctx_bound_expr ub) (ctx_bound_mod ub)).
   - intros. unfold ctx_bound_expr in *. destruct H as [mem expr].
-    destruct st. intros. remember (mem0 addr) as v.
-    destruct v; eauto. intros.
-    split; eauto.
-    unfold ctx_bound_st in *. specialize (mem addr).
-    rewrite <- Heqv in mem. eauto.
+    destruct st. intros. split; eauto.
   - intros. unfold ctx_bound_expr in *. destruct H as [mem expr].
     split; eauto. intros. specialize (expr sC).
     assert (In sC (collect_ctx_expr (dy_to_st C) (e_app e1 e2))).
@@ -1171,10 +1152,15 @@ Proof.
         simpl in INvl. destruct INvl as [eq_arg | in_l].
         { inversion eq_arg. apply exprarg. rewrite <- H1 in IN.
           rewrite <- H0 in IN. eauto. }
-        { eapply memarg. eauto. eauto. }
-      * intros. simpl in INvl. destruct INvl as [eq_arg | contra]; try inversion contra.
-        inversion eq_arg. apply exprarg. rewrite <- H1 in IN.
-        rewrite <- H0 in IN. eauto.
+        { inversion in_l. }
+      * intros. simpl in INvl. destruct INvl as [eq_arg | [eq_val | in_ovl]].
+        { inversion eq_arg; subst. apply exprarg. eauto. }
+        { rewrite eq_val in *. assert (In (Val v pf0 C_v) (mem (dy_level C_lam ++ [t]))).
+          rewrite <- Heqovl. simpl; eauto. eapply memarg.
+          apply H. eauto. }
+        { assert (In (Val v pf0 C_v) (mem (dy_level C_lam ++ [t]))).
+          rewrite <- Heqovl. simpl; eauto. eapply memarg.
+          apply H. eauto. } 
       * apply memarg.
     + rewrite dy_to_st_plugin. simpl. remember (dy_to_st C_lam) as st_C.
       simpl in exprlam. eauto.
@@ -1217,10 +1203,15 @@ Proof.
         simpl in INvl. destruct INvl as [eq_e | in_l].
         { inversion eq_e. apply exprm. rewrite <- H1 in IN.
           rewrite <- H0 in IN. eauto. }
-        { eapply memm. eauto. eauto. }
-      * intros. simpl in INvl. destruct INvl as [eq_e | contra]; try inversion contra.
-        inversion eq_e. apply exprm. rewrite <- H1 in IN.
-        rewrite <- H0 in IN. eauto.
+        { inversion in_l. }
+      * intros. simpl in INvl. destruct INvl as [eq_e | [eq_val | in_ovl]].
+        { inversion eq_e; subst. apply exprm. eauto. }
+        { rewrite eq_val in *. assert (In (Val v0 pf0 C_v) (mem (dy_level C ++ [t]))).
+          rewrite <- Heqovl. simpl; eauto. eapply memm.
+          apply H. eauto. }
+        { assert (In (Val v0 pf0 C_v) (mem (dy_level C ++ [t]))).
+          rewrite <- Heqovl. simpl; eauto. eapply memm.
+          apply H. eauto. }
       * apply memm.
     + simpl in expri. rewrite dy_to_st_plugin. simpl.
       destruct (collect_ctx_mod (st_c_plugin (dy_to_st C) (st_c_lete x st_c_hole)) m).
@@ -1251,7 +1242,7 @@ Proof.
   pose proof (ere_ctx_bound (collect_ctx_expr st_c_hole e) ([#||#]) (ST empty_mem true) e C' st' e') as H.
   assert (ctx_bound_expr (collect_ctx_expr ([[||]]) e) ([#||#])
           (ST empty_mem true) e) as FINAL.
-  - unfold ctx_bound_expr; split; simpl; eauto.
+  - unfold ctx_bound_expr; split; simpl; eauto. intros. inversion INvl.
   - apply H in FINAL; try apply REACH. 
     destruct FINAL as [MEM KILLER].
     apply KILLER. apply collect_ctx_expr_refl.
