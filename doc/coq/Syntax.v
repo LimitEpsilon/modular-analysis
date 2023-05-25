@@ -157,6 +157,33 @@ with collect_ctx_mod C m :=
     end
   end.
 
-Compute collect_ctx_expr ([[||]]) (e_app (e_lam (eid 0) (e_var (eid 0)))
-                                  (e_lam (eid 0) (e_var (eid 0)))).
-
+Lemma st_ctx_M_plugin :
+  forall Cout Cin M,
+    st_ctx_M (st_c_plugin Cout Cin) M =
+      match st_ctx_M Cin M with
+      | Some CM => Some CM
+      | None =>
+        match st_ctx_M Cout M with
+        | Some CM => Some CM
+        | None => None
+        end
+      end.
+Proof.
+  induction Cout; intros; simpl; eauto.
+  - destruct (st_ctx_M Cin M); eauto.
+  - specialize (IHCout2 Cin M0). 
+    destruct (st_ctx_M Cin M0). 
+    rewrite IHCout2. eauto. 
+    rewrite IHCout2.
+    destruct (st_ctx_M Cout2 M0). eauto.
+    assert (RR : forall Cout0 Cin0, 
+    st_ctx_M (st_c_plugin Cout0 Cin0) M0 = None -> st_ctx_M Cin0 M0 = None).
+    { induction Cout0; intros; simpl; eauto. 
+      simpl in H. apply IHCout0_2.
+      destruct (st_ctx_M (st_c_plugin Cout0_2 Cin0) M0).
+      inversion H. eauto. }
+    specialize (IHCout1 Cin M0).
+    rewrite (RR Cout2 Cin IHCout2) in IHCout1.
+    destruct (eq_mid M0 M).
+    eauto. eauto.
+Qed. 

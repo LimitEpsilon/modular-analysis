@@ -51,7 +51,7 @@ Fixpoint dy_level (C : dy_ctx) : path :=
   match C with
   | dy_c_hole => []
   | dy_c_lam _ t C'
-  | dy_c_lete _ t  C' => t :: dy_level C'
+  | dy_c_lete _ t  C' => dy_level C' ++ [t]
   | dy_c_letm _ _  C' => dy_level C'
   end.
 
@@ -62,7 +62,7 @@ Fixpoint addr_x (C : dy_ctx) (x : expr_id) :=
   | dy_c_lete x' tx' C' =>
     match addr_x C' x with
     | [] => if eq_eid x x' then [tx'] else []
-    | addr => tx' :: addr
+    | addr => addr ++ [tx']
     end
   | dy_c_letm _ _ C' => addr_x C' x
   end.
@@ -123,7 +123,7 @@ Inductive EevalR (C : dy_ctx) (st : state)
               (ARG : EevalR C st_lam e2
                             arg (ST mem t))
               (BODY : EevalR (C_lam [#|dy_c_lam x t ([#||#])|#])
-                             (ST ((dy_level C_lam) ++ [t] !#-> arg ; mem) (update_t t))
+                             (ST (t :: (dy_level C_lam) !#-> arg ; mem) (update_t t))
                               e v st_v)
     : EevalR C st (e_app e1 e2) v st_v
   | Eeval_link m e C_m st_m v st_v
@@ -141,7 +141,7 @@ with MevalR (C : dy_ctx) (st : state)
                m C_m st_m
                (EVALe : EevalR C st e v_e (ST mem t))
                (EVALm : MevalR (C [#|dy_c_lete x t ([#||#])|#]) 
-                        (ST ((dy_level C ++ [t]) !#-> v_e ; mem) (update_t t))
+                        (ST ((t :: (dy_level C)) !#-> v_e ; mem) (update_t t))
                         m C_m st_m)
     : MevalR C st (m_lete x e m) C_m st_m
   | Meval_letm M m1 C_m1 st_m1
@@ -188,7 +188,7 @@ Inductive _EreachE (C : dy_ctx) (st : state)
                  (ARG : EevalR C st_lam e2
                                arg (ST mem t))
                  (REACHb : _EreachE (C_lam[#|dy_c_lam x t ([#||#])|#]) 
-                                    (ST ((dy_level C_lam ++ [t]) !#-> arg ; mem) (update_t t)) e
+                                    (ST (t :: (dy_level C_lam) !#-> arg ; mem) (update_t t)) e
                                      C' st' e')
     : _EreachE C st (e_app e1 e2)
                C' st' e'
@@ -215,7 +215,7 @@ with _MreachE (C : dy_ctx) (st : state)
                 C' st' e'
              (EVALx : EevalR C st e v (ST mem t))
              (REACHm : _MreachE (C[#|dy_c_lete x t ([#||#])|#])
-                                (ST ((dy_level C ++ [t]) !#-> v ; mem) (update_t t)) m
+                                (ST (t :: (dy_level C) !#-> v ; mem) (update_t t)) m
                                  C' st' e')
     : _MreachE C st (m_lete x e m)
                C' st' e'
@@ -252,7 +252,7 @@ Inductive _MreachM (C : dy_ctx) (st : state)
                 C' st' m'
              (EVALx : EevalR C st e v (ST mem t))
              (REACHm : _MreachM (C[#|dy_c_lete x t ([#||#])|#]) 
-                                (ST ((dy_level C ++ [t]) !#-> v ; mem) (update_t t)) m
+                                (ST ((t :: (dy_level C)) !#-> v ; mem) (update_t t)) m
                                  C' st' m')
     : _MreachM C st (m_lete x e m)
                C' st' m'
@@ -289,7 +289,7 @@ with _EreachM (C : dy_ctx) (st : state)
                               (Val (e_lam x e) (v_fn x e) C_lam) st_lam)
                  (ARG : EevalR C st_lam e2 arg (ST mem t))
                  (REACHb : _EreachM (C_lam[#|dy_c_lam x t ([#||#])|#]) 
-                                    (ST ((dy_level C_lam ++ [t]) !#-> arg ; mem) (update_t t)) e
+                                    (ST (t :: (dy_level C_lam) !#-> arg ; mem) (update_t t)) e
                                      C' st' m')
     : _EreachM C st (e_app e1 e2)
                C' st' m'
@@ -343,7 +343,7 @@ Inductive EreachE (C : dy_ctx) (st : state)
                                (Val arg pf C_arg) (ST mem t))
                  (ARGr : EreachE C st_lam e2 C_arg (ST mem t) arg)
                  (REACHb : EreachE (C_lam[#|dy_c_lam x t ([#||#])|#]) 
-                                    (ST ((dy_level C_lam ++ [t]) !#-> (Val arg pf C_arg) ; mem) (update_t t)) e
+                                    (ST (t :: (dy_level C_lam) !#-> (Val arg pf C_arg) ; mem) (update_t t)) e
                                      C' st' e')
     : EreachE C st (e_app e1 e2)
               C' st' e'
@@ -372,7 +372,7 @@ with MreachE (C : dy_ctx) (st : state)
              (EVALx : EevalR C st e (Val v pf C_x) (ST mem t))
              (EVALxr : EreachE C st e C_x (ST mem t) v)
              (REACHm : MreachE (C[#|dy_c_lete x t ([#||#])|#])
-                                (ST ((dy_level C ++ [t]) !#-> (Val v pf C_x) ; mem) (update_t t)) m
+                                (ST ((t :: (dy_level C)) !#-> (Val v pf C_x) ; mem) (update_t t)) m
                                  C' st' e')
     : MreachE C st (m_lete x e m)
               C' st' e'
@@ -408,7 +408,7 @@ with MreachM (C : dy_ctx) (st : state)
              (EVALx : EevalR C st e (Val v pf C_x) (ST mem t))
              (EVALxr : EreachE C st e C_x (ST mem t) v)
              (REACHm : MreachM (C[#|dy_c_lete x t ([#||#])|#]) 
-                               (ST ((dy_level C ++ [t]) !#-> (Val v pf C_x) ; mem) (update_t t)) m
+                               (ST ((t :: (dy_level C)) !#-> (Val v pf C_x) ; mem) (update_t t)) m
                                 C' st' m')
     : MreachM C st (m_lete x e m)
               C' st' m'
@@ -450,7 +450,7 @@ with EreachM (C : dy_ctx) (st : state)
                  (ARG : EevalR C st_lam e2 (Val arg pf C_arg) (ST mem t))
                  (ARGr : EreachE C st_lam e2 C_arg (ST mem t) arg)
                  (REACHb : EreachM (C_lam[#|dy_c_lam x t ([#||#])|#]) 
-                                   (ST ((dy_level C_lam ++ [t]) !#-> (Val arg pf C_arg) ; mem) (update_t t)) e
+                                   (ST (t :: (dy_level C_lam) !#-> (Val arg pf C_arg) ; mem) (update_t t)) e
                                     C' st' m')
     : EreachM C st (e_app e1 e2)
               C' st' m'
@@ -677,24 +677,15 @@ Proof.
       apply Heqeqa in H0; inversion H0.
 Qed.
 
-Lemma c_plugin_adds_level : forall C1 C2, eq_p (dy_level(C1[#|C2|#])) (dy_level C1 ++ dy_level C2) = true.
+Lemma c_plugin_adds_level : forall C1 C2, eq_p (dy_level(C1 [#|C2|#] )) (dy_level C2 ++ dy_level C1) = true.
 Proof.
-  induction C1; induction C2;
-  intros; simpl; 
-  try rewrite IHC1; try rewrite IHC2;
-  eauto; try (assert (RR : eq_t tx tx = true);
-  try apply eq_t_eq; eauto; try rewrite RR; try clear RR; eauto).
-  - simpl in *. rewrite IHC2. eauto.
-  - simpl in *. rewrite IHC2. eauto.
-  - assert (RR : forall C2, dy_level (dy_c_letm M C2_1 C2) = dy_level C2); eauto.
-    specialize (IHC1 (dy_c_letm M C2_1 C2_2)).
-    rewrite RR in IHC1. rewrite IHC1. eauto.
-  - assert (RR : forall C2, dy_level (dy_c_letm M C2_1 C2) = dy_level C2); eauto.
-    specialize (IHC1 (dy_c_letm M C2_1 C2_2)).
-    rewrite RR in IHC1. rewrite IHC1. eauto.
-  - assert (RR : forall C2, dy_level (dy_c_letm M0 C2_1 C2) = dy_level C2); eauto.
-    specialize (IHC1_2 (dy_c_letm M0 C2_1 C2_2)).
-    rewrite RR in IHC1_2. rewrite IHC1_2. eauto.
+  induction C1;
+  intros; try rewrite IHC1;
+  try apply Nat.eqb_eq; try rewrite app_nil_r in *; 
+  try rewrite c_plugin_assoc in *; simpl in *; 
+  eauto; try apply eq_p_eq; eauto;
+  specialize (IHC1 C2); rewrite eq_p_eq in IHC1;
+  rewrite IHC1; rewrite app_assoc; eauto.
 Qed.
 
 (* equivalence between reachability relations *)
@@ -813,37 +804,6 @@ Proof.
   rewrite IHCout2. eauto.
 Qed. 
 
-Lemma st_ctx_M_plugin :
-  forall Cout Cin M,
-    st_ctx_M (st_c_plugin Cout Cin) M =
-      match st_ctx_M Cin M with
-      | Some CM => Some CM
-      | None =>
-        match st_ctx_M Cout M with
-        | Some CM => Some CM
-        | None => None
-        end
-      end.
-Proof.
-  induction Cout; intros; simpl; eauto.
-  - destruct (st_ctx_M Cin M); eauto.
-  - specialize (IHCout2 Cin M0). 
-    destruct (st_ctx_M Cin M0). 
-    rewrite IHCout2. eauto. 
-    rewrite IHCout2.
-    destruct (st_ctx_M Cout2 M0). eauto.
-    assert (RR : forall Cout0 Cin0, 
-    st_ctx_M (st_c_plugin Cout0 Cin0) M0 = None -> st_ctx_M Cin0 M0 = None).
-    { induction Cout0; intros; simpl; eauto. 
-      simpl in H. apply IHCout0_2.
-      destruct (st_ctx_M (st_c_plugin Cout0_2 Cin0) M0).
-      inversion H. eauto. }
-    specialize (IHCout1 Cin M0).
-    rewrite (RR Cout2 Cin IHCout2) in IHCout1.
-    destruct (eq_mid M0 M).
-    eauto. eauto.
-Qed. 
-
 Lemma mod_is_static_none : forall (dC : dy_ctx) (M : mod_id),
   (ctx_M dC M = None <-> st_ctx_M (dy_to_st dC) M = None).
 Proof. 
@@ -903,7 +863,7 @@ Lemma EreachE_ind_mut :
             Pe C_lam st_lam (e_lam x e) ->
             Pe C_arg (ST mem t) arg ->
             Pe (C_lam[#|dy_c_lam x t ([#||#])|#])
-              (ST ((dy_level C_lam ++ [t]) !#-> (Val arg pf C_arg) ; mem) (update_t t)) e) ->
+              (ST (t :: (dy_level C_lam) !#-> (Val arg pf C_arg) ; mem) (update_t t)) e) ->
     (forall C st m e, Pe C st (e_link m e) -> Pm C st m) ->
     (forall C st m e C_m st_m,
             Pe C st (e_link m e) -> (MevalR C st m C_m st_m) ->
@@ -916,7 +876,7 @@ Lemma EreachE_ind_mut :
             Pm C st (m_lete x e m) ->
             Pe C_x (ST mem t) v ->
             Pm (C[#|dy_c_lete x t  ([#||#])|#])
-              (ST ((dy_level C ++ [t]) !#-> (Val v pf C_x) ; mem) (update_t t)) m) ->
+              (ST (t :: (dy_level C) !#-> (Val v pf C_x) ; mem) (update_t t)) m) ->
     (forall C st M m1 m2,
             Pm C st (m_letm M m1 m2) -> Pm C st m1) ->
     (forall C st M m1 m2 C_M st_M,
@@ -964,7 +924,7 @@ Proof.
       apply (IHere C st e1 C_lam st_lam (e_lam x e)).
       eapply APPl. exact INIT. exact REACH1.
       apply (IHere (C_lam [#|dy_c_lam x t ([#||#])|#])
-            (ST (dy_level C_lam ++ [t] !#-> Val arg pf C_arg; mem)
+            (ST (t :: dy_level C_lam !#-> Val arg pf C_arg; mem)
             (update_t t)) e C' st' e').
       apply APPb with (C := C) (st := st) (e1 := e1) (e2 := e2) (st_lam := st_lam).
       exact INIT. exact LAM. 
@@ -987,7 +947,7 @@ Proof.
       apply (IHere C st e1 C_lam st_lam (e_lam x e)).
       eapply APPl. exact INIT. exact FNr.
       apply (IHerm (C_lam [#|dy_c_lam x t ([#||#])|#])
-            (ST (dy_level C_lam ++ [t] !#-> Val arg pf C_arg; mem)
+            (ST (t :: (dy_level C_lam) !#-> Val arg pf C_arg; mem)
             (update_t t)) e C' st' m').
       eapply APPb with (st_lam := st_lam). exact INIT. exact LAM.
       apply (IHere C st_lam e2 C_arg (ST mem t) arg).
@@ -1003,7 +963,7 @@ Proof.
     + apply (IHere C st e C' st' e').
       eapply LETex. exact INIT. exact REACHe.
     + apply (IHmre (C [#|dy_c_lete x t ([#||#])|#])
-        (ST (dy_level C ++ [t] !#-> Val v pf C_x; mem) (update_t t)) m
+        (ST (t :: (dy_level C) !#-> Val v pf C_x; mem) (update_t t)) m
         C' st' e').
       eapply LETem. exact INIT.
       apply (IHere C st e C_x (ST mem t) v).
@@ -1021,7 +981,7 @@ Proof.
     + apply (IHerm C st e C' st' m').
       eapply LETex. exact INIT. exact REACHe.
     + apply (IHmrm (C [#|dy_c_lete x t ([#||#])|#])
-        (ST (dy_level C ++ [t] !#-> Val v pf C_x; mem) (update_t t)) m
+        (ST (t :: (dy_level C) !#-> Val v pf C_x; mem) (update_t t)) m
         C' st' m').
       eapply LETem. exact INIT.
       apply (IHere C st e C_x (ST mem t) v).
@@ -1145,9 +1105,9 @@ Proof.
     destruct H0 as [memlam exprlam]. destruct H1 as [memarg exprarg].
     split. 
     + unfold ctx_bound_st in *. unfold update_m. intro addr.
-      destruct (eq_p addr (dy_level C_lam ++ [t])).
-      remember (mem (dy_level C_lam ++ [t])) as ovl. destruct ovl.
-      * intros. specialize (memarg (dy_level C_lam ++ [t])).
+      destruct (eq_p addr (t :: (dy_level C_lam))).
+      remember (mem (t :: (dy_level C_lam))) as ovl. destruct ovl.
+      * intros. specialize (memarg (t :: (dy_level C_lam))).
         rewrite <- Heqovl in memarg.
         simpl in INvl. destruct INvl as [eq_arg | in_l].
         { inversion eq_arg. apply exprarg. rewrite <- H1 in IN.
@@ -1155,10 +1115,10 @@ Proof.
         { inversion in_l. }
       * intros. simpl in INvl. destruct INvl as [eq_arg | [eq_val | in_ovl]].
         { inversion eq_arg; subst. apply exprarg. eauto. }
-        { rewrite eq_val in *. assert (In (Val v pf0 C_v) (mem (dy_level C_lam ++ [t]))).
+        { rewrite eq_val in *. assert (In (Val v pf0 C_v) (mem (t :: (dy_level C_lam)))).
           rewrite <- Heqovl. simpl; eauto. eapply memarg.
           apply H. eauto. }
-        { assert (In (Val v pf0 C_v) (mem (dy_level C_lam ++ [t]))).
+        { assert (In (Val v pf0 C_v) (mem (t :: (dy_level C_lam)))).
           rewrite <- Heqovl. simpl; eauto. eapply memarg.
           apply H. eauto. } 
       * apply memarg.
@@ -1196,9 +1156,9 @@ Proof.
   - intros C st x e m C_x mem t v pf 
     [memi expri] [memm exprm]. split.
     + unfold ctx_bound_st in *. unfold update_m. intro addr.
-      destruct (eq_p addr (dy_level C ++ [t])).
-      remember (mem (dy_level C ++ [t])) as ovl. destruct ovl.
-      * intros. specialize (memm (dy_level C ++ [t])).
+      destruct (eq_p addr (t :: (dy_level C))).
+      remember (mem (t :: (dy_level C))) as ovl. destruct ovl.
+      * intros. specialize (memm (t :: (dy_level C))).
         rewrite <- Heqovl in memm.
         simpl in INvl. destruct INvl as [eq_e | in_l].
         { inversion eq_e. apply exprm. rewrite <- H1 in IN.
@@ -1206,10 +1166,10 @@ Proof.
         { inversion in_l. }
       * intros. simpl in INvl. destruct INvl as [eq_e | [eq_val | in_ovl]].
         { inversion eq_e; subst. apply exprm. eauto. }
-        { rewrite eq_val in *. assert (In (Val v0 pf0 C_v) (mem (dy_level C ++ [t]))).
+        { rewrite eq_val in *. assert (In (Val v0 pf0 C_v) (mem (t :: (dy_level C)))).
           rewrite <- Heqovl. simpl; eauto. eapply memm.
           apply H. eauto. }
-        { assert (In (Val v0 pf0 C_v) (mem (dy_level C ++ [t]))).
+        { assert (In (Val v0 pf0 C_v) (mem (t :: (dy_level C)))).
           rewrite <- Heqovl. simpl; eauto. eapply memm.
           apply H. eauto. }
       * apply memm.
