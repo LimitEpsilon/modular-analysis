@@ -495,11 +495,15 @@ Proof.
 Qed.
 
 Lemma level_trans_ctx_eq :
-  forall C α,
-    Abstract.dy_level (trans_ctx α C) = map α (dy_level C).
+  forall C α α' t,
+    eq_bound_α t α α' ->
+    dy_ctx_bound C t ->
+    Abstract.dy_level (trans_ctx α C) = map α' (dy_level C).
 Proof.
-  induction C; intros; simpl; eauto; rewrite map_app; simpl;
-  rewrite IHC; eauto.
+  induction C; intros; simpl; eauto; try rewrite map_app; simpl;
+  try erewrite IHC; simpl in H0; destruct H0; eauto.
+  - assert (α tx = α' tx). red in H. apply H. nia. rewrite H0. eauto.
+  - assert (α tx = α' tx). red in H. apply H. nia. rewrite H0. eauto.
 Qed.
 
 Lemma abs_eq_p_refl :
@@ -561,81 +565,94 @@ Proof.
     split; red; intros; eauto.
   - exists abs_C. exists abs_st. exists α. repeat split; eauto using Abstract.EevalR.
     destruct st; simpl; split; red; intros; eauto.
-  - specialize (H abs_C abs_st α BOUND SOUND).
-    destruct H as [abs_C' [abs_st' [α' [BOUND' [EVAL' [EQ' SOUND']]]]]].
-    pose proof (time_increase_e C st e1 (Val (e_lam x e) (v_fn x e) C_lam) st_lam FN) as inc_time1.
-    destruct st; destruct st_lam.
-    assert (B : time_bound C (ST mem1 t1)).
-    { simpl. simpl in BOUND. destruct BOUND as [L R].
-      pose proof (relax_ctx_bound C t0 t1 L inc_time1). 
-      split; eauto.
-      simpl in BOUND'. destruct BOUND' as [L' R']. eauto. }
-    assert (S : sound α' C (ST mem1 t1) abs_C abs_st').
-    { unfold sound in SOUND'. destruct abs_st'.
-      destruct SOUND' as [? [? ?]].
-      unfold sound; repeat split; eauto.
-      unfold sound in SOUND. destruct abs_st; destruct SOUND.
-      destruct H5. rewrite <- H5. eapply bound_trans_ctx_eq.
-      exact BOUND. simpl in EQ'. simpl; intros; symmetry; eauto. }
-    specialize (H0 abs_C abs_st' α' B S). clear B S.
-    destruct H0 as [abs_C'' [abs_st'' [α'' H]]].
-    pose proof (time_increase_e C (ST mem1 t1) e2 arg (ST mem t) ARG) as inc_time2; simpl in inc_time2.
-    destruct arg as [v_arg pf_arg C_arg].
-    destruct H as [BOUND'' [EVAL'' [EQ'' SOUND'']]].
-    assert (B : time_bound (C_lam [|dy_c_lam x t ([||])|])
-           (ST (t :: dy_level C_lam !-> Val v_arg pf_arg C_arg; mem)
-           (update_t t))).
-    { unfold time_bound. rewrite plugin_ctx_bound. simpl.
-      repeat split; eauto. eapply relax_ctx_bound.
-      simpl in BOUND'. destruct BOUND'. exact d. unfold update_t. nia.
-      intros. unfold update_m. 
-      simpl in BOUND''. destruct BOUND''.
-      destruct (eq_p p (t :: dy_level C_lam)). 
-      eapply relax_ctx_bound. exact H. unfold update_t. eauto.
-      specialize (H0 p). destruct (mem p); eauto. destruct e0.
-      eapply relax_ctx_bound. exact H0. unfold update_t. eauto. }
-    destruct abs_st'' as [abs_mem'' abs_t''].
-    remember (Abstract.update_t abs_t'') as abs_t'''.
-    remember (fun t' => if t' =? S t then abs_t''' else α'' t') as α'''.
-    assert (S : sound α''' (C_lam [|dy_c_lam x t ([||])|])
-                (ST (t :: dy_level C_lam !-> Val v_arg pf_arg C_arg; mem)
-                (update_t t)) (abs_C'[#|Abstract.dy_c_lam x abs_t'' ([#||#])|#]) 
-                (Abstract.ST (
-                  (abs_t'' :: Abstract.dy_level abs_C') !#-> (Abstract.Val v_arg pf_arg abs_C'') ; abs_mem'') abs_t''')).
-    { unfold sound. rewrite plugin_trans_ctx; simpl.
-      rewrite Heqα'''. unfold update_t. simpl.
-      assert (RR: t =? t = true). apply Nat.eqb_eq; eauto. rewrite RR; clear RR.
-      assert (RR: t =? S t = false). apply Nat.eqb_neq; eauto. rewrite RR; clear RR.
-      split; eauto. unfold sound in SOUND''. destruct SOUND''. rewrite H.
-      assert (eq_bound_α (ST mem t) α'' α''').
-      simpl. rewrite Heqα'''. intros. assert (t' <> S t). nia.
-      rewrite <- Nat.eqb_neq in H2. rewrite H2. eauto. rewrite <- Heqα'''.
-      unfold sound in SOUND'. destruct abs_st'. destruct SOUND' as [? [? ?]]. rewrite <- H4.
-      assert (trans_ctx α''' C_lam = trans_ctx α'' C_lam).
-      eapply bound_trans_ctx_eq. exact BOUND'. simpl.
-      simpl in H2. simpl in EQ''. intros. symmetry. apply H2. nia. 
-      assert (trans_ctx α'' C_lam = trans_ctx α' C_lam).
-      eapply bound_trans_ctx_eq. exact BOUND'. simpl in EQ''. 
-      simpl; intros; symmetry; eauto.
-      rewrite H7 in H6. rewrite H6. split; eauto.
-      intros. unfold update_m.
-      remember (eq_p p (t :: dy_level C_lam)) as b.
-      destruct b. symmetry in Heqb. rewrite eq_p_eq in Heqb. 
-      rewrite Heqb. simpl. rewrite Heqα'''.
-      assert (t =? S t = false). apply Nat.eqb_neq; eauto. rewrite H8; clear H8. rewrite H.
-      rewrite <- Heqα'''. rewrite <- H6. rewrite level_trans_ctx_eq.
-      unfold Abstract.update_m. rewrite abs_eq_p_refl.
-      destruct H0 as [RR ?]. rewrite <- RR.
-      assert (trans_ctx α'' C_arg = trans_ctx α''' C_arg).
-      eapply bound_trans_ctx_eq. exact BOUND''. eauto. rewrite H8. simpl. eauto.
-      destruct H0 as [? RR]. specialize (RR p).
-      unfold time_bound in BOUND''. destruct BOUND'' as [? RR']. specialize (RR' p) as RR''.
-      destruct (mem p). destruct e0.
-      assert (time_bound C0 (ST mem t)) as HINT. unfold time_bound; split; eauto.
-      assert (trans_ctx α''' C_arg) }
-    
-
-
-
-
-
+  - pose proof (time_bound_e C st e1 (Val (e_lam x e) (v_fn x e) C_lam) st_lam FN) as BOUND'.
+    pose proof (time_bound_e C st_lam e2 arg (ST mem t) ARG) as BOUND''.
+    pose proof (time_bound_e (C_lam [|dy_c_lam x t ([||])|])
+                             (ST (t :: dy_level C_lam !-> arg; mem) (update_t t))
+                             e v st_v BODY) as BOUND'''.
+    specialize (BOUND' BOUND). simpl in BOUND'.
+    destruct st. destruct st_lam. destruct st_v.
+    apply time_increase_e in ARG as time_inc1.
+    apply time_increase_e in FN as time_inc2.
+    apply time_increase_e in BODY as time_inc3.
+    assert (time_bound C (ST mem1 t1)) as B1. 
+    { simpl. simpl in BOUND. destruct BOUND as [? [? ?]].
+             simpl in BOUND'. destruct BOUND' as [? [? ?]].
+      split. eapply relax_ctx_bound. eauto. eauto.
+      split; eauto. }
+    specialize (BOUND'' B1).
+    destruct arg. destruct v.
+    assert (time_bound (C_lam [|dy_c_lam x t ([||])|])
+             (ST (t :: dy_level C_lam !-> Val v0 pf C0; mem) (update_t t))) as B2.
+    { simpl. simpl in BOUND. destruct BOUND as [? [? ?]].
+             simpl in BOUND'. destruct BOUND' as [? [? ?]].
+             simpl in BOUND''. destruct BOUND'' as [? [? ?]].
+      unfold update_t in *.
+      split. rewrite plugin_ctx_bound. split.
+      eapply relax_ctx_bound. eauto. eauto. simpl. split; eauto. split.
+      (* not bound, then None *)
+      intros. unfold update_m. remember (eq_p p (t :: dy_level C_lam)) as b.
+      destruct b. symmetry in Heqb. rewrite eq_p_eq in Heqb.
+      rewrite Heqb in NBOUND. simpl in NBOUND.
+      assert (t < S t /\ p_bound (dy_level C_lam) (S t)) as contra.
+      split; eauto. apply time_bound_level. apply relax_ctx_bound with (t1 := t1). eauto. eauto.
+      apply NBOUND in contra. inversion contra.
+      apply H9. unfold not. intros contra.
+      assert (p_bound p (S t)). apply relax_p_bound with (t1 := t); eauto.
+      apply NBOUND in H11. inversion H11.
+      (* bound, then access is bound *)
+      intros. unfold update_m. remember (eq_p p (t :: dy_level C_lam)) as b.
+      destruct b. symmetry in Heqb. rewrite eq_p_eq in Heqb.
+      rewrite Heqb in BOUND. simpl in BOUND. destruct BOUND.
+      apply relax_ctx_bound with (t1 := t); eauto.
+      pose proof (p_bound_or_not p t). 
+      remember (mem p) as access eqn:ACCESS. 
+      destruct H11; destruct access; try destruct e0; eauto;
+      try specialize (H10 p H11); try specialize (H9 p H11);
+      try rewrite <- ACCESS in H10; try rewrite <- ACCESS in H9; 
+      apply relax_ctx_bound with (t1 := t); eauto. inversion H9. }
+    specialize (BOUND''' B2).
+    specialize (H BOUND). specialize (H0 B1). specialize (H1 B2). 
+    specialize (H abs_C abs_st α SOUND). 
+    destruct H as [abs_C' [abs_st' [α' [EQ' SOUND']]]].
+    assert (sound α' C (ST mem1 t1) abs_C abs_st').
+    { destruct abs_st'. simpl. simpl in SOUND'. destruct SOUND' as [? [? ?]].
+      repeat split; eauto. destruct abs_st. simpl in SOUND. destruct SOUND as [? [? ?]].
+      rewrite <- H5. symmetry. eapply bound_trans_ctx_eq. simpl in BOUND. destruct BOUND.
+      eauto. eauto. }
+    specialize (H0 abs_C abs_st' α' H). clear H.
+    destruct H0 as [abs_C'' [abs_st'' [α'' [EQ'' SOUND'']]]]. destruct abs_st'' as [mem'' t''].
+    remember (fun t' => if t' =? S t 
+                        then Abstract.update_t (α'' t) else α'' t') as α'''.
+    assert (sound α''' (C_lam [|dy_c_lam x t ([||])|])
+            (ST (t :: dy_level C_lam !-> Val v0 pf C0; mem) (update_t t))
+            (abs_C'[#| Abstract.dy_c_lam x (α'' t) ([#||#]) |#])
+            (Abstract.ST ((α'' t) :: Abstract.dy_level abs_C' !#-> Abstract.Val v0 pf abs_C''; mem'') (Abstract.update_t (α'' t)))).
+    { simpl. unfold update_t in *. repeat split.
+      - rewrite Heqα'''. simpl. assert (t =? t = true). rewrite Nat.eqb_eq. eauto. rewrite H. eauto.
+      - rewrite Heqα'''. simpl. rewrite plugin_trans_ctx; simpl.
+        assert (t =? S t = false). rewrite Nat.eqb_neq. eauto. rewrite H.
+        assert (trans_ctx α''' C_lam = abs_C'). rewrite Heqα'''.
+        destruct abs_st'. simpl in SOUND'. destruct SOUND' as [? [? ?]]. rewrite <- H2.
+        apply bound_trans_ctx_eq with (t := t1). simpl in BOUND'. destruct BOUND'. eauto.
+        red. intros. assert (t' <> S t). nia. rewrite <- Nat.eqb_neq in H4. rewrite H4.
+        symmetry. apply EQ''. eauto. rewrite <- Heqα'''. rewrite H0. eauto.
+      - intros. simpl in SOUND''. destruct SOUND'' as [? [? ?]].
+        destruct abs_st'. simpl in SOUND'. destruct SOUND' as [? [? ?]].
+        unfold update_m. remember (eq_p p (t :: dy_level C_lam)) as b.
+        destruct b. symmetry in Heqb. rewrite eq_p_eq in Heqb.
+        assert (map α''' p = 
+                     α'' t :: Abstract.dy_level abs_C').
+        rewrite Heqα'''. rewrite Heqb. simpl. assert (RR : t =? S t = false). 
+        apply Nat.eqb_neq. eauto. rewrite RR. clear RR. rewrite <- H4.
+        assert (Abstract.dy_level (trans_ctx α' C_lam) = map (fun t' : time =>
+                      if t' =? S t then Abstract.update_t (α'' t) else α'' t')
+                      (dy_level C_lam)) as RR.
+        apply level_trans_ctx_eq with (t := t1). red. intros.
+        assert (t' =? S t = false). rewrite Nat.eqb_neq. nia. rewrite H6. apply EQ''. eauto.
+        simpl in BOUND'. destruct BOUND'. eauto.
+        rewrite RR. eauto. unfold Abstract.update_m. rewrite <- H6.
+        assert (Abstract.eq_p (map α''' p) (map α''' p) = true).
+        rewrite Abstract.eq_p_eq. eauto. 
+    }
+  
