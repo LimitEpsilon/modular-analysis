@@ -513,6 +513,8 @@ Proof.
   intros. apply Abstract.eq_p_eq. eauto.
 Qed.
 
+(* Set Printing Implicit. *)
+
 Lemma sound_eval :
   forall C st e e' st'
          (EVAL : EevalR C st e e' st')
@@ -622,7 +624,7 @@ Proof.
       eauto. eauto. }
     specialize (H0 abs_C abs_st' α' H). clear H.
     destruct H0 as [abs_C'' [abs_st'' [α'' [EQ'' SOUND'']]]]. destruct abs_st'' as [mem'' t''].
-    remember (fun t' => if t' =? S t 
+    remember (fun (t' : nat) => if t' =? S t 
                         then Abstract.update_t (α'' t) else α'' t') as α'''.
     assert (sound α''' (C_lam [|dy_c_lam x t ([||])|])
             (ST (t :: dy_level C_lam !-> Val v0 pf C0; mem) (update_t t))
@@ -639,20 +641,64 @@ Proof.
         symmetry. apply EQ''. eauto. rewrite <- Heqα'''. rewrite H0. eauto.
       - intros. simpl in SOUND''. destruct SOUND'' as [? [? ?]].
         destruct abs_st'. simpl in SOUND'. destruct SOUND' as [? [? ?]].
-        unfold update_m. remember (eq_p p (t :: dy_level C_lam)) as b.
+        unfold update_m. unfold Abstract.update_m.
+        remember (eq_p p (t :: dy_level C_lam)) as b.
         destruct b. symmetry in Heqb. rewrite eq_p_eq in Heqb.
-        assert (map α''' p = 
-                     α'' t :: Abstract.dy_level abs_C').
+        assert (map α''' p =  α'' t :: Abstract.dy_level abs_C').
         rewrite Heqα'''. rewrite Heqb. simpl. assert (RR : t =? S t = false). 
         apply Nat.eqb_neq. eauto. rewrite RR. clear RR. rewrite <- H4.
-        assert (Abstract.dy_level (trans_ctx α' C_lam) = map (fun t' : time =>
+        assert (Abstract.dy_level (trans_ctx α' C_lam) = map (fun t' : nat =>
                       if t' =? S t then Abstract.update_t (α'' t) else α'' t')
                       (dy_level C_lam)) as RR.
         apply level_trans_ctx_eq with (t := t1). red. intros.
         assert (t' =? S t = false). rewrite Nat.eqb_neq. nia. rewrite H6. apply EQ''. eauto.
         simpl in BOUND'. destruct BOUND'. eauto.
-        rewrite RR. eauto. unfold Abstract.update_m. rewrite <- H6.
-        assert (Abstract.eq_p (map α''' p) (map α''' p) = true).
-        rewrite Abstract.eq_p_eq. eauto. 
+        rewrite RR. eauto. rewrite <- H6.
+        (* A bug? in Coq : have to write explicitly the implicit parameters *)
+        assert (Abstract.eq_p (@map time Abstract.time α''' p) (@map nat bool α''' p) = true).
+        rewrite Abstract.eq_p_eq. eauto. rewrite H7. simpl. left.
+        assert (abs_C'' = trans_ctx α''' C0).
+        rewrite <- H0. eapply bound_trans_ctx_eq. simpl in BOUND''. destruct BOUND''. eauto.
+        rewrite Heqα'''. red. intros. assert (t' =? S t = false). rewrite Nat.eqb_neq. nia.
+        rewrite H8. eauto. rewrite H8. eauto.
+        pose proof (p_bound_or_not p t) as CASES.
+        simpl in BOUND''. destruct BOUND'' as [B1'' [B2'' B3'']].
+        destruct CASES as [L | R]; 
+        try (specialize (B2'' p R); rewrite B2''; eauto; fail).
+        remember (mem p) as access eqn: ACCESS.
+        destruct access; eauto; destruct e0; simpl.
+        specialize (H2 p L). rewrite <- ACCESS in H2.
+        assert (@map time Abstract.time α''' p = map α'' p) as RR. 
+        { clear H2. clear BOUND0. clear Heqb. clear ACCESS.
+          induction p; simpl; eauto. simpl in L; destruct L.
+          rewrite IHp; eauto. rewrite Heqα'''. 
+          assert (a =? S t = false). rewrite Nat.eqb_neq. nia.
+          rewrite H7. eauto. } rewrite RR; clear RR.
+        assert (trans_ctx α''' C2 = trans_ctx α'' C2) as RR.
+        { apply bound_trans_ctx_eq with (t := t).
+          specialize (B3'' p L). rewrite <- ACCESS in B3''. eauto.
+          rewrite Heqα'''. red. intros. assert (t' =? S t = false).
+          rewrite Nat.eqb_neq. nia. rewrite H6. eauto. } rewrite RR; clear RR.
+        remember (α'' t :: Abstract.dy_level abs_C') as p'.
+        remember (Abstract.eq_p (map α'' p) p') as b.
+        destruct b. 
+        simpl. right. symmetry in Heqb0. rewrite Abstract.eq_p_eq in Heqb0.
+        rewrite <- Heqb0. apply H2. apply H2.
     }
+    assert (eq_bound_α t α'' α''') as EQ'''.
+    { red. intros. rewrite Heqα'''. assert (t' =? S t = false). rewrite Nat.eqb_neq. nia.
+      rewrite H0. eauto. }
+    specialize (H1 (abs_C' [#|Abstract.dy_c_lam x (α'' t) ([#||#])|#])
+                (Abstract.ST
+                  (α'' t :: Abstract.dy_level abs_C'
+                      !#-> Abstract.Val v0 pf abs_C''; mem'')
+                  (Abstract.update_t (α'' t))) α''' H).
+    destruct H1 as [abs_C''' [abs_st''' [α'''' [EQ'''' SOUND''']]]].
+    exists abs_C'''. exists abs_st'''. exists α''''. split; eauto.
+    red. intros. 
+    assert (α t' = α' t') as RR. apply EQ'. eauto. rewrite RR; clear RR.
+    assert (α' t' = α'' t') as RR. apply EQ''. nia. rewrite RR; clear RR.
+    assert (α'' t' = α''' t') as RR. apply EQ'''. nia. rewrite RR; clear RR.
+    apply EQ''''. unfold update_t. nia.
+  - 
   
