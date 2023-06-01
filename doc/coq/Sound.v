@@ -1,41 +1,641 @@
 From MODULAR Require Export Abstract.
 From MODULAR Require Export Concrete.
-Require Export Coq.Logic.FunctionalExtensionality.
 
-Fixpoint list_to_mem l :=
-  match l with
-  | [] => Concrete.empty_mem
-  | (addr, (Val v pf Cv)) :: tl => 
-    (addr !-> (Val v pf Cv) ; (list_to_mem tl))
+Fixpoint dy_ctx_bound C t :=
+  match C with
+  | [||] => True
+  | dy_c_lam _ t' C'
+  | dy_c_lete _ t' C' => t' < t /\ dy_ctx_bound C' t
+  | dy_c_letm _ CM C' => dy_ctx_bound CM t /\ dy_ctx_bound C' t
   end.
 
-Fixpoint increasing (l : list (prod path expr_value)) :=
-  match l with
+Fixpoint p_bound p t :=
+  match p with
   | [] => True
-  | [(t :: _, _)] => True
-  | (t1 :: _, _) :: 
-    (t2 :: _, _) :: tl => (t1 > t2) /\ increasing tl
-  | _ => False
+  | hd :: tl => hd < t /\ p_bound tl t
   end.
 
-Definition finite_mem mem :=
-  exists l, mem = list_to_mem l /\ increasing l.
+Definition time_bound C st :=
+  match st with
+  | ST mem t =>
+    dy_ctx_bound C t /\
+    (forall p (NBOUND : ~(p_bound p t)),
+      mem p = None) /\
+    (forall p (BOUND : p_bound p t),
+      match mem p with
+      | None => True
+      | Some (Val _ _ C') => dy_ctx_bound C' t
+      end)
+  end.
 
-Fixpoint sound_addr C mem_list abs_C abs_mem : Prop :=
-  Concrete.dy_to_st C = Abstract.dy_to_st abs_C /\
-  forall x,
-    match mem_list with
-    | [] => True
-    | (addr, Val v pf Cv) :: tl =>
-      if eq_p addr (addr_x C x) 
-      then exists abs_Cv, 
-        (In (Abstract.Val v pf abs_Cv) (abs_mem (Abstract.addr_x abs_C x))) /\
-        sound_addr Cv tl abs_Cv abs_mem
-      else sound_addr C tl abs_C abs_mem
+Lemma p_bound_or_not :
+  forall p t,
+    p_bound p t \/ ~(p_bound p t).
+Proof.
+  induction p.
+  - intros; left; simpl; eauto.
+  - intros; simpl.
+    specialize (IHp t). assert (H : a < t \/ ~ a < t). nia.
+    destruct IHp as [BOUND | NBOUND]; destruct H as [BOUND' | NBOUND'].
+    + left; split; eauto.
+    + right. unfold not. intros H; destruct H.
+      apply NBOUND' in H. contradiction H.
+    + right. unfold not. intros H; destruct H.
+      apply NBOUND in H0. contradiction H0.
+    + right. unfold not. intros H; destruct H.
+      apply NBOUND' in H. contradiction H.
+Qed.
+
+Definition trans_t := Concrete.time -> Abstract.time.
+
+Definition eq_bound_α t (α : trans_t) α' :=
+  forall t' (LE : t' <= t), α t' = α' t'.
+
+Fixpoint trans_ctx (α : trans_t) C :=
+  match C with
+  | [||] => [#||#]
+  | dy_c_lam x t C' => Abstract.dy_c_lam x (α t) (trans_ctx α C')
+  | dy_c_lete x t C' => Abstract.dy_c_lete x (α t) (trans_ctx α C')
+  | dy_c_letm M CM C' => Abstract.dy_c_letm M (trans_ctx α CM) (trans_ctx α C')
+  end.
+
+Definition sound α C st abs_C abs_st :=
+  match abs_st with
+  | Abstract.ST abs_mem abs_t =>
+    match st with
+    | ST mem t =>
+      α t = abs_t /\
+      trans_ctx α C = abs_C /\
+      forall p (BOUND : p_bound p t),
+        match mem p with
+        | None => True
+        | Some (Val v pf Cv) =>
+          let l := abs_mem (map α p) in
+          In (Abstract.Val v pf (trans_ctx α Cv)) l
+        end
+    end
+  end.
+
+Lemma trans_ctx_addr :
+  forall α C x,
+    Abstract.addr_x (trans_ctx α C) x = List.map α (addr_x C x).
+Proof.
+  induction C; eauto.
+  - intros. specialize (IHC x0).
+    simpl. rewrite IHC.
+    destruct (addr_x C x0); simpl; eauto.
+    destruct (eq_eid x0 x); eauto.
+    rewrite map_app. eauto.
+  - intros. specialize (IHC x0).
+    simpl. rewrite IHC.
+    destruct (addr_x C x0); simpl; eauto.
+    destruct (eq_eid x0 x); eauto.
+    rewrite map_app. eauto.
+Qed.
+
+Lemma time_increase_e :
+  forall C st e e' st'
+         (EVAL : EevalR C st e e' st'),
+    match st with
+    | ST _ t =>
+      match st' with
+      | ST _ t' => t <= t'
+      end
     end.
+Proof.
+  apply (EevalR_ind_mut
+    (fun C st e e' st'
+         (EVAL : EevalR C st e e' st') =>
+      match st with
+      | ST _ t =>
+        match st' with
+        | ST _ t' => t <= t'
+        end
+      end)
+    (fun C st m C' st'
+         (EVAL : MevalR C st m C' st') =>
+      match st with
+      | ST _ t =>
+        match st' with
+        | ST _ t' => t <= t'
+        end
+      end)); 
+      intros; 
+      destruct st; try destruct st'; try destruct st_v; try destruct st_m; 
+      try destruct st_m1; try destruct st_m2; try destruct st_lam;
+      unfold update_t in *; simpl; try nia.
+Qed.
 
-Theorem soundness :
-  forall e C' st' e'
-         (REACH : <e| ([||]) (ST empty_mem 0) e ~> C' st' e' |e>),
-         exists abs_C abs_st,
-         <e| ([#||#]) (Abstract.ST Abstract.empty_mem true) e ~#> abs_C abs_st e' |e>.
+Lemma time_increase_m :
+  forall C st m C' st'
+         (EVAL : MevalR C st m C' st'),
+    match st with
+    | ST _ t =>
+      match st' with
+      | ST _ t' => t <= t'
+      end
+    end.
+Proof.
+  apply (MevalR_ind_mut
+    (fun C st e e' st'
+         (EVAL : EevalR C st e e' st') =>
+      match st with
+      | ST _ t =>
+        match st' with
+        | ST _ t' => t <= t'
+        end
+      end)
+    (fun C st m C' st'
+         (EVAL : MevalR C st m C' st') =>
+      match st with
+      | ST _ t =>
+        match st' with
+        | ST _ t' => t <= t'
+        end
+      end)); 
+      intros; 
+      destruct st; try destruct st'; try destruct st_v; try destruct st_m; 
+      try destruct st_m1; try destruct st_m2; try destruct st_lam;
+      unfold update_t in *; simpl; try nia.
+Qed.
+
+Lemma relax_ctx_bound :
+  forall C t1 t2 (BOUND : dy_ctx_bound C t1) (LE : t1 <= t2),
+         dy_ctx_bound C t2.
+Proof.
+  induction C; intros; destruct BOUND; simpl in *; 
+  repeat split; try nia;
+  try eapply IHC; try eapply IHC1; try eapply IHC2; eauto.
+Qed.
+
+Lemma relax_p_bound :
+  forall p t1 t2 (BOUND : p_bound p t1) (LE : t1 <= t2),
+         p_bound p t2.
+Proof.
+  induction p; intros; destruct BOUND; simpl in *; 
+  repeat split; try nia; eauto.
+Qed.
+
+Lemma p_bound_app :
+  forall p1 p2 t,
+    p_bound (p1 ++ p2) t <-> p_bound p1 t /\ p_bound p2 t.
+Proof.
+  induction p1; intros; split; intro H; try destruct H; simpl in *; eauto.
+  - rewrite IHp1 in H0. destruct H0. repeat split; eauto.
+  - rewrite IHp1. destruct H. repeat split; eauto.
+Qed.
+
+Lemma time_bound_addr :
+  forall C x t,
+    dy_ctx_bound C t -> p_bound (addr_x C x) t.
+Proof.
+  induction C; intros; simpl in *; destruct H; eauto.
+  - specialize (IHC x0 t H0).
+    destruct (addr_x C x0). destruct (eq_eid x0 x); simpl; eauto.
+    rewrite p_bound_app with (p1 := t0 :: l) (p2 := [tx]).
+    split; simpl; eauto.
+  - specialize (IHC x0 t H0).
+    destruct (addr_x C x0). destruct (eq_eid x0 x); simpl; eauto.
+    rewrite p_bound_app with (p1 := t0 :: l) (p2 := [tx]).
+    split; simpl; eauto.
+Qed.
+
+Lemma time_bound_level :
+  forall C t,
+    dy_ctx_bound C t -> p_bound (dy_level C) t.
+Proof.
+  induction C; intros; simpl in *; destruct H;
+  try rewrite p_bound_app; try split; simpl; eauto.
+Qed.
+
+Lemma time_bound_ctx_M :
+  forall C M t CM,
+    ctx_M C M = Some CM ->
+    dy_ctx_bound C t -> 
+    dy_ctx_bound CM t.
+Proof.
+  induction C; intros; simpl in *.
+  - inversion H.
+  - eapply IHC. exact H. destruct H0; eauto.
+  - eapply IHC. exact H. destruct H0; eauto.
+  - remember (ctx_M C2 M0) as oCM.
+    destruct oCM.
+    + eapply IHC2. symmetry. inversion H; subst. exact HeqoCM.
+      destruct H0; eauto.
+    + destruct (eq_mid M0 M); inversion H; subst.
+      destruct H0; eauto.
+Qed.
+
+Lemma plugin_ctx_bound :
+  forall Cout Cin t,
+    dy_ctx_bound (Cout[|Cin|]) t <-> dy_ctx_bound Cout t /\ dy_ctx_bound Cin t.
+Proof.
+  intros; split; intros H; induction Cout; repeat split; simpl in *; try nia; eauto;
+  destruct H as [H' H'']; try specialize (IHCout H'') as HINT;
+  try specialize (IHCout1 H'') as HINT; try specialize (IHCout2 H'') as HINT;
+  try destruct HINT; eauto;
+  try apply IHCout; destruct H'; try split; eauto.
+Qed.
+
+Lemma time_bound_e :
+  forall C st e e' st'
+         (EVAL : EevalR C st e e' st')
+         (BOUND : time_bound C st),
+    match e' with
+    | Val _ _ C' => time_bound C' st'
+    end.
+Proof.
+  apply (EevalR_ind_mut
+    (fun C st e e' st'
+         (EVAL : EevalR C st e e' st') =>
+      forall (BOUND : time_bound C st),
+        match e' with
+        | Val _ _ C' => time_bound C' st'
+        end)
+    (fun C st m C' st'
+         (EVAL : MevalR C st m C' st') =>
+      forall (BOUND : time_bound C st), 
+        time_bound C' st')); intros; simpl; eauto.
+  - destruct v. unfold time_bound in *.
+    destruct st. destruct BOUND as [? [? RR]].
+    specialize (RR (addr_x C x)) as RR'.
+    assert (p_bound (addr_x C x) t0). apply time_bound_addr. eauto.
+    apply RR' in H1. inversion STATE; subst. 
+    rewrite <- ACCESS in H1. repeat split; eauto.
+  - specialize (H BOUND). 
+    destruct v. destruct arg. 
+    destruct st. destruct st_lam. destruct st_v.
+    apply time_increase_e in ARG as time_inc1.
+    apply time_increase_e in FN as time_inc2.
+    apply time_increase_e in BODY as time_inc3.
+    assert (time_bound C (ST mem1 t1)) as HINT.
+    {
+      simpl in H. destruct H as [? [? ?]]. 
+      simpl; repeat split; eauto. 
+      eapply relax_ctx_bound. 
+      simpl in BOUND. destruct BOUND. exact d. eauto. 
+    }
+    specialize (H0 HINT).
+    assert (p_bound (t :: dy_level C_lam) (update_t t)).
+    {
+      simpl in H. destruct H as [? [? ?]].
+      simpl. split; unfold update_t; eauto.
+      apply relax_p_bound with (t1 := t1).
+      apply time_bound_level. eauto. nia.
+    }
+    apply H1; simpl. split.
+    rewrite plugin_ctx_bound. split.
+    simpl in H. destruct H as [? [? ?]].
+    eapply relax_ctx_bound. exact H. unfold update_t. nia.
+    simpl. split; eauto. simpl in H0. destruct H0 as [? [? ?]].
+    split; intros;
+    unfold update_m; remember (eq_p p (t :: dy_level C_lam)) as b;
+    destruct b; symmetry in Heqb; try rewrite eq_p_eq in Heqb.
+    + assert (p_bound p (update_t t)) as contra. { rewrite Heqb. eauto. }
+      apply NBOUND in contra. inversion contra.
+    + apply H3.
+      unfold not. intros.
+      assert (p_bound p (update_t t)) as contra. 
+      { apply relax_p_bound with (t1 := t). eauto. unfold update_t; eauto. }
+      apply NBOUND in contra. inversion contra.
+    + apply relax_ctx_bound with (t1 := t). eauto. unfold update_t; eauto.
+    + specialize (H4 p). remember (mem p) as access eqn:ACCESS.
+      destruct access; eauto. destruct e0.
+      apply relax_ctx_bound with (t1 := t). apply H4.
+      pose proof (p_bound_or_not p t) as CASES.
+      destruct CASES as [? | contra]; eauto. apply H3 in contra.
+      rewrite contra in ACCESS. inversion ACCESS. unfold update_t. eauto.
+  - apply H0. apply H. eauto.
+  - destruct st. simpl in *. destruct BOUND as [? [? ?]].
+    repeat split; eauto. eapply time_bound_ctx_M.
+    symmetry. exact ACCESS. eauto.
+  - specialize (H BOUND).
+    destruct v_e. 
+    destruct st. destruct st_m.
+    apply time_increase_e in EVALe as time_inc1.
+    apply time_increase_m in EVALm as time_inc2.
+    assert (p_bound (t :: dy_level C) (update_t t)).
+    {
+      simpl in BOUND. destruct BOUND as [? [? ?]].
+      simpl. split; unfold update_t; eauto.
+      apply relax_p_bound with (t1 := t0).
+      apply time_bound_level. eauto. nia.
+    }
+    simpl in BOUND. destruct BOUND as [B1 [B2 B3]].
+    simpl in H. destruct H as [HH1 [HH2 HH3]].
+    apply H0. simpl; split.
+    rewrite plugin_ctx_bound; split.
+    apply relax_ctx_bound with (t1 := t0).
+    eauto. unfold update_t. nia. simpl; split; eauto.
+    split; intros;
+    unfold update_m; remember (eq_p p (t :: dy_level C)) as b;
+    destruct b; symmetry in Heqb; try rewrite eq_p_eq in Heqb.
+    + assert (p_bound p (update_t t)) as contra. { rewrite Heqb. eauto. }
+      apply NBOUND in contra. inversion contra.
+    + apply HH2. unfold not. intros.
+      assert (p_bound p (update_t t)) as contra. 
+      { apply relax_p_bound with (t1 := t). eauto. unfold update_t; eauto. }
+      apply NBOUND in contra. inversion contra.
+    + apply relax_ctx_bound with (t1 := t). eauto. unfold update_t; eauto.
+    + specialize (HH3 p). remember (mem p) as access eqn:ACCESS.
+      destruct access; eauto. destruct e0.
+      apply relax_ctx_bound with (t1 := t). apply HH3.
+      pose proof (p_bound_or_not p t) as CASES.
+      destruct CASES as [? | contra]; eauto. apply HH2 in contra.
+      rewrite contra in ACCESS. inversion ACCESS. unfold update_t. eauto.
+  - specialize (H BOUND).
+    destruct st. destruct st_m1. destruct st_m2.
+    simpl in BOUND. destruct BOUND as [B1 [B2 B3]].
+    simpl in H. destruct H as [HH1 [HH2 HH3]].
+    apply time_increase_m in EVALm1 as time_inc1.
+    apply time_increase_m in EVALm2 as time_inc2.
+    apply H0. simpl. repeat split; eauto.
+    rewrite plugin_ctx_bound. split.
+    apply relax_ctx_bound with (t1 := t); eauto.
+    simpl; split; eauto.
+Qed.
+
+Lemma time_bound_m :
+  forall C st m C' st'
+         (EVAL : MevalR C st m C' st')
+         (BOUND : time_bound C st),
+    time_bound C' st'.
+Proof.
+  apply (MevalR_ind_mut
+    (fun C st e e' st'
+         (EVAL : EevalR C st e e' st') =>
+      forall (BOUND : time_bound C st),
+        match e' with
+        | Val _ _ C' => time_bound C' st'
+        end)
+    (fun C st m C' st'
+         (EVAL : MevalR C st m C' st') =>
+      forall (BOUND : time_bound C st), 
+        time_bound C' st')); intros; simpl; eauto.
+  - destruct v. unfold time_bound in *.
+    destruct st. destruct BOUND as [? [? RR]].
+    specialize (RR (addr_x C x)) as RR'.
+    assert (p_bound (addr_x C x) t0). apply time_bound_addr. eauto.
+    apply RR' in H1. inversion STATE; subst. 
+    rewrite <- ACCESS in H1. repeat split; eauto.
+  - specialize (H BOUND). 
+    destruct v. destruct arg. 
+    destruct st. destruct st_lam. destruct st_v.
+    apply time_increase_e in ARG as time_inc1.
+    apply time_increase_e in FN as time_inc2.
+    apply time_increase_e in BODY as time_inc3.
+    assert (time_bound C (ST mem1 t1)) as HINT.
+    {
+      simpl in H. destruct H as [? [? ?]]. 
+      simpl; repeat split; eauto. 
+      eapply relax_ctx_bound. 
+      simpl in BOUND. destruct BOUND. exact d. eauto. 
+    }
+    specialize (H0 HINT).
+    assert (p_bound (t :: dy_level C_lam) (update_t t)).
+    {
+      simpl in H. destruct H as [? [? ?]].
+      simpl. split; unfold update_t; eauto.
+      apply relax_p_bound with (t1 := t1).
+      apply time_bound_level. eauto. nia.
+    }
+    apply H1; simpl. split.
+    rewrite plugin_ctx_bound. split.
+    simpl in H. destruct H as [? [? ?]].
+    eapply relax_ctx_bound. exact H. unfold update_t. nia.
+    simpl. split; eauto. simpl in H0. destruct H0 as [? [? ?]].
+    split; intros;
+    unfold update_m; remember (eq_p p (t :: dy_level C_lam)) as b;
+    destruct b; symmetry in Heqb; try rewrite eq_p_eq in Heqb.
+    + assert (p_bound p (update_t t)) as contra. { rewrite Heqb. eauto. }
+      apply NBOUND in contra. inversion contra.
+    + apply H3.
+      unfold not. intros.
+      assert (p_bound p (update_t t)) as contra. 
+      { apply relax_p_bound with (t1 := t). eauto. unfold update_t; eauto. }
+      apply NBOUND in contra. inversion contra.
+    + apply relax_ctx_bound with (t1 := t). eauto. unfold update_t; eauto.
+    + specialize (H4 p). remember (mem p) as access eqn:ACCESS.
+      destruct access; eauto. destruct e0.
+      apply relax_ctx_bound with (t1 := t). apply H4.
+      pose proof (p_bound_or_not p t) as CASES.
+      destruct CASES as [? | contra]; eauto. apply H3 in contra.
+      rewrite contra in ACCESS. inversion ACCESS. unfold update_t. eauto.
+  - apply H0. apply H. eauto.
+  - destruct st. simpl in *. destruct BOUND as [? [? ?]].
+    repeat split; eauto. eapply time_bound_ctx_M.
+    symmetry. exact ACCESS. eauto.
+  - specialize (H BOUND).
+    destruct v_e. 
+    destruct st. destruct st_m.
+    apply time_increase_e in EVALe as time_inc1.
+    apply time_increase_m in EVALm as time_inc2.
+    assert (p_bound (t :: dy_level C) (update_t t)).
+    {
+      simpl in BOUND. destruct BOUND as [? [? ?]].
+      simpl. split; unfold update_t; eauto.
+      apply relax_p_bound with (t1 := t0).
+      apply time_bound_level. eauto. nia.
+    }
+    simpl in BOUND. destruct BOUND as [B1 [B2 B3]].
+    simpl in H. destruct H as [HH1 [HH2 HH3]].
+    apply H0. simpl; split.
+    rewrite plugin_ctx_bound; split.
+    apply relax_ctx_bound with (t1 := t0).
+    eauto. unfold update_t. nia. simpl; split; eauto.
+    split; intros;
+    unfold update_m; remember (eq_p p (t :: dy_level C)) as b;
+    destruct b; symmetry in Heqb; try rewrite eq_p_eq in Heqb.
+    + assert (p_bound p (update_t t)) as contra. { rewrite Heqb. eauto. }
+      apply NBOUND in contra. inversion contra.
+    + apply HH2. unfold not. intros.
+      assert (p_bound p (update_t t)) as contra. 
+      { apply relax_p_bound with (t1 := t). eauto. unfold update_t; eauto. }
+      apply NBOUND in contra. inversion contra.
+    + apply relax_ctx_bound with (t1 := t). eauto. unfold update_t; eauto.
+    + specialize (HH3 p). remember (mem p) as access eqn:ACCESS.
+      destruct access; eauto. destruct e0.
+      apply relax_ctx_bound with (t1 := t). apply HH3.
+      pose proof (p_bound_or_not p t) as CASES.
+      destruct CASES as [? | contra]; eauto. apply HH2 in contra.
+      rewrite contra in ACCESS. inversion ACCESS. unfold update_t. eauto.
+  - specialize (H BOUND).
+    destruct st. destruct st_m1. destruct st_m2.
+    simpl in BOUND. destruct BOUND as [B1 [B2 B3]].
+    simpl in H. destruct H as [HH1 [HH2 HH3]].
+    apply time_increase_m in EVALm1 as time_inc1.
+    apply time_increase_m in EVALm2 as time_inc2.
+    apply H0. simpl. repeat split; eauto.
+    rewrite plugin_ctx_bound. split.
+    apply relax_ctx_bound with (t1 := t); eauto.
+    simpl; split; eauto.
+Qed.
+
+Lemma plugin_trans_ctx :
+  forall Cout Cin α,
+    trans_ctx α (Cout[|Cin|]) = (trans_ctx α Cout [#|trans_ctx α Cin|#]).
+Proof.
+  induction Cout; intros; simpl; 
+  try rewrite IHCout; try rewrite IHCout1; try rewrite IHCout2;
+  eauto.
+Qed.
+
+Lemma bound_trans_ctx_eq :
+  forall C t α α',
+         dy_ctx_bound C t ->
+         eq_bound_α t α α' ->
+         trans_ctx α C = trans_ctx α' C.
+Proof.
+  intros.
+  induction C; simpl; try rewrite IHC; 
+  try rewrite IHC1; try rewrite IHC2; simpl in *; eauto;
+  destruct H; eauto.
+  unfold eq_bound_α in H0. rewrite H0; eauto. nia.
+  unfold eq_bound_α in H0. rewrite H0; eauto. nia.
+Qed.
+
+Lemma level_trans_ctx_eq :
+  forall C α,
+    Abstract.dy_level (trans_ctx α C) = map α (dy_level C).
+Proof.
+  induction C; intros; simpl; eauto; rewrite map_app; simpl;
+  rewrite IHC; eauto.
+Qed.
+
+Lemma abs_eq_p_refl :
+  forall p,
+    Abstract.eq_p p p = true.
+Proof.
+  intros. apply Abstract.eq_p_eq. eauto.
+Qed.
+
+Lemma sound_eval :
+  forall C st e e' st'
+         (EVAL : EevalR C st e e' st')
+         (BOUND : time_bound C st)
+         abs_C abs_st α
+         (SOUND : sound α C st abs_C abs_st),
+    exists abs_C' abs_st' α',
+      match st with
+      | ST _ t =>
+        eq_bound_α t α α' /\
+        match e' with
+        | Val _ _ C' =>
+          sound α' C' st' abs_C' abs_st'
+        end
+      end.
+Proof.
+  apply (EevalR_ind_mut 
+    (fun C st e e' st'
+         (EVAL : EevalR C st e e' st') =>
+    forall
+         (BOUND : time_bound C st)
+         abs_C abs_st α
+         (SOUND : sound α C st abs_C abs_st),
+    exists abs_C' abs_st' α',
+      match st with
+      | ST _ t =>
+        eq_bound_α t α α' /\
+        match e' with
+        | Val _ _ C' =>
+          sound α' C' st' abs_C' abs_st'
+        end
+      end)
+    (fun C st m C' st'
+         (EVAL : MevalR C st m C' st') =>
+    forall
+         (BOUND : time_bound C st)
+         abs_C abs_st α
+         (SOUND : sound α C st abs_C abs_st),
+    exists abs_C' abs_st' α',
+      match st with
+      | ST _ t =>
+        eq_bound_α t α α' /\
+        sound α' C' st' abs_C' abs_st'
+      end)); intros; subst.
+  - unfold sound in SOUND. destruct abs_st as [abs_mem abs_t].
+    destruct SOUND as [? [? ?]].
+    specialize (H1 (addr_x C x)) as HINT. rewrite <- ACCESS in HINT.
+    destruct v as [v pf C'].
+    exists (trans_ctx α C'). exists (Abstract.ST abs_mem abs_t). exists α.
+    split; red; intros; eauto.
+  - exists abs_C. exists abs_st. exists α. repeat split; eauto using Abstract.EevalR.
+    destruct st; simpl; split; red; intros; eauto.
+  - specialize (H abs_C abs_st α BOUND SOUND).
+    destruct H as [abs_C' [abs_st' [α' [BOUND' [EVAL' [EQ' SOUND']]]]]].
+    pose proof (time_increase_e C st e1 (Val (e_lam x e) (v_fn x e) C_lam) st_lam FN) as inc_time1.
+    destruct st; destruct st_lam.
+    assert (B : time_bound C (ST mem1 t1)).
+    { simpl. simpl in BOUND. destruct BOUND as [L R].
+      pose proof (relax_ctx_bound C t0 t1 L inc_time1). 
+      split; eauto.
+      simpl in BOUND'. destruct BOUND' as [L' R']. eauto. }
+    assert (S : sound α' C (ST mem1 t1) abs_C abs_st').
+    { unfold sound in SOUND'. destruct abs_st'.
+      destruct SOUND' as [? [? ?]].
+      unfold sound; repeat split; eauto.
+      unfold sound in SOUND. destruct abs_st; destruct SOUND.
+      destruct H5. rewrite <- H5. eapply bound_trans_ctx_eq.
+      exact BOUND. simpl in EQ'. simpl; intros; symmetry; eauto. }
+    specialize (H0 abs_C abs_st' α' B S). clear B S.
+    destruct H0 as [abs_C'' [abs_st'' [α'' H]]].
+    pose proof (time_increase_e C (ST mem1 t1) e2 arg (ST mem t) ARG) as inc_time2; simpl in inc_time2.
+    destruct arg as [v_arg pf_arg C_arg].
+    destruct H as [BOUND'' [EVAL'' [EQ'' SOUND'']]].
+    assert (B : time_bound (C_lam [|dy_c_lam x t ([||])|])
+           (ST (t :: dy_level C_lam !-> Val v_arg pf_arg C_arg; mem)
+           (update_t t))).
+    { unfold time_bound. rewrite plugin_ctx_bound. simpl.
+      repeat split; eauto. eapply relax_ctx_bound.
+      simpl in BOUND'. destruct BOUND'. exact d. unfold update_t. nia.
+      intros. unfold update_m. 
+      simpl in BOUND''. destruct BOUND''.
+      destruct (eq_p p (t :: dy_level C_lam)). 
+      eapply relax_ctx_bound. exact H. unfold update_t. eauto.
+      specialize (H0 p). destruct (mem p); eauto. destruct e0.
+      eapply relax_ctx_bound. exact H0. unfold update_t. eauto. }
+    destruct abs_st'' as [abs_mem'' abs_t''].
+    remember (Abstract.update_t abs_t'') as abs_t'''.
+    remember (fun t' => if t' =? S t then abs_t''' else α'' t') as α'''.
+    assert (S : sound α''' (C_lam [|dy_c_lam x t ([||])|])
+                (ST (t :: dy_level C_lam !-> Val v_arg pf_arg C_arg; mem)
+                (update_t t)) (abs_C'[#|Abstract.dy_c_lam x abs_t'' ([#||#])|#]) 
+                (Abstract.ST (
+                  (abs_t'' :: Abstract.dy_level abs_C') !#-> (Abstract.Val v_arg pf_arg abs_C'') ; abs_mem'') abs_t''')).
+    { unfold sound. rewrite plugin_trans_ctx; simpl.
+      rewrite Heqα'''. unfold update_t. simpl.
+      assert (RR: t =? t = true). apply Nat.eqb_eq; eauto. rewrite RR; clear RR.
+      assert (RR: t =? S t = false). apply Nat.eqb_neq; eauto. rewrite RR; clear RR.
+      split; eauto. unfold sound in SOUND''. destruct SOUND''. rewrite H.
+      assert (eq_bound_α (ST mem t) α'' α''').
+      simpl. rewrite Heqα'''. intros. assert (t' <> S t). nia.
+      rewrite <- Nat.eqb_neq in H2. rewrite H2. eauto. rewrite <- Heqα'''.
+      unfold sound in SOUND'. destruct abs_st'. destruct SOUND' as [? [? ?]]. rewrite <- H4.
+      assert (trans_ctx α''' C_lam = trans_ctx α'' C_lam).
+      eapply bound_trans_ctx_eq. exact BOUND'. simpl.
+      simpl in H2. simpl in EQ''. intros. symmetry. apply H2. nia. 
+      assert (trans_ctx α'' C_lam = trans_ctx α' C_lam).
+      eapply bound_trans_ctx_eq. exact BOUND'. simpl in EQ''. 
+      simpl; intros; symmetry; eauto.
+      rewrite H7 in H6. rewrite H6. split; eauto.
+      intros. unfold update_m.
+      remember (eq_p p (t :: dy_level C_lam)) as b.
+      destruct b. symmetry in Heqb. rewrite eq_p_eq in Heqb. 
+      rewrite Heqb. simpl. rewrite Heqα'''.
+      assert (t =? S t = false). apply Nat.eqb_neq; eauto. rewrite H8; clear H8. rewrite H.
+      rewrite <- Heqα'''. rewrite <- H6. rewrite level_trans_ctx_eq.
+      unfold Abstract.update_m. rewrite abs_eq_p_refl.
+      destruct H0 as [RR ?]. rewrite <- RR.
+      assert (trans_ctx α'' C_arg = trans_ctx α''' C_arg).
+      eapply bound_trans_ctx_eq. exact BOUND''. eauto. rewrite H8. simpl. eauto.
+      destruct H0 as [? RR]. specialize (RR p).
+      unfold time_bound in BOUND''. destruct BOUND'' as [? RR']. specialize (RR' p) as RR''.
+      destruct (mem p). destruct e0.
+      assert (time_bound C0 (ST mem t)) as HINT. unfold time_bound; split; eauto.
+      assert (trans_ctx α''' C_arg) }
+    
+
+
+
+
+

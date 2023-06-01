@@ -12,7 +12,6 @@
 \usepackage{graphicx}
 \usepackage{kotex}
 \usepackage{csquotes}
-
 \usepackage{tabularray}
 \UseTblrLibrary{booktabs}
 \UseTblrLibrary{counter}
@@ -61,15 +60,16 @@
 \newcommand*{\ExprVar}{\mathit{ExprVar}}
 \newcommand*{\Module}{\mathit{Module}}
 \newcommand*{\ModVar}{\mathit{ModVar}}
+\newcommand*{\Path}{\text{Path}}
 \newcommand*{\Ctx}{\text{Ctx}}
 \newcommand*{\link}[2]{{#1}\mathtt{!}{#2}}
 \newcommand*{\sembracket}[1]{\lBrack{#1}\rBrack}
 \newcommand*{\fin}[2]{{#1}\xrightarrow{\text{fin}}{#2}}
-\newcommand*{\IndexExprAux}{\mathsf{index\_expr\_aux}}
-\newcommand*{\IndexExpr}{\mathsf{index\_expr}}
-\newcommand*{\IndexModAux}{\mathsf{index\_mod\_aux}}
-\newcommand*{\IndexMod}{\mathsf{index\_mod}}
-\newcommand*{\Pop}{\mathsf{pop}}
+\newcommand*{\addr}{\mathsf{addr}}
+\newcommand*{\level}{\mathsf{level}}
+\newcommand*{\modctx}{\mathsf{ctx}}
+\newcommand*{\doubleplus}{+\kern-1.3ex+\kern0.8ex}
+\newcommand*{\mdoubleplus}{\ensuremath{\mathbin{+\mkern-10mu+}}}
 
 \title{Semantics for Modular Analysis}
 \author{Joonhyup Lee}
@@ -101,88 +101,96 @@ The language is basically an extension of untyped lambda calculus with modules a
 \section{Big-Step Operational Semantics}
 
 In this section we give the big-step operational semantics for the dynamic execution of the language defined previously.
-The relation which gives the semantics relates the initial state(memory and time) and configuration(the subexpression being evaluated, the list of binding times, and the surrounding context) with the resulting state and configuration.
+The relation which gives the semantics relates the initial state(memory and time) and configuration(the subexpression being evaluated, and the surrounding dynamic context) with the resulting state and configuration.
 
 This relation is nonstandard in that the \textit{environment} that is often used to define closures in the call-by-value dynamics is not a finite map from variables to values.
-Rather, the surrounding context and the list of binding times give when the variables were bound, which can then be looked up from the memory.
-Concretely, the $i$-th time of the $p$ component of the configuration gives when the $i$-th variable counted from the hole upwards in $C$ was bound.
-$i$ is called the ``de Bruijn index'' of the variable.
+Rather, the surrounding \textit{syntactic} context annotated with the \textit{binding times} for the variables together with the memory serves as the environment.
+To access the value of the variable $x$ from the context $C$, one has to read the list of times starting from the nearest binding time for $x$ in the surrounding context up until the root, and use that list as an address to search the memory for the value.
 
 The reason the semantics is defined as such is for the convenience and precision of abstraction.
 One only has to finitize the time component to make the search space finite.
 Furthermore, one can reason precisely about how the syntactic change on the surrounding context affects the evaluation of the expression inside the hole of $C$ by including $C$ in the configuration.
 
-Before presenting the inference rules for the big-step relation, we first present the domains for the state($\sigma, t$) and configuration($e, p, C$).
-The concrete time $t$ is defined to be a natural number, the binding path $p$ is inside a set $\mathbb{P}$ that is inductively defined to be a list of times, and $C$ is inside the inductively defined set $\Ctx$.
-Finally, $\sigma$ is a finite map from $\mathbb{P}$ to $\underbrace{\mathbb{E}\times\mathbb{P}\times\Ctx}_{\text{expression}}+\underbrace{\mathbb{P}\times\Ctx}_{\text{module}}$.
+Before presenting the inference rules for the big-step relation, we first present the domains for the state($\sigma, t$) and configuration($C, e$).
+The concrete time $t$ is defined to be a natural number, $C$ is inside the inductively defined set $\Ctx$,
+and $\sigma$ is a finite map from $\Path\triangleq\mathsf{list}(\text{time})$ to $\mathbb{V}\times\Ctx$, when $\mathbb{V}$ is the subset of the set of expressions that satisfy the $\textit{value}$ predicate.
+In this language, only functions satisfy this predicate.
+
 \begin{bnfgrammar}
   $t$ : \in \mathbb{N}
   ;;
-  $p$ : \in \mathbb{P}
+  $p$ : \in \Path
   ;;
   $C$ : \in \Ctx
   ;;
-  $\sigma$ : \in \fin{\mathbb{P}}{\mathbb{E}\times\mathbb{P}\times\mathbb{C}+\mathbb{P}\times\mathbb{C}}
+  $\sigma$ : \in \fin{\Path}{\mathbb{V}\times\mathbb{C}}
   ;;
   $p$ ::= \textsf{nil} : nil
   | $t$\cons$p$ : cons
   ;;
   $C$ ::= [] : hole
-  | $\lambda x.C$
-  | $C$ $e$
-  | $e$ $C$
-  | \texttt{let} $x$ $e$ $C$
-  | \texttt{let} $M$ $m$ $C$
+  | $\lambda x^{t}.C$ : function parameter binding
+  | \texttt{let} $x^{t}$ $C$ : let expression binding
+  | \texttt{let} $M$ $C$ $C$ : let module context binding
 \end{bnfgrammar}
 
-Also, the functions that calculates the de Bruijn index from a context $C$ and a variable $x$/$M$ also needs to be inductively defined.
-Note that the index is an option of a natural number, and the addition operator is defined to evaluate to $\mathsf{Some}\:i$ iff the two operands are $\mathsf{Some}$.
-
+We define the plugin operator for the dynamic context.
 \[
-  \IndexExprAux(C, x, o) \coloneq
+  C_{1}[C_{2}]\triangleq
   \begin{cases}
-     o & (C=[])\\
-     \IndexExprAux(C', x, o) & (C=C'\:e\lor C=e\:C')\\
-     \IndexExprAux(C', x, \mathsf{Some}\:0) & (C=\lambda x.C'\lor C=\mathtt{let}\:x\:e\:C')\\
-     \IndexExprAux(C', x, \mathsf{Some}\:1 + o) & (C=\lambda x'.C'\lor C=\mathtt{let}\:x'\:e\:C'\lor C=\mathtt{let}\:M\:m\:C', x' \neq x)
+    C_{2}                           & (C_{1}=[])                       \\
+    \lambda x^{t}.C'[C_{2}]         & (C_{1}=\lambda x^{t}.C')         \\
+    \mathtt{let}\:x^{t}\:C'[C_{2}]  & (C_{1}=\mathtt{let}\:x^{t}\:C')  \\
+    \mathtt{let}\:M\:C'\:C''[C_{2}] & (C_{1}=\mathtt{let}\:M\:C'\:C'')
   \end{cases}
 \]
 
+Now, for the operational semantics, the functions that extract information about the binding times from the dynamic context must be defined.
+The first function to be defined is the $\level$ function, which returns the list of binding times counted from the hole upwards.
 \[
-  \IndexExpr(C, x)\coloneq \IndexExprAux(C, x, \mathsf{None})
-\]
-
-\[
-  \IndexModAux(C, M, o) \coloneq
+  \level(C) \triangleq
   \begin{cases}
-     o & (C=[])\\
-     \IndexModAux(C', M, o) & (C=C'\:e\lor C=e\:C')\\
-     \IndexModAux(C', M, \mathsf{Some}\:0) & (C=\mathtt{let}\:M\:m\:C')\\
-     \IndexModAux(C', M, \mathsf{Some}\:i + o) & (C=\lambda x.C'\lor C=\mathtt{let}\:x\:e\:C'\lor C=\mathtt{let}\:M'\:m\:C', M' \neq M)
+    \mathsf{nil}              & (C=[])                                           \\
+    \level(C')\mdoubleplus[t] & (C=\lambda x^{t}.C'\lor \mathtt{let\:}x^{t}\:C') \\
+    \level(C'')               & (C=\mathtt{let}\:M\:C'\:C'')
+  \end{cases}
+\]
+Also, the function that calculates the address from the dynamic context $C$ and variable $x$ must be defined.
+Note that $\mathsf{nil}$ is used as the null address, which should never be accessed.
+\[
+  \addr(C,x)\triangleq
+  \begin{cases}
+    \mathsf{nil}       & (C=[])                                                                   \\
+    \mathsf{nil}       & (C=\lambda x'^{t}.C'\wedge x'\neq x\wedge \addr(C',x)=\mathsf{nil})      \\
+    \mathsf{nil}       & (C=\mathtt{let}\:x'^{t}C'\wedge x'\neq x\wedge \addr(C',x)=\mathsf{nil}) \\
+    [t]                & (C=\lambda x'^{t}.C'\wedge x'= x\wedge \addr(C',x)=\mathsf{nil})         \\
+    [t]                & (C=\mathtt{let}\:x'^{t}C'\wedge x'= x\wedge \addr(C',x)=\mathsf{nil})    \\
+    p \mdoubleplus [t] & (C=\lambda x'^{t}.C'\wedge \addr(C',x)=p\neq\mathsf{nil})                \\
+    p \mdoubleplus [t] & (C=\mathtt{let}\:x'^{t}\:C'\wedge \addr(C',x)=p\neq\mathsf{nil})         \\
+    \addr(C'',x)       & (C=\mathtt{let}\:M\:C'\:C'')
+  \end{cases}
+\]
+Finally, the function that looks up the dynamic context bound to a module variable $M$ must be defined.
+Note that this function returns $\bot$ when the module $M$ is not found.
+\[
+  \modctx(C,M)\triangleq
+  \begin{cases}
+    \bot           & (C=[])                                                             \\
+    C'             & (C=\mathtt{let}\:M'\:C'\:C''\wedge M'= M\wedge\modctx(C'',M)=\bot) \\
+    \modctx(C'',M) & (C=\mathtt{let}\:M'\:C'\:C''\wedge\modctx(C'',M)\neq\bot)          \\
+    \modctx(C'',M) & (C=\mathtt{let}\:M'\:C'\:C''\wedge M'\neq M)                       \\
+    \modctx(C',M)  & (C=\lambda x^{t}.C')                                               \\
+    \modctx(C',M)  & (C=\mathtt{let}\:x^{t}\:C')
   \end{cases}
 \]
 
-\[
-  \IndexMod(C, M)\coloneq \IndexModAux(C, M, \mathsf{None})
-\]
-
-We also define the $\Pop$ operator that maps a path to a option of a path.
-
-\[
-  \Pop(p)\coloneq
-  \begin{cases}
-    \mathsf{None} & (p=\mathsf{nil})\\
-    \mathsf{Some}\:tl & (p=hd\cons tl)
-  \end{cases}
-\]
-
-Now we are in a position to define the big-step relation.
+Now we are in a position to define the big-step evaluation relation.
 
 \begin{prooftree*}
-  \hypo{\mathsf{Some}\:i=\IndexExpr(C,x)}
-  \hypo{\mathsf{Some}\:p_{x}=\Pop^{i}(p)}
+  \hypo{p_{x}=\addr(C,x)}
+  \hypo{p_{x}\neq\mathsf{nil}}
   \infer[left label=ExprVar]2{
-  (x, p, C), (\sigma, t)
+  (x, C), (\sigma, t)
   \Downarrow
   \sigma(p_{x}), (\sigma, t)
   }
@@ -190,112 +198,106 @@ Now we are in a position to define the big-step relation.
 
 \begin{prooftree*}
   \infer[left label=Fn]0{
-  (\lambda x.e, p, C), (\sigma, t)
+  (\lambda x.e, C), (\sigma, t)
   \Downarrow
-  (\lambda x.e, p, C), (\sigma, t)
+  (\lambda x.e, C), (\sigma, t)
   }
 \end{prooftree*}
 
 \begin{prooftree*}
   \hypo{
     \begin{matrix}
-      (e_{1}, p, C[[]\:e_{2}]), (\sigma, t)
+      (e_{1}, C), (\sigma, t)
       \Downarrow
-      (\lambda x.e_{\lambda}, p_{\lambda}, C_{\lambda}), (\sigma_{\lambda}, t_{\lambda}) \\
-      (e_{2}, p, C[e_{1}\:[]]), (\sigma_{\lambda}, t_{\lambda})
+      (\lambda x.e_{\lambda}, C_{\lambda}), (\sigma_{\lambda}, t_{\lambda}) \\
+      (e_{2}, C), (\sigma_{\lambda}, t_{\lambda})
       \Downarrow
-      (a, p_{a}, C_{a}), (\sigma_{a}, t_{a})                                             \\
-      (e_{\lambda}, t_{a}::p_{\lambda}, C_{\lambda}[\lambda x.[]]), (\sigma_{a}[t_{a}::p_{\lambda}\mapsto(a, p_{a}, C_{a})], t_{a} + 1)
+      (v, C_{a}), (\sigma_{a}, t_{a})                                       \\
+      (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]]), (\sigma_{a}[t_{a}::\level(C_{\lambda})\mapsto(v, C_{a})], t_{a} + 1)
       \Downarrow
-      (v, p_{v}, C_{v}), (\sigma_{v}, t_{v})
+      (v', C'), (\sigma',t')
     \end{matrix}
   }
   \infer[left label={App}]1{
-  (e_{1}\:e_{2}, p, C), (\sigma, t)
+  (e_{1}\:e_{2}, C), (\sigma, t)
   \Downarrow
-  (v, p_{v}, C_{v}), (\sigma_{v}, t_{v})
+  (v',C'), (\sigma',t')
   }
 \end{prooftree*}
 
 \begin{prooftree*}
   \hypo{
     \begin{matrix}
-      (m, p, C), (\sigma, t)
+      (m, C), (\sigma, t)
       \Downarrow
-      (p_{m}, C_{m}), (\sigma_{m}, t_{m}) \\
-      (e, p_{m}, C_{m}), (\sigma_{m}, t_{m})
+      C', (\sigma', t') \\
+      (e, C'), (\sigma', t')
       \Downarrow
-      (v, p_{v}, C_{v}), (\sigma_{v}, t_{v})
+      (v, C''), (\sigma'', t'')
     \end{matrix}
   }
   \infer[left label=Linking]1{
-  (\link{m}{e}, p, C), (\sigma, t)
+  (\link{m}{e}, C), (\sigma, t)
   \Downarrow
-  (v, p_{v}, C_{v}), (\sigma_{v}, t_{v})
+  (v, C''), (\sigma'', t'')
   }
 \end{prooftree*}
 
 \begin{prooftree*}
   \infer[left label=Empty]0{
-    (\varepsilon, p, C), (\sigma, t)
-    \Downarrow
-    (p, C), (\sigma, t)
+  (\varepsilon, C), (\sigma, t)
+  \Downarrow
+  C, (\sigma, t)
   }
 \end{prooftree*}
 
 \begin{prooftree*}
-  \hypo{\mathsf{Some}\:i=\IndexMod(C,M)}
-  \hypo{\mathsf{Some}\:p_{M}=\Pop^{i}(p)}
+  \hypo{C'=\modctx(C,M)}
+  \hypo{C'\neq\bot}
   \infer[left label=ModVar]2{
-  (M, p, C), (\sigma, t)
+  (M, C), (\sigma, t)
   \Downarrow
-  \sigma(p_{M}), (\sigma, t)
+  C', (\sigma, t)
   }
 \end{prooftree*}
 
 \begin{prooftree*}
   \hypo{
     \begin{matrix}
-      (e, p, C), (\sigma, t)
+      (e, C), (\sigma, t)
       \Downarrow
-      (v, p_{v}, C_{v}), (\sigma_{v}, t_{v}) \\
-      (m, t_{v}::p, C[\mathtt{let}\:x\:e\:[]]), (\sigma_{v}[t_{v}::p\mapsto(v, p_{v}, C_{v})], t_{v}+1)
+      (v, C'), (\sigma', t') \\
+      (m, C[\mathtt{let}\:x^{t'}\:[]]), (\sigma_{v}[t'::\level(C)\mapsto(v,C')], t'+1)
       \Downarrow
-      (p_{m}, C_{m}), (\sigma_{m}, t_{m})
+      C'', (\sigma'', t'')
     \end{matrix}
   }
   \infer[left label=LetE]1{
-  (\mathtt{let}\:x\:e\:m, p, C), (\sigma, t)
+  (\mathtt{let}\:x\:e\:m,C), (\sigma, t)
   \Downarrow
-  (p_{m}, C_{m}), (\sigma_{m}, t_{m})
+  C'', (\sigma'', t'')
   }
 \end{prooftree*}
 
 \begin{prooftree*}
   \hypo{
     \begin{matrix}
-      (m_{1}, p, C), (\sigma, t)
+      (m_{1}, C), (\sigma, t)
       \Downarrow
-      (p', C'), (\sigma', t') \\
-      (m_{2}, t'::p, C[\mathtt{let}\:M\:m_{1}\:[]]), (\sigma'[t'::p\mapsto(p', C')], t'+1)
+      C', (\sigma', t') \\
+      (m_{2}, C[\mathtt{let}\:M\:C'\:[]]), (\sigma'[t'::\level(C')\mapsto(p', C')], t'+1)
       \Downarrow
-      (p_{m}, C_{m}), (\sigma_{m}, t_{m})
+      C'', (\sigma'', t'')
     \end{matrix}
   }
   \infer[left label=LetM]1{
-  (\mathtt{let}\:M\:m_{1}\:m_{2}, p, C), (\sigma, t)
+  (\mathtt{let}\:M\:m_{1}\:m_{2}, C), (\sigma, t)
   \Downarrow
-  (p_{m}, C_{m}), (\sigma_{m}, t_{m})
+  C'', (\sigma'', t'')
   }
 \end{prooftree*}
 
-Before there were modules, all valid configurations $(e, p, C)$ from the initial configuration $(e_{0}, \mathsf{nil}, [])$ satisfied $C[e]=e_{0}$.
-However, because of the linking rule, this is no longer true.
-It is still true, however, that the $C$ component of a configuration is determined from the syntax of the initial expression, and is thus always bounded by the ``depth'' of $e_{0}$.
-How do we express this property now?
-
-The problem seems to be when the module $m$ that is linked with $e$ in $\link{m}{e}$ is an identifier $M$.
-Since the syntax of modules enforce the identifers for modules to be bound only in \texttt{let} expressions, we want to claim that what the module identifier $M$ is can be known statically.
+To 
 
 \section{Collecting Semantics}
 

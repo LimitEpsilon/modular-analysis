@@ -43,6 +43,19 @@ Fixpoint dy_level (C : dy_ctx) : path :=
   | dy_c_letm _ _  C' => dy_level C'
   end.
 
+Fixpoint ctx_x (C : dy_ctx) (x : expr_id) :=
+  match C with
+  | dy_c_hole => dy_c_hole
+  | dy_c_lam x' tx' C'
+  | dy_c_lete x' tx' C' =>
+    match ctx_x C' x with
+    | dy_c_hole => if eq_eid x x' then dy_c_lam x tx' dy_c_hole
+                   else dy_c_hole
+    | C'' => dy_c_lam x' tx' C''
+    end
+  | dy_c_letm M CM C' => ctx_x C' x
+  end.
+
 Fixpoint addr_x (C : dy_ctx) (x : expr_id) :=
   match C with
   | dy_c_hole => []
@@ -54,6 +67,35 @@ Fixpoint addr_x (C : dy_ctx) (x : expr_id) :=
     end
   | dy_c_letm _ _ C' => addr_x C' x
   end.
+
+Lemma addr_is_level :
+  forall x C, addr_x C x = dy_level (ctx_x C x).
+Proof.
+  assert (forall C x, match ctx_x C x with dy_c_letm _ _ _ => False | _ => True end) as contra.
+  { induction C; intros x'; simpl; eauto
+    ; try destruct (ctx_x C x'); simpl; try destruct (eq_eid x' x); simpl; eauto.
+    apply IHC2. }
+  intros x. induction C; simpl; try rewrite IHC; eauto;
+  remember (ctx_x C x) as ctxX; destruct ctxX; simpl; eauto;
+  remember (eq_eid x x0) as eq; destruct eq; simpl; eauto;
+  try (remember (dy_level ctxX ++ [tx0]) as l; destruct l; simpl; eauto).
+  - assert (In tx0 (dy_level ctxX ++ [tx0])). 
+    apply in_app_iff; right; simpl; eauto.
+    rewrite <- Heql in H. inversion H.
+  - assert (In tx0 (dy_level ctxX ++ [tx0])). 
+    apply in_app_iff; right; simpl; eauto.
+    rewrite <- Heql in H. inversion H.
+  - specialize (contra C x). rewrite <- HeqctxX in contra. inversion contra.
+  - specialize (contra C x). rewrite <- HeqctxX in contra. inversion contra.
+  - assert (In tx0 (dy_level ctxX ++ [tx0])). 
+    apply in_app_iff; right; simpl; eauto.
+    rewrite <- Heql in H. inversion H.
+  - assert (In tx0 (dy_level ctxX ++ [tx0])). 
+    apply in_app_iff; right; simpl; eauto.
+    rewrite <- Heql in H. inversion H.
+  - specialize (contra C x). rewrite <- HeqctxX in contra. inversion contra.
+  - specialize (contra C x). rewrite <- HeqctxX in contra. inversion contra.
+Qed.
 
 Fixpoint ctx_M (C : dy_ctx) (M : mod_id) :=
   match C with
