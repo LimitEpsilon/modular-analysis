@@ -31,24 +31,19 @@ Definition eq_mid id1 id2 :=
   | mid M1, mid M2 => M1 =? M2
   end.
 
-Inductive mod_tm :=
+Inductive tm :=
+  | e_var (x : expr_id)
+  | e_lam (x : expr_id) (e : tm)
+  | e_app (e1 : tm) (e2 : tm)
+  | e_link (m : tm) (e : tm)
   | m_empty
   | m_var (M : mod_id)
-  | m_lete (x : expr_id) (e : expr_tm) (m : mod_tm)
-  | m_letm (M : mod_id) (m1 : mod_tm) (m2 : mod_tm)
-
-with expr_tm :=
-  | e_var (x : expr_id)
-  | e_lam (x : expr_id) (e : expr_tm)
-  | e_app (e1 : expr_tm) (e2 : expr_tm)
-  | e_link (m : mod_tm) (e : expr_tm)
+  | m_lete (x : expr_id) (e : tm) (m : tm)
+  | m_letm (M : mod_id) (m1 : tm) (m2 : tm)
 .
 
-Scheme expr_ind_mut := Induction for expr_tm Sort Prop
-with mod_ind_mut := Induction for mod_tm Sort Prop.
-
-Inductive value : expr_tm -> Prop :=
-  | v_fn (x : expr_id) (e : expr_tm) : value (e_lam x e)
+Inductive value : tm -> Prop :=
+  | v_fn x e : value (e_lam x e)
 .
 
 Inductive st_ctx :=
@@ -116,42 +111,39 @@ Notation "Cout '[[|' Cin '|]]'" := (st_c_plugin Cout Cin)
 Notation "'[[||]]'" := (st_c_hole) (at level 100).
 
 (* collect all static contexts reachable from the current configuration *)
-Fixpoint collect_ctx_expr C e :=
+Fixpoint collect_ctx C e :=
   match e with
-  | e_var x => [C]
-  | e_lam x e' => C :: collect_ctx_expr
-                       (C [[|st_c_lam x ([[||]]) |]]) e'
+  | e_var x => (None, [C])
+  | e_lam x e' => 
+    let ctx_body := snd (collect_ctx (C [[|st_c_lam x ([[||]])|]]) e') in
+    (None, C :: ctx_body)
   | e_app e1 e2 =>
-    let ctxs1 := collect_ctx_expr C e1 in
-    let ctxs2 := collect_ctx_expr C e2 in
-    ctxs1 ++ ctxs2
+    let ctxs1 := snd (collect_ctx C e1) in
+    let ctxs2 := snd (collect_ctx C e2) in
+    (None, ctxs1 ++ ctxs2)
   | e_link m e' =>
-    match collect_ctx_mod C m with
+    match collect_ctx C m with
     | (Some C_m, ctxs_m) => 
-      let ctxs_e := collect_ctx_expr C_m e' in
-      ctxs_m ++ ctxs_e
-    | (None, ctxs_m) => ctxs_m
+      let ctxs_e := snd (collect_ctx C_m e') in
+      (None, ctxs_m ++ ctxs_e)
+    | (None, ctxs_m) => (None, ctxs_m)
     end
-  end
-
-with collect_ctx_mod C m :=
-  match m with
   | m_empty => (Some C, [C])
   | m_var M =>
     match st_ctx_M C M with
-    | Some C_M => (Some C_M, [C ; C_M])
+    | Some C_M => (Some C_M, [C; C_M])
     | None => (None, [C])
     end
   | m_lete x e m' =>
-    let ctxs_e := collect_ctx_expr C e in
-    let (ctx_o, ctxs_m) := collect_ctx_mod 
-                           (C [[| st_c_lete x ([[||]]) |]]) m' in
+    let ctxs_e := snd (collect_ctx C e) in
+    let (ctx_o, ctxs_m) := collect_ctx 
+                           (C [[|st_c_lete x ([[||]])|]]) m' in
     (ctx_o, ctxs_e ++ ctxs_m)
   | m_letm M m1 m2 =>
-    match collect_ctx_mod C m1 with
+    match collect_ctx C m1 with
     | (Some C_M, ctxs_m1) => 
-      let (ctx_o, ctxs_m2) := collect_ctx_mod
-                              (C [[| st_c_letm M C_M ([[||]]) |]]) m2 in
+      let (ctx_o, ctxs_m2) := collect_ctx
+                              (C [[|st_c_letm M C_M ([[||]])|]]) m2 in
       (ctx_o, ctxs_m1 ++ ctxs_m2)
     | (None, ctxs_m1) => (None, ctxs_m1)
     end
@@ -186,4 +178,21 @@ Proof.
     rewrite (RR Cout2 Cin IHCout2) in IHCout1.
     destruct (eq_mid M0 M).
     eauto. eauto.
-Qed. 
+Qed.
+
+Lemma collect_ctx_refl : forall e C, In C (snd (collect_ctx C e)).
+Proof.
+  induction e; intros; simpl; eauto.
+  - apply in_app_iff. left. eauto.
+  - remember (collect_ctx C e1) as ol. destruct ol as [o l].
+    specialize (IHe1 C). rewrite <- Heqol in IHe1.
+    destruct o; eauto. apply in_app_iff. left. eauto.
+  - destruct (st_ctx_M C M); simpl; left; eauto.
+  - destruct (collect_ctx (C [[|st_c_lete x ([[||]])|]]) e2).
+    apply in_app_iff. left. eauto.
+  - remember (collect_ctx C e1) as ol.
+    destruct ol as [o l]. specialize (IHe1 C). rewrite <- Heqol in IHe1.
+    destruct o; eauto.
+    destruct (collect_ctx (C [[|st_c_letm M s ([[||]])|]]) e2).
+    apply in_app_iff. left. eauto.
+Qed.

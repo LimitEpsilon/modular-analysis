@@ -98,6 +98,14 @@ The language is basically an extension of untyped lambda calculus with modules a
   | $\link{m}{e}$ : linked expression
 \end{bnfgrammar}
 
+\subsection{Rationale for the design of the simple language}
+
+We want to statically determine what names are available.
+This was the simplest language I could think of that enforces this criterion.
+Of course, modules with signatures(ref: Rossberg, 1ML) enforce this criterion as well, but that is not the point here.
+The abstraction that we make is possible iff the context of the expression to be evaluated can always be determined statically.
+Thus, the same abstraction can readily be extended to any other language satisfying this criterion.
+
 \section{Big-Step Operational Semantics}
 
 In this section we give the big-step operational semantics for the dynamic execution of the language defined previously.
