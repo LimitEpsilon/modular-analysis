@@ -1,112 +1,38 @@
 From MODULAR Require Export Syntax.
 
-Definition time := nat.
+Generalizable Variables T.
 
-Definition path := list time.
-
-Definition eq_t (t1 t2 : time) := t1 =? t2.
-
-Fixpoint eq_p (p1 p2 : path) :=
-  match p1, p2 with
-  | [], [] => true
-  | hd1 :: tl1, [] => false
-  | [], hd2 :: tl2 => false
-  | hd1 :: tl1, hd2 :: tl2 =>
-    if eq_t hd1 hd2 then eq_p tl1 tl2
-                    else false
-  end.
-
-Inductive dy_ctx :=
-  | dy_c_hole
-  | dy_c_lam (x: expr_id) (tx : time) (C : dy_ctx)
-  | dy_c_lete (x : expr_id) (tx : time) (C : dy_ctx)
-  | dy_c_letm (M : mod_id) (CM : dy_ctx) (C : dy_ctx)
-.
-
-Fixpoint dy_level (C : dy_ctx) : path :=
-  match C with
-  | dy_c_hole => []
-  | dy_c_lam _ t C'
-  | dy_c_lete _ t  C' => dy_level C' ++ [t]
-  | dy_c_letm _ _  C' => dy_level C'
-  end.
-
-Fixpoint dy_plugin_c Cout Cin :=
-  match Cout with
-  | dy_c_hole => Cin
-  | dy_c_lam x tx C' => dy_c_lam x tx (dy_plugin_c C' Cin)
-  | dy_c_lete x tx C' => dy_c_lete x tx (dy_plugin_c C' Cin)
-  | dy_c_letm M CM C' => dy_c_letm M CM (dy_plugin_c C' Cin)
-  end.
-
-Fixpoint addr_x (C : dy_ctx) (x : expr_id) :=
-  match C with
-  | dy_c_hole => []
-  | dy_c_lam x' tx' C'
-  | dy_c_lete x' tx' C' =>
-    match addr_x C' x with
-    | [] => if eq_eid x x' then [tx'] else []
-    | addr => addr ++ [tx']
-    end
-  | dy_c_letm _ _ C' => addr_x C' x
-  end.
-
-Fixpoint ctx_M (C : dy_ctx) (M : mod_id) :=
-  match C with
-  | dy_c_hole => None
-  | dy_c_lam _ _ C'
-  | dy_c_lete _ _ C' => ctx_M C' M
-  | dy_c_letm M' CM' C' =>
-    match ctx_M C' M with
-    | Some CM => Some CM
-    | None => if eq_mid M M' then Some CM' else None
-    end
-  end.
-
-(* a term, a context *)
-Inductive expr_value :=
-  | Closure (x : expr_id) (e : tm) (C : dy_ctx)
-.
-
-Inductive dy_value :=
-  | EVal (ev : expr_value)
-  | MVal (mv : dy_ctx)
-.
-
-Inductive state :=
-  | ST (mem : path -> option expr_value)
+Inductive state {time : Type} :=
+  | ST (mem : time -> option (@expr_value time))
        (t : time)
 .
 
-Definition update_t (C : dy_ctx) (st : state) 
-                    (x : expr_id) (v : expr_value) :=
-  match st with
-  | ST mem t => S t
-  end.
+Class Time `{OrderT T} :=
+{  
+  update : (@dy_ctx T) -> (@state T) -> expr_id -> (@expr_value T) -> T;
+  update_lt : forall C mem t x v, let t' := update C (ST mem t) x v in
+                                  leb t t' = true /\ t <> t'
+}.
 
-Definition update_m {X} mem (p : path) (x : X) :=
-  fun p' => if eq_p p' p then Some x else mem p'.
+Definition update_m {T X} `{Time T} mem (t : T) (x : X) :=
+  fun t' => if eqb t' t then Some x else mem t'.
 
-Definition empty_mem {X} (p : path) : option X := None.
+Definition empty_mem {T X} (t : T) : option X := None.
 
 Notation "p '!->' v ';' mem" := (update_m mem p v)
                               (at level 100, v at next level, right associativity).
 
-Notation "Cout '[|' Cin '|]'" := (dy_plugin_c Cout Cin)
-                              (at level 100, Cin at next level, right associativity).
-Notation "'[||]'" := (dy_c_hole) (at level 100).
-
-Inductive EvalR (C : dy_ctx) (st : state)
-    : tm -> dy_value -> state -> Prop :=
-  | Eval_var_e x v mem t
+Inductive EvalR `{Time T} (C : @dy_ctx T) (st : @state T)
+    : tm -> (@dy_value T) -> (@state T) -> Prop :=
+  | Eval_var_e x v mem t addr
              (STATE : ST mem t = st)
-             (ADDR : [] <> addr_x C x)
-             (ACCESS : Some v = mem (addr_x C x))
-    : EvalR C st (e_var x) (EVal v) st
+             (ADDR : Some addr = addr_x C x)
+             (ACCESS : Some v = mem addr)
+    : EvalR C st (e_var x) (EVal v) (ST mem t)
   | Eval_lam x e
     : EvalR C st (e_lam x e)
             (EVal (Closure x e C)) st
-  | Eval_app e1 e2 
+  | Eval_app e1 e2
              x e C_lam st_lam
              arg mem t
              v st_v
@@ -115,8 +41,8 @@ Inductive EvalR (C : dy_ctx) (st : state)
              (ARG : EvalR C st_lam e2
                           (EVal arg) (ST mem t))
              (BODY : EvalR (C_lam [|dy_c_lam x t ([||])|])
-                           (ST (t :: (dy_level C_lam) !-> arg ; mem) 
-                               (update_t C (ST mem t) x arg))
+                           (ST (t !-> arg ; mem) 
+                               (update C (ST mem t) x arg))
                            e (EVal v) st_v)
     : EvalR C st (e_app e1 e2) (EVal v) st_v
   | Eval_link m e C_m st_m v st_v
@@ -131,8 +57,8 @@ Inductive EvalR (C : dy_ctx) (st : state)
               m C_m st_m
                (EVALe : EvalR C st e (EVal v) (ST mem t))
                (EVALm : EvalR (C [|dy_c_lete x t ([||])|])
-                        (ST (t :: (dy_level C) !-> v ; mem) 
-                            (update_t C (ST mem t) x v))
+                        (ST (t !-> v ; mem) 
+                            (update C (ST mem t) x v))
                         m (MVal C_m) st_m)
     : EvalR C st (m_lete x e m) (MVal C_m) st_m
   | Eval_letm M m' C' st'
@@ -143,13 +69,15 @@ Inductive EvalR (C : dy_ctx) (st : state)
     : EvalR C st (m_letm M m' m'') (MVal C'') st''
 .
 
-Inductive interpreter_state :=
-  | Pending (C : dy_ctx) (st : state) (e : tm)
-  | Error (C : dy_ctx) (st : state) (e : tm) (* Type error *)
-  | Resolved (v : dy_value) (st : state)
+#[export] Hint Constructors EvalR : core.
+
+Inductive interpreter_state {T} :=
+  | Pending (C : @dy_ctx T) (st : @state T) (e : tm)
+  | Error (C : @dy_ctx T) (st : @state T) (e : tm) (* Type error *)
+  | Resolved (v : @dy_value T) (st : @state T)
 .
 
-Fixpoint eval (C : dy_ctx) (st : state) 
+Fixpoint eval `{Time T} (C : @dy_ctx T) (st : @state T) 
               (e : tm) (FUEL : nat) :=
   match FUEL with
   | 0 => Pending C st e
@@ -157,11 +85,11 @@ Fixpoint eval (C : dy_ctx) (st : state)
     match e with
     | e_var x =>
       match addr_x C x with
-      | [] => Error C st e
-      | p => 
+      | None => Error C st e
+      | Some addr => 
         match st with
         | ST mem _ =>
-          match mem p with
+          match mem addr with
           | None => Pending C st e
           | Some v => Resolved (EVal v) st
           end
@@ -175,8 +103,8 @@ Fixpoint eval (C : dy_ctx) (st : state)
         match eval C st_lam e2 FUEL' with
         | Resolved (EVal arg) (ST mem t) =>
           match eval (C_lam [| dy_c_lam x t ([||]) |]) 
-                     (ST (t :: (dy_level C_lam) !-> arg ; mem) 
-                         (update_t C (ST mem t) x arg)) 
+                     (ST (t !-> arg ; mem) 
+                         (update C (ST mem t) x arg)) 
                      e' FUEL' with
           | Resolved (EVal v) st' => Resolved (EVal v) st'
           | Resolved _ _ => Error C st e
@@ -209,8 +137,8 @@ Fixpoint eval (C : dy_ctx) (st : state)
       match eval C st e FUEL' with
       | Resolved (EVal v) (ST mem t) =>
         match eval (C[| dy_c_lete x t ([||]) |]) 
-                   (ST (t :: (dy_level C) !-> v ; mem) 
-                       (update_t C (ST mem t) x v)) 
+                   (ST (t !-> v ; mem) 
+                       (update C (ST mem t) x v)) 
                    m FUEL' with
         | Resolved (MVal C') st' => Resolved (MVal C') st'
         | Resolved _ _ => Error C st e 
@@ -234,20 +162,13 @@ Fixpoint eval (C : dy_ctx) (st : state)
     end
   end.
 
-Compute eval ([||]) (ST empty_mem 0) 
-             (e_app (e_lam (eid 0) 
-                        (e_app (e_var (eid 0))
-                                (e_var (eid 0))))
-                    (e_lam (eid 0) 
-                        (e_app (e_var (eid 0))
-                                (e_var (eid 0))))) 5. 
-
 Lemma relax_fuel :
-  forall C st e v st' FUEL FUEL' (LE : FUEL <= FUEL'),
+  forall `{TIME : Time T} (C : @dy_ctx T) st e v st' FUEL FUEL' (LE : FUEL <= FUEL'),
     eval C st e FUEL = Resolved v st' ->
     eval C st e FUEL' = Resolved v st'.
 Proof.
-  intros C st e v st' FUEL. revert C st e v st'.
+  intros. rename H into H'. rename H0 into H.
+  revert C st e v st' H FUEL' LE.
   induction FUEL; intros.
   - inversion H.
   - simpl in H; destruct e; inversion LE; eauto.
@@ -260,19 +181,19 @@ Proof.
       clear H3. destruct v2 as [v2 | ]; inversion H.
       clear H3. destruct st2 as [mem2 t2].
       remember (eval (C_lam [|dy_c_lam x t2 ([||])|]) 
-                     (ST (t2 :: dy_level C_lam !-> v2; mem2) (S t2))
+                     (ST (t2 !-> v2; mem2) (update C (ST mem2 t2) x v2))
                       v1 FUEL) as v3.
       destruct v3 as [ | | v3 st3]; inversion H.
       clear H3. destruct v3 as [v3 | ]; inversion H.
-      subst.
+      subst. 
       assert (eval C st e1 m = Resolved (EVal (Closure x v1 C_lam)) st1) as RR1.
-      apply IHFUEL. nia. eauto.
+      apply IHFUEL; eauto. nia.
       assert (eval C st1 e2 m = Resolved (EVal v2) (ST mem2 t2)) as RR2.
-      apply IHFUEL. nia. eauto.
+      apply IHFUEL; eauto. nia.
       assert (eval (C_lam [|dy_c_lam x t2 ([||])|])
-                   (ST (t2 :: dy_level C_lam !-> v2; mem2) (S t2)) v1 m = 
+                   (ST (t2 !-> v2; mem2) (update C (ST mem2 t2) x v2)) v1 m = 
               Resolved (EVal v3) st') as RR3.
-      apply IHFUEL. nia. eauto.
+      apply IHFUEL; eauto. nia.
       simpl. rewrite RR1. rewrite RR2. rewrite RR3. eauto.
     + remember (eval C st e1 FUEL) as v1.
       destruct v1 as [ | | v1 st1]; inversion H.
@@ -282,26 +203,26 @@ Proof.
       clear H3. destruct v2 as [v2 | ]; inversion H. 
       subst.
       assert (eval C st e1 m = Resolved (MVal mv) st1) as RR1.
-      apply IHFUEL. nia. eauto.
+      apply IHFUEL; eauto. nia.
       assert (eval mv st1 e2 m = Resolved (EVal v2) st') as RR2.
-      apply IHFUEL. nia. eauto.
+      apply IHFUEL; eauto. nia.
       simpl. rewrite RR1. rewrite RR2. eauto.
     + remember (eval C st e1 FUEL) as v1.
       destruct v1 as [ | | v1 st1]; inversion H.
       clear H3. destruct v1 as [v1 | ]; inversion H.
       clear H3. destruct st1 as [mem1 t1].
       remember (eval (C [|dy_c_lete x t1 ([||])|]) 
-                     (ST (t1 :: dy_level C !-> v1; mem1) (S t1))
+                     (ST (t1 !-> v1; mem1) (update C (ST mem1 t1) x v1))
                       e2 FUEL) as v2.
       destruct v2 as [ | | v2 st2]; inversion H.
       clear H3. destruct v2 as [v2 | ]; inversion H.
       subst.
       assert (eval C st e1 m = Resolved (EVal v1) (ST mem1 t1)) as RR1.
-      apply IHFUEL. nia. eauto.
+      apply IHFUEL; eauto. nia.
       assert (eval (C [|dy_c_lete x t1 ([||])|]) 
-                   (ST (t1 :: dy_level C !-> v1; mem1) (S t1))
+                   (ST (t1 !-> v1; mem1) (update C (ST mem1 t1) x v1))
                    e2 m = Resolved (MVal mv) st') as RR2.
-      apply IHFUEL. nia. eauto.
+      apply IHFUEL; eauto. nia.
       simpl. rewrite RR1. rewrite RR2. eauto.
     + remember (eval C st e1 FUEL) as v1.
       destruct v1 as [ | | v1 st1]; inversion H.
@@ -313,22 +234,19 @@ Proof.
       clear H3. destruct v2 as [v2 | ]; inversion H.
       subst.
       assert (eval C st e1 m = Resolved (MVal mv) st1) as RR1.
-      apply IHFUEL. nia. eauto.
+      apply IHFUEL; eauto. nia.
       assert (eval (C [|dy_c_letm M mv ([||])|]) st1
                    e2 m = Resolved (MVal mv0) st') as RR2.
-      apply IHFUEL. nia. eauto.
+      apply IHFUEL; eauto. nia.
       simpl. rewrite RR1. rewrite RR2. eauto.
 Qed.
       
 Lemma EvalR_well_defined_l :
-  forall C st e v st' (R : EvalR C st e v st'),
+  forall `{Time T} (C : @dy_ctx T) st e v st' (R : EvalR C st e v st'),
     exists FUEL, eval C st e FUEL = Resolved v st'.
 Proof.
   intros. induction R.
-  - exists 1; simpl. 
-    remember (addr_x C x) as addr. destruct addr.
-    specialize (ADDR eq_refl). inversion ADDR.
-    rewrite <- STATE. rewrite <- ACCESS. eauto.
+  - exists 1; simpl. rewrite <- ADDR. rewrite <- STATE. rewrite <- ACCESS. eauto.
   - exists 1; simpl; eauto.
   - destruct IHR1 as [FUEL' EQ'].
     destruct IHR2 as [FUEL'' EQ''].
@@ -344,7 +262,7 @@ Proof.
     apply relax_fuel with (FUEL := FUEL''). nia. eauto.
     rewrite RR; clear RR.
     assert (eval (C_lam [|dy_c_lam x t ([||])|]) 
-                 (ST (t :: dy_level C_lam !-> arg; mem) (S t)) e
+                 (ST (t !-> arg; mem) (update C (ST mem t) x arg)) e
                  (Nat.max FUEL' (Nat.max FUEL'' FUEL'''))
             = Resolved (EVal v) st_v) as RR.
     apply relax_fuel with (FUEL := FUEL'''). nia. eauto.
@@ -372,7 +290,7 @@ Proof.
     apply relax_fuel with (FUEL := FUEL'). nia. eauto.
     rewrite RR; clear RR.
     assert (eval (C [|dy_c_lete x t ([||])|]) 
-                 (ST (t :: dy_level C !-> v; mem) (S t)) m
+                 (ST (t !-> v; mem) (update C (ST mem t) x v)) m
                  (Nat.max FUEL' FUEL'')
             = Resolved (MVal C_m) st_m) as RR.
     apply relax_fuel with (FUEL := FUEL''). nia. eauto.
@@ -392,19 +310,17 @@ Proof.
 Qed.
 
 Lemma EvalR_well_defined_r :
-  forall FUEL C st e v st' (R : eval C st e FUEL = Resolved v st'),
+  forall `{TIME : Time T} FUEL (C : @dy_ctx T) st e v st' (R : eval C st e FUEL = Resolved v st'),
     EvalR C st e v st'.
 Proof.
+  intros. rename H into H'. generalize dependent T. revert e.
   induction FUEL; intros; simpl in *; try (inversion R; fail).
   destruct e.
-  - remember (addr_x C x) as addr. destruct addr.
-    inversion R. destruct st. 
-    remember (mem (t :: addr)) as access.
-    destruct access. inversion R. subst.
-    eapply Eval_var_e. eauto. rewrite <- Heqaddr. 
-    intro contra. inversion contra. rewrite <- Heqaddr. eauto.
-    inversion R.
-  - inversion R. eauto using EvalR.
+  - remember (addr_x C x) as addr. destruct addr; inversion R. clear H0.
+    destruct st.
+    remember (mem t) as access.
+    destruct access; inversion R. subst. eauto.
+  - inversion R. eauto.
   - remember (eval C st e1 FUEL) as v1.
     destruct v1 as [ | | v1 st1]; inversion R.
     clear H0. destruct v1 as [v1 | ]; inversion R.
@@ -414,7 +330,7 @@ Proof.
     clear H0. destruct v2 as [v2 | ]; inversion R.
     clear H0. destruct st2 as [mem2 t2].
     remember (eval (C_lam [|dy_c_lam x t2 ([||])|])
-                   (ST (t2 :: dy_level C_lam !-> v2; mem2) (S t2)) 
+                   (ST (t2 !-> v2; mem2) (update C (ST mem2 t2) x v2)) 
                    v1 FUEL) as v3.
     destruct v3 as [ | | v3 st3]; inversion R.
     clear H0. destruct v3 as [v3 | ]; inversion R.
@@ -422,36 +338,33 @@ Proof.
     assert (EvalR C st e1 (EVal (Closure x v1 C_lam)) st1) as RR1. eauto.
     assert (EvalR C st1 e2 (EVal v2) (ST mem2 t2)) as RR2. eauto.
     assert (EvalR (C_lam [|dy_c_lam x t2 ([||])|])
-                  (ST (t2 :: dy_level C_lam !-> v2; mem2) (S t2)) v1
-            (EVal v3) st') as RR3. eauto.
-    eauto using EvalR.
+                  (ST (t2 !-> v2; mem2) (update C (ST mem2 t2) x v2)) v1
+            (EVal v3) st') as RR3. eauto. eauto.
   - remember (eval C st e1 FUEL) as v1.
     destruct v1 as [ | | v1 st1]; inversion R.
     clear H0. destruct v1 as [v1 | ]; inversion R.
     clear H0. remember (eval mv st1 e2 FUEL) as v2.
     destruct v2 as [ | | v2 st2]; inversion R.
     clear H0. destruct v2 as [v2 | ]; inversion R.
-    subst.
-    eauto using EvalR.
-  - inversion R; subst. eauto using EvalR.
+    subst. eapply Eval_link; eauto.
+  - inversion R; subst. eapply Eval_empty; eauto.
   - remember (ctx_M C M) as ACCESS.
-    destruct ACCESS; inversion R; subst.
-    eauto using EvalR.
+    destruct ACCESS; inversion R; subst. eapply Eval_var_m; eauto.
   - remember (eval C st e1 FUEL) as v1.
     destruct v1 as [ | | v1 st1]; inversion R.
     clear H0. destruct v1 as [v1 | ]; inversion R.
     clear H0. destruct st1 as [mem1 t1].
     remember (eval (C [|dy_c_lete x t1 ([||])|])
-                   (ST (t1 :: dy_level C !-> v1; mem1) (S t1)) 
+                   (ST (t1 !-> v1; mem1) (update C (ST mem1 t1) x v1)) 
                    e2 FUEL) as v2.
     destruct v2 as [ | | v2 st2]; inversion R.
     clear H0. destruct v2 as [v2 | ]; inversion R.
     subst.
     assert (EvalR C st e1 (EVal v1) (ST mem1 t1)) as RR1. eauto.
     assert (EvalR (C [|dy_c_lete x t1 ([||])|])
-                  (ST (t1 :: dy_level C !-> v1; mem1) (S t1)) e2
+                  (ST (t1 !-> v1; mem1) (update C (ST mem1 t1) x v1)) e2
             (MVal mv) st') as RR2. eauto.
-    eauto using EvalR.
+    eapply Eval_lete; eauto.
   - remember (eval C st e1 FUEL) as v1.
     destruct v1 as [ | | v1 st1]; inversion R.
     clear H0. destruct v1 as [v1 | ]; inversion R.
@@ -463,24 +376,22 @@ Proof.
     assert (EvalR C st e1 (MVal mv) st1) as RR1. eauto.
     assert (EvalR (C [|dy_c_letm M mv ([||])|])
                   st1 e2 (MVal mv0) st') as RR2. eauto.
-    eauto using EvalR.
+    eapply Eval_letm; eauto.
 Qed.
 
 Theorem EvalR_well_defined :
-  forall C st e v st',
+  forall `{TIME : Time T} C st e v st',
     (exists FUEL, eval C st e FUEL = Resolved v st') <->
     EvalR C st e v st'.
 Proof.
   intros; split; try apply EvalR_well_defined_l.
-  intros. destruct H as [FUEL EVAL].
+  intros. destruct H0 as [FUEL EVAL].
   eapply EvalR_well_defined_r. eauto.
 Qed.
 
-Definition Reach (tm1 tm2 : Type) := tm1 -> dy_ctx -> state -> tm2 -> Prop.
-
 (* Reachability relation *)
-Inductive ReachR (C : dy_ctx) (st : state)
-    : Reach tm tm :=
+Inductive ReachR `{Time T} (C : @dy_ctx T) (st : @state T)
+    : tm -> (@dy_ctx T) -> (@state T) -> tm -> Prop :=
   | r_refl e
     : ReachR C st e 
              C st e
@@ -504,8 +415,8 @@ Inductive ReachR (C : dy_ctx) (st : state)
                 (ARG : EvalR C st_lam e2
                              (EVal arg) (ST mem t))
                 (REACHb : ReachR (C_lam[|dy_c_lam x t ([||])|]) 
-                                 (ST (t :: (dy_level C_lam) !-> arg ; mem) 
-                                     (update_t C (ST mem t) x arg)) e
+                                 (ST (t !-> arg ; mem) 
+                                     (update C (ST mem t) x arg)) e
                                  C' st' e')
     : ReachR C st (e_app e1 e2)
              C' st' e'
@@ -529,8 +440,8 @@ Inductive ReachR (C : dy_ctx) (st : state)
              C' st' e'
              (EVALx : EvalR C st e (EVal v) (ST mem t))
              (REACHm : ReachR (C[|dy_c_lete x t ([||])|])
-                              (ST (t :: (dy_level C) !-> v ; mem) 
-                                  (update_t C (ST mem t) x v)) m
+                              (ST (t !-> v ; mem) 
+                                  (update C (ST mem t) x v)) m
                               C' st' e')
     : ReachR C st (m_lete x e m)
              C' st' e'
@@ -548,13 +459,15 @@ Inductive ReachR (C : dy_ctx) (st : state)
              C' st' e'
 .
 
+#[export] Hint Constructors ReachR : core.
+
 Notation "'<|' C1 st1 tm1 '~>' C2 st2 tm2 '|>'" := (ReachR C1 st1 tm1 C2 st2 tm2) 
                                                (at level 10, 
                                                 C1 at next level, st1 at next level, tm1 at next level,
                                                 C2 at next level, st2 at next level, tm2 at next level).
 
 (* sanity check *)
-Lemma reach_trans : forall C1 st1 e1
+Lemma reach_trans : forall {T} `{Time T} (C1 : @dy_ctx T) st1 e1
                          C2 st2 e2
                          C3 st3 e3
                          (REACH1 : <| C1 st1 e1 ~> C2 st2 e2 |>)
@@ -563,112 +476,21 @@ Lemma reach_trans : forall C1 st1 e1
 Proof.
   intros. generalize dependent e3.
   revert C3 st3.
-  induction REACH1; eauto using ReachR.
-Qed.
-
-Lemma c_plugin_assoc : forall C1 C2 C3, C1[| C2[| C3 |] |] = ((C1[|C2|])[|C3|]).
-Proof.
-  induction C1; eauto; 
-  intros; simpl; try rewrite IHC1; eauto.
-  rewrite IHC1_2. eauto.
-Qed.
-
-Lemma eq_p_eq : forall p1 p2, eq_p p1 p2 = true <-> p1 = p2.
-Proof.
-  induction p1; induction p2;
-  intros; simpl;
-  try rewrite IHp1; try rewrite IHp2;
-  eauto.
-  - split; eauto.
-  - split; intros contra; inversion contra.
-  - split; intros contra; inversion contra.
-  - unfold eq_t. remember (a =? a0) as eqa.
-    destruct eqa; simpl; symmetry in Heqeqa;
-    try rewrite Nat.eqb_eq in Heqeqa;
-    try rewrite Nat.eqb_neq in Heqeqa.
-    + split; intros. rewrite Heqeqa in *.
-      apply IHp1 in H. rewrite H. eauto.
-      eapply IHp1. inversion H; eauto.
-    + split; intros contra; inversion contra.
-      apply Heqeqa in H0; inversion H0.
-Qed.
-
-Lemma c_plugin_adds_level : forall C1 C2, eq_p (dy_level(C1[|C2|])) (dy_level C2 ++ dy_level C1) = true.
-Proof.
-  induction C1;
-  intros; try rewrite IHC1;
-  try apply Nat.eqb_eq; try rewrite app_nil_r in *; 
-  try rewrite c_plugin_assoc in *; simpl in *; 
-  eauto; try apply eq_p_eq; eauto;
-  specialize (IHC1 C2); rewrite eq_p_eq in IHC1;
-  rewrite IHC1; rewrite app_assoc; eauto.
-Qed.
-
-Fixpoint dy_to_st C :=
-  match C with
-  | ([||]) => st_c_hole
-  | dy_c_lam x _ C' => st_c_lam x (dy_to_st C')
-  | dy_c_lete x _ C' => st_c_lete x (dy_to_st C')
-  | dy_c_letm M CM C' => st_c_letm M (dy_to_st CM) (dy_to_st C')
-  end.
-
-Lemma dy_to_st_plugin :
-  forall Cout Cin,
-    dy_to_st (Cout[|Cin|]) = st_c_plugin (dy_to_st Cout) (dy_to_st Cin).
-Proof.
-  induction Cout; intros; simpl; try rewrite IHCout; eauto.
-  rewrite IHCout2. eauto.
-Qed. 
-
-Lemma mod_is_static_none : forall (dC : dy_ctx) (M : mod_id),
-  (ctx_M dC M = None <-> st_ctx_M (dy_to_st dC) M = None).
-Proof. 
-  intros. repeat split. 
-  - induction dC; simpl; eauto.
-    destruct (ctx_M dC2 M). intros H; inversion H.
-    specialize (IHdC2 eq_refl). rewrite IHdC2.
-    destruct (eq_mid M M0). intros H; inversion H. eauto.
-  - induction dC; simpl; eauto.
-    destruct (st_ctx_M (dy_to_st dC2) M). intros H; inversion H.
-    specialize (IHdC2 eq_refl). rewrite IHdC2.
-    destruct (eq_mid M M0). intros H; inversion H. eauto.
-Qed.
-
-Lemma mod_is_static_some : forall (dC : dy_ctx) (M : mod_id),
-  (forall v, ctx_M dC M = Some v -> st_ctx_M (dy_to_st dC) M = Some (dy_to_st v)) /\
-  (forall v, st_ctx_M (dy_to_st dC) M = Some v -> exists dv, dy_to_st dv = v /\ ctx_M dC M = Some dv).
-Proof.
-  intros; split. 
-  - induction dC; simpl; intros; eauto.
-    + inversion H.
-    + remember (ctx_M dC2 M) as v2. destruct v2.
-      specialize (IHdC2 v H). rewrite IHdC2. eauto.
-      symmetry in Heqv2. rewrite mod_is_static_none in Heqv2.
-      rewrite Heqv2. destruct (eq_mid M M0); inversion H; eauto.
-  - induction dC; simpl; intros; eauto.
-    + inversion H.
-    + remember (st_ctx_M (dy_to_st dC2) M) as v2. destruct v2.
-      specialize (IHdC2 v H). inversion IHdC2. exists x.
-      destruct H0. split. assumption. rewrite H1. eauto.
-      remember (ctx_M dC2 M) as v2. destruct v2;
-      symmetry in Heqv2; rewrite <- mod_is_static_none in Heqv2.
-      rewrite Heqv2 in Heqv0. inversion Heqv0.
-      destruct (eq_mid M M0). inversion H.
-      exists dC1. eauto. inversion H.
+  induction REACH1; eauto.
 Qed.
 
 Lemma value_reach_only_itself :
-  forall C st v (pf : value v)
+  forall `{TIME : Time T} C st v (pf : value v)
          C' st' e'
          (REACH : <| C st v ~> C' st' e' |>),
          C = C' /\ st = st' /\ v = e'.
 Proof.
-  intros; repeat split; inversion pf; inversion REACH; subst; eauto using ReachR;
-  try inversion H0.
+  intros; repeat split; inversion pf; inversion REACH; subst; eauto;
+  try inversion H1.
 Qed.
 
 Lemma Meval_then_collect :
-  forall C st m v st_m
+  forall `{TIME : Time T} C st m v st_m
          (EVAL : EvalR C st m v st_m)
          C_m (MVAL : v = MVal C_m),
         match collect_ctx (dy_to_st C) m with
@@ -676,7 +498,7 @@ Lemma Meval_then_collect :
         | (None, _) => False
         end.
 Proof.
-  intros. revert C_m MVAL.
+  intros. rename H into H'. revert C_m MVAL.
   induction EVAL; intros; simpl; try inversion MVAL; subst; eauto.
   - pose proof (mod_is_static_some C M) as H.
     destruct H as [A B]. specialize (A C_m).
@@ -694,7 +516,8 @@ Proof.
     apply IHEVAL2.
 Qed.
 
-Definition ctx_bound_st ub st:=
+(* finite ctx predicate *)
+Definition ctx_bound_st {T} ub (st : @state T):=
   match st with
   | ST mem t =>
     forall addr,
@@ -707,15 +530,15 @@ Definition ctx_bound_st ub st:=
       end
   end.
 
-Definition ctx_bound_tm ub C st e :=
+Definition ctx_bound_tm {T} ub (C : @dy_ctx T) (st : @state T) e :=
   ctx_bound_st ub st /\
   let (o, ctxs) := collect_ctx (dy_to_st C) e in
   forall sC (IN : In sC ctxs),
          In sC ub.
 
 Lemma eval_ctx_bound :
-  forall ub
-         C st e
+  forall `{TIME : Time T} ub
+         (C : @dy_ctx T) st e
          v st'
          (INIT : ctx_bound_tm ub C st e)
          (EVAL : EvalR C st e v st'),
@@ -727,11 +550,11 @@ Lemma eval_ctx_bound :
     (* | _ => ctx_bound_st ub st' *)
     end.
 Proof.
-  intros. 
+  intros. rename H into H'.
   induction EVAL; try destruct v as [x' e' C_lam'];
   destruct INIT as [A B].
   - rewrite <- STATE in *. split; eauto.
-    specialize (A (addr_x C x)). rewrite <- ACCESS in A. eauto.
+    specialize (A addr). rewrite <- ACCESS in A. eauto.
   - destruct st. split; eauto.
   - apply IHEVAL3. clear IHEVAL3.
     simpl in B. 
@@ -755,7 +578,7 @@ Proof.
     simpl. intros. unfold update_m. 
     destruct arg as [x'' e'' C_lam''].
     destruct IHEVAL2 as [A'' B''].
-    destruct (eq_p addr (t :: dy_level C_lam)); eauto.
+    destruct (eqb addr t); eauto.
     simpl in A''. apply A''.
   - apply IHEVAL2. clear IHEVAL2.
     simpl in B.
@@ -795,7 +618,7 @@ Proof.
          simpl in B; intros; apply B; rewrite in_app_iff; right; 
          eauto).
     simpl. intros. unfold update_m. 
-    destruct (eq_p addr (t :: dy_level C)); eauto.
+    destruct (eqb addr t); eauto.
     simpl in A'. apply A'.
   - apply IHEVAL2. clear IHEVAL2.
     simpl in B. 
@@ -818,14 +641,14 @@ Proof.
 Qed.
 
 Lemma reach_ctx_bound :
-  forall ub
-         C st e
+  forall `{TIME : Time T} ub
+         (C : @dy_ctx T) st e
          C' st' e'
          (INIT : ctx_bound_tm ub C st e)
          (REACH : <| C st e ~> C' st' e' |>),
     ctx_bound_tm ub C' st' e'.
 Proof.
-  intros. induction REACH; eauto; 
+  intros. rename H into H'. induction REACH; eauto; 
           apply IHREACH; destruct INIT as [A B].
   - simpl in B. split; eauto.
     destruct (collect_ctx (dy_to_st C) e1).
@@ -842,7 +665,7 @@ Proof.
     apply eval_ctx_bound with (ub := ub) in ARG. destruct arg as [x'' e'' C''].
     destruct FN as [A' B']. destruct ARG as [A'' B''].
     split. simpl. intros. unfold update_m.
-    destruct (eq_p addr (t :: dy_level C_lam)).
+    destruct (eqb addr t).
     simpl in B''. apply B''.
     simpl in A''. apply A''.
     rewrite dy_to_st_plugin. simpl. simpl in B'.
@@ -879,7 +702,7 @@ Proof.
     destruct EVALx as [A' B'].
     split.
     simpl; intros. unfold update_m.
-    destruct (eq_p addr (t :: dy_level C)).
+    destruct (eqb addr t).
     simpl in B'; eauto. simpl in A'; apply A'.
     simpl in B. rewrite dy_to_st_plugin. simpl.
     destruct (collect_ctx (dy_to_st C [[|st_c_lete x ([[||]])|]]) m).
@@ -909,14 +732,14 @@ Proof.
 Qed.
 
 Theorem expr_ctx_bound :
-  forall e C' st' e'
-         (REACH : <| ([||]) (ST empty_mem 0) e ~> C' st' e' |>),
+  forall `{TIME : Time T} t e (C' : @dy_ctx T) st' e'
+         (REACH : <| ([||]) (ST empty_mem t) e ~> C' st' e' |>),
          In (dy_to_st C') (snd (collect_ctx ([[||]]) e)).
 Proof.
-  intros.
-  pose proof (reach_ctx_bound (snd (collect_ctx st_c_hole e)) ([||]) (ST empty_mem 0) e C' st' e') as H.
+  intros. rename H into H'.
+  pose proof (reach_ctx_bound (snd (collect_ctx st_c_hole e)) ([||]) (ST empty_mem t) e C' st' e') as H.
   assert (ctx_bound_tm (snd (collect_ctx ([[||]]) e)) 
-                       ([||]) (ST empty_mem 0) e) as FINAL.
+                       ([||]) (ST empty_mem t) e) as FINAL.
   - split; simpl; eauto. destruct (collect_ctx ([[||]]) e); eauto.
   - apply H in FINAL; try apply REACH. 
     destruct FINAL as [MEM KILLER].

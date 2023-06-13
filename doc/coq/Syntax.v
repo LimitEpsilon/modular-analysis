@@ -196,3 +196,127 @@ Proof.
     destruct (collect_ctx (C [[|st_c_letm M s ([[||]])|]]) e2).
     apply in_app_iff. left. eauto.
 Qed.
+
+(* dynamic context *)
+Inductive dy_ctx {time : Type} :=
+  | dy_c_hole
+  | dy_c_lam (x: expr_id) (tx : time) (C : dy_ctx)
+  | dy_c_lete (x : expr_id) (tx : time) (C : dy_ctx)
+  | dy_c_letm (M : mod_id) (CM : dy_ctx) (C : dy_ctx)
+.
+
+Fixpoint dy_plugin_c {time : Type} (Cout : @dy_ctx time) (Cin : @dy_ctx time) :=
+  match Cout with
+  | dy_c_hole => Cin
+  | dy_c_lam x tx C' => dy_c_lam x tx (dy_plugin_c C' Cin)
+  | dy_c_lete x tx C' => dy_c_lete x tx (dy_plugin_c C' Cin)
+  | dy_c_letm M CM C' => dy_c_letm M CM (dy_plugin_c C' Cin)
+  end.
+
+Fixpoint addr_x {time : Type} (C : @dy_ctx time) (x : expr_id) :=
+  match C with
+  | dy_c_hole => None
+  | dy_c_lam x' tx' C'
+  | dy_c_lete x' tx' C' =>
+    match addr_x C' x with
+    | None => if eq_eid x x' then (Some tx') else None
+    | addr => addr
+    end
+  | dy_c_letm _ _ C' => addr_x C' x
+  end.
+
+Fixpoint ctx_M {time : Type} (C : @dy_ctx time) (M : mod_id) :=
+  match C with
+  | dy_c_hole => None
+  | dy_c_lam _ _ C'
+  | dy_c_lete _ _ C' => ctx_M C' M
+  | dy_c_letm M' CM' C' =>
+    match ctx_M C' M with
+    | Some CM => Some CM
+    | None => if eq_mid M M' then Some CM' else None
+    end
+  end.
+
+(* a term, a context *)
+Inductive expr_value {time : Type} :=
+  | Closure (x : expr_id) (e : tm) (C : @dy_ctx time)
+.
+
+Inductive dy_value {time : Type} :=
+  | EVal (ev : @expr_value time)
+  | MVal (mv : @dy_ctx time)
+.
+
+Notation "Cout '[|' Cin '|]'" := (dy_plugin_c Cout Cin)
+                              (at level 100, Cin at next level, right associativity).
+Notation "'[||]'" := (dy_c_hole) (at level 100).
+
+Lemma c_plugin_assoc : forall {T} (C1 : @dy_ctx T) C2 C3, C1[| C2[| C3 |] |] = ((C1[|C2|])[|C3|]).
+Proof.
+  induction C1; eauto; 
+  intros; simpl; try rewrite IHC1; eauto.
+  rewrite IHC1_2. eauto.
+Qed.
+
+Fixpoint dy_to_st {T} (C : @dy_ctx T) :=
+  match C with
+  | ([||]) => st_c_hole
+  | dy_c_lam x _ C' => st_c_lam x (dy_to_st C')
+  | dy_c_lete x _ C' => st_c_lete x (dy_to_st C')
+  | dy_c_letm M CM C' => st_c_letm M (dy_to_st CM) (dy_to_st C')
+  end.
+
+Lemma dy_to_st_plugin :
+  forall {T} (Cout : @dy_ctx T) Cin,
+    dy_to_st (Cout[|Cin|]) = st_c_plugin (dy_to_st Cout) (dy_to_st Cin).
+Proof.
+  induction Cout; intros; simpl; try rewrite IHCout; eauto.
+  rewrite IHCout2. eauto.
+Qed. 
+
+Lemma mod_is_static_none : forall {T} (dC : @dy_ctx T) (M : mod_id),
+  (ctx_M dC M = None <-> st_ctx_M (dy_to_st dC) M = None).
+Proof. 
+  intros. repeat split. 
+  - induction dC; simpl; eauto.
+    destruct (ctx_M dC2 M). intros H; inversion H.
+    specialize (IHdC2 eq_refl). rewrite IHdC2.
+    destruct (eq_mid M M0). intros H; inversion H. eauto.
+  - induction dC; simpl; eauto.
+    destruct (st_ctx_M (dy_to_st dC2) M). intros H; inversion H.
+    specialize (IHdC2 eq_refl). rewrite IHdC2.
+    destruct (eq_mid M M0). intros H; inversion H. eauto.
+Qed.
+
+Lemma mod_is_static_some : forall {T} (dC : @dy_ctx T) (M : mod_id),
+  (forall v, ctx_M dC M = Some v -> st_ctx_M (dy_to_st dC) M = Some (dy_to_st v)) /\
+  (forall v, st_ctx_M (dy_to_st dC) M = Some v -> exists dv, dy_to_st dv = v /\ ctx_M dC M = Some dv).
+Proof.
+  intros; split. 
+  - induction dC; simpl; intros; eauto.
+    + inversion H.
+    + remember (ctx_M dC2 M) as v2. destruct v2.
+      specialize (IHdC2 v H). rewrite IHdC2. eauto.
+      symmetry in Heqv2. rewrite mod_is_static_none in Heqv2.
+      rewrite Heqv2. destruct (eq_mid M M0); inversion H; eauto.
+  - induction dC; simpl; intros; eauto.
+    + inversion H.
+    + remember (st_ctx_M (dy_to_st dC2) M) as v2. destruct v2.
+      specialize (IHdC2 v H). inversion IHdC2. exists x.
+      destruct H0. split. assumption. rewrite H1. eauto.
+      remember (ctx_M dC2 M) as v2. destruct v2;
+      symmetry in Heqv2; rewrite <- mod_is_static_none in Heqv2.
+      rewrite Heqv2 in Heqv0. inversion Heqv0.
+      destruct (eq_mid M M0). inversion H.
+      exists dC1. eauto. inversion H.
+Qed.
+
+Class OrderT T : Type :=
+{
+  leb : T -> T -> bool;
+  leb_refl : forall t, leb t t = true;
+  leb_trans : forall t t' t'' (LE : leb t t' = true) (LE' : leb t' t'' = true), leb t t'' = true;
+  eqb : T -> T -> bool;
+  eqb_eq : forall (t t' : T), eqb t t' = true <-> t = t';
+  eqb_neq : forall (t t' : T), eqb t t' = false <-> t <> t'
+}.
