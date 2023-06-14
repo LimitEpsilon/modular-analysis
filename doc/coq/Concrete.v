@@ -11,7 +11,7 @@ Class Time `{OrderT T} :=
 {  
   update : (@dy_ctx T) -> (@state T) -> expr_id -> (@expr_value T) -> T;
   update_lt : forall C mem t x v, let t' := update C (ST mem t) x v in
-                                  leb t t' = true /\ t <> t'
+                                  leb t t' = true /\ eqb t t' = false
 }.
 
 Definition update_m {T X} `{Time T} mem (t : T) (x : X) :=
