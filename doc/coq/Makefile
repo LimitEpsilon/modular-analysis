@@ -1,6 +1,6 @@
 COQMFFLAGS := -Q . MODULAR
 
-ALLVFILES := Syntax.v Abstract.v Concrete.v
+ALLVFILES := Syntax.v Abstract.v Concrete.v Sound.v
 
 build: Makefile.coq
 	$(MAKE) -f Makefile.coq

@@ -128,23 +128,29 @@ Fixpoint collect_ctx C e :=
       (None, ctxs_m ++ ctxs_e)
     | (None, ctxs_m) => (None, ctxs_m)
     end
-  | m_empty => (Some C, [C])
+  | m_empty => (Some ([[||]]), [C])
   | m_var M =>
     match st_ctx_M C M with
-    | Some C_M => (Some C_M, [C; C_M])
+    | Some C_M => (Some C_M, [C])
     | None => (None, [C])
     end
   | m_lete x e m' =>
     let ctxs_e := snd (collect_ctx C e) in
     let (ctx_o, ctxs_m) := collect_ctx 
                            (C [[|st_c_lete x ([[||]])|]]) m' in
-    (ctx_o, ctxs_e ++ ctxs_m)
+    match ctx_o with
+    | Some C_m => (Some (st_c_lete x C_m), ctxs_e ++ ctxs_m)
+    | None => (None, ctxs_e ++ ctxs_m)
+    end
   | m_letm M m1 m2 =>
     match collect_ctx C m1 with
     | (Some C_M, ctxs_m1) => 
       let (ctx_o, ctxs_m2) := collect_ctx
                               (C [[|st_c_letm M C_M ([[||]])|]]) m2 in
-      (ctx_o, ctxs_m1 ++ ctxs_m2)
+      match ctx_o with
+      | Some C_m => (Some (st_c_letm M C_M C_m), ctxs_m1 ++ ctxs_m2)
+      | None => (None, ctxs_m1 ++ ctxs_m2)
+      end
     | (None, ctxs_m1) => (None, ctxs_m1)
     end
   end.
@@ -189,12 +195,12 @@ Proof.
     destruct o; eauto. apply in_app_iff. left. eauto.
   - destruct (st_ctx_M C M); simpl; left; eauto.
   - destruct (collect_ctx (C [[|st_c_lete x ([[||]])|]]) e2).
-    apply in_app_iff. left. eauto.
+    destruct o; apply in_app_iff; left; eauto.
   - remember (collect_ctx C e1) as ol.
     destruct ol as [o l]. specialize (IHe1 C). rewrite <- Heqol in IHe1.
     destruct o; eauto.
     destruct (collect_ctx (C [[|st_c_letm M s ([[||]])|]]) e2).
-    apply in_app_iff. left. eauto.
+    destruct o; apply in_app_iff; left; eauto.
 Qed.
 
 (* dynamic context *)

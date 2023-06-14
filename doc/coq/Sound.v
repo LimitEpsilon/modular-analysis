@@ -254,6 +254,43 @@ Proof.
   rewrite IHCout2; eauto.
 Qed.
 
+
+Ltac contradict :=
+  let contra := fresh "contra" in
+  assert False as contra; eauto 3; inversion contra.
+
+Lemma __R__ : forall b, b = false <-> ~ b = true.
+Proof. 
+  intros; destruct b; unfold "<>"; split; 
+  intros; try inversion H; try inversion H0; try contradict; eauto.
+Qed.
+
+Ltac refl_bool :=
+  let contra := fresh "contra" in
+  match goal with
+  | |- _ = false => 
+    rewrite __R__; unfold "<>"; intros contra
+  | |- _ <> true => 
+    rewrite <- __R__
+  | _ => idtac
+  end.
+
+Ltac lebt x :=
+  apply leb_trans with (t' := x); try assumption; try apply update_lt.
+
+Lemma eqb_refl : forall `{OrderT CT} t, eqb t t = true.
+Proof.
+  intros. rewrite eqb_eq. eauto.
+Qed.
+
+Lemma eqb_update : forall `{Conc.Time CT} C mem t x x' e' C',
+  eqb t (update C (ST mem t) x (Closure x' e' C')) = false.
+Proof.
+  intros. refl_bool.
+  assert (t < update C (ST mem t) x (Closure x' e' C')) as contra'. apply update_lt.
+  destruct contra' as [? contra']. rewrite contra' in *. inversion contra.
+Qed.
+
 Lemma time_bound_e :
   forall `{Conc.Time CT} `{Abs.Time AT} C st e e' st'
          (EVAL : EvalR C st e e' st')
@@ -320,7 +357,10 @@ Proof.
       specialize (H1 p contra). rewrite H1 in ACCESS. inversion ACCESS. apply H.
   - apply IHEVAL2. apply IHEVAL1. eauto.
   - destruct st. simpl in *. destruct BOUND as [? [? ?]].
-    repeat split; eauto. eapply time_bound_ctx_M.
+    repeat split; eauto.
+  - destruct st. simpl in *. destruct BOUND as [? [? ?]].
+    repeat split; eauto.
+    eapply time_bound_ctx_M.
     symmetry. exact ACCESS. eauto.
   - specialize (IHEVAL1 BOUND).
     destruct v. 
@@ -329,35 +369,57 @@ Proof.
     apply time_increase_e in EVAL2 as time_inc2.
     simpl in BOUND. destruct BOUND as [B1 [B2 B3]].
     simpl in IHEVAL1. destruct IHEVAL1 as [HH1 [HH2 HH3]].
-    apply IHEVAL2. simpl; split.
-    rewrite plugin_ctx_bound; split.
-    apply relax_ctx_bound with (t1 := t0); eauto. 
-    apply leb_trans with (t' := t); try assumption. apply update_lt. 
-    simpl; split; eauto. apply update_lt.
-    split; intros;
-    unfold update_m; remember (eqb p t) as b;
-    destruct b; symmetry in Heqb; try rewrite eqb_eq in Heqb.
-    + subst. assert False as contra. apply NBOUND. apply update_lt. inversion contra.
-    + apply HH2. unfold not. intros. 
-      assert False as contra. apply NBOUND.
-      apply relax_p_bound with (t1 := t); try assumption. apply update_lt. eauto.
-    + subst. apply relax_ctx_bound with (t1 := t); try assumption. apply update_lt.
-    + specialize (HH3 p). remember (mem p) as access eqn:ACCESS.
-      destruct access; eauto. destruct e1.
-      apply relax_ctx_bound with (t1 := t); try assumption. apply HH3.
-      pose proof (p_bound_or_not p t) as CASES.
-      destruct CASES as [? | contra]; eauto.
-      specialize (HH2 p contra). rewrite HH2 in ACCESS. inversion ACCESS. apply update_lt.
+    assert (time_bound C_m (ST mem1 t1)).
+    {
+      apply IHEVAL2.
+      simpl; rewrite plugin_ctx_bound. split. split.
+      apply relax_ctx_bound with (t1 := t0); try assumption. 
+      lebt t. simpl. split; eauto; try apply update_lt.
+      split; intros; unfold update_m; remember (eqb p t) as b;
+      destruct b; symmetry in Heqb; try rewrite eqb_eq in Heqb; try rewrite eqb_neq in Heqb.
+      - subst. assert False as contra. apply NBOUND. apply update_lt. inversion contra.
+      - apply HH2. unfold not. intros. 
+        assert False as contra. apply NBOUND.
+        apply relax_p_bound with (t1 := t); try assumption. apply update_lt. eauto.
+      - subst. apply relax_ctx_bound with (t1 := t); try assumption. apply update_lt.
+      - specialize (HH3 p). remember (mem p) as access eqn:ACCESS.
+        destruct access; eauto. destruct e1.
+        apply relax_ctx_bound with (t1 := t); try assumption. apply HH3.
+        pose proof (p_bound_or_not p t) as CASES.
+        destruct CASES as [? | contra]; eauto.
+        specialize (HH2 p contra). rewrite HH2 in ACCESS. inversion ACCESS. apply update_lt.
+    }
+    destruct H as [HH1' [HH2' HH3']].
+    repeat split; try assumption.
+    lebt ((update C (ST mem t) x (Closure x0 e0 C0))).
+    refl_bool. rewrite eqb_eq in contra. rewrite contra in time_inc2. clear contra.
+    assert (t1 = (update C (ST mem t1) x (Closure x0 e0 C0))).
+    apply leb_sym; try assumption. apply update_lt.
+    assert (eqb t1 (update C (ST mem t1) x (Closure x0 e0 C0)) = false) as contra.
+    apply update_lt.
+    rewrite eqb_neq in contra. apply contra; eauto.
   - specialize (IHEVAL1 BOUND).
     destruct st. destruct st'. destruct st''.
     simpl in BOUND. destruct BOUND as [B1 [B2 B3]].
     simpl in IHEVAL1. destruct IHEVAL1 as [HH1 [HH2 HH3]].
     apply time_increase_e in EVAL1 as time_inc1.
     apply time_increase_e in EVAL2 as time_inc2.
-    apply IHEVAL2. simpl. repeat split; eauto.
-    rewrite plugin_ctx_bound. split.
-    apply relax_ctx_bound with (t1 := t); eauto.
-    simpl; split; eauto.
+    assert (time_bound C'' (ST mem1 t1)).
+    {
+      apply IHEVAL2.
+      simpl; rewrite plugin_ctx_bound. split. split.
+      apply relax_ctx_bound with (t1 := t); try assumption. 
+      simpl. split; eauto.
+      split; intros; unfold update_m; remember (eqb p t) as b;
+      destruct b; symmetry in Heqb; try rewrite eqb_eq in Heqb; try rewrite eqb_neq in Heqb.
+      - apply HH2; eauto.
+      - apply HH2; eauto.
+      - apply HH3; eauto.
+      - apply HH3; eauto.
+    }
+    destruct H as [HH1' [HH2' HH3']].
+    repeat split; try assumption.
+    apply relax_ctx_bound with (t1 := t0); eauto.
 Qed.
 
 Lemma plugin_trans_ctx :
@@ -383,39 +445,6 @@ Proof.
   destruct H3; eauto; inversion H.
   unfold eq_bound_α in H0. rewrite H4; eauto.
   unfold eq_bound_α in H0. rewrite H4; eauto.
-Qed.
-
-Ltac contradict :=
-  let contra := fresh "contra" in
-  assert False as contra; eauto 3; inversion contra.
-
-Lemma __R__ : forall b, b = false <-> ~ b = true.
-Proof. 
-  intros; destruct b; unfold "<>"; split; 
-  intros; try inversion H; try inversion H0; try contradict; eauto.
-Qed.
-
-Ltac refl_bool :=
-  match goal with
-  | |- _ = false => rewrite __R__
-  | |- _ <> true => rewrite <- __R__
-  | _ => idtac
-  end.
-
-Ltac lebt x :=
-  apply leb_trans with (t' := x); try assumption; try apply update_lt.
-
-Lemma eqb_refl : forall `{OrderT CT} t, eqb t t = true.
-Proof.
-  intros. rewrite eqb_eq. eauto.
-Qed.
-
-Lemma eqb_update : forall `{Conc.Time CT} C mem t x x' e' C',
-  eqb t (update C (ST mem t) x (Closure x' e' C')) = false.
-Proof.
-  intros. refl_bool. unfold "<>". intros.
-  assert (t < update C (ST mem t) x (Closure x' e' C')) as contra. apply update_lt.
-  destruct contra as [? contra]. rewrite contra in *. inversion H1.
 Qed.
 
 (* Set Printing Implicit. *)
@@ -496,7 +525,7 @@ Proof.
       assert False as contra. apply NBOUND. apply update_lt. inversion contra.
       apply BB2''. unfold not. intros [LE NEQ].
       apply NBOUND. split. lebt t.
-      refl_bool. unfold "<>". intros contra. rewrite eqb_eq in *.
+      refl_bool. rewrite eqb_eq in *.
       assert (t = p) as RR. apply leb_sym; try assumption. rewrite contra. apply update_lt.
       rewrite eqb_neq in NEQ. apply NEQ; eauto.
       (* bound, then access is bound *)
@@ -527,7 +556,7 @@ Proof.
     assert (eq_bound_α t α'' α''') as EQ'''.
     { red. intros. rewrite Heqα'''. 
       assert (eqb t' (update C (ST mem t) x (Closure x0 e0 C0)) = false) as RR.
-      refl_bool. unfold "<>". intros contra. rewrite eqb_eq in contra.
+      refl_bool. rewrite eqb_eq in contra.
       assert (leb t t' = true). rewrite contra. apply update_lt. 
       assert (t = t') as RR. apply leb_sym; eauto. rewrite <- RR in contra.
       clear RR.
@@ -548,7 +577,7 @@ Proof.
         destruct abs_st'. simpl in SOUND'. destruct SOUND' as [[? [? ?]] ?]. rewrite <- H0.
         apply bound_trans_ctx_eq with (t := t1). apply BOUND'.
         red. intros. assert (eqb t' (update C (ST mem t) x (Closure x0 e0 C0)) = false).
-        refl_bool. unfold "<>". intros contra. rewrite eqb_eq in contra.
+        refl_bool. rewrite eqb_eq in contra.
         assert (leb t' t = true). lebt t1.
         assert (t = t') as RR. apply leb_sym; try assumption. rewrite contra. apply update_lt.
         assert (t < t') as contra'. rewrite contra. apply update_lt.
@@ -621,10 +650,10 @@ Proof.
     eapply Abstract.Eval_link. eauto.
     destruct abs_st'. simpl in SOUND'. destruct SOUND' as [? [RR ?]].
     rewrite RR. eauto.
-  - exists abs_C. exists abs_st. exists α. destruct st.
+  - exists ([||]). exists abs_st. exists α. destruct st.
     repeat split; eauto. unfold eq_bound_α; intros; eauto.
     destruct abs_st. simpl in SOUND. destruct SOUND as [? [RR ?]].
-    rewrite RR. eauto.
+    simpl. repeat split; eauto.
   - exists (trans_ctx α C_M). exists abs_st. exists α. destruct st.
     destruct abs_st. destruct SOUND as [? [RR ?]].
     repeat split; eauto. rewrite <- RR.
@@ -651,7 +680,7 @@ Proof.
       assert False as contra. apply NBOUND. rewrite Heqb. apply update_lt. inversion contra.
       apply BB2'. unfold not. intros [LE NEQ].
       apply NBOUND. split. lebt t.
-      refl_bool. unfold "<>". intros contra. rewrite eqb_eq in *.
+      refl_bool. unfold "<>". rewrite eqb_eq in *.
       assert (t = p) as RR. apply leb_sym; try assumption. rewrite contra. apply update_lt.
       rewrite eqb_neq in NEQ. apply NEQ; eauto.
       (* bound, then access is bound *)
@@ -677,7 +706,7 @@ Proof.
     assert (eq_bound_α t α' α'') as EQ''.
     { red. intros. rewrite Heqα''. 
       assert (eqb t'0 (update C (ST mem t) x (Closure x0 e0 C0)) = false).
-      refl_bool. unfold "<>". intros contra. rewrite eqb_eq in contra.
+      refl_bool. rewrite eqb_eq in contra.
       assert (leb t t'0 = true). rewrite contra. apply update_lt. 
       assert (t = t'0) as RR. apply leb_sym; eauto. rewrite <- RR in contra.
       clear RR.
@@ -699,7 +728,7 @@ Proof.
         simpl in SOUND. destruct SOUND as [? [RR ?]]. rewrite <- RR. symmetry.
         apply bound_trans_ctx_eq with (t := t0). destruct BOUND. eauto.
         red. intros. rewrite Heqα''. assert (eqb t'0 (update C (ST mem t) x (Closure x0 e0 C0)) = false).
-        refl_bool. unfold "<>". intros contra. rewrite eqb_eq in contra.
+        refl_bool. rewrite eqb_eq in contra.
         assert (leb t'0 t = true). lebt t0.
         assert (t = t'0) as RR'. apply leb_sym; try assumption. rewrite contra. apply update_lt.
         assert (t < t'0) as contra'. rewrite contra. apply update_lt.
@@ -741,16 +770,22 @@ Proof.
     destruct IHEVAL2 as [abs_C'' [abs_st'' [α''' [EQ''' SOUND''']]]].
     destruct SOUND' as [SOUND' EVAL'].
     destruct SOUND''' as [SOUND''' EVAL'''].
-    exists abs_C''. exists abs_st''. exists α'''. repeat split; eauto.
+    exists (dy_c_lete x (α''' t) abs_C''). exists abs_st''. exists α'''. repeat split.
     red. intros. 
     assert (α t'0 = α' t'0) as RR. apply EQ'. eauto. rewrite RR; clear RR.
     assert (α' t'0 = α'' t'0) as RR. apply EQ''. lebt t0. rewrite RR; clear RR.
     apply EQ'''. lebt t. lebt t0.
-    eapply Abstract.Eval_lete; eauto.
-    destruct SOUND' as [? [RR ?]]. rewrite RR. 
-    destruct abs_st''. destruct SOUND''' as [? [RR' ?]]. rewrite RR' in *.
-    rewrite <- H. rewrite <- H in EVAL'''.
-    rewrite <- RR in *. exact EVAL'''.
+    destruct abs_st''. simpl. repeat split; try apply SOUND'''.
+    assert (trans_ctx α''' C_m = abs_C'') as RR.
+    apply SOUND'''. rewrite RR. eauto.
+    assert (α''' t = t'') as RR.
+    { destruct SOUND' as [R ?]. rewrite <- R.
+      assert (α' t = α'' t) as RR. apply EQ''. apply leb_refl. rewrite RR; clear RR.
+      symmetry. apply EQ'''. apply update_lt. }
+    eapply Abstract.Eval_lete; rewrite RR.
+    exact EVAL'. 
+    destruct SOUND' as [RR' [RR'' ?]]. rewrite RR' in EVAL'''.
+    rewrite RR''. exact EVAL'''.
   - pose proof (time_bound_e C st m' (MVal C') st' EVAL1) as BOUND'.
     pose proof (time_bound_e (C [|dy_c_letm M C' ([||])|]) st' m''
                              (MVal C'') st'' EVAL2) as BOUND''.
@@ -790,12 +825,17 @@ Proof.
     destruct IHEVAL2 as [abs_C'' [abs_st'' [α'' [EQ''' SOUND''']]]].
     destruct SOUND' as [SOUND' EVAL'].
     destruct SOUND''' as [SOUND''' EVAL'''].
-    exists abs_C''. exists abs_st''. exists α''. repeat split; eauto.
-    red. intros. 
-    assert (α t' = α' t') as RR. apply EQ'. eauto. rewrite RR; clear RR.
-    apply EQ'''. lebt t.
-    eapply Abstract.Eval_letm; eauto.
     destruct abs_st'. destruct SOUND' as [? [RR ?]].
     destruct abs_st''. destruct SOUND''' as [? [RR' ?]].
-    rewrite RR in *. rewrite RR' in *. eauto.
+    assert (trans_ctx α' C' = trans_ctx α'' C') as RR''. 
+    { apply bound_trans_ctx_eq with (t := t0). apply BOUND'. assumption. }
+    exists (dy_c_letm M abs_C' abs_C''). exists (Abs.ST mem3 t3). exists α''. repeat split; eauto.
+    red. intros. 
+    assert (α t' = α' t') as RR'''. apply EQ'. eauto. rewrite RR'''.
+    apply EQ'''. lebt t.
+    simpl. rewrite <- RR''. rewrite RR'. rewrite RR. eauto.
+    eapply Abstract.Eval_letm.
+    rewrite <- RR in *. rewrite <- RR' in *. rewrite RR'' in *.
+    exact EVAL'.
+    rewrite <- RR in *. rewrite RR'' in *. exact EVAL'''.
 Qed.
