@@ -124,11 +124,11 @@ Fixpoint collect_ctx C e :=
   | e_link m e' =>
     match collect_ctx C m with
     | (Some C_m, ctxs_m) => 
-      let ctxs_e := snd (collect_ctx C_m e') in
-      (None, ctxs_m ++ ctxs_e)
+      let (ctx_o, ctxs_e) := collect_ctx C_m e' in
+      (ctx_o, ctxs_m ++ ctxs_e)
     | (None, ctxs_m) => (None, ctxs_m)
     end
-  | m_empty => (Some ([[||]]), [C])
+  | m_empty => (Some C, [C])
   | m_var M =>
     match st_ctx_M C M with
     | Some C_M => (Some C_M, [C])
@@ -138,19 +138,13 @@ Fixpoint collect_ctx C e :=
     let ctxs_e := snd (collect_ctx C e) in
     let (ctx_o, ctxs_m) := collect_ctx 
                            (C [[|st_c_lete x ([[||]])|]]) m' in
-    match ctx_o with
-    | Some C_m => (Some (st_c_lete x C_m), ctxs_e ++ ctxs_m)
-    | None => (None, ctxs_e ++ ctxs_m)
-    end
+    (ctx_o, ctxs_e ++ ctxs_m)
   | m_letm M m1 m2 =>
     match collect_ctx C m1 with
     | (Some C_M, ctxs_m1) => 
       let (ctx_o, ctxs_m2) := collect_ctx
                               (C [[|st_c_letm M C_M ([[||]])|]]) m2 in
-      match ctx_o with
-      | Some C_m => (Some (st_c_letm M C_M C_m), ctxs_m1 ++ ctxs_m2)
-      | None => (None, ctxs_m1 ++ ctxs_m2)
-      end
+      (ctx_o, ctxs_m1 ++ ctxs_m2)
     | (None, ctxs_m1) => (None, ctxs_m1)
     end
   end.
@@ -192,15 +186,18 @@ Proof.
   - apply in_app_iff. left. eauto.
   - remember (collect_ctx C e1) as ol. destruct ol as [o l].
     specialize (IHe1 C). rewrite <- Heqol in IHe1.
-    destruct o; eauto. apply in_app_iff. left. eauto.
+    destruct o; eauto. simpl in *.
+    destruct (collect_ctx C e2); simpl in *.
+    destruct (collect_ctx s e2); simpl in *. 
+    apply in_app_iff. left. eauto.
   - destruct (st_ctx_M C M); simpl; left; eauto.
   - destruct (collect_ctx (C [[|st_c_lete x ([[||]])|]]) e2).
-    destruct o; apply in_app_iff; left; eauto.
+    apply in_app_iff. left. eauto.
   - remember (collect_ctx C e1) as ol.
     destruct ol as [o l]. specialize (IHe1 C). rewrite <- Heqol in IHe1.
     destruct o; eauto.
     destruct (collect_ctx (C [[|st_c_letm M s ([[||]])|]]) e2).
-    destruct o; apply in_app_iff; left; eauto.
+    apply in_app_iff. left. eauto.
 Qed.
 
 (* dynamic context *)

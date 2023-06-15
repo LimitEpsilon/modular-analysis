@@ -2,19 +2,19 @@ From MODULAR Require Export Syntax.
 
 Generalizable Variables T.
 
-Inductive state {time : Type} :=
-  | ST (mem : time -> option (@expr_value time))
-       (t : time)
+Inductive state {T : Type} :=
+  | ST (mem : T -> option (@expr_value T))
+       (t : T)
 .
 
-Class Time `{OrderT T} :=
+Class time `{OrderT T} :=
 {  
   update : (@dy_ctx T) -> (@state T) -> expr_id -> (@expr_value T) -> T;
   update_lt : forall C mem t x v, let t' := update C (ST mem t) x v in
                                   leb t t' = true /\ eqb t t' = false
 }.
 
-Definition update_m {T X} `{Time T} mem (t : T) (x : X) :=
+Definition update_m {T X} `{time T} mem (t : T) (x : X) :=
   fun t' => if eqb t' t then Some x else mem t'.
 
 Definition empty_mem {T X} (t : T) : option X := None.
@@ -22,7 +22,7 @@ Definition empty_mem {T X} (t : T) : option X := None.
 Notation "p '!->' v ';' mem" := (update_m mem p v)
                               (at level 100, v at next level, right associativity).
 
-Inductive EvalR `{Time T} (C : @dy_ctx T) (st : @state T)
+Inductive EvalR `{time T} (C : @dy_ctx T) (st : @state T)
     : tm -> (@dy_value T) -> (@state T) -> Prop :=
   | Eval_var_e x v mem t addr
              (STATE : ST mem t = st)
@@ -47,10 +47,10 @@ Inductive EvalR `{Time T} (C : @dy_ctx T) (st : @state T)
     : EvalR C st (e_app e1 e2) (EVal v) st_v
   | Eval_link m e C_m st_m v st_v
                (MOD : EvalR C st m (MVal C_m) st_m)
-               (LINK : EvalR C_m st_m e (EVal v) st_v)
-    : EvalR C st (e_link m e) (EVal v) st_v
+               (LINK : EvalR C_m st_m e v st_v)
+    : EvalR C st (e_link m e) v st_v
   | Eval_empty
-    : EvalR C st m_empty (MVal ([||])) st
+    : EvalR C st m_empty (MVal C) st
   | Eval_var_m M C_M (ACCESS : Some C_M = ctx_M C M)
     : EvalR C st (m_var M) (MVal C_M) st
   | Eval_lete x e v mem t
@@ -60,13 +60,13 @@ Inductive EvalR `{Time T} (C : @dy_ctx T) (st : @state T)
                         (ST (t !-> v ; mem) 
                             (update C (ST mem t) x v))
                         m (MVal C_m) st_m)
-    : EvalR C st (m_lete x e m) (MVal (dy_c_lete x t C_m)) st_m
+    : EvalR C st (m_lete x e m) (MVal C_m) st_m
   | Eval_letm M m' C' st'
               m'' C'' st''
               (EVALm' : EvalR C st m' (MVal C') st')
               (EVALm'' : EvalR (C [|dy_c_letm M C' ([||])|]) st'
                          m'' (MVal C'') st'')
-    : EvalR C st (m_letm M m' m'') (MVal (dy_c_letm M C' C'')) st''
+    : EvalR C st (m_letm M m' m'') (MVal C'') st''
 .
 
 #[export] Hint Constructors EvalR : core.
@@ -77,7 +77,7 @@ Inductive interpreter_state {T} :=
   | Resolved (v : @dy_value T) (st : @state T)
 .
 
-Fixpoint eval `{Time T} (C : @dy_ctx T) (st : @state T) 
+Fixpoint eval `{time T} (C : @dy_ctx T) (st : @state T) 
               (e : tm) (FUEL : nat) :=
   match FUEL with
   | 0 => Pending C st e
@@ -120,14 +120,13 @@ Fixpoint eval `{Time T} (C : @dy_ctx T) (st : @state T)
       match eval C st m FUEL' with
       | Resolved (MVal C_m) st_m =>
         match eval C_m st_m e' FUEL' with
-        | Resolved (EVal v) st' => Resolved (EVal v) st'
-        | Resolved _ _ => Error C st e
+        | Resolved v st' => Resolved v st'
         | other => other
         end
       | Resolved _ _ => Error C st e
       | other => other
       end
-    | m_empty => Resolved (MVal ([||])) st
+    | m_empty => Resolved (MVal C) st
     | m_var M =>
       match ctx_M C M with
       | None => Pending C st e
@@ -140,7 +139,7 @@ Fixpoint eval `{Time T} (C : @dy_ctx T) (st : @state T)
                    (ST (t !-> v ; mem) 
                        (update C (ST mem t) x v)) 
                    m FUEL' with
-        | Resolved (MVal C') st' => Resolved (MVal (dy_c_lete x t C')) st'
+        | Resolved (MVal C') st' => Resolved (MVal C') st'
         | Resolved _ _ => Error C st e 
         | other => other
         end
@@ -152,7 +151,7 @@ Fixpoint eval `{Time T} (C : @dy_ctx T) (st : @state T)
       | Resolved (MVal C') st' =>
         match eval (C[| dy_c_letm M C' ([||]) |])
                    st' m2 FUEL' with
-        | Resolved (MVal C'') st'' => Resolved (MVal (dy_c_letm M C' C'')) st''
+        | Resolved (MVal C'') st'' => Resolved (MVal C'') st''
         | Resolved _ _ => Error C st e
         | other => other
         end
@@ -163,7 +162,7 @@ Fixpoint eval `{Time T} (C : @dy_ctx T) (st : @state T)
   end.
 
 Lemma relax_fuel :
-  forall `{TIME : Time T} (C : @dy_ctx T) st e v st' FUEL FUEL' (LE : FUEL <= FUEL'),
+  forall `{TIME : time T} (C : @dy_ctx T) st e v st' FUEL FUEL' (LE : FUEL <= FUEL'),
     eval C st e FUEL = Resolved v st' ->
     eval C st e FUEL' = Resolved v st'.
 Proof.
@@ -200,12 +199,14 @@ Proof.
       clear H3. destruct v1 as [v1 | ]; inversion H.
       remember (eval mv st1 e2 FUEL) as v2.
       clear H3. destruct v2 as [ | | v2 st2]; inversion H.
-      clear H3. destruct v2 as [v2 | ]; inversion H. 
-      subst.
-      assert (eval C st e1 m = Resolved (MVal mv) st1) as RR1.
-      apply IHFUEL; eauto. nia.
+      clear H3. destruct v2 as [v2 | ]; inversion H; subst;
+      assert (eval C st e1 m = Resolved (MVal mv) st1) as RR1;
+      try (apply IHFUEL; eauto; nia).
       assert (eval mv st1 e2 m = Resolved (EVal v2) st') as RR2.
-      apply IHFUEL; eauto. nia.
+      apply IHFUEL; eauto; nia.
+      simpl. rewrite RR1. rewrite RR2. eauto.
+      assert (eval mv st1 e2 m = Resolved (MVal mv0) st') as RR2.
+      apply IHFUEL; eauto; nia.
       simpl. rewrite RR1. rewrite RR2. eauto.
     + remember (eval C st e1 FUEL) as v1.
       destruct v1 as [ | | v1 st1]; inversion H.
@@ -242,7 +243,7 @@ Proof.
 Qed.
       
 Lemma EvalR_well_defined_l :
-  forall `{Time T} (C : @dy_ctx T) st e v st' (R : EvalR C st e v st'),
+  forall `{time T} (C : @dy_ctx T) st e v st' (R : EvalR C st e v st'),
     exists FUEL, eval C st e FUEL = Resolved v st'.
 Proof.
   intros. induction R.
@@ -276,7 +277,7 @@ Proof.
     apply relax_fuel with (FUEL := FUEL'). nia. eauto.
     rewrite RR; clear RR.
     assert (eval C_m st_m e (Nat.max FUEL' FUEL'')
-            = Resolved (EVal v) st_v) as RR.
+            = Resolved v st_v) as RR.
     apply relax_fuel with (FUEL := FUEL''). nia. eauto.
     rewrite RR; clear RR. eauto. 
   - exists 1. simpl; eauto. 
@@ -310,7 +311,7 @@ Proof.
 Qed.
 
 Lemma EvalR_well_defined_r :
-  forall `{TIME : Time T} FUEL (C : @dy_ctx T) st e v st' (R : eval C st e FUEL = Resolved v st'),
+  forall `{TIME : time T} FUEL (C : @dy_ctx T) st e v st' (R : eval C st e FUEL = Resolved v st'),
     EvalR C st e v st'.
 Proof.
   intros. rename H into H'. generalize dependent T. revert e.
@@ -345,8 +346,8 @@ Proof.
     clear H0. destruct v1 as [v1 | ]; inversion R.
     clear H0. remember (eval mv st1 e2 FUEL) as v2.
     destruct v2 as [ | | v2 st2]; inversion R.
-    clear H0. destruct v2 as [v2 | ]; inversion R.
-    subst. eapply Eval_link; eauto.
+    clear H0. destruct v2 as [v2 | ]; inversion R; subst;
+    eapply Eval_link; eauto.
   - inversion R; subst. eapply Eval_empty; eauto.
   - remember (ctx_M C M) as ACCESS.
     destruct ACCESS; inversion R; subst. eapply Eval_var_m; eauto.
@@ -380,7 +381,7 @@ Proof.
 Qed.
 
 Theorem EvalR_well_defined :
-  forall `{TIME : Time T} C st e v st',
+  forall `{TIME : time T} C st e v st',
     (exists FUEL, eval C st e FUEL = Resolved v st') <->
     EvalR C st e v st'.
 Proof.
@@ -390,7 +391,7 @@ Proof.
 Qed.
 
 (* Reachability relation *)
-Inductive ReachR `{Time T} (C : @dy_ctx T) (st : @state T)
+Inductive ReachR `{time T} (C : @dy_ctx T) (st : @state T)
     : tm -> (@dy_ctx T) -> (@state T) -> tm -> Prop :=
   | r_refl e
     : ReachR C st e 
@@ -467,7 +468,7 @@ Notation "'<|' C1 st1 tm1 '~>' C2 st2 tm2 '|>'" := (ReachR C1 st1 tm1 C2 st2 tm2
                                                 C2 at next level, st2 at next level, tm2 at next level).
 
 (* sanity check *)
-Lemma reach_trans : forall {T} `{Time T} (C1 : @dy_ctx T) st1 e1
+Lemma reach_trans : forall {T} `{time T} (C1 : @dy_ctx T) st1 e1
                          C2 st2 e2
                          C3 st3 e3
                          (REACH1 : <| C1 st1 e1 ~> C2 st2 e2 |>)
@@ -480,7 +481,7 @@ Proof.
 Qed.
 
 Lemma value_reach_only_itself :
-  forall `{TIME : Time T} C st v (pf : value v)
+  forall `{TIME : time T} C st v (pf : value v)
          C' st' e'
          (REACH : <| C st v ~> C' st' e' |>),
          C = C' /\ st = st' /\ v = e'.
@@ -490,7 +491,7 @@ Proof.
 Qed.
 
 Lemma Meval_then_collect :
-  forall `{TIME : Time T} C st m v st_m
+  forall `{TIME : time T} C st m v st_m
          (EVAL : EvalR C st m v st_m)
          C_m (MVAL : v = MVal C_m),
         match collect_ctx (dy_to_st C) m with
@@ -500,6 +501,12 @@ Lemma Meval_then_collect :
 Proof.
   intros. rename H into H'. revert C_m MVAL.
   induction EVAL; intros; simpl; try inversion MVAL; subst; eauto.
+  - specialize (IHEVAL1 C_m eq_refl). 
+    specialize (IHEVAL2 C_m0 eq_refl). 
+    destruct (collect_ctx (dy_to_st C) m). destruct o.
+    rewrite <- IHEVAL1 in IHEVAL2.
+    destruct (collect_ctx s e). exact IHEVAL2. 
+    exact IHEVAL1.
   - pose proof (mod_is_static_some C M) as H.
     destruct H as [A B]. specialize (A C_m).
     symmetry in ACCESS. specialize (A ACCESS).
@@ -507,15 +514,13 @@ Proof.
   - rewrite dy_to_st_plugin in IHEVAL2.
     simpl in IHEVAL2.
     remember (collect_ctx (dy_to_st C [[|st_c_lete x ([[||]])|]]) m) as ol.
-    destruct ol. destruct o; simpl; eauto. 
-    erewrite IHEVAL2; eauto.
+    destruct ol. apply IHEVAL2; eauto.
   - rewrite dy_to_st_plugin in IHEVAL2. simpl in IHEVAL2.
-    specialize (IHEVAL1 C' eq_refl). specialize (IHEVAL2 C'' eq_refl).
+    specialize (IHEVAL1 C' eq_refl). specialize (IHEVAL2 C_m eq_refl).
     destruct (collect_ctx (dy_to_st C) m'). destruct o; try apply IHEVAL1.
     rewrite <- IHEVAL1 in IHEVAL2.
     destruct (collect_ctx (dy_to_st C [[|st_c_letm M s ([[||]])|]]) m'').
-    destruct o; simpl; eauto. 
-    erewrite IHEVAL2; eauto. erewrite IHEVAL1; eauto.
+    apply IHEVAL2.
 Qed.
 
 (* finite ctx predicate *)
@@ -539,7 +544,7 @@ Definition ctx_bound_tm {T} ub (C : @dy_ctx T) (st : @state T) e :=
          In sC ub.
 
 Lemma eval_ctx_bound :
-  forall `{TIME : Time T} ub
+  forall `{TIME : time T} ub
          (C : @dy_ctx T) st e
          v st'
          (INIT : ctx_bound_tm ub C st e)
@@ -585,9 +590,9 @@ Proof.
   - apply IHEVAL2. clear IHEVAL2.
     simpl in B.
     assert (forall sC : st_ctx, In sC (snd (collect_ctx (dy_to_st C) m)) -> In sC ub).
-    { intros. destruct (collect_ctx (dy_to_st C) m). 
-      destruct o; specialize (B sC); apply B. 
-      rewrite in_app_iff. left; eauto. eauto. }
+    { intros. destruct (collect_ctx (dy_to_st C) m).
+      destruct o; try destruct (collect_ctx s e); apply B;
+      try rewrite in_app_iff; try left; eauto. }
     assert (ctx_bound_tm ub C st m). 
     { split; eauto. destruct (collect_ctx (dy_to_st C) m); eauto. }
     specialize (IHEVAL1 H0). clear H H0.
@@ -631,7 +636,7 @@ Proof.
 Qed.
 
 Lemma reach_ctx_bound :
-  forall `{TIME : Time T} ub
+  forall `{TIME : time T} ub
          (C : @dy_ctx T) st e
          C' st' e'
          (INIT : ctx_bound_tm ub C st e)
@@ -670,7 +675,7 @@ Proof.
     intros; apply B. simpl in *. rewrite in_app_iff. left; eauto.
   - split; eauto. simpl in B.
     destruct (collect_ctx (dy_to_st C) m). 
-    intros. destruct o; apply B; eauto.
+    intros. destruct o; try destruct (collect_ctx s e); apply B; eauto.
     rewrite in_app_iff. left; eauto.
   - eapply Meval_then_collect in MOD as MOD'; eauto.
     apply eval_ctx_bound with (ub := ub) in MOD.
@@ -681,7 +686,7 @@ Proof.
     intros; apply B; simpl; rewrite in_app_iff; right; eauto.
     split; eauto. simpl in B.
     destruct (collect_ctx (dy_to_st C) m). 
-    intros. destruct o; apply B; eauto.
+    intros. destruct o; try destruct (collect_ctx s e); apply B; eauto.
     rewrite in_app_iff. left; eauto.
   - split; eauto. simpl in B.
     destruct (collect_ctx (dy_to_st C) e).
@@ -719,7 +724,7 @@ Proof.
 Qed.
 
 Theorem expr_ctx_bound :
-  forall `{TIME : Time T} t e (C' : @dy_ctx T) st' e'
+  forall `{TIME : time T} t e (C' : @dy_ctx T) st' e'
          (REACH : <| ([||]) (ST empty_mem t) e ~> C' st' e' |>),
          In (dy_to_st C') (snd (collect_ctx ([[||]]) e)).
 Proof.
