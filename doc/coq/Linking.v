@@ -4,12 +4,21 @@ Require Export Coq.Logic.FunctionalExtensionality.
 (* before, after *)
 Generalizable Variables BT AT.
 
-Inductive link `{OrderT BT} `{OrderT AT} :=
+Inductive link `{Eq BT} `{Eq AT} :=
   | BF (t : BT)
   | AF (t : AT)
 .
 
-Definition link_leb `{OrderT BT} `{OrderT AT} (t1 : link) (t2 : link) :=
+Definition link_eqb `{EB : Eq BT} `{EA : Eq AT} 
+  (t1 : @link BT EB AT EA) (t2 : @link BT EB AT EA) :=
+  match t1, t2 with
+  | BF t1, BF t2 => eqb t1 t2
+  | AF t1, AF t2 => eqb t1 t2
+  | _, _ => false  
+  end.
+
+Definition link_leb `{EB : Eq BT} `{@OrderT BT EB} `{EA : Eq AT} `{@OrderT AT EA} 
+  (t1 : @link BT EB AT EA) (t2 : @link BT EB AT EA) :=
   match t1, t2 with
   | BF t1, BF t2 => leb t1 t2
   | AF t1, AF t2 => leb t1 t2
@@ -17,24 +26,22 @@ Definition link_leb `{OrderT BT} `{OrderT AT} (t1 : link) (t2 : link) :=
   | AF t1, BF t2 => false
   end.
 
-Definition link_eqb `{OrderT BT} `{OrderT AT} (t1 : link) (t2 : link) :=
-  match t1, t2 with
-  | BF t1, BF t2 => eqb t1 t2
-  | AF t1, AF t2 => eqb t1 t2
-  | _, _ => false  
-  end.
-
 Lemma link_leb_refl : 
-  forall `{OrderT BT} `{OrderT AT} t,
-  link_leb t t = true.
+  forall 
+    `{EB : Eq BT} `{EA : Eq AT}
+    `{OB : @OrderT BT EB} `{OA : @OrderT AT EA} t,
+  @link_leb BT EB OB AT EA OA t t = true.
 Proof.
   intros. destruct t; apply leb_refl.
 Qed.
 
 Lemma link_leb_trans :
-  forall `{OrderT BT} `{OrderT AT} t t' t''
-         (LE : link_leb t t' = true)
-         (LE' : link_leb t' t'' = true),
+  forall 
+    `{EB : Eq BT} `{EA : Eq AT}
+    `{OB : @OrderT BT EB} `{OA : @OrderT AT EA}
+    t t' t''
+    (LE : @link_leb BT EB OB AT EA OA t t' = true)
+    (LE' : @link_leb BT EB OB AT EA OA t' t'' = true),
   link_leb t t'' = true.
 Proof.
   intros.
@@ -47,9 +54,11 @@ Proof.
 Qed.
 
 Lemma link_leb_sym :
-  forall `{OrderT BT} `{OrderT AT} t t'
-         (LE : link_leb t t' = true)
-         (LE' : link_leb t' t = true),
+  forall 
+    `{EB : Eq BT} `{EA : Eq AT}
+    `{OB : @OrderT BT EB} `{OA : @OrderT AT EA} t t'
+    (LE : @link_leb BT EB OB AT EA OA t t' = true)
+    (LE' : @link_leb BT EB OB AT EA OA t' t = true),
   t = t'.
 Proof.
   intros.
@@ -63,8 +72,8 @@ Proof.
 Qed.
 
 Lemma link_eqb_eq :
-  forall `{OrderT BT} `{OrderT AT} t t',
-  link_eqb t t' = true <-> t = t'.
+  forall `{EB : Eq BT} `{EA : Eq AT} t t',
+  @link_eqb BT EB AT EA t t' = true <-> t = t'.
 Proof.
   intros.
   destruct t; destruct t';
@@ -76,8 +85,8 @@ Proof.
 Qed.
 
 Lemma link_eqb_neq :
-  forall `{OrderT BT} `{OrderT AT} t t',
-  link_eqb t t' = false <-> t <> t'.
+  forall `{EB : Eq BT} `{EA : Eq AT} t t',
+  @link_eqb BT EB AT EA t t' = false <-> t <> t'.
 Proof.
   intros.
   destruct t; destruct t';
@@ -92,20 +101,26 @@ Proof.
   eauto.
 Qed.
 
-#[export] Instance LinkOrderT `{OrderT BT} `{OrderT AT} : OrderT link:=
+#[export] Instance LinkEq `{EB : Eq BT} `{EA : Eq AT} :
+  Eq (@link BT EB AT EA) :=
+{
+  eqb := link_eqb;
+  eqb_eq := link_eqb_eq;
+  eqb_neq := link_eqb_neq
+}.
+
+#[export] Instance LinkOrderT `{EB : Eq BT} `{EA : Eq AT} `{OB : @OrderT BT EB} `{OA : @OrderT AT EA} :
+  @OrderT (@link BT EB AT EA) LinkEq :=
   {
     leb := link_leb;
     leb_refl := link_leb_refl;
     leb_trans := link_leb_trans;
-    leb_sym := link_leb_sym;
-    eqb := link_eqb;
-    eqb_eq := link_eqb_eq;
-    eqb_neq := link_eqb_neq
+    leb_sym := link_leb_sym
   }.
 
 Fixpoint filter_ctx_bf
-  `{BO : OrderT BT} `{AO : OrderT AT}
-  (C : @dy_ctx (@link BT BO AT AO)) :=
+  `{EB : Eq BT} `{EA : Eq AT}
+  (C : @dy_ctx (@link BT EB AT EA)) :=
   match C with
   | ([||]) => ([||])
   | dy_c_lam x t C' =>
@@ -123,8 +138,8 @@ Fixpoint filter_ctx_bf
   end.
 
 Fixpoint filter_ctx_af
-  `{BO : OrderT BT} `{AO : OrderT AT}
-  (C : @dy_ctx (@link BT BO AT AO)) :=
+  `{EB : Eq BT} `{EA : Eq AT}
+  (C : @dy_ctx (@link BT EB AT EA)) :=
   match C with
   | ([||]) => ([||])
   | dy_c_lam x t C' =>
@@ -142,8 +157,8 @@ Fixpoint filter_ctx_af
   end.
 
 Definition filter_mem_bf
-  `{BO : OrderT BT} `{AO : OrderT AT}
-  (mem : (@link BT BO AT AO) -> option (@expr_value (@link BT BO AT AO))) :=
+  `{EB : Eq BT} `{EA : Eq AT}
+  (mem : (@link BT EB AT EA) -> option (@expr_value (@link BT EB AT EA))) :=
   fun t =>
     match mem (BF t) with
     | Some (Closure x e C) => Some (Closure x e (filter_ctx_bf C))
@@ -151,8 +166,8 @@ Definition filter_mem_bf
     end.
 
 Definition filter_mem_af
-  `{BO : OrderT BT} `{AO : OrderT AT}
-  (mem : (@link BT BO AT AO) -> option (@expr_value (@link BT BO AT AO))) :=
+  `{EB : Eq BT} `{EA : Eq AT}
+  (mem : (@link BT EB AT EA) -> option (@expr_value (@link BT EB AT EA))) :=
   fun t =>
     match mem (AF t) with
     | Some (Closure x e C) => Some (Closure x e (filter_ctx_af C))
@@ -160,22 +175,24 @@ Definition filter_mem_af
     end.
 
 Definition filter_v_bf 
-  `{BO : OrderT BT} `{AO : OrderT AT}
-  (v : @expr_value (@link BT BO AT AO)) :=
+  `{EB : Eq BT} `{EA : Eq AT}
+  (v : @expr_value (@link BT EB AT EA)) :=
   match v with
   | Closure x e C => Closure x e (filter_ctx_bf C)
   end.
 
 Definition filter_v_af
-  `{BO : OrderT BT} `{AO : OrderT AT}
-  (v : @expr_value (@link BT BO AT AO)) :=
+  `{EB : Eq BT} `{EA : Eq AT}
+  (v : @expr_value (@link BT EB AT EA)) :=
   match v with
   | Closure x e C => Closure x e (filter_ctx_af C)
   end.
 
 Definition link_update
-  `{Conc.time BT} `{Conc.time AT}
-  (C : @dy_ctx link) (st : @state link) x v :=
+  `{EB : Eq BT} `{EA : Eq AT} 
+  `{OB : @OrderT BT EB} `{OA : @OrderT AT EA}
+  `{@Conc.time BT EB OB} `{@Conc.time AT EA OA}
+  (C : @dy_ctx (@link BT EB AT EA)) (st : state) x v :=
   match st with
   | ST mem (BF t) =>
     BF (update (filter_ctx_bf C) (ST (filter_mem_bf mem) t) x (filter_v_bf v))
@@ -184,15 +201,23 @@ Definition link_update
   end.
 
 Lemma link_update_lt :
-  forall `{Conc.time BT} `{Conc.time AT}
-         C mem t x v, 
-  let t' := link_update C (ST mem t) x v in
+  forall 
+    `{EB : Eq BT} `{EA : Eq AT} 
+    `{OB : @OrderT BT EB} `{OA : @OrderT AT EA}
+    `{CB : @Conc.time BT EB OB} `{CA : @Conc.time AT EA OA}
+    C mem t x v, 
+  let t' := @link_update BT EB AT EA OB OA CB CA C (ST mem t) x v in
   link_leb t t' = true /\ link_eqb t t' = false.
 Proof.
   intros. destruct t; simpl in *; try apply update_lt.
 Qed.
 
-#[export] Instance link_time `{Conc.time BT} `{Conc.time AT} : (@Conc.time link LinkOrderT) :=
+#[export] Instance link_time 
+  `{EB : Eq BT} `{EA : Eq AT} 
+  `{OB : @OrderT BT EB} `{OA : @OrderT AT EA}
+  `{CB : @Conc.time BT EB OB} `{CA : @Conc.time AT EA OA}
+  : (@Conc.time (@link BT EB AT EA) (@LinkEq BT EB AT EA) 
+                (@LinkOrderT BT EB AT EA OB OA)) :=
 {
   update := link_update;
   update_lt := link_update_lt

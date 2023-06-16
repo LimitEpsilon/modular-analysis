@@ -23,6 +23,7 @@
 \usepackage{amssymb,amsmath,mathtools} % Before unicode-math
 \usepackage[math-style=TeX,bold-style=TeX]{unicode-math}
 \newtheorem{clm}{Claim}[section]
+\newtheorem{definition}{Definition}[section]
 
 %%% Font settings
 \setmainfont{Libertinus Serif}
@@ -56,16 +57,19 @@
 
 % for complement
 \newcommand{\loverbar}[1]{\mkern 1.5mu\overline{\mkern-1.5mu#1\mkern-1.5mu}\mkern 1.5mu}
-\newcommand*{\Expr}{\mathit{Expr}}
-\newcommand*{\ExprVar}{\mathit{ExprVar}}
-\newcommand*{\Module}{\mathit{Module}}
-\newcommand*{\ModVar}{\mathit{ModVar}}
-\newcommand*{\Path}{\text{Path}}
-\newcommand*{\Ctx}{\text{Ctx}}
+\newcommand*{\Expr}{\text{Expr}}
+\newcommand*{\ExprVar}{\text{ExprVar}}
+\newcommand*{\Module}{\text{Module}}
+\newcommand*{\ModVar}{\text{ModVar}}
+\newcommand*{\Time}{\mathbb{T}}
+\newcommand*{\Ctx}[1]{\text{Ctx}\:{#1}}
+\newcommand*{\Value}[1]{\text{Val}\:{#1}}
+\newcommand*{\Mem}[1]{\text{Mem}\:{#1}}
 \newcommand*{\link}[2]{{#1}\mathtt{!}{#2}}
 \newcommand*{\sembracket}[1]{\lBrack{#1}\rBrack}
 \newcommand*{\fin}[2]{{#1}\xrightarrow{\text{fin}}{#2}}
 \newcommand*{\addr}{\mathsf{addr}}
+\newcommand*{\tick}{\mathsf{tick}}
 \newcommand*{\level}{\mathsf{level}}
 \newcommand*{\modctx}{\mathsf{ctx}}
 \newcommand*{\doubleplus}{+\kern-1.3ex+\kern0.8ex}
@@ -87,60 +91,76 @@ The language is basically an extension of untyped lambda calculus with modules a
   ;;
   $M$ : \in \ModVar
   ;;
-  $m$ ::= $\varepsilon$ : empty module
-  | $M$ : identifier, module
-  | \texttt{let} $x$ $e$ $m$ : let-binding, expression
-  | \texttt{let} $M$ $m$ $m$ : let-binding, module
+  $e$ : \in \Expr
   ;;
   $e$ ::= $x$ : identifier, expression
   | $\lambda x.e$ : function
   | $e$ $e$ : application
-  | $\link{m}{e}$ : linked expression
+  | $\link{e}{e}$ : linked expression
+  | $\varepsilon$ : empty module
+  | $M$ : identifier, module
+  | \texttt{let} $x$ $e$ $e$ : let-binding, expression
+  | \texttt{let} $M$ $e$ $e$ : let-binding, module
 \end{bnfgrammar}
 
 \subsection{Rationale for the design of the simple language}
 
-We want to statically determine what names are available.
-This was the simplest language I could think of that enforces this criterion.
-Of course, modules with signatures(ref: Rossberg, 1ML) enforce this criterion as well, but that is not the point here.
-The abstraction that we make is possible iff the context of the expression to be evaluated can always be determined statically.
-Thus, the same abstraction can readily be extended to any other language satisfying this criterion.
+There are no recursive modules, first-class modules, or functors in the simple language that is defined.
+Also, note that the nonterminals for the modules and expressions are not separated. Why is this so?
+
+The rationale for the exclusion of recursive modules/first-class modules/functors is because we want to enforce static scoping.
+That is, we need to be able to statically determine where variables were bound when using them.
+To enforce static scoping when function applications might return modules, we need to employ signatures to project the dynamically computed modules onto a statically known context.
+Concretely, we need to define signatures $S$ where $\lambda M:>S.e$ statically resolves the context when $M$ is used in the body $e$, and $e:>S$ enforces that a dynamic computation is resolved into one static form.
+
+The rationale for not separating modules and expressions in the syntax is because we want to utilize the linking operator to link both modules to expressions and modules to modules.
+That is, we want expressions to be parsed as $(m_1!m_2)!e$.
+$\link{m_1}{m_2}$ links a module with a module, and $(m_1!m_2)!e$ links a module with an expression.
+Why this is convenient will be clear when we explain separate analysis; we want to link modules with modules as well as expressions.
 
 \section{Big-Step Operational Semantics}
 
-In this section we give the big-step operational semantics for the dynamic execution of the language defined previously.
-The relation which gives the semantics relates the initial state(memory and time) and configuration(the subexpression being evaluated, and the surrounding dynamic context) with the resulting state and configuration.
+In this section we give the big-step operational semantics for the dynamic execution of the module language.
+The big-step evaluation relation relates the initial state(memory and time) and configuration(the subexpression being evaluated, and the surrounding dynamic context) with the resulting state and value.
 
-This relation is nonstandard in that the \textit{environment} that is often used to define closures in the call-by-value dynamics is not a finite map from variables to values.
-Rather, the surrounding \textit{syntactic} context annotated with the \textit{binding times} for the variables together with the memory serves as the environment.
-To access the value of the variable $x$ from the context $C$, one has to read the list of times starting from the nearest binding time for $x$ in the surrounding context up until the root, and use that list as an address to search the memory for the value.
+This relation is nonstandard in that the \emph{environment} that is often used to define closures in the call-by-value dynamics is not a finite map from variables to values.
+Rather, the surrounding \emph{syntactic} context annotated with the \emph{binding times} for the variables together with the memory serves as the environment.
+To access the value of the variable $x$ from the context $C$, one has to read off the closest binding time from the context and look up the value bound at that time from the memory.
+To access the exported context from the variable $M$, one has to look up the exported context from $C$, not from the memory.
 
-The reason the semantics is defined as such is for the convenience and precision of abstraction.
-One only has to finitize the time component to make the search space finite.
-Furthermore, one can reason precisely about how the syntactic change on the surrounding context affects the evaluation of the expression inside the hole of $C$ by including $C$ in the configuration.
+This separation between where we store modules and where we store the evaluated values from expressions emphasizes the fact that \emph{where} the variables are bound is guided by syntax.
+The only thing that is dynamic is \emph{when} the variables are bound, which is represented by the time component.
 
-Before presenting the inference rules for the big-step relation, we first present the domains for the state($\sigma, t$) and configuration($C, e$).
-The concrete time $t$ is defined to be a natural number, $C$ is inside the inductively defined set $\Ctx$,
-and $\sigma$ is a finite map from $\Path\triangleq\mathsf{list}(\text{time})$ to $\mathbb{V}\times\Ctx$, when $\mathbb{V}$ is the subset of the set of expressions that satisfy the $\textit{value}$ predicate.
-In this language, only functions satisfy this predicate.
+Now, we start by defining what we mean by \emph{time} and \emph{context}, which is the essence of our model.
+
+\subsection{Time and Context}
+
+We first define sets that are parametrized by our choice of the time domain, mainly the \emph{value}, \emph{memory}, and \emph{context} domains.
+Below, the $\Time$ set may be any arbitrary set.
+Later, we constrain $\Time$ to meet the constraint that $\tick$ always give fresh timestamps.
 
 \begin{bnfgrammar}
-  $t$ : \in \mathbb{N}
+  $t$ : \in \Time
   ;;
-  $p$ : \in \Path
+  $v$ : \in \Value{\Time}
   ;;
-  $C$ : \in \Ctx
+  $C$ : \in \Ctx{\Time}
   ;;
-  $\sigma$ : \in \fin{\Path}{\mathbb{V}\times\mathbb{C}}
-  ;;
-  $p$ ::= \textsf{nil} : nil
-  | $t$\cons$p$ : cons
+  $\sigma$ : \in \Mem{\Time} \triangleq \fin{\Time}{\Value{\Time}}
   ;;
   $C$ ::= [] : hole
   | $\lambda x^{t}.C$ : function parameter binding
   | \texttt{let} $x^{t}$ $C$ : let expression binding
   | \texttt{let} $M$ $C$ $C$ : let module context binding
+  ;;
+  $v$ ::= $\langle \lambda x.e, C \rangle$ : closure
 \end{bnfgrammar}
+
+Now we give the conditions that the concrete time domain must satisfy.
+
+\begin{definition}
+  
+\end{definition}
 
 We define the plugin operator for the dynamic context.
 \[

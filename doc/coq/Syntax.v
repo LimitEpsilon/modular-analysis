@@ -314,13 +314,17 @@ Proof.
       exists dC1. eauto. inversion H.
 Qed.
 
-Class OrderT T : Type :=
+Class Eq T : Type :=
+{
+  eqb : T -> T -> bool;
+  eqb_eq : forall (t t' : T), eqb t t' = true <-> t = t';
+  eqb_neq : forall (t t' : T), eqb t t' = false <-> t <> t'
+}.
+
+Class OrderT (T : Type) `{Eq T} : Type :=
 {
   leb : T -> T -> bool;
   leb_refl : forall t, leb t t = true;
   leb_trans : forall t t' t'' (LE : leb t t' = true) (LE' : leb t' t'' = true), leb t t'' = true;
-  leb_sym : forall t t' (LE : leb t t' = true) (LE' : leb t' t = true), t = t';
-  eqb : T -> T -> bool;
-  eqb_eq : forall (t t' : T), eqb t t' = true <-> t = t';
-  eqb_neq : forall (t t' : T), eqb t t' = false <-> t <> t'
+  leb_sym : forall t t' (LE : leb t t' = true) (LE' : leb t' t = true), t = t'
 }.

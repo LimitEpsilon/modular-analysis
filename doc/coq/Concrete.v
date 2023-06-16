@@ -166,7 +166,7 @@ Lemma relax_fuel :
     eval C st e FUEL = Resolved v st' ->
     eval C st e FUEL' = Resolved v st'.
 Proof.
-  intros. rename H into H'. rename H0 into H.
+  intros. rename H into H'. rename H0 into H''. rename H1 into H.
   revert C st e v st' H FUEL' LE.
   induction FUEL; intros.
   - inversion H.
@@ -314,7 +314,7 @@ Lemma EvalR_well_defined_r :
   forall `{TIME : time T} FUEL (C : @dy_ctx T) st e v st' (R : eval C st e FUEL = Resolved v st'),
     EvalR C st e v st'.
 Proof.
-  intros. rename H into H'. generalize dependent T. revert e.
+  intros. rename H into H'. rename H0 into H''. generalize dependent T. revert e.
   induction FUEL; intros; simpl in *; try (inversion R; fail).
   destruct e.
   - remember (addr_x C x) as addr. destruct addr; inversion R. clear H0.
@@ -386,7 +386,7 @@ Theorem EvalR_well_defined :
     EvalR C st e v st'.
 Proof.
   intros; split; try apply EvalR_well_defined_l.
-  intros. destruct H0 as [FUEL EVAL].
+  intros. destruct H1 as [FUEL EVAL].
   eapply EvalR_well_defined_r. eauto.
 Qed.
 
@@ -487,7 +487,7 @@ Lemma value_reach_only_itself :
          C = C' /\ st = st' /\ v = e'.
 Proof.
   intros; repeat split; inversion pf; inversion REACH; subst; eauto;
-  try inversion H1.
+  try inversion H2.
 Qed.
 
 Lemma Meval_then_collect :
@@ -557,7 +557,7 @@ Lemma eval_ctx_bound :
     (* | _ => ctx_bound_st ub st' *)
     end.
 Proof.
-  intros. rename H into H'.
+  intros. rename H into H'. rename H0 into H''.
   induction EVAL; try destruct v as [x' e' C_lam'];
   destruct INIT as [A B]; eauto.
   - rewrite <- STATE in *. split; eauto.
@@ -643,7 +643,7 @@ Lemma reach_ctx_bound :
          (REACH : <| C st e ~> C' st' e' |>),
     ctx_bound_tm ub C' st' e'.
 Proof.
-  intros. rename H into H'. induction REACH; eauto; 
+  intros. rename H into H'. rename H0 into H''. induction REACH; eauto; 
           apply IHREACH; destruct INIT as [A B].
   - simpl in B. split; eauto.
     destruct (collect_ctx (dy_to_st C) e1).
@@ -728,7 +728,7 @@ Theorem expr_ctx_bound :
          (REACH : <| ([||]) (ST empty_mem t) e ~> C' st' e' |>),
          In (dy_to_st C') (snd (collect_ctx ([[||]]) e)).
 Proof.
-  intros. rename H into H'.
+  intros. rename H into H'. rename H0 into H''.
   pose proof (reach_ctx_bound (snd (collect_ctx st_c_hole e)) ([||]) (ST empty_mem t) e C' st' e') as H.
   assert (ctx_bound_tm (snd (collect_ctx ([[||]]) e)) 
                        ([||]) (ST empty_mem t) e) as FINAL.

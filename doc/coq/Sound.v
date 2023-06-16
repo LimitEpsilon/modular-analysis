@@ -113,7 +113,7 @@ Proof.
       | Some _ => False
       | None => True
       end
-    end).
+    end) as A.
   {
     induction C; intros; simpl; eauto; try apply IHC.
     destruct (eq_mid M0 M); 
@@ -124,6 +124,10 @@ Proof.
     destruct (ctx_M C2 M0);
     try inversion IHC2; eauto.
   }
+  intros. 
+  rename H into ECT. rename H0 into OCT. rename H1 into T1.
+  rename H2 into EAT. rename H3 into T2.
+  revert C α abs_C M C_M ACCESS TRANS. 
   induction C; intros; simpl in *; eauto.
   - inversion ACCESS.
   - rewrite <- TRANS. simpl. apply IHC; eauto.
@@ -131,15 +135,15 @@ Proof.
   - rewrite <- TRANS. simpl.
     remember (ctx_M (trans_ctx α C2) M0) as ctx1.
     destruct ctx1; try (inversion ACCESS; fail).
-    + specialize (H CT H0 H1 AT H2 H3 C2 α M0).
-      rewrite <- Heqctx1 in H.
+    + specialize (A CT ECT OCT T1 AT EAT T2 C2 α M0).
+      rewrite <- Heqctx1 in A.
       remember (ctx_M C2 M0) as ctx2; destruct ctx2;
-      inversion H; inversion ACCESS; subst.
+      inversion A; inversion ACCESS; subst.
       rewrite Heqctx1. apply IHC2; eauto.
-    + specialize (H CT H0 H1 AT H2 H3 C2 α M0).
-      rewrite <- Heqctx1 in H.
+    + specialize (A CT ECT OCT T1 AT EAT T2 C2 α M0).
+      rewrite <- Heqctx1 in A.
       remember (ctx_M C2 M0) as ctx2; destruct ctx2;
-      inversion H; destruct (eq_mid M0 M);
+      inversion A; destruct (eq_mid M0 M);
       inversion ACCESS; subst; eauto.
 Qed.
 
@@ -154,6 +158,8 @@ Lemma time_increase_e :
     end.
 Proof.
   intros. 
+  rename H into ECT. rename H0 into OCT. rename H1 into T1.
+  rename H2 into EAT. rename H3 into T2.
   induction EVAL;
   intros; 
   destruct st; try destruct st'; try destruct st''; try destruct st_v; 
@@ -161,14 +167,14 @@ Proof.
   - inversion STATE; subst. apply leb_refl.
   - assert (t < update C (ST mem t) x arg).
     { apply update_lt. }
-    destruct H3. 
+    destruct H. 
     apply leb_trans with (t' := (update C (ST mem t) x arg)); eauto.
     apply leb_trans with (t' := t); eauto.
     apply leb_trans with (t' := t2); eauto.
   - apply leb_trans with (t' := t1); eauto.
   - assert (t < update C (ST mem t) x v).
     { apply update_lt. }
-    destruct H3.
+    destruct H.
     apply leb_trans with (t' := (update C (ST mem t) x v)); eauto.
     apply leb_trans with (t' := t); eauto.
   - apply leb_trans with (t' := t0); eauto.
@@ -179,12 +185,16 @@ Lemma relax_ctx_bound :
          C t1 t2 (BOUND : dy_ctx_bound C t1) (LE : leb t1 t2 = true),
          dy_ctx_bound C t2.
 Proof.
+  intros.
+  rename H into ECT. rename H0 into OCT. rename H1 into T1.
+  rename H2 into EAT. rename H3 into T2.
+  revert C t1 t2 BOUND LE.
   induction C; intros; destruct BOUND; simpl in *; 
   repeat split;
   try eapply IHC; try eapply IHC1; try eapply IHC2; eauto;
-  try destruct H3; try apply leb_trans with (t' := t1); eauto.
-  rewrite eqb_neq in *. red. intros; subst. apply H5. apply leb_sym; eauto.
-  rewrite eqb_neq in *. red. intros; subst. apply H5. apply leb_sym; eauto.
+  try destruct H; try apply leb_trans with (t' := t1); eauto.
+  rewrite eqb_neq in *. red. intros; subst. apply H1. apply leb_sym; eauto.
+  rewrite eqb_neq in *. red. intros; subst. apply H1. apply leb_sym; eauto.
 Qed.
 
 Lemma relax_p_bound :
@@ -192,12 +202,15 @@ Lemma relax_p_bound :
     p t1 t2 (BOUND : p < t1) (LE : leb t1 t2 = true),
   p < t2.
 Proof.
-  intros. destruct BOUND. split.
+  intros.
+  rename H into ECT. rename H0 into OCT. rename H1 into T1.
+  rename H2 into EAT. rename H3 into T2.
+  destruct BOUND. split.
   apply leb_trans with (t' := t1); eauto.
   rewrite eqb_neq. red. intros; subst.
   assert (t1 = t2). apply leb_sym; eauto. subst.
   assert (true = eqb t2 t2). symmetry. apply eqb_eq; eauto.
-  rewrite <- H5 in H4. inversion H4.
+  rewrite <- H1 in H0. inversion H0.
 Qed.
 
 Lemma time_bound_addr :
@@ -208,11 +221,15 @@ Lemma time_bound_addr :
     | Some addr => addr < t
     end.
 Proof.
-  induction C; intros; simpl in *; try destruct H3; eauto.
-  - specialize (IHC x0 t H4).
+  intros.
+  rename H into ECT. rename H0 into OCT. rename H1 into T1.
+  rename H2 into EAT. rename H3 into T2. rename H4 into BOUND.
+  revert C x t BOUND.
+  induction C; intros; simpl in *; try destruct BOUND; eauto.
+  - specialize (IHC x0 t H0).
     destruct (addr_x C x0); eauto. 
     destruct (eq_eid x0 x); simpl; eauto.
-  - specialize (IHC x0 t H4).
+  - specialize (IHC x0 t H0).
     destruct (addr_x C x0); eauto. 
     destruct (eq_eid x0 x); simpl; eauto.
   - apply IHC2; eauto.
@@ -224,24 +241,30 @@ Lemma time_bound_ctx_M :
     dy_ctx_bound C t -> 
     dy_ctx_bound CM t.
 Proof.
+  intros.
+  rename H into ECT. rename H0 into OCT. rename H1 into T1.
+  rename H2 into EAT. rename H3 into T2.
+  rename H4 into ACCESS. rename H5 into BOUND.
+  revert C M t CM ACCESS BOUND.
   induction C; intros; simpl in *.
-  - inversion H3.
-  - eapply IHC; eauto. destruct H4; eauto.
-  - eapply IHC; eauto. destruct H4; eauto.
+  - inversion ACCESS.
+  - eapply IHC; eauto. destruct BOUND; eauto.
+  - eapply IHC; eauto. destruct BOUND; eauto.
   - remember (ctx_M C2 M0) as oCM.
     destruct oCM.
-    + inversion H3; subst. eapply IHC2; eauto.
-      destruct H4; eauto.
-    + destruct (eq_mid M0 M); inversion H3; subst.
-      destruct H4; eauto.
+    + inversion ACCESS; subst. eapply IHC2; eauto.
+      destruct BOUND; eauto.
+    + destruct (eq_mid M0 M); inversion ACCESS; subst.
+      destruct BOUND; eauto.
 Qed.
 
 Lemma plugin_ctx_bound :
   forall `{Conc.time CT} `{Abs.time AT} Cout Cin t,
     dy_ctx_bound (Cout[|Cin|]) t <-> dy_ctx_bound Cout t /\ dy_ctx_bound Cin t.
 Proof.
-  intros. 
-  rename H into O1. rename H0 into T1. rename H1 into O2. rename H2 into T2.
+  intros.
+  rename H into ECT. rename H0 into OCT. rename H1 into T1.
+  rename H2 into EAT. rename H3 into T2.
   revert Cout Cin t. induction Cout; repeat split; intros; simpl in *; 
   try destruct H as [[LE NEQ] BD]; 
   try destruct H as [BD1 BD2];
@@ -264,8 +287,8 @@ Lemma time_bound_e :
     end.
 Proof.
   intros. 
-  rename H into O1. rename H0 into T1.
-  rename H1 into O2. rename H2 into T2.
+  rename H into ECT. rename H0 into OCT. rename H1 into T1.
+  rename H2 into EAT. rename H3 into T2.
   induction EVAL; intros; simpl; eauto.
   - destruct v. unfold time_bound in *.
     destruct st. destruct BOUND as [? [? RR]].
@@ -376,13 +399,13 @@ Lemma bound_trans_ctx_eq :
          trans_ctx α C = trans_ctx α' C.
 Proof.
   intros. 
-  rename H into O1. rename H0 into T1.
-  rename H1 into O2. rename H2 into T2.
-  induction C; simpl; try rewrite IHC; 
-  try rewrite IHC1; try rewrite IHC2; simpl in *; eauto;
-  destruct H3; eauto; inversion H.
-  unfold eq_bound_α in H0. rewrite H4; eauto.
-  unfold eq_bound_α in H0. rewrite H4; eauto.
+  rename H into ECT. rename H0 into OCT. rename H1 into T1.
+  rename H2 into EAT. rename H3 into T2.
+  rename H4 into BOUND. rename H5 into EQ.
+  revert C t α α' BOUND EQ.
+  induction C; intros; simpl; try erewrite IHC; 
+  try erewrite IHC1; try erewrite IHC2; simpl in *; eauto;
+  destruct BOUND; eauto; destruct H; rewrite EQ; eauto.
 Qed.
 
 Ltac contradict :=
@@ -405,7 +428,7 @@ Ltac refl_bool :=
 Ltac lebt x :=
   apply leb_trans with (t' := x); try assumption; try apply update_lt.
 
-Lemma eqb_refl : forall `{OrderT CT} t, eqb t t = true.
+Lemma eqb_refl : forall `{Eq CT} t, eqb t t = true.
 Proof.
   intros. rewrite eqb_eq. eauto.
 Qed.
@@ -415,7 +438,7 @@ Lemma eqb_update : forall `{Conc.time CT} C mem t x x' e' C',
 Proof.
   intros. refl_bool. unfold "<>". intros.
   assert (t < update C (ST mem t) x (Closure x' e' C')) as contra. apply update_lt.
-  destruct contra as [? contra]. rewrite contra in *. inversion H1.
+  destruct contra as [? contra]. rewrite contra in *. inversion H2.
 Qed.
 
 (* Set Printing Implicit. *)
@@ -446,7 +469,9 @@ Lemma sound_eval :
         end
       end.
 Proof.
-  intros. rename H into O1. rename H0 into T1. rename H1 into O2. rename H2 into T2.
+  intros. 
+  rename H into ECT. rename H0 into OCT. rename H1 into T1.
+  rename H2 into EAT. rename H3 into T2.
   revert abs_C abs_st α SOUND. induction EVAL; intros; subst.
   - unfold sound in SOUND. destruct abs_st as [abs_mem abs_t].
     destruct SOUND as [? [? ?]].
