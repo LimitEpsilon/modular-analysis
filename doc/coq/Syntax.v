@@ -31,6 +31,46 @@ Definition eq_mid id1 id2 :=
   | mid M1, mid M2 => M1 =? M2
   end.
 
+Lemma eq_eid_eq : forall x x',
+  eq_eid x x' = true <-> x = x'.
+Proof.
+  intros. destruct x. destruct x'.
+  simpl. split; intros. 
+  rewrite Nat.eqb_eq in H.
+  rewrite H. eauto.
+  inversion H; subst. rewrite Nat.eqb_eq. eauto.
+Qed.
+
+Lemma eq_eid_neq : forall x x',
+  eq_eid x x' = false <-> x <> x'.
+Proof.
+  intros. destruct x. destruct x'.
+  simpl. split; intros.
+  unfold not. intros.
+  rewrite Nat.eqb_neq in H. apply H. inversion H0. eauto.
+  rewrite Nat.eqb_neq. unfold not. intros. apply H. subst; eauto.
+Qed.
+
+Lemma eq_mid_eq : forall M M',
+  eq_mid M M' = true <-> M = M'.
+Proof.
+  intros. destruct M. destruct M'.
+  simpl. split; intros. 
+  rewrite Nat.eqb_eq in H.
+  rewrite H. eauto.
+  inversion H; subst. rewrite Nat.eqb_eq. eauto.
+Qed.
+
+Lemma eq_mid_neq : forall M M',
+  eq_eid M M' = false <-> M <> M'.
+Proof.
+  intros. destruct M. destruct M'.
+  simpl. split; intros.
+  unfold not. intros.
+  rewrite Nat.eqb_neq in H. apply H. inversion H0. eauto.
+  rewrite Nat.eqb_neq. unfold not. intros. apply H. subst; eauto.
+Qed.
+
 Inductive tm :=
   | e_var (x : expr_id)
   | e_lam (x : expr_id) (e : tm)
@@ -254,6 +294,14 @@ Notation "Cout '[|' Cin '|]'" := (dy_plugin_c Cout Cin)
                               (at level 100, Cin at next level, right associativity).
 Notation "'[||]'" := (dy_c_hole) (at level 100).
 
+Fixpoint dy_level {T} (C : @dy_ctx T) :=
+  match C with
+  | [||] => 0
+  | dy_c_lam _ _ C'
+  | dy_c_lete _ _ C' => S (dy_level C')
+  | dy_c_letm _ C' C'' => S (Nat.max (dy_level C') (dy_level C''))
+  end.
+
 Lemma c_plugin_assoc : forall {T} (C1 : @dy_ctx T) C2 C3, C1[| C2[| C3 |] |] = ((C1[|C2|])[|C3|]).
 Proof.
   induction C1; eauto; 
@@ -320,6 +368,67 @@ Class Eq T : Type :=
   eqb_eq : forall (t t' : T), eqb t t' = true <-> t = t';
   eqb_neq : forall (t t' : T), eqb t t' = false <-> t <> t'
 }.
+
+Fixpoint eq_ctx {T} `{Eq T} (C1 : @dy_ctx T) (C2 : @dy_ctx T) :=
+  match C1, C2 with
+  | [||], [||] => true
+  | dy_c_lam x1 t1 C1', dy_c_lam x2 t2 C2'
+  | dy_c_lete x1 t1 C1', dy_c_lete x2 t2 C2' =>
+    eq_eid x1 x2 && eqb t1 t2 && eq_ctx C1' C2'
+  | dy_c_letm M1 C1' C1'', dy_c_letm M2 C2' C2'' =>
+    eq_mid M1 M2 && eq_ctx C1' C2' && eq_ctx C1'' C2''
+  | _, _ => false
+  end.
+
+Lemma eq_ctx_eq : forall {T} `{Eq T} (C C' : dy_ctx),
+  eq_ctx C C' = true <-> C = C'.
+Proof.
+  intros. rename H into ET. revert C'.
+  induction C; destruct C'; split; intros H; inversion H; try reflexivity;
+  try (assert (x = x0);
+    [rewrite <- eq_eid_eq | idtac];
+    destruct (eq_eid x x0); inversion H1; eauto;
+    assert (tx = tx0);
+    [rewrite <- eqb_eq | idtac];
+    destruct (eqb tx tx0); inversion H1; eauto;
+    assert (C = C');
+    [rewrite <- IHC | idtac]; eauto; subst; reflexivity);
+  try (subst; simpl;
+    assert (eq_eid x0 x0 = true);
+    [rewrite eq_eid_eq; reflexivity | idtac];
+    assert (eqb tx0 tx0 = true);
+    [rewrite eqb_eq; reflexivity | idtac];
+    assert (eq_ctx C' C' = true);
+    [rewrite IHC; reflexivity | idtac];
+    rewrite H0; rewrite H1; rewrite H2; eauto).
+  assert (M = M0);
+  [rewrite <- eq_mid_eq; destruct (eq_mid M M0); inversion H1; eauto | idtac];
+  assert (C1 = C'1);
+  [rewrite <- IHC1; destruct (eq_mid M M0);
+   destruct (eq_ctx C1 C'1); inversion H1; eauto | idtac].
+  assert (C2 = C'2);
+  [rewrite <- IHC2; destruct (eq_mid M M0);
+   destruct (eq_ctx C1 C'1); destruct (eq_ctx C2 C'2); inversion H1; eauto | idtac];
+  subst; eauto.
+  subst; simpl.
+  assert (eq_mid M0 M0 = true);
+  [rewrite eq_mid_eq; reflexivity | idtac];
+  assert (eq_ctx C'1 C'1 = true);
+  [rewrite IHC1; reflexivity | idtac];
+  assert (eq_ctx C'2 C'2 = true);
+  [rewrite IHC2; reflexivity | idtac];
+  rewrite H0; rewrite H1; rewrite H2; eauto.
+Qed.
+
+Lemma eq_ctx_neq : forall {T} `{Eq T} (C C' : dy_ctx),
+  eq_ctx C C' = false <-> C <> C'.
+Proof.
+  intros; split; intros.
+  - red; intros contra. rewrite <- eq_ctx_eq in contra.
+    rewrite contra in H0. inversion H0.
+  - destruct (eq_ctx C C') eqn:EQ; try reflexivity.
+    rewrite eq_ctx_eq in EQ. apply H0 in EQ. inversion EQ.
+Qed.
 
 Class OrderT (T : Type) `{Eq T} : Type :=
 {

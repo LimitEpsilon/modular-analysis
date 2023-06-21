@@ -12,7 +12,7 @@ Class time `{Eq T} :=
   update : (@dy_ctx T) -> (@state T) -> expr_id -> (@expr_value T) -> T;
 }.
 
-Definition update_m {X} `{time T} mem (t : T) (x : X) :=
+Definition update_m {X} `{Eq T} mem (t : T) (x : X) :=
   fun t' => 
   if eqb t' t then
     x :: (mem t)

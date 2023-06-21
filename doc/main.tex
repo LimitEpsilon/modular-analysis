@@ -20,9 +20,12 @@
 \addbibresource{citations.bib}
 
 %%% Math settings
-\usepackage{amssymb,amsmath,mathtools} % Before unicode-math
+\usepackage{amssymb,amsmath,amsthm,mathtools} % Before unicode-math
 \usepackage[math-style=TeX,bold-style=TeX]{unicode-math}
-\newtheorem{clm}{Claim}[section]
+\newtheorem{lem}{Lemma}[section]
+\newtheorem{thm}{Theorem}[section]
+
+\theoremstyle{definition}
 \newtheorem{definition}{Definition}[section]
 
 %%% Font settings
@@ -62,15 +65,18 @@
 \newcommand*{\Module}{\text{Module}}
 \newcommand*{\ModVar}{\text{ModVar}}
 \newcommand*{\Time}{\mathbb{T}}
+\newcommand*{\ATime}{\mathbb{T}^{\#}}
 \newcommand*{\Ctx}[1]{\text{Ctx}\:{#1}}
 \newcommand*{\Value}[1]{\text{Val}\:{#1}}
 \newcommand*{\Mem}[1]{\text{Mem}\:{#1}}
+\newcommand*{\AMem}[1]{\text{Mem}^{\#}\:{#1}}
 \newcommand*{\link}[2]{{#1}\mathtt{!}{#2}}
+\newcommand*{\Stuck}[1]{\underline{#1}^{\times}}
+\newcommand*{\Resolved}[1]{\underline{#1}^{\circ}}
 \newcommand*{\sembracket}[1]{\lBrack{#1}\rBrack}
 \newcommand*{\fin}[2]{{#1}\xrightarrow{\text{fin}}{#2}}
 \newcommand*{\addr}{\mathsf{addr}}
 \newcommand*{\tick}{\mathsf{tick}}
-\newcommand*{\level}{\mathsf{level}}
 \newcommand*{\modctx}{\mathsf{ctx}}
 \newcommand*{\doubleplus}{+\kern-1.3ex+\kern0.8ex}
 \newcommand*{\mdoubleplus}{\ensuremath{\mathbin{+\mkern-10mu+}}}
@@ -124,7 +130,7 @@ In this section we give the big-step operational semantics for the dynamic execu
 The big-step evaluation relation relates the initial state(memory and time) and configuration(the subexpression being evaluated, and the surrounding dynamic context) with the resulting state and value.
 
 This relation is nonstandard in that the \emph{environment} that is often used to define closures in the call-by-value dynamics is not a finite map from variables to values.
-Rather, the surrounding \emph{syntactic} context annotated with the \emph{binding times} for the variables together with the memory serves as the environment.
+Rather, the surrounding \emph{syntactic} context annotated with the \emph{binding times} for the variables serve as the environment.
 To access the value of the variable $x$ from the context $C$, one has to read off the closest binding time from the context and look up the value bound at that time from the memory.
 To access the exported context from the variable $M$, one has to look up the exported context from $C$, not from the memory.
 
@@ -136,8 +142,7 @@ Now, we start by defining what we mean by \emph{time} and \emph{context}, which 
 \subsection{Time and Context}
 
 We first define sets that are parametrized by our choice of the time domain, mainly the \emph{value}, \emph{memory}, and \emph{context} domains.
-Below, the $\Time$ set may be any arbitrary set.
-Later, we constrain $\Time$ to meet the constraint that $\tick$ always give fresh timestamps.
+Also, we present the notational conventions used in this paper to represent members of each domain.
 
 \begin{bnfgrammar}
   $t$ : \in \Time
@@ -145,6 +150,8 @@ Later, we constrain $\Time$ to meet the constraint that $\tick$ always give fres
   $v$ : \in \Value{\Time}
   ;;
   $C$ : \in \Ctx{\Time}
+  ;;
+  $V$ : \in \Value{\Time}+\Ctx{\Time}
   ;;
   $\sigma$ : \in \Mem{\Time} \triangleq \fin{\Time}{\Value{\Time}}
   ;;
@@ -156,13 +163,21 @@ Later, we constrain $\Time$ to meet the constraint that $\tick$ always give fres
   $v$ ::= $\langle \lambda x.e, C \rangle$ : closure
 \end{bnfgrammar}
 
+Above, there are no constraints placed upon the set $\Time$.
 Now we give the conditions that the concrete time domain must satisfy.
 
-\begin{definition}
-  
+\begin{definition}[Concrete time]
+  $(\Time, \le, \tick)$ is a \emph{concrete time} when
+  \begin{enumerate}
+    \item $(\Time, \le)$ is a total order.
+    \item $\tick\in\Ctx{\Time}\rightarrow\Mem{\Time}\rightarrow\Time\rightarrow\ExprVar\rightarrow\Value{\Time}\rightarrow\Time$ gives a strictly larger timestamp. That is,
+          \[\forall C\in\Ctx{\Time}, \sigma\in\Mem{\Time},t\in\Time,x\in\ExprVar,v\in\Value{\Time}, t < \tick\:C\:\sigma\:t\:x\:v.\]
+          $\tick$ updates the timestamp when $v$ is bound to $x$ under the context $C$ and state $(\sigma, t)$.
+  \end{enumerate}
 \end{definition}
 
-We define the plugin operator for the dynamic context.
+Now for the auxiliary operators that is used when defining the evaluation relation.
+We first define the plugin operator for the dynamic context.
 \[
   C_{1}[C_{2}]\triangleq
   \begin{cases}
@@ -173,33 +188,21 @@ We define the plugin operator for the dynamic context.
   \end{cases}
 \]
 
-Now, for the operational semantics, the functions that extract information about the binding times from the dynamic context must be defined.
-The first function to be defined is the $\level$ function, which returns the list of binding times counted from the hole upwards.
-\[
-  \level(C) \triangleq
-  \begin{cases}
-    \mathsf{nil}              & (C=[])                                           \\
-    \level(C')\mdoubleplus[t] & (C=\lambda x^{t}.C'\lor \mathtt{let\:}x^{t}\:C') \\
-    \level(C'')               & (C=\mathtt{let}\:M\:C'\:C'')
-  \end{cases}
-\]
-Also, the function that calculates the address from the dynamic context $C$ and variable $x$ must be defined.
-Note that $\mathsf{nil}$ is used as the null address, which should never be accessed.
+Next, the function that extracts the address for an $\ExprVar$ must be defined.
 \[
   \addr(C,x)\triangleq
   \begin{cases}
-    \mathsf{nil}       & (C=[])                                                                   \\
-    \mathsf{nil}       & (C=\lambda x'^{t}.C'\wedge x'\neq x\wedge \addr(C',x)=\mathsf{nil})      \\
-    \mathsf{nil}       & (C=\mathtt{let}\:x'^{t}C'\wedge x'\neq x\wedge \addr(C',x)=\mathsf{nil}) \\
-    [t]                & (C=\lambda x'^{t}.C'\wedge x'= x\wedge \addr(C',x)=\mathsf{nil})         \\
-    [t]                & (C=\mathtt{let}\:x'^{t}C'\wedge x'= x\wedge \addr(C',x)=\mathsf{nil})    \\
-    p \mdoubleplus [t] & (C=\lambda x'^{t}.C'\wedge \addr(C',x)=p\neq\mathsf{nil})                \\
-    p \mdoubleplus [t] & (C=\mathtt{let}\:x'^{t}\:C'\wedge \addr(C',x)=p\neq\mathsf{nil})         \\
-    \addr(C'',x)       & (C=\mathtt{let}\:M\:C'\:C'')
+    \bot         & (C=[])                                                           \\
+    \bot         & (C=\lambda x'^{t}.C'\wedge x'\neq x\wedge \addr(C',x)=\bot)      \\
+    \bot         & (C=\mathtt{let}\:x'^{t}C'\wedge x'\neq x\wedge \addr(C',x)=\bot) \\
+    t            & (C=\lambda x'^{t}.C'\wedge x'= x\wedge \addr(C',x)=\bot)         \\
+    t            & (C=\mathtt{let}\:x'^{t}C'\wedge x'= x\wedge \addr(C',x)=\bot)    \\
+    t'           & (C=\lambda x'^{t}.C'\wedge \addr(C',x)=t')                       \\
+    t'           & (C=\mathtt{let}\:x'^{t}\:C'\wedge \addr(C',x)=t')                \\
+    \addr(C'',x) & (C=\mathtt{let}\:M\:C'\:C'')
   \end{cases}
 \]
 Finally, the function that looks up the dynamic context bound to a module variable $M$ must be defined.
-Note that this function returns $\bot$ when the module $M$ is not found.
 \[
   \modctx(C,M)\triangleq
   \begin{cases}
@@ -212,124 +215,168 @@ Note that this function returns $\bot$ when the module $M$ is not found.
   \end{cases}
 \]
 
+\subsection{The Evaluation Relation}
+
 Now we are in a position to define the big-step evaluation relation.
+The relation $\Downarrow$ relates $(e,C,\sigma,t)\in\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time$ with
+$(V,\sigma,t)\in(\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time$.
+Note that we constrain whether the evaluation relation returns $v\in\Value{\Time}$(when the expression being evaluated is not a module) or $C\in\Ctx{\Time}$ by the definition of the relation.
 
 \begin{prooftree*}
-  \hypo{p_{x}=\addr(C,x)}
-  \hypo{p_{x}\neq\mathsf{nil}}
+  \hypo{t_{x}=\addr(C,x)}
+  \hypo{\sigma(t_{x}) = v}
   \infer[left label=ExprVar]2{
-  (x, C), (\sigma, t)
+  (x, C, \sigma, t)
   \Downarrow
-  \sigma(p_{x}), (\sigma, t)
+  (v, \sigma, t)
   }
 \end{prooftree*}
 
 \begin{prooftree*}
   \infer[left label=Fn]0{
-  (\lambda x.e, C), (\sigma, t)
+  (\lambda x.e, C, \sigma, t)
   \Downarrow
-  (\lambda x.e, C), (\sigma, t)
+  (\langle\lambda x.e, C\rangle, \sigma, t)
   }
 \end{prooftree*}
 
 \begin{prooftree*}
   \hypo{
     \begin{matrix}
-      (e_{1}, C), (\sigma, t)
+      (e_{1}, C, \sigma, t)
       \Downarrow
-      (\lambda x.e_{\lambda}, C_{\lambda}), (\sigma_{\lambda}, t_{\lambda}) \\
-      (e_{2}, C), (\sigma_{\lambda}, t_{\lambda})
+      (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \sigma_{\lambda}, t_{\lambda}) \\
+      (e_{2}, C, \sigma_{\lambda}, t_{\lambda})
       \Downarrow
-      (v, C_{a}), (\sigma_{a}, t_{a})                                       \\
-      (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]]), (\sigma_{a}[t_{a}::\level(C_{\lambda})\mapsto(v, C_{a})], t_{a} + 1)
+      (v, \sigma_{a}, t_{a})                                                            \\
+      (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \sigma_{a}[t_{a}\mapsto(v, C_{a})], \tick\:C\:\sigma_{a}\:t_{a}\:x\:v)
       \Downarrow
-      (v', C'), (\sigma',t')
+      (v', \sigma',t')
     \end{matrix}
   }
   \infer[left label={App}]1{
-  (e_{1}\:e_{2}, C), (\sigma, t)
+  (e_{1}\:e_{2}, C, \sigma, t)
   \Downarrow
-  (v',C'), (\sigma',t')
+  (v', \sigma',t')
   }
 \end{prooftree*}
 
 \begin{prooftree*}
   \hypo{
     \begin{matrix}
-      (m, C), (\sigma, t)
+      (e_{1}, C, \sigma, t)
       \Downarrow
-      C', (\sigma', t') \\
-      (e, C'), (\sigma', t')
+      (C', \sigma', t') \\
+      (e_{2}, C', \sigma', t')
       \Downarrow
-      (v, C''), (\sigma'', t'')
+      (V, \sigma'', t'')
     \end{matrix}
   }
   \infer[left label=Linking]1{
-  (\link{m}{e}, C), (\sigma, t)
+  (\link{e_{1}}{e_{2}}, C, \sigma, t)
   \Downarrow
-  (v, C''), (\sigma'', t'')
+  (V, \sigma'', t'')
   }
 \end{prooftree*}
+Note that we do not constrain whether $v$ or $C$ is returned by $e_{2}$ in the linking case.
+That is, linking may return either values or modules.
 
 \begin{prooftree*}
   \infer[left label=Empty]0{
-  (\varepsilon, C), (\sigma, t)
+  (\varepsilon, C, \sigma, t)
   \Downarrow
-  C, (\sigma, t)
+  (C, \sigma, t)
   }
 \end{prooftree*}
 
 \begin{prooftree*}
   \hypo{C'=\modctx(C,M)}
-  \hypo{C'\neq\bot}
-  \infer[left label=ModVar]2{
-  (M, C), (\sigma, t)
+  \infer[left label=ModVar]1{
+  (M, C, \sigma, t)
   \Downarrow
-  C', (\sigma, t)
+  (C', \sigma, t)
   }
 \end{prooftree*}
 
 \begin{prooftree*}
   \hypo{
     \begin{matrix}
-      (e, C), (\sigma, t)
+      (e_{1}, C, \sigma, t)
       \Downarrow
-      (v, C'), (\sigma', t') \\
-      (m, C[\mathtt{let}\:x^{t'}\:[]]), (\sigma_{v}[t'::\level(C)\mapsto(v,C')], t'+1)
+      (v, \sigma', t') \\
+      (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \sigma'[t'\mapsto v], \tick\:C\:\sigma'\:t'\:x\:v)
       \Downarrow
-      C'', (\sigma'', t'')
+      (C', \sigma'', t'')
     \end{matrix}
   }
   \infer[left label=LetE]1{
-  (\mathtt{let}\:x\:e\:m,C), (\sigma, t)
+  (\mathtt{let}\:x\:e_1\:e_2, C, \sigma, t)
   \Downarrow
-  C'', (\sigma'', t'')
+  (C', \sigma'', t'')
   }
 \end{prooftree*}
 
 \begin{prooftree*}
   \hypo{
     \begin{matrix}
-      (m_{1}, C), (\sigma, t)
+      (e_{1}, C, \sigma, t)
       \Downarrow
-      C', (\sigma', t') \\
-      (m_{2}, C[\mathtt{let}\:M\:C'\:[]]), (\sigma'[t'::\level(C')\mapsto(p', C')], t'+1)
+      (C', \sigma', t') \\
+      (e_{2}, C[\mathtt{let}\:M\:C'\:[]], \sigma', t')
       \Downarrow
-      C'', (\sigma'', t'')
+      (C'', \sigma'', t'')
     \end{matrix}
   }
   \infer[left label=LetM]1{
-  (\mathtt{let}\:M\:m_{1}\:m_{2}, C), (\sigma, t)
+  (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \sigma, t)
   \Downarrow
-  C'', (\sigma'', t'')
+  (C'', \sigma'', t'')
   }
 \end{prooftree*}
 
-To 
-
 \section{Collecting Semantics}
 
-Now we make the semantics of a module $m$ and the semantics of an expression $e$ explicit.
+We want to enable separate analysis without making any assumptions 
+
+\begin{definition}[Reachable stuck states]
+  \[
+    \Stuck{e}(C,\sigma,t)\triangleq\{(e',C',\sigma,t')|(e,C,\sigma,t)\rightsquigarrow(e',C',\sigma',t')\wedge\forall v,\sigma'',t'',\lnot((e',C'\sigma',t')\Downarrow(v,\sigma'',t''))\}
+  \]
+\end{definition}
+
+\begin{definition}[Reachable resolved states]
+  \[
+    \Resolved{e}(C,\sigma,t)\triangleq\{((e',C',\sigma',t'),(v,\sigma'',t''))|(e,C,\sigma,t)\rightsquigarrow(e',C',\sigma',t')\wedge(e',C'\sigma',t')\Downarrow(v,\sigma'',t'')\}
+  \]
+\end{definition}
+
+\begin{definition}[Collecting semantics]
+  The semantics for an expression $e$ under context $C$, memory $\sigma$ and time $t$ is:
+  \[
+    \sembracket{e}(C,\sigma,t)\triangleq(\Resolved{e}(C,\sigma,t),\Stuck{e}(C,\sigma,t))
+  \]
+\end{definition}
+
+\begin{lem}[Separation of linking, resolved part]
+  \[
+    \Resolved{\link{e_1}{e_2}}(C,\sigma,t)=
+    \Resolved{e_1}(C,\sigma,t)\cup\left(\bigcup_{(e_1,C,\sigma,t)\Downarrow(C',\sigma',t')}{\Resolved{e_2}(C',\sigma',t')}\right)
+  \]
+\end{lem}
+
+\begin{lem}[Separation of linking, stuck part]
+  \[
+    \Stuck{\link{e_1}{e_2}}(C,\sigma,t)=
+    \Stuck{e_1}(C,\sigma,t)\cup\left(\bigcup_{(e_1,C,\sigma,t)\Downarrow(C',\sigma',t')}{\Stuck{e_2}(C',\sigma',t')}\right)
+  \]
+\end{lem}
+
+Now we only need a way to calculate $\sembracket{e_{2}}(C',\sigma',t')$ by utilizing the separately analyzed $\sembracket{e_{2}}([],\varnothing,t_{0})$.
+
+
+
+\begin{lem}[Separate analysis]
+\end{lem}
 
 \printbibliography
 \end{document}

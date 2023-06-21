@@ -14,7 +14,7 @@ Class time `{OrderT T} :=
                                   leb t t' = true /\ eqb t t' = false
 }.
 
-Definition update_m {T X} `{time T} mem (t : T) (x : X) :=
+Definition update_m {T X} `{Eq T} mem (t : T) (x : X) :=
   fun t' => if eqb t' t then Some x else mem t'.
 
 Definition empty_mem {T X} (t : T) : option X := None.
