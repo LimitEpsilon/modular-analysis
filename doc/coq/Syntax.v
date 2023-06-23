@@ -294,6 +294,14 @@ Notation "Cout '[|' Cin '|]'" := (dy_plugin_c Cout Cin)
                               (at level 100, Cin at next level, right associativity).
 Notation "'[||]'" := (dy_c_hole) (at level 100).
 
+Fixpoint In_ctx {T} (t : T) (C : @dy_ctx T) :=
+  match C with
+  | [||] => False
+  | dy_c_lam _ t' C'
+  | dy_c_lete _ t' C' => t = t' \/ In_ctx t C'
+  | dy_c_letm _ C' C'' => In_ctx t C' \/ In_ctx t C''
+  end.
+
 Fixpoint dy_level {T} (C : @dy_ctx T) :=
   match C with
   | [||] => 0
@@ -316,6 +324,22 @@ Fixpoint dy_to_st {T} (C : @dy_ctx T) :=
   | dy_c_lete x _ C' => st_c_lete x (dy_to_st C')
   | dy_c_letm M CM C' => st_c_letm M (dy_to_st CM) (dy_to_st C')
   end.
+
+Lemma in_plugin_iff :
+  forall {T} (t : T) (Cout Cin : @dy_ctx T),
+    In_ctx t (Cout[|Cin|]) <-> (In_ctx t Cout \/ In_ctx t Cin).
+Proof.
+  intros. revert Cin.
+  induction Cout; intros; split; simpl; intros H; 
+  try rewrite IHCout in H;
+  try rewrite IHCout2 in H;
+  try rewrite IHCout;
+  try rewrite IHCout2;
+  try destruct H as [? | [? | ?]];
+  try destruct H as [[? | ?] | ?];
+  eauto.
+  destruct H; try assumption; inversion H. 
+Qed.
 
 Lemma dy_to_st_plugin :
   forall {T} (Cout : @dy_ctx T) Cin,
@@ -437,3 +461,8 @@ Class OrderT (T : Type) `{Eq T} : Type :=
   leb_trans : forall t t' t'' (LE : leb t t' = true) (LE' : leb t' t'' = true), leb t t'' = true;
   leb_sym : forall t t' (LE : leb t t' = true) (LE' : leb t' t = true), t = t'
 }.
+
+Definition lt {T} `{OrderT T} (t1 t2 : T) :=
+  leb t1 t2 = true /\ eqb t1 t2 = false.
+
+Notation "t1 '<' t2" := (lt t1 t2).

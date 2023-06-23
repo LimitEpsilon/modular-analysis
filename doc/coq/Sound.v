@@ -7,11 +7,6 @@ Module Conc := Concrete.
 Generalizable Variables CT.
 Generalizable Variables AT.
 
-Definition lt `{Conc.time CT} (t1 : CT) (t2 : CT) :=
-  leb t1 t2 = true /\ eqb t1 t2 = false.
-
-Notation "t1 '<' t2" := (lt t1 t2).
-
 Fixpoint dy_ctx_bound `{Conc.time CT} C t :=
   match C with
   | [||] => True

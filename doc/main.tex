@@ -22,11 +22,10 @@
 %%% Math settings
 \usepackage{amssymb,amsmath,amsthm,mathtools} % Before unicode-math
 \usepackage[math-style=TeX,bold-style=TeX]{unicode-math}
-\newtheorem{lem}{Lemma}[section]
-\newtheorem{thm}{Theorem}[section]
-
 \theoremstyle{definition}
 \newtheorem{definition}{Definition}[section]
+\newtheorem{lem}{Lemma}[section]
+\newtheorem{thm}{Theorem}[section]
 
 %%% Font settings
 \setmainfont{Libertinus Serif}
@@ -78,6 +77,13 @@
 \newcommand*{\addr}{\mathsf{addr}}
 \newcommand*{\tick}{\mathsf{tick}}
 \newcommand*{\modctx}{\mathsf{ctx}}
+\newcommand*{\mapinject}{\mathsf{map\_inject}}
+\newcommand*{\inject}[2]{{#1}\langle{#2}\rangle}
+\newcommand*{\deletepre}{\mathsf{delete\_prefix}}
+\newcommand*{\deletemap}{\mathsf{delete\_map}}
+\newcommand*{\delete}{\mathsf{delete}}
+\newcommand*{\filter}{\mathsf{filter}}
+\newcommand*{\Let}{\mathtt{let}}
 \newcommand*{\doubleplus}{+\kern-1.3ex+\kern0.8ex}
 \newcommand*{\mdoubleplus}{\ensuremath{\mathbin{+\mkern-10mu+}}}
 
@@ -171,7 +177,7 @@ Now we give the conditions that the concrete time domain must satisfy.
   \begin{enumerate}
     \item $(\Time, \le)$ is a total order.
     \item $\tick\in\Ctx{\Time}\rightarrow\Mem{\Time}\rightarrow\Time\rightarrow\ExprVar\rightarrow\Value{\Time}\rightarrow\Time$ gives a strictly larger timestamp. That is,
-          \[\forall C\in\Ctx{\Time}, \sigma\in\Mem{\Time},t\in\Time,x\in\ExprVar,v\in\Value{\Time}, t < \tick\:C\:\sigma\:t\:x\:v.\]
+          \[\forall C\in\Ctx{\Time}, \sigma\in\Mem{\Time},t\in\Time,x\in\ExprVar,v\in\Value{\Time}: t < \tick\:C\:\sigma\:t\:x\:v.\]
           $\tick$ updates the timestamp when $v$ is bound to $x$ under the context $C$ and state $(\sigma, t)$.
   \end{enumerate}
 \end{definition}
@@ -222,121 +228,298 @@ The relation $\Downarrow$ relates $(e,C,\sigma,t)\in\Expr\times\Ctx{\Time}\times
 $(V,\sigma,t)\in(\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time$.
 Note that we constrain whether the evaluation relation returns $v\in\Value{\Time}$(when the expression being evaluated is not a module) or $C\in\Ctx{\Time}$ by the definition of the relation.
 
-\begin{prooftree*}
-  \hypo{t_{x}=\addr(C,x)}
-  \hypo{\sigma(t_{x}) = v}
-  \infer[left label=ExprVar]2{
-  (x, C, \sigma, t)
-  \Downarrow
-  (v, \sigma, t)
-  }
-\end{prooftree*}
+\[
+  \begin{prooftree}
+    \hypo{t_{x}=\addr(C,x)}
+    \hypo{\sigma(t_{x}) = v}
+    \infer[left label=ExprVar]2{
+    (x, C, \sigma, t)
+    \Downarrow
+    (v, \sigma, t)
+    }
+  \end{prooftree}\qquad
+  \begin{prooftree}
+    \infer[left label=Fn]0{
+    (\lambda x.e, C, \sigma, t)
+    \Downarrow
+    (\langle\lambda x.e, C\rangle, \sigma, t)
+    }
+  \end{prooftree}
+\]
 
-\begin{prooftree*}
-  \infer[left label=Fn]0{
-  (\lambda x.e, C, \sigma, t)
-  \Downarrow
-  (\langle\lambda x.e, C\rangle, \sigma, t)
-  }
-\end{prooftree*}
-
-\begin{prooftree*}
-  \hypo{
-    \begin{matrix}
-      (e_{1}, C, \sigma, t)
-      \Downarrow
-      (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \sigma_{\lambda}, t_{\lambda}) \\
-      (e_{2}, C, \sigma_{\lambda}, t_{\lambda})
-      \Downarrow
-      (v, \sigma_{a}, t_{a})                                                            \\
-      (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \sigma_{a}[t_{a}\mapsto(v, C_{a})], \tick\:C\:\sigma_{a}\:t_{a}\:x\:v)
-      \Downarrow
-      (v', \sigma',t')
-    \end{matrix}
-  }
-  \infer[left label={App}]1{
-  (e_{1}\:e_{2}, C, \sigma, t)
-  \Downarrow
-  (v', \sigma',t')
-  }
-\end{prooftree*}
-
-\begin{prooftree*}
-  \hypo{
-    \begin{matrix}
-      (e_{1}, C, \sigma, t)
-      \Downarrow
-      (C', \sigma', t') \\
-      (e_{2}, C', \sigma', t')
-      \Downarrow
-      (V, \sigma'', t'')
-    \end{matrix}
-  }
-  \infer[left label=Linking]1{
-  (\link{e_{1}}{e_{2}}, C, \sigma, t)
-  \Downarrow
-  (V, \sigma'', t'')
-  }
-\end{prooftree*}
+\[
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, C, \sigma, t)
+        \Downarrow
+        (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \sigma_{\lambda}, t_{\lambda}) \\
+        (e_{2}, C, \sigma_{\lambda}, t_{\lambda})
+        \Downarrow
+        (v, \sigma_{a}, t_{a})                                                            \\
+        (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \sigma_{a}[t_{a}\mapsto v], \tick\:C\:\sigma_{a}\:t_{a}\:x\:v)
+        \Downarrow
+        (v', \sigma',t')
+      \end{matrix}
+    }
+    \infer[left label={App}]1{
+    (e_{1}\:e_{2}, C, \sigma, t)
+    \Downarrow
+    (v', \sigma',t')
+    }
+  \end{prooftree}\qquad
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, C, \sigma, t)
+        \Downarrow
+        (C', \sigma', t') \\
+        (e_{2}, C', \sigma', t')
+        \Downarrow
+        (V, \sigma'', t'')
+      \end{matrix}
+    }
+    \infer[left label=Linking]1{
+    (\link{e_{1}}{e_{2}}, C, \sigma, t)
+    \Downarrow
+    (V, \sigma'', t'')
+    }
+  \end{prooftree}
+\]
 Note that we do not constrain whether $v$ or $C$ is returned by $e_{2}$ in the linking case.
 That is, linking may return either values or modules.
 
-\begin{prooftree*}
-  \infer[left label=Empty]0{
-  (\varepsilon, C, \sigma, t)
-  \Downarrow
-  (C, \sigma, t)
-  }
-\end{prooftree*}
+\[
+  \begin{prooftree}
+    \infer[left label=Empty]0{
+    (\varepsilon, C, \sigma, t)
+    \Downarrow
+    (C, \sigma, t)
+    }
+  \end{prooftree}\qquad
+  \begin{prooftree}
+    \hypo{C'=\modctx(C,M)}
+    \infer[left label=ModVar]1{
+    (M, C, \sigma, t)
+    \Downarrow
+    (C', \sigma, t)
+    }
+  \end{prooftree}
+\]
 
-\begin{prooftree*}
-  \hypo{C'=\modctx(C,M)}
-  \infer[left label=ModVar]1{
-  (M, C, \sigma, t)
-  \Downarrow
-  (C', \sigma, t)
-  }
-\end{prooftree*}
+\[
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, C, \sigma, t)
+        \Downarrow
+        (v, \sigma', t') \\
+        (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \sigma'[t'\mapsto v], \tick\:C\:\sigma'\:t'\:x\:v)
+        \Downarrow
+        (C', \sigma'', t'')
+      \end{matrix}
+    }
+    \infer[left label=LetE]1{
+    (\mathtt{let}\:x\:e_1\:e_2, C, \sigma, t)
+    \Downarrow
+    (C', \sigma'', t'')
+    }
+  \end{prooftree}\qquad
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, C, \sigma, t)
+        \Downarrow
+        (C', \sigma', t') \\
+        (e_{2}, C[\mathtt{let}\:M\:C'\:[]], \sigma', t')
+        \Downarrow
+        (C'', \sigma'', t'')
+      \end{matrix}
+    }
+    \infer[left label=LetM]1{
+    (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \sigma, t)
+    \Downarrow
+    (C'', \sigma'', t'')
+    }
+  \end{prooftree}
+\]
 
-\begin{prooftree*}
-  \hypo{
-    \begin{matrix}
-      (e_{1}, C, \sigma, t)
-      \Downarrow
-      (v, \sigma', t') \\
-      (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \sigma'[t'\mapsto v], \tick\:C\:\sigma'\:t'\:x\:v)
-      \Downarrow
-      (C', \sigma'', t'')
-    \end{matrix}
-  }
-  \infer[left label=LetE]1{
-  (\mathtt{let}\:x\:e_1\:e_2, C, \sigma, t)
-  \Downarrow
-  (C', \sigma'', t'')
-  }
-\end{prooftree*}
-
-\begin{prooftree*}
-  \hypo{
-    \begin{matrix}
-      (e_{1}, C, \sigma, t)
-      \Downarrow
-      (C', \sigma', t') \\
-      (e_{2}, C[\mathtt{let}\:M\:C'\:[]], \sigma', t')
-      \Downarrow
-      (C'', \sigma'', t'')
-    \end{matrix}
-  }
-  \infer[left label=LetM]1{
-  (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \sigma, t)
-  \Downarrow
-  (C'', \sigma'', t'')
-  }
-\end{prooftree*}
+The equivalence of the evaluation relation with a reference interpreter is formalized in Coq.
 
 \section{Collecting Semantics}
 
-We want to enable separate analysis without making any assumptions 
+To describe what happens when an expression $e$ is excecuted under the context $C$, memory $\sigma$ and initial time $t$, we need to collect all \emph{reachable states} starting from $(e,C,\sigma,t)$ and all values that are returned by the reachable states.
+We first define the reachability relation $\rightsquigarrow$.
+
+\[
+  \begin{prooftree}
+    \infer[left label={Refl}]0{
+    (e, C, \sigma, t)
+    \rightsquigarrow
+    (e, C, \sigma, t)
+    }
+  \end{prooftree}\qquad
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, C, \sigma, t)
+        \rightsquigarrow
+        (e',C',\sigma',t')
+      \end{matrix}
+    }
+    \infer[left label={AppL}]1{
+    (e_{1}\:e_{2}, C, \sigma, t)
+    \rightsquigarrow
+    (e',C', \sigma',t')
+    }
+  \end{prooftree}
+\]
+
+\[
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, C, \sigma, t)
+        \Downarrow
+        (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \sigma_{\lambda}, t_{\lambda}) \\
+        (e_{2}, C, \sigma_{\lambda}, t_{\lambda})
+        \rightsquigarrow
+        (e', C', \sigma', t')
+      \end{matrix}
+    }
+    \infer[left label={AppR}]1{
+    (e_{1}\:e_{2}, C, \sigma, t)
+    \rightsquigarrow
+    (e', C', \sigma',t')
+    }
+  \end{prooftree}\qquad
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, C, \sigma, t)
+        \Downarrow
+        (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \sigma_{\lambda}, t_{\lambda}) \\
+        (e_{2}, C, \sigma_{\lambda}, t_{\lambda})
+        \Downarrow
+        (v, \sigma_{a}, t_{a})                                                            \\
+        (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \sigma_{a}[t_{a}\mapsto v], \tick\:C\:\sigma_{a}\:t_{a}\:x\:v)
+        \rightsquigarrow
+        (e', C', \sigma',t')
+      \end{matrix}
+    }
+    \infer[left label={AppBody}]1{
+    (e_{1}\:e_{2}, C, \sigma, t)
+    \rightsquigarrow
+    (e', C', \sigma',t')
+    }
+  \end{prooftree}
+\]
+
+\[
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, C, \sigma, t)
+        \rightsquigarrow
+        (e', C', \sigma', t')
+      \end{matrix}
+    }
+    \infer[left label=LinkL]1{
+    (\link{e_{1}}{e_{2}}, C, \sigma, t)
+    \rightsquigarrow
+    (e', C', \sigma', t')
+    }
+  \end{prooftree}\qquad
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, C, \sigma, t)
+        \Downarrow
+        (C', \sigma', t') \\
+        (e_{2}, C', \sigma', t')
+        \rightsquigarrow
+        (e'', C'', \sigma'', t'')
+      \end{matrix}
+    }
+    \infer[left label=LinkR]1{
+    (\link{e_{1}}{e_{2}}, C, \sigma, t)
+    \rightsquigarrow
+    (e'', C'', \sigma'', t'')
+    }
+  \end{prooftree}
+\]
+
+\[
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, C, \sigma, t)
+        \rightsquigarrow
+        (e', C', \sigma', t')
+      \end{matrix}
+    }
+    \infer[left label=LetEL]1{
+    (\mathtt{let}\:x\:e_1\:e_2, C, \sigma, t)
+    \rightsquigarrow
+    (e', C', \sigma', t')
+    }
+  \end{prooftree}\quad
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, C, \sigma, t)
+        \Downarrow
+        (v, \sigma', t') \\
+        (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \sigma'[t'\mapsto v], \tick\:C\:\sigma'\:t'\:x\:v)
+        \rightsquigarrow
+        (e'', C'', \sigma'', t'')
+      \end{matrix}
+    }
+    \infer[left label=LetER]1{
+    (\mathtt{let}\:x\:e_1\:e_2, C, \sigma, t)
+    \rightsquigarrow
+    (e'', C'', \sigma'', t'')
+    }
+  \end{prooftree}
+\]
+
+\[
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, C, \sigma, t)
+        \rightsquigarrow
+        (e', C', \sigma', t')
+      \end{matrix}
+    }
+    \infer[left label=LetML]1{
+    (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \sigma, t)
+    \rightsquigarrow
+    (e', C', \sigma', t')
+    }
+  \end{prooftree}\qquad
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, C, \sigma, t)
+        \Downarrow
+        (C', \sigma', t') \\
+        (e_{2}, C[\mathtt{let}\:M\:C'\:[]], \sigma', t')
+        \rightsquigarrow
+        (e'', C'', \sigma'', t'')
+      \end{matrix}
+    }
+    \infer[left label=LetMR]1{
+    (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \sigma, t)
+    \rightsquigarrow
+    (e'', C'', \sigma'', t'')
+    }
+  \end{prooftree}
+\]
+
+We want to enable separate analysis without making any assumptions on the free variables.
+That is, there may be stuck states because the value of free variables are not known in the given context.
+Since we want to collect the most precise information that describes the execution of the program, we have to collect both the stuck and resolved states.
 
 \begin{definition}[Reachable stuck states]
   \[
@@ -346,7 +529,7 @@ We want to enable separate analysis without making any assumptions
 
 \begin{definition}[Reachable resolved states]
   \[
-    \Resolved{e}(C,\sigma,t)\triangleq\{((e',C',\sigma',t'),(v,\sigma'',t''))|(e,C,\sigma,t)\rightsquigarrow(e',C',\sigma',t')\wedge(e',C'\sigma',t')\Downarrow(v,\sigma'',t'')\}
+    \Resolved{e}(C,\sigma,t)\triangleq\{((e',C',\sigma',t'),(V,\sigma'',t''))|(e,C,\sigma,t)\rightsquigarrow(e',C',\sigma',t')\wedge(e',C'\sigma',t')\Downarrow(V,\sigma'',t'')\}
   \]
 \end{definition}
 
@@ -357,25 +540,193 @@ We want to enable separate analysis without making any assumptions
   \]
 \end{definition}
 
+To justify separate analysis, we first decompose the collecting semantics of the linking expression into a composition of the semantics of the left and right expressions.
 \begin{lem}[Separation of linking, resolved part]
   \[
     \Resolved{\link{e_1}{e_2}}(C,\sigma,t)=
-    \Resolved{e_1}(C,\sigma,t)\cup\left(\bigcup_{(e_1,C,\sigma,t)\Downarrow(C',\sigma',t')}{\Resolved{e_2}(C',\sigma',t')}\right)
+    \Resolved{e_1}(C,\sigma,t)\cup\bigcup_{(e_1,C,\sigma,t)\Downarrow(C',\sigma',t')}{(\Resolved{e_2}(C',\sigma',t')\cup\underbrace{\{((\link{e_1}{e_2}, C, \sigma, t), (V,\sigma'',t''))|(e_{2},C',\sigma',t')\Downarrow(V,\sigma'',t'')\}}_{\text{The final evaluation}})}
   \]
 \end{lem}
 
 \begin{lem}[Separation of linking, stuck part]
-  \[
-    \Stuck{\link{e_1}{e_2}}(C,\sigma,t)=
-    \Stuck{e_1}(C,\sigma,t)\cup\left(\bigcup_{(e_1,C,\sigma,t)\Downarrow(C',\sigma',t')}{\Stuck{e_2}(C',\sigma',t')}\right)
-  \]
+  \begin{align*}
+    \Stuck{\link{e_1}{e_2}}(C,\sigma,t)= &
+    \Stuck{e_1}(C,\sigma,t)\cup\bigcup_{(e_1,C,\sigma,t)\Downarrow(C',\sigma',t')}{\Stuck{e_2}(C',\sigma',t')}                                                                                                           \\
+                                         & \cup \{(\link{e_1}{e_2}, C, \sigma, t)|\forall C',\sigma',t':\: (e_{1},C,\sigma,t)\Downarrow(C',\sigma',t') \Rightarrow(e_{2},C',\sigma',t')\in\Stuck{e_{2}}(C',\sigma',t')\}
+  \end{align*}
 \end{lem}
 
-Now we only need a way to calculate $\sembracket{e_{2}}(C',\sigma',t')$ by utilizing the separately analyzed $\sembracket{e_{2}}([],\varnothing,t_{0})$.
+Now we only need a way to calculate $\sembracket{e_{2}}(C',\sigma',t')$ by utilizing the separately calculated $\sembracket{e_{2}}([],\varnothing,t_{0})$.
+The problem here is that when we calculate the two modules separately, we cannot enforce the order of the time component of each component.
+The order is important, because the \emph{equivalence} of the concrete semantics depends on the fact that the $\tick$ function always generates a fresh timestamp larger than the times in the context and in the memory.
+The notion of equivalence between concrete configurations and the notion of soundness between the concrete and abstract configurations is essential in developing a formal guarantee that our modular separate analysis does generate some sound abstract state.
 
+\begin{definition}[Domain of a configuration]
+  We define the domain of a configuration given by $C, \sigma, t$ to be
+  \[
+    \mathsf{Dom}(C,\sigma,t)\triangleq\{t'|t'\in C\lor t'\in\mathsf{Dom}(\sigma)\lor t' = t\}
+  \]
+\end{definition}
 
+\begin{definition}[Equivalence between concrete configurations]
+  $\:$
+
+  \begin{enumerate}
+    \item Let $(\Time,\le,\tick)$ and $(\Time',\le',\tick')$ be two concrete times.
+    \item Let $(C,\sigma,t)$ be a configuration in the first time domain and $(C',\sigma',t')$ be a configuration in the second time domain.
+  \end{enumerate}
+  The two configurations are equivalent if there exists a strictly increasing function $f\in\mathsf{Dom}(C,\sigma,t)\rightarrow\mathsf{Dom}(C',\sigma',t')$ that translates $(C,\sigma,t)$ into $(C',\sigma',t')$.
+  \begin{align*}
+    (C,\sigma,t)\equiv(C',\sigma',t')\triangleq\exists f\in\mathsf{Dom}(C,\sigma,t)\rightarrow\mathsf{Dom}(C',\sigma',t'): & \forall t_{1},t_{2}: t_{1} < t_{2} \Rightarrow f(t_{1}) < f(t_{2})\:\wedge \\
+                                                                                                                           & f(C)= C' \wedge f(t) = t' \wedge f\circ\sigma = \sigma'\circ f
+  \end{align*}
+\end{definition}
+
+We can prove that this relation indeed defines an equivalence relation, since such a function $f$ automatically becomes a bijection between the two domains.
+
+\begin{lem}[Preservation of equivalence]
+  $\:$
+
+  \begin{enumerate}
+    \item Let $(\Time,\le,\tick)$ and $(\Time',\le',\tick')$ be two concrete times.
+    \item Let $(C,\sigma,t)$ be a configuration in the first time domain and $(C',\sigma',t')$ be a configuration in the second time domain.
+    \item Let all timestamps in $C$ and $\sigma$ be strictly less than $t$.
+    \item Let $(C,\sigma,t)\equiv (C',\sigma',t')$.
+  \end{enumerate}
+
+  Then for each $e$, if $(e,C,\sigma,t)\Downarrow(V,\sigma'',t'')$, there exists $V',\sigma''',t'''$ such that $(e,C',\sigma',t')\Downarrow(V',\sigma''',t''')$ and $(V,\sigma'',t'')\equiv(V',\sigma''',t''')$, when the equivalence between values are defined similarly to the equivalence between configurations.
+  Likewise, if $(e,C,\sigma,t)\rightsquigarrow(e',C'',\sigma'',t'')$, there exists $C''',\sigma''',t'''$ such that $(e,C',\sigma',t')\rightsquigarrow(e',C''',\sigma''',t''')$ and $(C'',\sigma'',t'')\equiv(C''',\sigma''',t''')$.
+\end{lem}
+
+Now we need to define a concrete time on $\Time+\Time'$, when the first time domain exports $C',\sigma'$ to the second time domain.
+What we want to prove that is: $(C',\sigma',t')\equiv(C',\sigma',t_{0})$, when the first configuration is in $\Time$ and the second configuration is in $\Time+\Time'$, with $t_{0}$ being the initial time in $\Time'$.
+Then the reachable states from $(e_{2},C',\sigma',t_{0})$ under the added domain are equivalent to the reachable states from $(e_{2},C',\sigma',t')$.
+Thus, because we can obtain a subset of the reachable states from $(e_{2},C',\sigma',t_{0})$ by simply \emph{injecting} $C'$ and $\sigma'$ into the reachable states obtained from $\sembracket{e_{2}}([],\varnothing,t_{0})$, we can compute a set \textit{equivalent to} $\sembracket{e_{2}}(C',\sigma',t')$ starting from the \emph{separately analyzed} results.
+
+Before elaborating on how to link the time domains, we need to define the injection and deletion operators that inject the exported context into the separately analyzed results.
+The notation for injecting $C_{1}$ into $C_{2}$ is $\inject{C_{1}}{C_{2}}$, similar to the plugin operator defined above.
+
+\[
+  \mapinject(C_{1},C_{2})\triangleq
+  \begin{cases}
+    []                                                          & (C_{2}=[])                \\
+    \lambda x^{t}. \mapinject(C_{1},C')                         & (C_{2}=\lambda x^{t}. C') \\
+    \Let\:x^{t}\:\mapinject(C_{1},C')                           & (C_{2}=\Let\:x^{t}\:C')   \\
+    \Let\:M\:C_{1}[\mapinject(C_{1},C')]\:\mapinject(C_{1},C'') & (C_{2}=\Let\:M\:C'\:C'')
+  \end{cases}
+\]
+
+\[
+  \inject{C_{1}}{C_{2}}\triangleq C_{1}[\mapinject(C_{1},C_{2})]
+\]
+We extend the injection operator to automatically map over closures in a memory so that $\inject{C}{\sigma}$ can be defined naturally.
+
+\[
+  \deletepre(C_{1},C_{2})\triangleq
+  \begin{cases}
+    \deletepre(C_{1}',C_{2}') & ((C_{1},C_{2})=(\lambda x^{t}.C_{1}',\lambda x^{t}.C_{2}')) \\
+    \deletepre(C_{1}',C_{2}') & ((C_{1},C_{2})=(\Let\: x^{t}\:C_{1}',\Let\:x^{t}\:C_{2}'))  \\
+    \deletepre(C_{1}',C_{2}') & ((C_{1},C_{2})=(\Let\:M\:C'\:C_{1}',\Let\:M\:C'\:C_{2}'))   \\
+    C_{2}                     & (\text{otherwise})
+  \end{cases}
+\]
+
+\[
+  \deletemap(C_{1},C_{2})\triangleq
+  \begin{cases}
+    []                                                                     & (C_{2}=[])               \\
+    \lambda x^{t}.\deletemap(C_{1},C')                                     & (C_{2}=\lambda x^{t}.C') \\
+    \Let\:x^{t}\:\deletemap(C_{1},C')                                      & (C_{2}=\Let\:x^{t}\:C')  \\
+    \Let\:M\:\deletemap(C_{1},\deletepre(C_{1},C'))\:\deletemap(C_{1},C'') & (C_{2}=\Let\:M\:C'\:C'')
+  \end{cases}
+\]
+
+\[
+  \delete(C_{1},C_{2})\triangleq \deletemap(C_{1},\deletepre(C_{1},C_{2}))
+\]
+The deletion operation has the expected property that $\delete(C,\inject{C}{C'})=C'$.
+
+Finally, before delving into the definition of the linked time domain, we need to define a filter function that filters the context and memory by membership in each time domain.
+
+\[
+  \filter(C,\Time)\triangleq
+  \begin{cases}
+    []                                             & (C=[])                                   \\
+    \lambda x^{t}.\filter(C',\Time)                & (C=\lambda x^{t}.C'\wedge t\in\Time)     \\
+    \Let\:x^{t}\:\filter(C',\Time)                 & (C=\Let\:x^{t}\:C'\wedge t\in\Time)      \\
+    \Let\:M\:\filter(C',\Time)\:\filter(C'',\Time) & (C=\Let\:M\:C'\:C'')                     \\
+    \filter(C',\Time)                              & (C=\lambda x^{t}.C'\wedge t\not\in\Time) \\
+    \filter(C',\Time)                              & (C=\Let\:x^{t}\:C'\wedge t\not\in\Time)
+  \end{cases}
+\]
+
+\[
+  \filter(\sigma,\Time)\triangleq
+  \lambda t\in\Time.\mathsf{let}\:\langle\lambda x.e,C\rangle\coloneq\sigma(t)\:\mathsf{in}\:\langle\lambda x.e,\filter(C,\Time)\rangle
+\]
+
+\begin{lem}[Linking of time domains]
+  $\:$
+
+  \begin{enumerate}
+    \item Let $(\Time,\le,\tick)$ and $(\Time',\le',\tick')$ be two concrete times.
+    \item Let $C_{0}\in\Ctx{\Time}$ be the injected context.
+    \item Define the $\le_{+}$ order by
+          \[
+            t \le_{+} t' \triangleq
+            \begin{cases}
+              t \le t'     & (t,t'\in\Time)          \\
+              t \le' t'    & (t,t'\in\Time')         \\
+              \text{True}  & (t\in\Time,t'\in\Time') \\
+              \text{False} & (t\in\Time',t'\in\Time)
+            \end{cases}
+          \]
+    \item Define the $\tick_{+}$ function so that the timestamps produced from the \emph{injected} context and state are exactly the timestamps produced before injection.
+          \[
+            \tick_{+}(C,\sigma,t,x,v)\triangleq
+            \begin{cases}
+              \tick(\filter(C,\Time),\filter(\sigma,\Time),t,x,\filter(v,\Time))                                            & (t\in\Time)  \\
+              \tick'(\filter(\delete(C_0,C),\Time'),\filter(\delete(C_0,\sigma),\Time'),t,x,\filter(\delete(C_0,v),\Time')) & (t\in\Time')
+            \end{cases}
+          \]
+  \end{enumerate}
+
+  Then $(\Time+\Time',\le_{+},\tick_{+})$ is a concrete time.
+\end{lem}
+
+\begin{lem}[Preservation of timestamps under linked time]
+  $\:$
+
+  \begin{enumerate}
+    \item Let $(\Time,\le,\tick)$ and $(\Time',\le',\tick')$ be two concrete times.
+    \item Let $C_{0}\in\Ctx{\Time}$ be the injected context.
+    \item Let $\sigma_{0}\in\Mem{\Time}$ be the injected memory, and let
+          \[
+            \sigma;\sigma_{0}\triangleq\lambda t.
+            \begin{cases}
+              \sigma(t)     & (t\in\Time') \\
+              \sigma_{0}(t) & (t\in\Time)
+            \end{cases}
+          \]
+          for $\sigma\in\Mem{\Time'}$.
+  \end{enumerate}
+
+  Now, if $(e,C,\sigma,t)\Downarrow(V,\sigma',t')$ under $\Time'$, then
+  $(e,\inject{C_0}{C},\inject{C_0}{\sigma};\sigma_{0},t)\Downarrow(\inject{C_0}{V},\inject{C_0}{\sigma};\sigma_0,t')$ under $\Time+\Time'$.
+
+  Likewise, if $(e,C,\sigma,t)\rightsquigarrow(e',C',\sigma',t')$ under $\Time'$, then
+  $(e,\inject{C_0}{C},\inject{C_0}{\sigma};\sigma_{0},t)\rightsquigarrow(e',\inject{C_0}{C'},\inject{C_0}{\sigma};\sigma_0,t')$ under $\Time+\Time'$.
+\end{lem}
 
 \begin{lem}[Separate analysis]
+
+\end{lem}
+
+\section{Abstract Semantics}
+\begin{definition}[Soundness]
+\end{definition}
+
+\begin{lem}[Equivalence preserves soundness]
 \end{lem}
 
 \printbibliography
