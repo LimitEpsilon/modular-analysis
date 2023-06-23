@@ -523,7 +523,7 @@ Since we want to collect the most precise information that describes the executi
 
 \begin{definition}[Reachable stuck states]
   \[
-    \Stuck{e}(C,\sigma,t)\triangleq\{(e',C',\sigma,t')|(e,C,\sigma,t)\rightsquigarrow(e',C',\sigma',t')\wedge\forall v,\sigma'',t'',\lnot((e',C'\sigma',t')\Downarrow(v,\sigma'',t''))\}
+    \Stuck{e}(C,\sigma,t)\triangleq\{(e',C',\sigma,t')|(e,C,\sigma,t)\rightsquigarrow(e',C',\sigma',t')\wedge\forall V,\sigma'',t'':\lnot((e',C'\sigma',t')\Downarrow(V,\sigma'',t''))\}
   \]
 \end{definition}
 
@@ -549,11 +549,14 @@ To justify separate analysis, we first decompose the collecting semantics of the
 \end{lem}
 
 \begin{lem}[Separation of linking, stuck part]
-  \begin{align*}
-    \Stuck{\link{e_1}{e_2}}(C,\sigma,t)= &
-    \Stuck{e_1}(C,\sigma,t)\cup\bigcup_{(e_1,C,\sigma,t)\Downarrow(C',\sigma',t')}{\Stuck{e_2}(C',\sigma',t')}                                                                                                           \\
-                                         & \cup \{(\link{e_1}{e_2}, C, \sigma, t)|\forall C',\sigma',t':\: (e_{1},C,\sigma,t)\Downarrow(C',\sigma',t') \Rightarrow(e_{2},C',\sigma',t')\in\Stuck{e_{2}}(C',\sigma',t')\}
-  \end{align*}
+  $\:$
+
+  \begin{itemize}
+    \item Let $E\triangleq\{(C',\sigma',t')|(e_{1},C,\sigma,t)\Downarrow(C',\sigma',t')\}$(exported configurations).
+  \end{itemize}
+  \[
+    \Stuck{\link{e_1}{e_2}}(C,\sigma,t)= \Stuck{e_1}(C,\sigma,t)\cup\bigcup_{(C',\sigma',t')\in E}{\Stuck{e_2}(C',\sigma',t')}\cup \underbrace{\{(\link{e_1}{e_2}, C, \sigma, t)|\forall (C',\sigma',t')\in E:(e_{2},C',\sigma',t')\in\Stuck{e_{2}}(C',\sigma',t')\}}_{\text{When there is no context that resolves }e_{2}}
+  \]
 \end{lem}
 
 Now we only need a way to calculate $\sembracket{e_{2}}(C',\sigma',t')$ by utilizing the separately calculated $\sembracket{e_{2}}([],\varnothing,t_{0})$.
@@ -571,30 +574,39 @@ The notion of equivalence between concrete configurations and the notion of soun
 \begin{definition}[Equivalence between concrete configurations]
   $\:$
 
-  \begin{enumerate}
+  \begin{itemize}
     \item Let $(\Time,\le,\tick)$ and $(\Time',\le',\tick')$ be two concrete times.
     \item Let $(C,\sigma,t)$ be a configuration in the first time domain and $(C',\sigma',t')$ be a configuration in the second time domain.
-  \end{enumerate}
+  \end{itemize}
   The two configurations are equivalent if there exists a strictly increasing function $f\in\mathsf{Dom}(C,\sigma,t)\rightarrow\mathsf{Dom}(C',\sigma',t')$ that translates $(C,\sigma,t)$ into $(C',\sigma',t')$.
-  \begin{align*}
-    (C,\sigma,t)\equiv(C',\sigma',t')\triangleq\exists f\in\mathsf{Dom}(C,\sigma,t)\rightarrow\mathsf{Dom}(C',\sigma',t'): & \forall t_{1},t_{2}: t_{1} < t_{2} \Rightarrow f(t_{1}) < f(t_{2})\:\wedge \\
-                                                                                                                           & f(C)= C' \wedge f(t) = t' \wedge f\circ\sigma = \sigma'\circ f
-  \end{align*}
+  \[
+    (C,\sigma,t)\equiv(C',\sigma',t')\triangleq\exists f\in\mathsf{Dom}(C,\sigma,t)\rightarrow\mathsf{Dom}(C',\sigma',t'): f\text{ strictly increases}\wedge f(C)= C' \wedge f(t) = t' \wedge f\circ\sigma = \sigma'\circ f
+  \]
+
+  Furthermore, we extend the definition of $\equiv$ to a relation between $(\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time$ and $(\Value{\Time'}+\Ctx{\Time'})\times\Mem{\Time'}\times\Time'$ to mean that
+  \[
+    (V,\sigma,t)\equiv(V',\sigma',t')\triangleq
+    \begin{cases}
+      x=x'\wedge e=e'\wedge (C,\sigma,t)\equiv(C',\sigma',t') & (V=\langle\lambda x.e,C\rangle\wedge V'=\langle\lambda x'.e',C'\rangle) \\
+      (C,\sigma,t)\equiv(C',\sigma',t')                       & (V=C\wedge V'=C')                                                       \\
+      \text{False}                                            & (\text{otherwise})
+    \end{cases}
+  \]
 \end{definition}
 
-We can prove that this relation indeed defines an equivalence relation, since such a function $f$ automatically becomes a bijection between the two domains.
+We can prove that this relation indeed defines an equivalence relation, since such a function $f$ automatically becomes a bijection between $\mathsf{Dom}(C,\sigma,t)$ and $\mathsf{Dom}(C',\sigma',t')$.
 
 \begin{lem}[Preservation of equivalence]
   $\:$
 
-  \begin{enumerate}
+  \begin{itemize}
     \item Let $(\Time,\le,\tick)$ and $(\Time',\le',\tick')$ be two concrete times.
     \item Let $(C,\sigma,t)$ be a configuration in the first time domain and $(C',\sigma',t')$ be a configuration in the second time domain.
     \item Let all timestamps in $C$ and $\sigma$ be strictly less than $t$.
     \item Let $(C,\sigma,t)\equiv (C',\sigma',t')$.
-  \end{enumerate}
+  \end{itemize}
 
-  Then for each $e$, if $(e,C,\sigma,t)\Downarrow(V,\sigma'',t'')$, there exists $V',\sigma''',t'''$ such that $(e,C',\sigma',t')\Downarrow(V',\sigma''',t''')$ and $(V,\sigma'',t'')\equiv(V',\sigma''',t''')$, when the equivalence between values are defined similarly to the equivalence between configurations.
+  Then for all $e$, if $(e,C,\sigma,t)\Downarrow(V,\sigma'',t'')$, there exists $V',\sigma''',t'''$ such that $(e,C',\sigma',t')\Downarrow(V',\sigma''',t''')$ and $(V,\sigma'',t'')\equiv(V',\sigma''',t''')$.
   Likewise, if $(e,C,\sigma,t)\rightsquigarrow(e',C'',\sigma'',t'')$, there exists $C''',\sigma''',t'''$ such that $(e,C',\sigma',t')\rightsquigarrow(e',C''',\sigma''',t''')$ and $(C'',\sigma'',t'')\equiv(C''',\sigma''',t''')$.
 \end{lem}
 
@@ -619,7 +631,7 @@ The notation for injecting $C_{1}$ into $C_{2}$ is $\inject{C_{1}}{C_{2}}$, simi
 \[
   \inject{C_{1}}{C_{2}}\triangleq C_{1}[\mapinject(C_{1},C_{2})]
 \]
-We extend the injection operator to automatically map over closures in a memory so that $\inject{C}{\sigma}$ can be defined naturally.
+We extend the injection operator to map over all closures in a memory so that $\inject{C}{\sigma}$ can be defined naturally.
 
 \[
   \deletepre(C_{1},C_{2})\triangleq
@@ -668,7 +680,7 @@ Finally, before delving into the definition of the linked time domain, we need t
 \begin{lem}[Linking of time domains]
   $\:$
 
-  \begin{enumerate}
+  \begin{itemize}
     \item Let $(\Time,\le,\tick)$ and $(\Time',\le',\tick')$ be two concrete times.
     \item Let $C_{0}\in\Ctx{\Time}$ be the injected context.
     \item Define the $\le_{+}$ order by
@@ -689,7 +701,7 @@ Finally, before delving into the definition of the linked time domain, we need t
               \tick'(\filter(\delete(C_0,C),\Time'),\filter(\delete(C_0,\sigma),\Time'),t,x,\filter(\delete(C_0,v),\Time')) & (t\in\Time')
             \end{cases}
           \]
-  \end{enumerate}
+  \end{itemize}
 
   Then $(\Time+\Time',\le_{+},\tick_{+})$ is a concrete time.
 \end{lem}
@@ -697,7 +709,7 @@ Finally, before delving into the definition of the linked time domain, we need t
 \begin{lem}[Preservation of timestamps under linked time]
   $\:$
 
-  \begin{enumerate}
+  \begin{itemize}
     \item Let $(\Time,\le,\tick)$ and $(\Time',\le',\tick')$ be two concrete times.
     \item Let $C_{0}\in\Ctx{\Time}$ be the injected context.
     \item Let $\sigma_{0}\in\Mem{\Time}$ be the injected memory, and let
@@ -709,7 +721,7 @@ Finally, before delving into the definition of the linked time domain, we need t
             \end{cases}
           \]
           for $\sigma\in\Mem{\Time'}$.
-  \end{enumerate}
+  \end{itemize}
 
   Now, if $(e,C,\sigma,t)\Downarrow(V,\sigma',t')$ under $\Time'$, then
   $(e,\inject{C_0}{C},\inject{C_0}{\sigma};\sigma_{0},t)\Downarrow(\inject{C_0}{V},\inject{C_0}{\sigma};\sigma_0,t')$ under $\Time+\Time'$.
@@ -718,15 +730,64 @@ Finally, before delving into the definition of the linked time domain, we need t
   $(e,\inject{C_0}{C},\inject{C_0}{\sigma};\sigma_{0},t)\rightsquigarrow(e',\inject{C_0}{C'},\inject{C_0}{\sigma};\sigma_0,t')$ under $\Time+\Time'$.
 \end{lem}
 
-\begin{lem}[Separate analysis]
+\begin{definition}[Subset to an equivalent set]
+  $\:$
 
-\end{lem}
+  \begin{itemize}
+    \item $A\loverbar{\subseteq}B$ in the context when $A,B\in(\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time)$ is defined as
+          \[
+            (e,C,\sigma,t)\in A\Rightarrow \exists C',\sigma',t' : (C,\sigma,t)\equiv(C',\sigma',t')\wedge(e,C',\sigma',t')\in B
+          \]
+    \item $A\loverbar{\subseteq}B$ in the context when $A,B\in(\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time)\times(\Value{\Time}\times\Mem{\Time}\times\Time)$ is defined as
+          \begin{align*}
+            ((e,C,\sigma,t),(V,\sigma',t'))\in A\Rightarrow \exists C',\sigma'',t'',V',\sigma''',t''' : & (C,\sigma,t)\equiv(C',\sigma'',t'')\wedge(V,\sigma',t')\equiv(V',\sigma''',t''')\wedge \\
+                                                                                                        & ((e,C',\sigma'',t''),(V',\sigma''',t'''))\in B
+          \end{align*}
+  \end{itemize}
+\end{definition}
+
+\begin{thm}[Separate analysis] We want to compute $\sembracket{\link{e_{1}}{e_{2}}}(C,\sigma,t)$.
+  $\:$
+
+  \begin{itemize}
+    \item Given $R$ and $S$ that satisfies $\Resolved{e_{1}}(C,\sigma,t)\loverbar{\subseteq} R$ and $\Stuck{e_{1}}(C,\sigma,t)\loverbar{\subseteq} S$,
+    \item Let $E\triangleq\{(C_{0},\sigma_{0},t'')|\exists C',\sigma',t':(C,\sigma,t)\equiv(C',\sigma',t')\wedge((e_{1},C',\sigma',t'),(C_{0},\sigma_{0},t''))\in R\}$(exported configurations).
+    \item Let $R(C_{0},\sigma_{0})\triangleq\{((e_{2},C_{0},\sigma_{0},t_{0}), (\inject{C_{0}}{V},\inject{C_{0}}{\sigma};\sigma_{0},t))|((e_{2},[],\varnothing,t_{0}),(V,\sigma,t))\in\Resolved{e_{2}}([],\varnothing,t_{0})\}$(separate resolved).
+    \item Let $S(C_{0},\sigma_{0})\triangleq\{(e,\inject{C_{0}}{C},\inject{C_{0}}{\sigma};\sigma_{0},t)|(e,C,\sigma,t)\in\Stuck{e_{2}}([],\varnothing,t_{0})\}$(separate stuck).
+    \item Let ${S}_{\rightsquigarrow}(C_{0},\sigma_{0})\triangleq\{(e',C',\sigma',t')|\exists(e,C,\sigma,t)\in S(C_{0},\sigma_{0}):(e,C,\sigma,t)\rightsquigarrow(e',C',\sigma',t')\}$.
+    \item Let $\tilde{R}(C_{0},\sigma_{0})\triangleq\{((e',C',\sigma',t'), (V,\sigma'',t''))|(e',C',\sigma',t')\in{S}_{\rightsquigarrow}(C_{0},\sigma_{0})\wedge(e',C',\sigma',t')\Downarrow(V,\sigma'',t'')\}$.
+    \item Let $\tilde{S}(C_{0},\sigma_{0})\triangleq\{(e',C',\sigma',t')|(e',C',\sigma',t')\in S_{\rightsquigarrow}(C_{0},\sigma_{0})\wedge\forall V,\sigma'',t'':\lnot((e',C',\sigma',t')\Downarrow(V,\sigma'',t''))\}$.
+  \end{itemize}
+
+  We have:
+  \[
+    \Resolved{e_{2}}(C_{0},\sigma_{0},t_{0})=R(C_{0},\sigma_{0})\cup\tilde{R}(C_{0},\sigma_{0})
+  \]
+  \[
+    \Stuck{e_{2}}(C_{0},\sigma_{0},t_{0})=\tilde{S}(C_{0},\sigma_{0})
+  \]
+
+  Thus:
+  \[
+    \Resolved{\link{e_1}{e_2}}(C,\sigma,t)\loverbar{\subseteq}
+    R\cup\bigcup_{(C_{0},\sigma_{0},t')\in E}{(\Resolved{e_2}(C_{0},\sigma_{0},t_{0})\cup\underbrace{\{((\link{e_1}{e_2}, C, \sigma, t), (V,\sigma'',t''))|((e_{2},C_{0},\sigma_{0},t_{0}),(V,\sigma'',t''))\in\Resolved{e_{2}}(C_{0},\sigma_{0},t_{0})\}}_{\text{The final evaluation}})}
+  \]
+  \[
+    \Stuck{\link{e_1}{e_2}}(C,\sigma,t)\loverbar{\subseteq}S\cup\bigcup_{(C_{0},\sigma_{0},t')\in E}{\Stuck{e_2}(C_{0},\sigma_{0},t_{0})}\cup \{(\link{e_1}{e_2}, C, \sigma, t)|\exists (C_{0},\sigma_{0},t')\in E:(e_{2},C_{0},\sigma_{0},t_{0})\in\Stuck{e_{2}}(C_{0},\sigma_{0},t_{0})\}
+  \]
+\end{thm}
 
 \section{Abstract Semantics}
+
+
+
 \begin{definition}[Soundness]
 \end{definition}
 
 \begin{lem}[Equivalence preserves soundness]
+\end{lem}
+
+\begin{lem}[Finiteness of time implies finiteness of abstraction]
 \end{lem}
 
 \printbibliography
