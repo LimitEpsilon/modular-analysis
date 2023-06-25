@@ -67,6 +67,7 @@
 \newcommand*{\ATime}{\mathbb{T}^{\#}}
 \newcommand*{\Ctx}[1]{\text{Ctx}\:{#1}}
 \newcommand*{\Value}[1]{\text{Val}\:{#1}}
+\newcommand*{\AValue}[1]{\text{Val}^{\#}\:{#1}}
 \newcommand*{\Mem}[1]{\text{Mem}\:{#1}}
 \newcommand*{\AMem}[1]{\text{Mem}^{\#}\:{#1}}
 \newcommand*{\link}[2]{{#1}\mathtt{!}{#2}}
@@ -111,8 +112,8 @@ The language is basically an extension of untyped lambda calculus with modules a
   | $\link{e}{e}$ : linked expression
   | $\varepsilon$ : empty module
   | $M$ : identifier, module
-  | \texttt{let} $x$ $e$ $e$ : let-binding, expression
-  | \texttt{let} $M$ $e$ $e$ : let-binding, module
+  | $\Let$ $x$ $e$ $e$ : let-binding, expression
+  | $\Let$ $M$ $e$ $e$ : let-binding, module
 \end{bnfgrammar}
 
 \subsection{Rationale for the design of the simple language}
@@ -163,8 +164,8 @@ Also, we present the notational conventions used in this paper to represent memb
   ;;
   $C$ ::= [] : hole
   | $\lambda x^{t}.C$ : function parameter binding
-  | \texttt{let} $x^{t}$ $C$ : let expression binding
-  | \texttt{let} $M$ $C$ $C$ : let module context binding
+  | $\Let$ $x^{t}$ $C$ : let expression binding
+  | $\Let$ $M$ $C$ $C$ : let module context binding
   ;;
   $v$ ::= $\langle \lambda x.e, C \rangle$ : closure
 \end{bnfgrammar}
@@ -552,7 +553,7 @@ To justify separate analysis, we first decompose the collecting semantics of the
   $\:$
 
   \begin{itemize}
-    \item Let $E\triangleq\{(C',\sigma',t')|(e_{1},C,\sigma,t)\Downarrow(C',\sigma',t')\}$(exported configurations).
+    \item Let $E=\{(C',\sigma',t')|(e_{1},C,\sigma,t)\Downarrow(C',\sigma',t')\}$(exported configurations).
   \end{itemize}
   \[
     \Stuck{\link{e_1}{e_2}}(C,\sigma,t)= \Stuck{e_1}(C,\sigma,t)\cup\bigcup_{(C',\sigma',t')\in E}{\Stuck{e_2}(C',\sigma',t')}\cup \underbrace{\{(\link{e_1}{e_2}, C, \sigma, t)|\forall (C',\sigma',t')\in E:(e_{2},C',\sigma',t')\in\Stuck{e_{2}}(C',\sigma',t')\}}_{\text{When there is no context that resolves }e_{2}}
@@ -602,7 +603,7 @@ We can prove that this relation indeed defines an equivalence relation, since su
   \begin{itemize}
     \item Let $(\Time,\le,\tick)$ and $(\Time',\le',\tick')$ be two concrete times.
     \item Let $(C,\sigma,t)$ be a configuration in the first time domain and $(C',\sigma',t')$ be a configuration in the second time domain.
-    \item Let all timestamps in $C$ and $\sigma$ be strictly less than $t$.
+    \item Let all timestamps in $C$ and $\mathsf{Dom}(\sigma)$ be strictly less than $t$.
     \item Let $(C,\sigma,t)\equiv (C',\sigma',t')$.
   \end{itemize}
 
@@ -746,17 +747,17 @@ Finally, before delving into the definition of the linked time domain, we need t
   \end{itemize}
 \end{definition}
 
-\begin{thm}[Separate analysis] We want to compute $\sembracket{\link{e_{1}}{e_{2}}}(C,\sigma,t)$.
+\begin{thm}[Linking of collected states] We want to compute $\sembracket{\link{e_{1}}{e_{2}}}(C,\sigma,t)$.
   $\:$
 
   \begin{itemize}
     \item Given $R$ and $S$ that satisfies $\Resolved{e_{1}}(C,\sigma,t)\loverbar{\subseteq} R$ and $\Stuck{e_{1}}(C,\sigma,t)\loverbar{\subseteq} S$,
-    \item Let $E\triangleq\{(C_{0},\sigma_{0},t'')|\exists C',\sigma',t':(C,\sigma,t)\equiv(C',\sigma',t')\wedge((e_{1},C',\sigma',t'),(C_{0},\sigma_{0},t''))\in R\}$(exported configurations).
-    \item Let $R(C_{0},\sigma_{0})\triangleq\{((e_{2},C_{0},\sigma_{0},t_{0}), (\inject{C_{0}}{V},\inject{C_{0}}{\sigma};\sigma_{0},t))|((e_{2},[],\varnothing,t_{0}),(V,\sigma,t))\in\Resolved{e_{2}}([],\varnothing,t_{0})\}$(separate resolved).
-    \item Let $S(C_{0},\sigma_{0})\triangleq\{(e,\inject{C_{0}}{C},\inject{C_{0}}{\sigma};\sigma_{0},t)|(e,C,\sigma,t)\in\Stuck{e_{2}}([],\varnothing,t_{0})\}$(separate stuck).
-    \item Let ${S}_{\rightsquigarrow}(C_{0},\sigma_{0})\triangleq\{(e',C',\sigma',t')|\exists(e,C,\sigma,t)\in S(C_{0},\sigma_{0}):(e,C,\sigma,t)\rightsquigarrow(e',C',\sigma',t')\}$.
-    \item Let $\tilde{R}(C_{0},\sigma_{0})\triangleq\{((e',C',\sigma',t'), (V,\sigma'',t''))|(e',C',\sigma',t')\in{S}_{\rightsquigarrow}(C_{0},\sigma_{0})\wedge(e',C',\sigma',t')\Downarrow(V,\sigma'',t'')\}$.
-    \item Let $\tilde{S}(C_{0},\sigma_{0})\triangleq\{(e',C',\sigma',t')|(e',C',\sigma',t')\in S_{\rightsquigarrow}(C_{0},\sigma_{0})\wedge\forall V,\sigma'',t'':\lnot((e',C',\sigma',t')\Downarrow(V,\sigma'',t''))\}$.
+    \item Let $E=\{(C_{0},\sigma_{0},t'')|\exists C',\sigma',t':(C,\sigma,t)\equiv(C',\sigma',t')\wedge((e_{1},C',\sigma',t'),(C_{0},\sigma_{0},t''))\in R\}$(exported configurations).
+    \item Let $R(C_{0},\sigma_{0})=\{((e_{2},C_{0},\sigma_{0},t_{0}), (\inject{C_{0}}{V},\inject{C_{0}}{\sigma};\sigma_{0},t))|((e_{2},[],\varnothing,t_{0}),(V,\sigma,t))\in\Resolved{e_{2}}([],\varnothing,t_{0})\}$(separate resolved).
+    \item Let $S(C_{0},\sigma_{0})=\{(e,\inject{C_{0}}{C},\inject{C_{0}}{\sigma};\sigma_{0},t)|(e,C,\sigma,t)\in\Stuck{e_{2}}([],\varnothing,t_{0})\}$(separate stuck).
+    \item Let ${S}_{\rightsquigarrow}(C_{0},\sigma_{0})=\{(e',C',\sigma',t')|\exists(e,C,\sigma,t)\in S(C_{0},\sigma_{0}):(e,C,\sigma,t)\rightsquigarrow(e',C',\sigma',t')\}$.
+    \item Let $\tilde{R}(C_{0},\sigma_{0})=\{((e',C',\sigma',t'), (V,\sigma'',t''))|(e',C',\sigma',t')\in{S}_{\rightsquigarrow}(C_{0},\sigma_{0})\wedge(e',C',\sigma',t')\Downarrow(V,\sigma'',t'')\}$.
+    \item Let $\tilde{S}(C_{0},\sigma_{0})=\{(e',C',\sigma',t')|(e',C',\sigma',t')\in S_{\rightsquigarrow}(C_{0},\sigma_{0})\wedge\forall V,\sigma'',t'':\lnot((e',C',\sigma',t')\Downarrow(V,\sigma'',t''))\}$.
   \end{itemize}
 
   We have:
@@ -773,13 +774,32 @@ Finally, before delving into the definition of the linked time domain, we need t
     R\cup\bigcup_{(C_{0},\sigma_{0},t')\in E}{(\Resolved{e_2}(C_{0},\sigma_{0},t_{0})\cup\underbrace{\{((\link{e_1}{e_2}, C, \sigma, t), (V,\sigma'',t''))|((e_{2},C_{0},\sigma_{0},t_{0}),(V,\sigma'',t''))\in\Resolved{e_{2}}(C_{0},\sigma_{0},t_{0})\}}_{\text{The final evaluation}})}
   \]
   \[
-    \Stuck{\link{e_1}{e_2}}(C,\sigma,t)\loverbar{\subseteq}S\cup\bigcup_{(C_{0},\sigma_{0},t')\in E}{\Stuck{e_2}(C_{0},\sigma_{0},t_{0})}\cup \{(\link{e_1}{e_2}, C, \sigma, t)|\exists (C_{0},\sigma_{0},t')\in E:(e_{2},C_{0},\sigma_{0},t_{0})\in\Stuck{e_{2}}(C_{0},\sigma_{0},t_{0})\}
+    \Stuck{\link{e_1}{e_2}}(C,\sigma,t)\loverbar{\subseteq}S\cup\bigcup_{(C_{0},\sigma_{0},t')\in E}{\Stuck{e_2}(C_{0},\sigma_{0},t_{0})}\cup \underbrace{\{(\link{e_1}{e_2}, C, \sigma, t)|\exists (C_{0},\sigma_{0},t')\in E:(e_{2},C_{0},\sigma_{0},t_{0})\in\Stuck{e_{2}}(C_{0},\sigma_{0},t_{0})\}}_{\text{There exists an exported configuration that makes }e_{2}\text{ stuck}}
   \]
 \end{thm}
 
 \section{Abstract Semantics}
 
+The abstract semantics is almost exactly the same as the concrete semantics, except for the fact that the memory domain is now a finite map from the abstract time domain to a \emph{set} of abstract values.
 
+\begin{bnfgrammar}
+  $t^{\#}$ : \in \ATime
+  ;;
+  $v^{\#}$ : \in \AValue{\ATime}
+  ;;
+  $C^{\#}$ : \in \Ctx{\ATime}
+  ;;
+  $V^{\#}$ : \in \AValue{\ATime}+\Ctx{\ATime}
+  ;;
+  $\sigma^{\#}$ : \in \AMem{\Time} \triangleq \fin{\ATime}{\wp(\AValue{\ATime})}
+  ;;
+  $C^{\#}$ ::= [] : hole
+  | $\lambda x^{t^{\#}}.C^{\#}$ : function parameter binding
+  | $\Let$ $x^{t^{\#}}$ $C^{\#}$ : let expression binding
+  | $\Let$ $M$ $C^{\#}$ $C^{\#}$ : let module context binding
+  ;;
+  $v^{\#}$ ::= $\langle \lambda x.e, C^{\#} \rangle$ : closure
+\end{bnfgrammar}
 
 \begin{definition}[Soundness]
 \end{definition}
