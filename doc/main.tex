@@ -686,8 +686,8 @@ Finally, before delving into the definition of the linked time domain, we need t
   Now, if $(e,C,\sigma,t)\Downarrow(V,\sigma',t')$ under $\Time'$, then
   $(e,\inject{C_0}{C},\inject{C_0}{\sigma};\sigma_{0},t)\Downarrow(\inject{C_0}{V},\inject{C_0}{\sigma};\sigma_0,t')$ under $\Time+\Time'$.
 
-  Likewise, if $(e,C,\sigma,t)\rightsquigarrow(e',C',\sigma',t')$ under $\Time'$, then
-  $(e,\inject{C_0}{C},\inject{C_0}{\sigma};\sigma_{0},t)\rightsquigarrow(e',\inject{C_0}{C'},\inject{C_0}{\sigma};\sigma_0,t')$ under $\Time+\Time'$.
+  Likewise, if $(e,C,\sigma,t)\rightsquigarrow^{*}(e',C',\sigma',t')$ under $\Time'$, then
+  $(e,\inject{C_0}{C},\inject{C_0}{\sigma};\sigma_{0},t)\rightsquigarrow^{*}(e',\inject{C_0}{C'},\inject{C_0}{\sigma};\sigma_0,t')$ under $\Time+\Time'$.
 \end{lem}
 
 \begin{definition}[Subset to an equivalent set]
@@ -821,11 +821,31 @@ variables can evaluate to any value in $\sigma^{\#}(\addr)$.
 
   \begin{itemize}
     \item Given ${R^{\circ}}^{\#}$ and ${R^{*}}^{\#}$ that satisfies $\Resolved{e_1}(C,\sigma,t)\ovbar{\subseteq}^{\#} {R^{\circ}}^{\#}$ and $\Reach{e_1}(C,\sigma,t)\ovbar{\subseteq}^{\#} {R^{*}}^{\#}$,
-    \item
+    \item Let $\A{E}=\{(\A{C_{0}},\A{\sigma_{0}},\A{t'})|\exists \A{C},\A{\sigma},\A{t}:(C,\sigma,t)\lhd(\A{C},\A{\sigma},\A{t})\wedge((e_{1},\A{C},\A{\sigma},\A{t}),(\A{C_{0}},\A{\sigma_{0}},\A{t'}))\in R^{\circ}\}$.
+    \item Let $\A{R^{\circ}}(\A{C_{0}},\A{\sigma_{0}})=\{((e_{2},\A{C_{0}},\A{\sigma_{0}},\A{t_{0}}), (\inject{\A{C_{0}}}{\A{V}},\inject{\A{C_{0}}}{\A{\sigma}};\A{\sigma_{0}},\A{t}))|((e_{2},[],\varnothing,\A{t_{0}}),(\A{V},\A{\sigma},\A{t}))\in\A{\Resolved{e_{2}}}([],\varnothing,\A{t_{0}})\}$.
+    \item Let $\A{R^{*}}(\A{C_{0}},\A{\sigma_{0}})=\{(e',\inject{\A{C_{0}}}{\A{C}},\inject{\A{C_{0}}}{\A{\sigma}};\A{\sigma_{0}},\A{t})|(e',\A{C},\A{\sigma},\A{t})\in\Reach{e_{2}}([],\varnothing,\A{t_{0}})\}$.
   \end{itemize}
+
+  We have:
+  \[
+    \A{\sembracket{e_{2}}}(\A{C_{0}},\A{\sigma_{0}},\A{t_{0}})=\mathsf{lfp}(\lambda (\A{R^{\circ}}, \A{R^{*}}).\A{\mathcal{F}}(\A{R^{\circ}}\cup \A{R^{\circ}}(\A{C_{0}},\A{\sigma_{0}}), \A{R^{*}}\cup \A{R^{*}}(\A{C_{0}},\A{\sigma_{0}})))
+  \]
+
+  Thus, if we pick some $(\A{C},\A{\sigma},\A{t})$ satisfying $(C,\sigma,t)\lhd(\A{C},\A{\sigma},\A{t})$:
+  \[
+    \Resolved{\link{e_1}{e_2}}(C,\sigma,t)\A{\ovbar{\subseteq}}
+    \A{R^{\circ}}\cup\bigcup_{(\A{C_{0}},\A{\sigma_{0}},\A{t'})\in \A{E}}{(\A{\Resolved{e_2}}(\A{C_{0}},\A{\sigma_{0}},\A{t_{0}})\cup\underbrace{\{((\link{e_1}{e_2}, \A{C}, \A{\sigma}, \A{t}), (\A{V},\A{\sigma'},\A{t'}))|(e_{2},\A{C_{0}},\A{\sigma_{0}},\A{t_{0}})\A{\Downarrow}(\A{V},\A{\sigma'},\A{t'})\}}_{\text{The final evaluation}})}
+  \]
+  \begin{align*}
+    \Reach{\link{e_1}{e_2}}(C,\sigma,t)\A{\ovbar{\subseteq}}\{(\link{e_1}{e_2},\A{C},\A{\sigma},\A{t})\}\cup \A{R^{*}}\cup\bigcup_{(\A{C_{0}},\A{\sigma_{0}},\A{t'})\in \A{E}}{\A{\Reach{e_2}}(\A{C_{0}},\A{\sigma_{0}},\A{t_{0}})}
+  \end{align*}
 \end{thm}
 
 \begin{thm}[Finiteness of time implies finiteness of abstraction]
+  If $\ATime$ is finite,
+  \[
+    \forall e,\A{C},\A{\sigma},\A{t}: |\A{\Resolved{e}}(\A{C},\A{\sigma},\A{t})|<\infty\wedge|\A{\Reach{e}}(\A{C},\A{\sigma},\A{t})|<\infty
+  \]
 \end{thm}
 
 \printbibliography
