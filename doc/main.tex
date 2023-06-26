@@ -57,8 +57,10 @@
 \newcommand*{\ortype}{\mathrel{|}}
 \newcommand*{\cons}{::}
 
-% for complement
-\newcommand{\loverbar}[1]{\mkern 1.5mu\overline{\mkern-1.5mu#1\mkern-1.5mu}\mkern 1.5mu}
+\def\ovbarw{1.2mu}
+\def\ovbarh{0.8}
+\newcommand*{\ovbar}[1]{\mkern \ovbarw\overline{\mkern-\ovbarw{\smash{#1}\scalebox{1}[\ovbarh]{\vphantom{i}}}\mkern-\ovbarw}\mkern \ovbarw}
+\newcommand*{\A}[1]{{#1}^{\#}}
 \newcommand*{\Expr}{\text{Expr}}
 \newcommand*{\ExprVar}{\text{ExprVar}}
 \newcommand*{\Module}{\text{Module}}
@@ -71,7 +73,7 @@
 \newcommand*{\Mem}[1]{\text{Mem}\:{#1}}
 \newcommand*{\AMem}[1]{\text{Mem}^{\#}\:{#1}}
 \newcommand*{\link}[2]{{#1}\mathtt{!}{#2}}
-\newcommand*{\Stuck}[1]{\underline{#1}^{\times}}
+\newcommand*{\Reach}[1]{\underline{#1}^{*}}
 \newcommand*{\Resolved}[1]{\underline{#1}^{\circ}}
 \newcommand*{\sembracket}[1]{\lBrack{#1}\rBrack}
 \newcommand*{\fin}[2]{{#1}\xrightarrow{\text{fin}}{#2}}
@@ -134,7 +136,7 @@ Why this is convenient will be clear when we explain separate analysis; we want 
 \section{Big-Step Operational Semantics}
 
 In this section we give the big-step operational semantics for the dynamic execution of the module language.
-The big-step evaluation relation relates the initial state(memory and time) and configuration(the subexpression being evaluated, and the surrounding dynamic context) with the resulting state and value.
+The big-step evaluation relation relates the initial configuration(context, memory and time) and expression with the resulting value and state.
 
 This relation is nonstandard in that the \emph{environment} that is often used to define closures in the call-by-value dynamics is not a finite map from variables to values.
 Rather, the surrounding \emph{syntactic} context annotated with the \emph{binding times} for the variables serve as the environment.
@@ -350,50 +352,33 @@ The equivalence of the evaluation relation with a reference interpreter is forma
 \section{Collecting Semantics}
 
 To describe what happens when an expression $e$ is excecuted under the context $C$, memory $\sigma$ and initial time $t$, we need to collect all \emph{reachable states} starting from $(e,C,\sigma,t)$ and all values that are returned by the reachable states.
-We first define the reachability relation $\rightsquigarrow$.
+We first define the one-step reachability relation $\rightsquigarrow$.
 
 \[
   \begin{prooftree}
-    \infer[left label={Refl}]0{
-    (e, C, \sigma, t)
+    \infer[left label={AppL}]0{
+    (e_{1}\:e_{2}, C, \sigma, t)
     \rightsquigarrow
-    (e, C, \sigma, t)
+    (e_{1},C, \sigma,t)
     }
   \end{prooftree}\qquad
   \begin{prooftree}
     \hypo{
       \begin{matrix}
         (e_{1}, C, \sigma, t)
-        \rightsquigarrow
-        (e',C',\sigma',t')
-      \end{matrix}
-    }
-    \infer[left label={AppL}]1{
-    (e_{1}\:e_{2}, C, \sigma, t)
-    \rightsquigarrow
-    (e',C', \sigma',t')
-    }
-  \end{prooftree}
-\]
-
-\[
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, C, \sigma, t)
         \Downarrow
-        (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \sigma_{\lambda}, t_{\lambda}) \\
-        (e_{2}, C, \sigma_{\lambda}, t_{\lambda})
-        \rightsquigarrow
-        (e', C', \sigma', t')
+        (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \sigma_{\lambda}, t_{\lambda})
       \end{matrix}
     }
     \infer[left label={AppR}]1{
     (e_{1}\:e_{2}, C, \sigma, t)
     \rightsquigarrow
-    (e', C', \sigma',t')
+    (e_{2}, C, \sigma_{\lambda}, t_{\lambda})
     }
-  \end{prooftree}\qquad
+  \end{prooftree}
+\]
+
+\[
   \begin{prooftree}
     \hypo{
       \begin{matrix}
@@ -402,33 +387,23 @@ We first define the reachability relation $\rightsquigarrow$.
         (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \sigma_{\lambda}, t_{\lambda}) \\
         (e_{2}, C, \sigma_{\lambda}, t_{\lambda})
         \Downarrow
-        (v, \sigma_{a}, t_{a})                                                            \\
-        (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \sigma_{a}[t_{a}\mapsto v], \tick\:C\:\sigma_{a}\:t_{a}\:x\:v)
-        \rightsquigarrow
-        (e', C', \sigma',t')
+        (v, \sigma_{a}, t_{a})
       \end{matrix}
     }
     \infer[left label={AppBody}]1{
     (e_{1}\:e_{2}, C, \sigma, t)
     \rightsquigarrow
-    (e', C', \sigma',t')
+    (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \sigma_{a}[t_{a}\mapsto v], \tick\:C\:\sigma_{a}\:t_{a}\:x\:v)
     }
   \end{prooftree}
 \]
 
 \[
   \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, C, \sigma, t)
-        \rightsquigarrow
-        (e', C', \sigma', t')
-      \end{matrix}
-    }
-    \infer[left label=LinkL]1{
+    \infer[left label=LinkL]0{
     (\link{e_{1}}{e_{2}}, C, \sigma, t)
     \rightsquigarrow
-    (e', C', \sigma', t')
+    (e_{1}, C, \sigma, t)
     }
   \end{prooftree}\qquad
   \begin{prooftree}
@@ -436,67 +411,47 @@ We first define the reachability relation $\rightsquigarrow$.
       \begin{matrix}
         (e_{1}, C, \sigma, t)
         \Downarrow
-        (C', \sigma', t') \\
-        (e_{2}, C', \sigma', t')
-        \rightsquigarrow
-        (e'', C'', \sigma'', t'')
+        (C', \sigma', t')
       \end{matrix}
     }
     \infer[left label=LinkR]1{
     (\link{e_{1}}{e_{2}}, C, \sigma, t)
     \rightsquigarrow
-    (e'', C'', \sigma'', t'')
+    (e_{2}, C', \sigma', t')
     }
   \end{prooftree}
 \]
 
 \[
   \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, C, \sigma, t)
-        \rightsquigarrow
-        (e', C', \sigma', t')
-      \end{matrix}
-    }
-    \infer[left label=LetEL]1{
+    \infer[left label=LetEL]0{
     (\mathtt{let}\:x\:e_1\:e_2, C, \sigma, t)
     \rightsquigarrow
-    (e', C', \sigma', t')
+    (e_{1}, C, \sigma, t)
     }
-  \end{prooftree}\quad
+  \end{prooftree}\:\:
   \begin{prooftree}
     \hypo{
       \begin{matrix}
         (e_{1}, C, \sigma, t)
         \Downarrow
-        (v, \sigma', t') \\
-        (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \sigma'[t'\mapsto v], \tick\:C\:\sigma'\:t'\:x\:v)
-        \rightsquigarrow
-        (e'', C'', \sigma'', t'')
+        (v, \sigma', t')
       \end{matrix}
     }
     \infer[left label=LetER]1{
     (\mathtt{let}\:x\:e_1\:e_2, C, \sigma, t)
     \rightsquigarrow
-    (e'', C'', \sigma'', t'')
+    (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \sigma'[t'\mapsto v], \tick\:C\:\sigma'\:t'\:x\:v)
     }
   \end{prooftree}
 \]
 
 \[
   \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, C, \sigma, t)
-        \rightsquigarrow
-        (e', C', \sigma', t')
-      \end{matrix}
-    }
-    \infer[left label=LetML]1{
+    \infer[left label=LetML]0{
     (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \sigma, t)
     \rightsquigarrow
-    (e', C', \sigma', t')
+    (e_{1}, C, \sigma, t)
     }
   \end{prooftree}\qquad
   \begin{prooftree}
@@ -504,59 +459,63 @@ We first define the reachability relation $\rightsquigarrow$.
       \begin{matrix}
         (e_{1}, C, \sigma, t)
         \Downarrow
-        (C', \sigma', t') \\
-        (e_{2}, C[\mathtt{let}\:M\:C'\:[]], \sigma', t')
-        \rightsquigarrow
-        (e'', C'', \sigma'', t'')
+        (C', \sigma', t')
       \end{matrix}
     }
     \infer[left label=LetMR]1{
     (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \sigma, t)
     \rightsquigarrow
-    (e'', C'', \sigma'', t'')
+    (e_{2}, C[\mathtt{let}\:M\:C'\:[]], \sigma', t')
     }
   \end{prooftree}
 \]
+The well-definedness of the reachability relation with respect to a reference interpreter is formalized in Coq.
 
 We want to enable separate analysis without making any assumptions on the free variables.
 That is, there may be stuck states because the value of free variables are not known in the given context.
-Since we want to collect the most precise information that describes the execution of the program, we have to collect both the stuck and resolved states.
+Since we want to collect the most precise information that describes the execution of the program, we have to collect all reachable states.
+The relation that collects the reachable states $\rightsquigarrow^{*}$ is defined as the reflexive and transitive closure of $\rightsquigarrow$.
 
-\begin{definition}[Reachable stuck states]
+\begin{definition}[Reachable states]
   \[
-    \Stuck{e}(C,\sigma,t)\triangleq\{(e',C',\sigma,t')|(e,C,\sigma,t)\rightsquigarrow(e',C',\sigma',t')\wedge\forall V,\sigma'',t'':\lnot((e',C'\sigma',t')\Downarrow(V,\sigma'',t''))\}
+    \Reach{e}(C,\sigma,t)\triangleq\{(e',C',\sigma,t')| (e,C,\sigma,t)\rightsquigarrow^{*}(e',C',\sigma',t')\}
   \]
 \end{definition}
 
-\begin{definition}[Reachable resolved states]
+\begin{definition}[Resolved states]
   \[
-    \Resolved{e}(C,\sigma,t)\triangleq\{((e',C',\sigma',t'),(V,\sigma'',t''))|(e,C,\sigma,t)\rightsquigarrow(e',C',\sigma',t')\wedge(e',C'\sigma',t')\Downarrow(V,\sigma'',t'')\}
+    \Resolved{e}(C,\sigma,t)\triangleq\{((e',C',\sigma',t'),(V,\sigma'',t''))|(e,C,\sigma,t)\rightsquigarrow^{*}(e',C',\sigma',t')\wedge(e',C'\sigma',t')\Downarrow(V,\sigma'',t'')\}
   \]
 \end{definition}
 
 \begin{definition}[Collecting semantics]
   The semantics for an expression $e$ under context $C$, memory $\sigma$ and time $t$ is:
   \[
-    \sembracket{e}(C,\sigma,t)\triangleq(\Resolved{e}(C,\sigma,t),\Stuck{e}(C,\sigma,t))
+    \sembracket{e}(C,\sigma,t)\triangleq(\Resolved{e}(C,\sigma,t),\Reach{e}(C,\sigma,t))
   \]
 \end{definition}
 
 To justify separate analysis, we first decompose the collecting semantics of the linking expression into a composition of the semantics of the left and right expressions.
 \begin{lem}[Separation of linking, resolved part]
-  \[
-    \Resolved{\link{e_1}{e_2}}(C,\sigma,t)=
-    \Resolved{e_1}(C,\sigma,t)\cup\bigcup_{(e_1,C,\sigma,t)\Downarrow(C',\sigma',t')}{(\Resolved{e_2}(C',\sigma',t')\cup\underbrace{\{((\link{e_1}{e_2}, C, \sigma, t), (V,\sigma'',t''))|(e_{2},C',\sigma',t')\Downarrow(V,\sigma'',t'')\}}_{\text{The final evaluation}})}
-  \]
-\end{lem}
-
-\begin{lem}[Separation of linking, stuck part]
   $\:$
 
   \begin{itemize}
     \item Let $E=\{(C',\sigma',t')|(e_{1},C,\sigma,t)\Downarrow(C',\sigma',t')\}$(exported configurations).
   \end{itemize}
   \[
-    \Stuck{\link{e_1}{e_2}}(C,\sigma,t)= \Stuck{e_1}(C,\sigma,t)\cup\bigcup_{(C',\sigma',t')\in E}{\Stuck{e_2}(C',\sigma',t')}\cup \underbrace{\{(\link{e_1}{e_2}, C, \sigma, t)|\forall (C',\sigma',t')\in E:(e_{2},C',\sigma',t')\in\Stuck{e_{2}}(C',\sigma',t')\}}_{\text{When there is no context that resolves }e_{2}}
+    \Resolved{\link{e_1}{e_2}}(C,\sigma,t)=
+    \Resolved{e_1}(C,\sigma,t)\cup\bigcup_{(C',\sigma',t')\in E}{(\Resolved{e_2}(C',\sigma',t')\cup\underbrace{\{((\link{e_1}{e_2}, C, \sigma, t), (V,\sigma'',t''))|(e_{2},C',\sigma',t')\Downarrow(V,\sigma'',t'')\}}_{\text{The final evaluation}})}
+  \]
+\end{lem}
+
+\begin{lem}[Separation of linking, reached part]
+  $\:$
+
+  \begin{itemize}
+    \item Let $E=\{(C',\sigma',t')|(e_{1},C,\sigma,t)\Downarrow(C',\sigma',t')\}$(exported configurations).
+  \end{itemize}
+  \[
+    \Reach{\link{e_1}{e_2}}(C,\sigma,t)= \{(\link{e_1}{e_2},C,\sigma,t)\}\cup\Reach{e_1}(C,\sigma,t)\cup\bigcup_{(C',\sigma',t')\in E}{\Reach{e_2}(C',\sigma',t')}                                                                                                                                         \\
   \]
 \end{lem}
 
@@ -612,8 +571,8 @@ We can prove that this relation indeed defines an equivalence relation, since su
 \end{lem}
 
 Now we need to define a concrete time on $\Time+\Time'$, when the first time domain exports $C',\sigma'$ to the second time domain.
-What we want to prove that is: $(C',\sigma',t')\equiv(C',\sigma',t_{0})$, when the first configuration is in $\Time$ and the second configuration is in $\Time+\Time'$, with $t_{0}$ being the initial time in $\Time'$.
-Then the reachable states from $(e_{2},C',\sigma',t_{0})$ under the added domain are equivalent to the reachable states from $(e_{2},C',\sigma',t')$.
+What we want to prove is: $(C',\sigma',t')\equiv(C',\sigma',t_{0})$, when the first configuration is in $\Time$ and the second configuration is in $\Time+\Time'$, with $t_{0}$ being the initial time in $\Time'$.
+Then the reachable states from $(e_{2},C',\sigma',t_{0})$ under the sum domain are equivalent to the reachable states from $(e_{2},C',\sigma',t')$.
 Thus, because we can obtain a subset of the reachable states from $(e_{2},C',\sigma',t_{0})$ by simply \emph{injecting} $C'$ and $\sigma'$ into the reachable states obtained from $\sembracket{e_{2}}([],\varnothing,t_{0})$, we can compute a set \textit{equivalent to} $\sembracket{e_{2}}(C',\sigma',t')$ starting from the \emph{separately analyzed} results.
 
 Before elaborating on how to link the time domains, we need to define the injection and deletion operators that inject the exported context into the separately analyzed results.
@@ -735,11 +694,11 @@ Finally, before delving into the definition of the linked time domain, we need t
   $\:$
 
   \begin{itemize}
-    \item $A\loverbar{\subseteq}B$ in the context when $A,B\in(\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time)$ is defined as
+    \item $A\ovbar{\subseteq}B$ in the context when $A,B\in(\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time)$ is defined as
           \[
             (e,C,\sigma,t)\in A\Rightarrow \exists C',\sigma',t' : (C,\sigma,t)\equiv(C',\sigma',t')\wedge(e,C',\sigma',t')\in B
           \]
-    \item $A\loverbar{\subseteq}B$ in the context when $A,B\in(\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time)\times(\Value{\Time}\times\Mem{\Time}\times\Time)$ is defined as
+    \item $A\ovbar{\subseteq}B$ in the context when $A,B\in(\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time)\times(\Value{\Time}\times\Mem{\Time}\times\Time)$ is defined as
           \begin{align*}
             ((e,C,\sigma,t),(V,\sigma',t'))\in A\Rightarrow \exists C',\sigma'',t'',V',\sigma''',t''' : & (C,\sigma,t)\equiv(C',\sigma'',t'')\wedge(V,\sigma',t')\equiv(V',\sigma''',t''')\wedge \\
                                                                                                         & ((e,C',\sigma'',t''),(V',\sigma''',t'''))\in B
@@ -747,35 +706,48 @@ Finally, before delving into the definition of the linked time domain, we need t
   \end{itemize}
 \end{definition}
 
+Before going into the formulation of linking in the concrete semantics, we need to cast $\sembracket{e}$ into a fixpoint computation form.
+We define a transfer function $\mathcal{F}$ that takes $(R^{\circ},R^{*})\in\wp((\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time)\times(\Value{\Time}\times\Mem{\Time}\times\Time))\times\wp(\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time)$ and outputs $({R'}^{\circ},{R'}^{*})$ that are one step away from the original sets.
+\begin{definition}[Transfer function]
+  $\:$
+
+  \begin{itemize}
+    \item Given $(R^{\circ},R^{*})\in\wp((\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time)\times(\Value{\Time}\times\Mem{\Time}\times\Time))\times\wp(\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time)$,
+    \item Let the relations $\Downarrow_{R^{\circ}}$ and $\rightsquigarrow_{R^{\circ}}$ be defined as exactly the relations $\Downarrow$ and $\rightsquigarrow$ with all assumptions of the form $a\Downarrow b$ replaced with the assumptions $(a,b)\in R^{\circ}$.
+    \item Let $\Delta R^{\circ}=\{(a,b)|a\in R^{*}\wedge a\Downarrow_{R^{\circ}}b\}$ and $\Delta R^{*}=\{b|\exists a\in R^{*}:a\rightsquigarrow_{R^{\circ}}b\}$
+    \item The definition of the transfer function is $\mathcal{F}(R^{\circ},R^{*})\triangleq(R^{\circ}\cup\Delta R^{\circ}, R^{*}\cup\Delta R^{*})$.
+  \end{itemize}
+\end{definition}
+
+\begin{lem}[Collecting semantics as a least fixpoint]
+  \[
+    \sembracket{e}(C,\sigma,t)=\mathsf{lfp}(\lambda (R^{\circ}, R^{*}).\mathcal{F}(R^{\circ}, R^{*}\cup\{(e,C,\sigma,t)\}))
+  \]
+\end{lem}
+
 \begin{thm}[Linking of collected states] We want to compute $\sembracket{\link{e_{1}}{e_{2}}}(C,\sigma,t)$.
   $\:$
 
   \begin{itemize}
-    \item Given $R$ and $S$ that satisfies $\Resolved{e_{1}}(C,\sigma,t)\loverbar{\subseteq} R$ and $\Stuck{e_{1}}(C,\sigma,t)\loverbar{\subseteq} S$,
-    \item Let $E=\{(C_{0},\sigma_{0},t'')|\exists C',\sigma',t':(C,\sigma,t)\equiv(C',\sigma',t')\wedge((e_{1},C',\sigma',t'),(C_{0},\sigma_{0},t''))\in R\}$(exported configurations).
-    \item Let $R(C_{0},\sigma_{0})=\{((e_{2},C_{0},\sigma_{0},t_{0}), (\inject{C_{0}}{V},\inject{C_{0}}{\sigma};\sigma_{0},t))|((e_{2},[],\varnothing,t_{0}),(V,\sigma,t))\in\Resolved{e_{2}}([],\varnothing,t_{0})\}$(separate resolved).
-    \item Let $S(C_{0},\sigma_{0})=\{(e,\inject{C_{0}}{C},\inject{C_{0}}{\sigma};\sigma_{0},t)|(e,C,\sigma,t)\in\Stuck{e_{2}}([],\varnothing,t_{0})\}$(separate stuck).
-    \item Let ${S}_{\rightsquigarrow}(C_{0},\sigma_{0})=\{(e',C',\sigma',t')|\exists(e,C,\sigma,t)\in S(C_{0},\sigma_{0}):(e,C,\sigma,t)\rightsquigarrow(e',C',\sigma',t')\}$.
-    \item Let $\tilde{R}(C_{0},\sigma_{0})=\{((e',C',\sigma',t'), (V,\sigma'',t''))|(e',C',\sigma',t')\in{S}_{\rightsquigarrow}(C_{0},\sigma_{0})\wedge(e',C',\sigma',t')\Downarrow(V,\sigma'',t'')\}$.
-    \item Let $\tilde{S}(C_{0},\sigma_{0})=\{(e',C',\sigma',t')|(e',C',\sigma',t')\in S_{\rightsquigarrow}(C_{0},\sigma_{0})\wedge\forall V,\sigma'',t'':\lnot((e',C',\sigma',t')\Downarrow(V,\sigma'',t''))\}$.
+    \item Given $R^{\circ}$ and $R^{*}$ that satisfies $\Resolved{e_{1}}(C,\sigma,t)\ovbar{\subseteq} R^{\circ}$ and $\Reach{e_{1}}(C,\sigma,t)\ovbar{\subseteq} R^{*}$,
+    \item Let $E=\{(C_{0},\sigma_{0},t'')|\exists C',\sigma',t':(C,\sigma,t)\equiv(C',\sigma',t')\wedge((e_{1},C',\sigma',t'),(C_{0},\sigma_{0},t''))\in R^{\circ}\}$(exported configurations).
+    \item Let $R^{\circ}(C_{0},\sigma_{0})=\{((e_{2},C_{0},\sigma_{0},t_{0}), (\inject{C_{0}}{V},\inject{C_{0}}{\sigma'};\sigma_{0},t'))|((e_{2},[],\varnothing,t_{0}),(V,\sigma',t'))\in\Resolved{e_{2}}([],\varnothing,t_{0})\}$(separate resolved).
+    \item Let $R^{*}(C_{0},\sigma_{0})=\{(e',\inject{C_{0}}{C'},\inject{C_{0}}{\sigma'};\sigma_{0},t')|(e',C',\sigma',t')\in\Reach{e_{2}}([],\varnothing,t_{0})\}$(separate reached).
   \end{itemize}
 
   We have:
   \[
-    \Resolved{e_{2}}(C_{0},\sigma_{0},t_{0})=R(C_{0},\sigma_{0})\cup\tilde{R}(C_{0},\sigma_{0})
-  \]
-  \[
-    \Stuck{e_{2}}(C_{0},\sigma_{0},t_{0})=\tilde{S}(C_{0},\sigma_{0})
+    \sembracket{e_{2}}(C_{0},\sigma_{0},t_{0})=\mathsf{lfp}(\lambda (R^{\circ}, R^{*}).\mathcal{F}(R^{\circ}\cup R^{\circ}(C_{0},\sigma_{0}), R^{*}\cup R^{*}(C_{0},\sigma_{0})))
   \]
 
   Thus:
   \[
-    \Resolved{\link{e_1}{e_2}}(C,\sigma,t)\loverbar{\subseteq}
-    R\cup\bigcup_{(C_{0},\sigma_{0},t')\in E}{(\Resolved{e_2}(C_{0},\sigma_{0},t_{0})\cup\underbrace{\{((\link{e_1}{e_2}, C, \sigma, t), (V,\sigma'',t''))|((e_{2},C_{0},\sigma_{0},t_{0}),(V,\sigma'',t''))\in\Resolved{e_{2}}(C_{0},\sigma_{0},t_{0})\}}_{\text{The final evaluation}})}
+    \Resolved{\link{e_1}{e_2}}(C,\sigma,t)\ovbar{\subseteq}
+    R^{\circ}\cup\bigcup_{(C_{0},\sigma_{0},t')\in E}{(\Resolved{e_2}(C_{0},\sigma_{0},t_{0})\cup\underbrace{\{((\link{e_1}{e_2}, C, \sigma, t), (V,\sigma'',t''))|((e_{2},C_{0},\sigma_{0},t_{0}),(V,\sigma'',t''))\in\Resolved{e_{2}}(C_{0},\sigma_{0},t_{0})\}}_{\text{The final evaluation}})}
   \]
-  \[
-    \Stuck{\link{e_1}{e_2}}(C,\sigma,t)\loverbar{\subseteq}S\cup\bigcup_{(C_{0},\sigma_{0},t')\in E}{\Stuck{e_2}(C_{0},\sigma_{0},t_{0})}\cup \underbrace{\{(\link{e_1}{e_2}, C, \sigma, t)|\exists (C_{0},\sigma_{0},t')\in E:(e_{2},C_{0},\sigma_{0},t_{0})\in\Stuck{e_{2}}(C_{0},\sigma_{0},t_{0})\}}_{\text{There exists an exported configuration that makes }e_{2}\text{ stuck}}
-  \]
+  \begin{align*}
+    \Reach{\link{e_1}{e_2}}(C,\sigma,t)\ovbar{\subseteq}\{(\link{e_1}{e_2},C,\sigma,t)\}\cup R^{*}\cup\bigcup_{(C_{0},\sigma_{0},t')\in E}{\Reach{e_2}(C_{0},\sigma_{0},t_{0})}
+  \end{align*}
 \end{thm}
 
 \section{Abstract Semantics}
@@ -793,22 +765,68 @@ The abstract semantics is almost exactly the same as the concrete semantics, exc
   ;;
   $\sigma^{\#}$ : \in \AMem{\Time} \triangleq \fin{\ATime}{\wp(\AValue{\ATime})}
   ;;
-  $C^{\#}$ ::= [] : hole
-  | $\lambda x^{t^{\#}}.C^{\#}$ : function parameter binding
-  | $\Let$ $x^{t^{\#}}$ $C^{\#}$ : let expression binding
-  | $\Let$ $M$ $C^{\#}$ $C^{\#}$ : let module context binding
-  ;;
   $v^{\#}$ ::= $\langle \lambda x.e, C^{\#} \rangle$ : closure
 \end{bnfgrammar}
 
 \begin{definition}[Soundness]
+  $\:$
+
+  \begin{itemize}
+    \item Given two configurations $(C,\sigma,t)$ in $\Time$ and $(C^{\#},\sigma^{\#},t^{\#})$ in $\ATime$, we say that the latter is a sound approximation of the former when
+          there exists an $\alpha:\Time\rightarrow\ATime$ such that $\alpha(t)=t^{\#}\wedge\alpha(C)=C^{\#}\wedge\forall t:\alpha(\sigma(t))\in\sigma^{\#}(\alpha(t))$.
+          We write this as $(C,\sigma,t)\lhd(C^{\#},\sigma^{\#},t^{\#})$.
+    \item Given two states $(e,C,\sigma,t)$ and $(e',C^{\#},\sigma^{\#},t^{\#})$, the latter is said to be a sound approximation of the former when $e=e'$ and $(C,\sigma,t)\lhd(C^{\#},\sigma^{\#},t^{\#})$.
+    \item Given two results $(V,\sigma,t)$ and $(V^{\#}, \sigma^{\#},t^{\#})$, the latter is said to be a sound approximation of the former either if
+          they are both of the form $(C,\sigma,t)$ and $(C^{\#},\sigma^{\#},t^{\#})$ and the latter is a sound approximation of the former,
+          or if they are of the form $(\langle\lambda x.e,C\rangle,\sigma,t)$ and $(\langle\lambda x'.e',C^{\#}\rangle,\sigma^{\#},t^{\#})$ satisfying $x=x'\wedge(C,\sigma,t)\lhd(C^{\#},\sigma^{\#},t^{\#})$.
+    \item Given two sets $S$ and $S^{\#}$,
+          we write $S\ovbar{\subseteq}^{\#} S^{\#}$ when for every element of $S$, there exists a sound approximation in $S^{\#}$.
+  \end{itemize}
 \end{definition}
 
-\begin{lem}[Equivalence preserves soundness]
+We define the abstract evaluation relation $\Downarrow^{\#}$ and abstract reachability relation $\rightsquigarrow^{\#}$ exactly as their concrete counterparts, except that the update for the memory is now a weak update and
+variables can evaluate to any value in $\sigma^{\#}(\addr)$.
+
+\begin{lem}[Preservation of soundness]
+  $\:$
+
+  \begin{itemize}
+    \item Let $(C,\sigma,t)$ be a concrete configuration and $(C^{\#},\sigma^{\#},t^{\#})$ be an abstract configuration.
+    \item Let all timestamps in $C$ and $\mathsf{Dom}(\sigma)$ be strictly less than $t$.
+    \item Let $(C,\sigma,t)\lhd(\A{C},\A{\sigma},\A{t})$.
+  \end{itemize}
+
+  Then for all $e$, if $(e,C,\sigma,t)\Downarrow(V,\sigma',t')$, there exists $\A{V},\A{\sigma'},\A{t'}$ such that $(e,\A{C},\A{\sigma},\A{t})\A{\Downarrow}(\A{V},\A{\sigma'},\A{t'})$ and $(V,\sigma',t')\lhd(\A{V},\A{\sigma'},\A{t'})$.
+  Likewise, if $(e,C,\sigma,t)\rightsquigarrow(e',C',\sigma',t')$, there exists $\A{C'},\A{\sigma'},\A{t'}$ such that $(e,\A{C},\A{\sigma},\A{t})\rightsquigarrow(e',\A{C'},\A{\sigma'},\A{t'})$ and $(C',\sigma',t')\lhd(\A{C'},\A{\sigma'},\A{t'})$.
 \end{lem}
 
-\begin{lem}[Finiteness of time implies finiteness of abstraction]
+\begin{lem}[Equivalence preserves soundness]
+  $\:$
+
+  \begin{itemize}
+    \item Let $(C,\sigma,t)$ and $(C',\sigma',t')$ be concrete configurations and $(C^{\#},\sigma^{\#},t^{\#})$ be an abstract configuration.
+    \item Let $(C,\sigma,t)\equiv(C',\sigma',t')$ and $(C,\sigma,t)\lhd(\A{C},\A{\sigma},\A{t})$.
+  \end{itemize}
+
+  Then $(C',\sigma',t')\lhd(\A{C},\A{\sigma},\A{t})$.
 \end{lem}
+
+\begin{thm}[Abstract linking]
+  We want to compute sets $\tilde{R^{\circ}}^{\#}$ and $\tilde{R^{*}}^{\#}$ satisfying
+  \[
+    \Resolved{\link{e_1}{e_2}}(C,\sigma,t)\ovbar{\subseteq}^{\#} \tilde{R^{\circ}}^{\#}
+    \quad\wedge\quad
+    \Reach{\link{e_1}{e_2}}(C,\sigma,t)\ovbar{\subseteq}^{\#} \tilde{R^{*}}^{\#}
+  \]
+
+  \begin{itemize}
+    \item Given ${R^{\circ}}^{\#}$ and ${R^{*}}^{\#}$ that satisfies $\Resolved{e_1}(C,\sigma,t)\ovbar{\subseteq}^{\#} {R^{\circ}}^{\#}$ and $\Reach{e_1}(C,\sigma,t)\ovbar{\subseteq}^{\#} {R^{*}}^{\#}$,
+    \item
+  \end{itemize}
+\end{thm}
+
+\begin{thm}[Finiteness of time implies finiteness of abstraction]
+\end{thm}
 
 \printbibliography
 \end{document}
