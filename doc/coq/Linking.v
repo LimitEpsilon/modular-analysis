@@ -5,25 +5,25 @@ Require Export Coq.Logic.FunctionalExtensionality.
 Generalizable Variables BT AT.
 
 Inductive link `{Eq BT} `{Eq AT} :=
-  | BF (t : BT)
-  | AF (t : AT)
+  | L (bf : BT) (af : AT)
 .
 
 Definition link_eqb `{EB : Eq BT} `{EA : Eq AT} 
   (t1 : @link BT EB AT EA) (t2 : @link BT EB AT EA) :=
   match t1, t2 with
-  | BF t1, BF t2 => eqb t1 t2
-  | AF t1, AF t2 => eqb t1 t2
-  | _, _ => false  
+  | L bf af, L bf' af' =>
+    eqb bf bf' && eqb af af'
   end.
 
 Definition link_leb `{EB : Eq BT} `{@OrderT BT EB} `{EA : Eq AT} `{@OrderT AT EA} 
   (t1 : @link BT EB AT EA) (t2 : @link BT EB AT EA) :=
   match t1, t2 with
-  | BF t1, BF t2 => leb t1 t2
-  | AF t1, AF t2 => leb t1 t2
-  | BF t1, AF t2 => true
-  | AF t1, BF t2 => false
+  | L bf af, L bf' af' =>
+    if leb bf bf' then
+      if eqb bf bf' then
+        leb af af'
+      else true
+    else false
   end.
 
 Lemma link_leb_refl : 
@@ -32,7 +32,10 @@ Lemma link_leb_refl :
     `{OB : @OrderT BT EB} `{OA : @OrderT AT EA} t,
   @link_leb BT EB OB AT EA OA t t = true.
 Proof.
-  intros. destruct t; apply leb_refl.
+  intros. destruct t. simpl. rewrite leb_refl. 
+  replace (eqb bf bf) with true.
+  apply leb_refl.
+  symmetry. apply eqb_eq. eauto.
 Qed.
 
 Lemma link_leb_trans :
@@ -45,12 +48,30 @@ Lemma link_leb_trans :
   link_leb t t'' = true.
 Proof.
   intros.
-  destruct t; destruct t'; destruct t'';
-  simpl in *;
-  try apply leb_trans with (t' := t0);
-  try inversion LE;
-  try inversion LE';
-  eauto.
+  destruct t as [bf af]; destruct t' as [bf' af'];
+  destruct t'' as [bf'' af'']; simpl in *.
+  destruct (leb bf bf') eqn:LEbf;
+  destruct (leb bf' bf'') eqn:LEbf';
+  try (inversion LE; fail);
+  try (inversion LE'; fail).
+  - destruct (eqb bf bf') eqn:EQbf;
+    destruct (eqb bf' bf'') eqn:EQbf';
+    try rewrite eqb_eq in *;
+    try rewrite eqb_neq in *;
+    replace (leb bf bf'') with true;
+    try (symmetry; apply leb_trans with (t' := bf'); eauto).
+    replace (eqb bf bf'') with true.
+    apply leb_trans with (t' := af'); eauto.
+    symmetry. apply eqb_eq; subst; eauto.
+    replace (eqb bf bf'') with false. eauto.
+    symmetry. apply eqb_neq. red. intros. subst.
+    apply EQbf'. eauto.
+    replace (eqb bf bf'') with false. eauto.
+    symmetry. apply eqb_neq. red. intros. subst.
+    apply EQbf. eauto.
+    replace (eqb bf bf'') with false. eauto.
+    symmetry. apply eqb_neq. red. intros. subst.
+    apply EQbf. apply leb_sym; eauto.
 Qed.
 
 Lemma link_leb_sym :
@@ -62,13 +83,19 @@ Lemma link_leb_sym :
   t = t'.
 Proof.
   intros.
-  destruct t; destruct t';
+  destruct t as [bf af]; destruct t' as [bf' af'];
   simpl in *;
-  try inversion LE;
-  try inversion LE';
-  assert (t = t0) as RR;
-  try apply leb_sym; eauto;
-  rewrite RR; eauto.
+  destruct (leb bf bf') eqn:LEbf;
+  destruct (leb bf' bf) eqn:LEbf';
+  try (inversion LE; fail);
+  try (inversion LE'; fail).
+  assert (bf' = bf) as RR.
+  apply leb_sym; eauto.
+  rewrite RR in *.
+  replace (eqb bf bf) with true in *.
+  assert (af = af').
+  apply leb_sym; eauto. subst; eauto.
+  symmetry. apply eqb_eq. eauto.
 Qed.
 
 Lemma link_eqb_eq :
@@ -76,12 +103,18 @@ Lemma link_eqb_eq :
   @link_eqb BT EB AT EA t t' = true <-> t = t'.
 Proof.
   intros.
-  destruct t; destruct t';
+  destruct t as [bf af]; destruct t' as [bf' af'];
   simpl in *;
-  split; intro EQ;
-  try rewrite eqb_eq in *;
-  try inversion EQ;
-  subst; eauto.
+  split; intro EQ.
+  destruct (eqb bf bf') eqn:EQbf;
+  destruct (eqb af af') eqn:EQaf;
+  try (inversion EQ; fail).
+  rewrite eqb_eq in EQbf.
+  rewrite eqb_eq in EQaf. subst; eauto.
+  inversion EQ; subst.
+  replace (eqb bf' bf') with true;
+  try replace (eqb af' af') with true;
+  eauto; symmetry; apply eqb_eq; eauto.
 Qed.
 
 Lemma link_eqb_neq :
@@ -89,16 +122,12 @@ Lemma link_eqb_neq :
   @link_eqb BT EB AT EA t t' = false <-> t <> t'.
 Proof.
   intros.
-  destruct t; destruct t';
-  simpl in *;
-  split; intro NEQ;
-  try rewrite eqb_neq in *;
-  try inversion NEQ;
-  subst; unfold not in *;
-  try intros contra;
-  try apply NEQ;
-  try inversion contra;
-  eauto.
+  split; intro NEQ.
+  red. intros EQ.
+  assert (link_eqb t t' = true) as RR. apply link_eqb_eq. eauto.
+  rewrite RR in NEQ. inversion NEQ.
+  refl_bool. intros contra. rewrite link_eqb_eq in contra.
+  apply NEQ; eauto.
 Qed.
 
 #[export] Instance LinkEq `{EB : Eq BT} `{EA : Eq AT} :
@@ -125,13 +154,11 @@ Fixpoint filter_ctx_bf
   | ([||]) => ([||])
   | dy_c_lam x t C' =>
     match t with
-    | AF t => filter_ctx_bf C'
-    | BF t => dy_c_lam x t (filter_ctx_bf C')
+    | L bf af => dy_c_lam x bf (filter_ctx_bf C')
     end
   | dy_c_lete x t C' =>
     match t with
-    | AF t => filter_ctx_bf C'
-    | BF t => dy_c_lete x t (filter_ctx_bf C')
+    | L bf af => dy_c_lete x bf (filter_ctx_bf C')
     end
   | dy_c_letm M C' C'' =>
     dy_c_letm M (filter_ctx_bf C') (filter_ctx_bf C'')
@@ -144,32 +171,30 @@ Fixpoint filter_ctx_af
   | ([||]) => ([||])
   | dy_c_lam x t C' =>
     match t with
-    | AF t => dy_c_lam x t (filter_ctx_af C')
-    | BF t => filter_ctx_af C'
+    | L bf af => dy_c_lam x af (filter_ctx_af C')
     end
   | dy_c_lete x t C' =>
     match t with
-    | AF t => dy_c_lete x t (filter_ctx_af C')
-    | BF t => filter_ctx_af C'
+    | L bf af => dy_c_lete x af (filter_ctx_af C')
     end
   | dy_c_letm M C' C'' =>
     dy_c_letm M (filter_ctx_af C') (filter_ctx_af C'')
   end.
 
 Definition filter_mem_bf
-  `{EB : Eq BT} `{EA : Eq AT}
+  `{EB : Eq BT} `{EA : Eq AT} (init : AT)
   (mem : (@link BT EB AT EA) -> option (@expr_value (@link BT EB AT EA))) :=
   fun t =>
-    match mem (BF t) with
+    match mem (L t init) with
     | Some (Closure x e C) => Some (Closure x e (filter_ctx_bf C))
     | None => None
     end.
 
 Definition filter_mem_af
-  `{EB : Eq BT} `{EA : Eq AT}
+  `{EB : Eq BT} `{EA : Eq AT} (final : BT)
   (mem : (@link BT EB AT EA) -> option (@expr_value (@link BT EB AT EA))) :=
   fun t =>
-    match mem (AF t) with
+    match mem (L final t) with
     | Some (Closure x e C) => Some (Closure x e (filter_ctx_af C))
     | None => None
     end.
@@ -188,57 +213,22 @@ Definition filter_v_af
   | Closure x e C => Closure x e (filter_ctx_af C)
   end.
 
-Definition link_update
-  `{EB : Eq BT} `{EA : Eq AT} 
-  `{OB : @OrderT BT EB} `{OA : @OrderT AT EA}
-  `{@Conc.time BT EB OB} `{@Conc.time AT EA OA}
-  (C : @dy_ctx (@link BT EB AT EA)) (st : state) x v :=
-  match st with
-  | ST mem (BF t) =>
-    BF (update (filter_ctx_bf C) (ST (filter_mem_bf mem) t) x (filter_v_bf v))
-  | ST mem (AF t) =>
-    AF (update (filter_ctx_af C) (ST (filter_mem_af mem) t) x (filter_v_af v))
-  end.
-
-Lemma link_update_lt :
-  forall 
-    `{EB : Eq BT} `{EA : Eq AT} 
-    `{OB : @OrderT BT EB} `{OA : @OrderT AT EA}
-    `{CB : @Conc.time BT EB OB} `{CA : @Conc.time AT EA OA}
-    C mem t x v, 
-  let t' := @link_update BT EB AT EA OB OA CB CA C (ST mem t) x v in
-  link_leb t t' = true /\ link_eqb t t' = false.
-Proof.
-  intros. destruct t; simpl in *; try apply update_lt.
-Qed.
-
-#[export] Instance link_time 
-  `{EB : Eq BT} `{EA : Eq AT} 
-  `{OB : @OrderT BT EB} `{OA : @OrderT AT EA}
-  `{CB : @Conc.time BT EB OB} `{CA : @Conc.time AT EA OA}
-  : (@Conc.time (@link BT EB AT EA) (@LinkEq BT EB AT EA) 
-                (@LinkOrderT BT EB AT EA OB OA)) :=
-{
-  update := link_update;
-  update_lt := link_update_lt
-}.
-
-Fixpoint lift_ctx_bf `{EB : Eq BT} `{EA : Eq AT} (C : @dy_ctx BT) 
+Fixpoint lift_ctx_bf `{EB : Eq BT} `{EA : Eq AT} (init : AT) (C : @dy_ctx BT)
   : @dy_ctx (@link BT EB AT EA) :=
   match C with
   | ([||]) => ([||])
-  | dy_c_lam x t C' => dy_c_lam x (BF t) (lift_ctx_bf C')
-  | dy_c_lete x t C' => dy_c_lete x (BF t) (lift_ctx_bf C')
-  | dy_c_letm M C' C'' => dy_c_letm M (lift_ctx_bf C') (lift_ctx_bf C'')
+  | dy_c_lam x t C' => dy_c_lam x (L t init) (lift_ctx_bf init C')
+  | dy_c_lete x t C' => dy_c_lete x (L t init) (lift_ctx_bf init C')
+  | dy_c_letm M C' C'' => dy_c_letm M (lift_ctx_bf init C') (lift_ctx_bf init C'')
   end.
 
-Fixpoint lift_ctx_af `{EB : Eq BT} `{EA : Eq AT} (C : @dy_ctx AT)
+Fixpoint lift_ctx_af `{EB : Eq BT} `{EA : Eq AT} (final : BT) (C : @dy_ctx AT)
   : @dy_ctx (@link BT EB AT EA) :=
   match C with
   | ([||]) => ([||])
-  | dy_c_lam x t C' => dy_c_lam x (AF t) (lift_ctx_af C')
-  | dy_c_lete x t C' => dy_c_lete x (AF t) (lift_ctx_af C')
-  | dy_c_letm M C' C'' => dy_c_letm M (lift_ctx_af C') (lift_ctx_af C'')
+  | dy_c_lam x t C' => dy_c_lam x (L final t) (lift_ctx_af final C')
+  | dy_c_lete x t C' => dy_c_lete x (L final t) (lift_ctx_af final C')
+  | dy_c_letm M C' C'' => dy_c_letm M (lift_ctx_af final C') (lift_ctx_af final C'')
   end.
 
 Fixpoint map_inject {T} (Cout : @dy_ctx T) (Cin : @dy_ctx T) :=
@@ -396,17 +386,27 @@ Qed.
 Notation "Cout '<|' Cin '|>'" := (inject_ctx Cout Cin)
                               (at level 100, Cin at next level, right associativity).
 
+Definition inject_ctx_v {T} `{Eq T} (Cout : @dy_ctx T) (v : @expr_value T) :=
+  match v with
+  | Closure x t C => Closure x t (Cout <|C|>)
+  end.
+
 Definition inject_ctx_mem {T} `{Eq T} (Cout : @dy_ctx T) (mem : T -> option (@expr_value T)) :=
   fun t =>
     match mem t with
-    | Some (Closure x t C) => Some (Closure x t (Cout <|C|>))
+    | Some v => Some (inject_ctx_v Cout v)
     | None => None
     end.
+
+Definition delete_ctx_v {T} `{Eq T} (Cout : @dy_ctx T) (v : @expr_value T) :=
+  match v with
+  | Closure x t C => Closure x t (delete_inject Cout C)
+  end.
 
 Definition delete_ctx_mem {T} `{Eq T} (Cout : @dy_ctx T) (mem : T -> option (@expr_value T)) :=
   fun t =>
     match mem t with
-    | Some (Closure x t C) => Some (Closure x t (delete_inject Cout C))
+    | Some v => Some (delete_ctx_v Cout v)
     | None => None
     end.
 
@@ -417,7 +417,7 @@ Proof.
   intros. apply functional_extensionality.
   intros. unfold inject_ctx_mem. unfold delete_ctx_mem.
   destruct (mem x) eqn:ACCESS; try reflexivity.
-  destruct e. rewrite delete_inject_eq. reflexivity.
+  destruct e. simpl. rewrite delete_inject_eq. reflexivity.
 Qed.
 
 Lemma map_inject_addr_x :
@@ -504,32 +504,66 @@ Proof.
   rewrite H0 in H1. eauto.
 Qed.
 
-Definition delete_update {T} `{ET : Eq T} `{OT : @OrderT T ET} `{@time T ET OT} (Cout : @dy_ctx T) :=
-  fun C st x v =>
-    let delete_C := delete_inject Cout C in
-    let delete_st :=
-      match st with
-      | ST mem t => ST (delete_ctx_mem Cout mem) t
-      end in
-    let delete_v := 
-      match v with
-      | Closure x_v e_v C_v =>
-        Closure x_v e_v (delete_inject Cout C_v)
-      end in
-    update delete_C delete_st x delete_v.
+Definition link_update
+  `{EB : Eq BT} `{EA : Eq AT} 
+  `{OB : @OrderT BT EB} `{OA : @OrderT AT EA}
+  `{@Conc.time BT EB OB} `{@Conc.time AT EA OA}
+  (final : BT) (init : AT) (Cout : @dy_ctx BT)
+  (C : @dy_ctx (@link BT EB AT EA)) st x v :=
+  let Cout := filter_ctx_af (lift_ctx_bf init Cout) in
+  match st with
+  | ST mem (L bf af) =>
+    if link_leb (L final init) (L bf af) then
+      L bf 
+        (update (delete_inject Cout (filter_ctx_af C))
+                (ST (delete_ctx_mem Cout (filter_mem_af final mem)) af)
+                x (delete_ctx_v Cout (filter_v_af v)))
+    else
+      L (update (filter_ctx_bf C) 
+                (ST (filter_mem_bf init mem) bf) 
+                x (filter_v_bf v)) af
+  end.
 
-Lemma delete_update_lt {T} `{ET : Eq T} `{OT : @OrderT T ET} `{@time T ET OT} (Cout : @dy_ctx T) :
-  forall C mem t x v, let t' := delete_update Cout C (ST mem t) x v in
-                                leb t t' = true /\ eqb t t' = false.
+Lemma link_update_lt :
+  forall 
+    `{EB : Eq BT} `{EA : Eq AT} 
+    `{OB : @OrderT BT EB} `{OA : @OrderT AT EA}
+    `{CB : @Conc.time BT EB OB} `{CA : @Conc.time AT EA OA}
+    final init Cout C mem t x v, 
+  let t' := @link_update BT EB AT EA OB OA CB CA final init Cout C (ST mem t) x v in
+  link_leb t t' = true /\ link_eqb t t' = false.
 Proof.
-  intros. unfold delete_update in t'. apply update_lt.
+  intros. destruct t; simpl in *.
+  destruct (leb final bf) eqn:LEbf;
+  destruct (eqb final bf) eqn:EQbf;
+  destruct (leb init af) eqn:LEaf;
+  simpl;
+  try (replace (leb bf bf) with true;
+    try (replace (eqb bf bf) with true);
+    try apply update_lt;
+    symmetry; try apply eqb_eq; try apply leb_refl; eauto);
+  assert (leb bf
+      (update (filter_ctx_bf C) (ST (filter_mem_bf init mem) bf) x
+      (filter_v_bf v)) = true) as RR;
+  try apply update_lt;
+  assert (eqb bf
+      (update (filter_ctx_bf C) (ST (filter_mem_bf init mem) bf) x
+      (filter_v_bf v)) = false) as RR';
+  try apply update_lt;
+  rewrite RR; rewrite RR'; eauto.
 Qed.
 
-#[export] Instance delete_time {T} `{ET : Eq T} `{OT : @OrderT T ET} `{@time T ET OT} (Cout : @dy_ctx T) : @time T ET OT :=
-  {
-    update := delete_update Cout;
-    update_lt := delete_update_lt Cout
-  }.
+#[export] Instance link_time 
+  `{EB : Eq BT} `{EA : Eq AT} 
+  `{OB : @OrderT BT EB} `{OA : @OrderT AT EA}
+  `{CB : @Conc.time BT EB OB} `{CA : @Conc.time AT EA OA}
+  final init Cout
+  : (@Conc.time (@link BT EB AT EA) (@LinkEq BT EB AT EA) 
+                (@LinkOrderT BT EB AT EA OB OA)) :=
+{
+  update := link_update final init Cout;
+  update_lt := link_update_lt final init Cout
+}.
 
 Lemma delete_update_eq {T} `{ET : Eq T} `{OT : @OrderT T ET} `{@time T ET OT} (Cout : @dy_ctx T) :
   forall C mem t x v,

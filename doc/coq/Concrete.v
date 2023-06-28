@@ -9,9 +9,8 @@ Inductive state {T : Type} :=
 
 Class time `{OrderT T} :=
 {  
-  update : (@dy_ctx T) -> (@state T) -> expr_id -> (@expr_value T) -> T;
-  update_lt : forall C mem t x v, let t' := update C (ST mem t) x v in
-                                  leb t t' = true /\ eqb t t' = false
+  tick : T -> T;
+  tick_lt : forall t, t < tick t
 }.
 
 Definition update_m {T X} `{Eq T} mem (t : T) (x : X) :=
@@ -41,8 +40,7 @@ Inductive EvalR `{time T} (C : @dy_ctx T) (st : @state T)
              (ARG : EvalR C st_lam e2
                           (EVal arg) (ST mem t))
              (BODY : EvalR (C_lam [|dy_c_lam x t ([||])|])
-                           (ST (t !-> arg ; mem) 
-                               (update C (ST mem t) x arg))
+                           (ST (t !-> arg ; mem) (tick t))
                            e (EVal v) st_v)
     : EvalR C st (e_app e1 e2) (EVal v) st_v
   | Eval_link m e C_m st_m v st_v
@@ -57,8 +55,7 @@ Inductive EvalR `{time T} (C : @dy_ctx T) (st : @state T)
               m C_m st_m
                (EVALe : EvalR C st e (EVal v) (ST mem t))
                (EVALm : EvalR (C [|dy_c_lete x t ([||])|])
-                        (ST (t !-> v ; mem) 
-                            (update C (ST mem t) x v))
+                        (ST (t !-> v ; mem) (tick t))
                         m (MVal C_m) st_m)
     : EvalR C st (m_lete x e m) (MVal C_m) st_m
   | Eval_letm M m' C' st'
@@ -108,8 +105,7 @@ Fixpoint eval `{time T} (C : @dy_ctx T) (st : @state T)
         match eval C st_lam e2 reached' FUEL' with
         | Resolved (EVal arg) (ST mem t) reached'' =>
           match eval (C_lam [| dy_c_lam x t ([||]) |]) 
-                     (ST (t !-> arg ; mem) 
-                         (update C (ST mem t) x arg)) 
+                     (ST (t !-> arg ; mem) (tick t)) 
                      e' reached'' FUEL' with
           | Resolved (EVal v) st' reached''' => Resolved (EVal v) st' reached'''
           | Resolved _ _ reached''' => Error reached'''
@@ -141,8 +137,7 @@ Fixpoint eval `{time T} (C : @dy_ctx T) (st : @state T)
       match eval C st e reached FUEL' with
       | Resolved (EVal v) (ST mem t) reached' =>
         match eval (C[| dy_c_lete x t ([||]) |]) 
-                   (ST (t !-> v ; mem) 
-                       (update C (ST mem t) x v)) 
+                   (ST (t !-> v ; mem) (tick t)) 
                    m reached' FUEL' with
         | Resolved (MVal C') st' reached'' => Resolved (MVal C') st' reached''
         | Resolved _ _ reached'' => Error reached''
@@ -185,7 +180,7 @@ Proof.
       clear H3. destruct v2 as [v2 | ]; inversion H.
       clear H3. destruct st2 as [mem2 t2].
       remember (eval (C_lam [|dy_c_lam x t2 ([||])|]) 
-                     (ST (t2 !-> v2; mem2) (update C (ST mem2 t2) x v2))
+                     (ST (t2 !-> v2; mem2) (tick t2))
                       v1 reached0 FUEL) as v3.
       destruct v3 as [ | | v3 st3]; inversion H.
       clear H3. destruct v3 as [v3 | ]; inversion H.
@@ -195,7 +190,7 @@ Proof.
       assert (eval C st1 e2 reached m = Resolved (EVal v2) (ST mem2 t2) reached0) as RR2.
       apply IHFUEL; eauto. nia.
       assert (eval (C_lam [|dy_c_lam x t2 ([||])|])
-                   (ST (t2 !-> v2; mem2) (update C (ST mem2 t2) x v2)) v1 reached0 m = 
+                   (ST (t2 !-> v2; mem2) (tick t2)) v1 reached0 m = 
               Resolved (EVal v3) st' l') as RR3.
       apply IHFUEL; eauto. nia.
       simpl. rewrite RR1. rewrite RR2. rewrite RR3. eauto.
@@ -218,7 +213,7 @@ Proof.
       clear H3. destruct v1 as [v1 | ]; inversion H.
       clear H3. destruct st1 as [mem1 t1].
       remember (eval (C [|dy_c_lete x t1 ([||])|]) 
-                     (ST (t1 !-> v1; mem1) (update C (ST mem1 t1) x v1))
+                     (ST (t1 !-> v1; mem1) (tick t1))
                       e2 reached FUEL) as v2.
       destruct v2 as [ | | v2 st2]; inversion H.
       clear H3. destruct v2 as [v2 | ]; inversion H.
@@ -226,7 +221,7 @@ Proof.
       assert (eval C st e1 (Config C st (m_lete x e1 e2) :: l) m = Resolved (EVal v1) (ST mem1 t1) reached) as RR1.
       apply IHFUEL; eauto. nia.
       assert (eval (C [|dy_c_lete x t1 ([||])|]) 
-                   (ST (t1 !-> v1; mem1) (update C (ST mem1 t1) x v1))
+                   (ST (t1 !-> v1; mem1) (tick t1))
                    e2 reached m = Resolved (MVal mv) st' l') as RR2.
       apply IHFUEL; eauto. nia.
       simpl. rewrite RR1. rewrite RR2. eauto.
@@ -264,7 +259,7 @@ Proof.
     destruct (eval C st_lam e2 reached FUEL'') eqn:EVAL2; try (inversion EQ''; fail).
     destruct (IHR3 reached0) as [FUEL''' EQ''']. clear IHR3.
     destruct (eval (C_lam [|dy_c_lam x t ([||])|])
-                   (ST (t !-> arg; mem) (update C (ST mem t) x arg)) e reached0
+                   (ST (t !-> arg; mem) (tick t)) e reached0
                    FUEL''') eqn:EVAL3; try (inversion EQ'''; fail).
     exists (S (Nat.max FUEL' (Nat.max FUEL'' FUEL'''))).
     simpl.
@@ -280,7 +275,7 @@ Proof.
     apply relax_fuel with (FUEL := FUEL''). nia. eauto.
     rewrite RR; clear RR.
     assert (eval (C_lam [|dy_c_lam x t ([||])|]) 
-                 (ST (t !-> arg; mem) (update C (ST mem t) x arg)) e reached0
+                 (ST (t !-> arg; mem) (tick t)) e reached0
                  (Nat.max FUEL' (Nat.max FUEL'' FUEL'''))
             = Resolved (EVal v) st_v reached1) as RR.
     apply relax_fuel with (FUEL := FUEL'''). nia. eauto.
@@ -300,14 +295,14 @@ Proof.
     assert (eval C_m st_m e reached (Nat.max FUEL' FUEL'')
             = Resolved v st_v reached0) as RR.
     apply relax_fuel with (FUEL := FUEL''). nia. eauto.
-    rewrite RR; clear RR. eauto. 
+    rewrite RR; clear RR. eauto.
   - exists 1. simpl; eauto. 
-  - exists 1; simpl. rewrite <- ACCESS. eauto. 
+  - exists 1; simpl. rewrite <- ACCESS. eauto.
   - destruct (IHR1 (Config C st (m_lete x e m) :: l)) as [FUEL' EQ']. clear IHR1.
     destruct (eval C st e (Config C st (m_lete x e m) :: l) FUEL') eqn:EVAL1; try (inversion EQ'; fail).
     destruct (IHR2 reached) as [FUEL'' EQ'']. clear IHR2.
     destruct (eval (C [|dy_c_lete x t ([||])|])
-                   (ST (t !-> v; mem) (update C (ST mem t) x v)) m reached
+                   (ST (t !-> v; mem) (tick t)) m reached
                    FUEL'') eqn:EVAL2; try (inversion EQ''; fail).
     exists (S (Nat.max FUEL' FUEL'')).
     simpl.
@@ -318,7 +313,7 @@ Proof.
     apply relax_fuel with (FUEL := FUEL'). nia. eauto.
     rewrite RR; clear RR.
     assert (eval (C [|dy_c_lete x t ([||])|]) 
-                 (ST (t !-> v; mem) (update C (ST mem t) x v)) m reached
+                 (ST (t !-> v; mem) (tick t)) m reached
                  (Nat.max FUEL' FUEL'')
             = Resolved (MVal C_m) st_m reached0) as RR.
     apply relax_fuel with (FUEL := FUEL''). nia. eauto.
@@ -365,7 +360,7 @@ Proof.
     destruct v2 as [v2 | ]; try inversion R.
     destruct st2 as [mem2 t2].
     remember (eval (C_lam [|dy_c_lam x t2 ([||])|])
-                   (ST (t2 !-> v2; mem2) (update C (ST mem2 t2) x v2)) 
+                   (ST (t2 !-> v2; mem2) (tick t2)) 
                    v1 reached0 FUEL) as v3.
     destruct v3 as [ | | v3 st3]; try inversion R.
     destruct v3 as [v3 | ]; try inversion R.
@@ -375,7 +370,7 @@ Proof.
     assert (EvalR C st1 e2 (EVal v2) (ST mem2 t2)) as RR2.
     eapply IHFUEL; rewrite <- Heqv2; eauto.
     assert (EvalR (C_lam [|dy_c_lam x t2 ([||])|])
-                  (ST (t2 !-> v2; mem2) (update C (ST mem2 t2) x v2)) v1
+                  (ST (t2 !-> v2; mem2) (tick t2)) v1
             (EVal v3) st3) as RR3. 
     eapply IHFUEL; rewrite <- Heqv3; eauto. eauto.
   - remember (eval C st e1 (Config C st (e_link e1 e2) :: l) FUEL) as v1.
@@ -396,14 +391,14 @@ Proof.
     destruct v1 as [v1 | ]; try inversion R.
     destruct st1 as [mem1 t1].
     remember (eval (C [|dy_c_lete x t1 ([||])|])
-                   (ST (t1 !-> v1; mem1) (update C (ST mem1 t1) x v1)) 
+                   (ST (t1 !-> v1; mem1) (tick t1)) 
                    e2 reached FUEL) as v2.
     destruct v2 as [ | | v2 st2]; try inversion R.
     destruct v2 as [v2 | ]; inversion R.
     assert (EvalR C st e1 (EVal v1) (ST mem1 t1)).
     eapply IHFUEL; rewrite <- Heqv1; eauto.
     assert (EvalR (C [|dy_c_lete x t1 ([||])|])
-                  (ST (t1 !-> v1; mem1) (update C (ST mem1 t1) x v1)) e2
+                  (ST (t1 !-> v1; mem1) (tick t1)) e2
             (MVal mv) st2).
     eapply IHFUEL; rewrite <- Heqv2; eauto.
     subst. eauto.
@@ -460,8 +455,7 @@ Inductive ReachR `{time T} (C : @dy_ctx T) (st : @state T)
                 (ARG : EvalR C st_lam e2
                              (EVal arg) (ST mem t))
                 (REACHb : ReachR (C_lam[|dy_c_lam x t ([||])|]) 
-                                 (ST (t !-> arg ; mem) 
-                                     (update C (ST mem t) x arg)) e
+                                 (ST (t !-> arg ; mem) (tick t)) e
                                  C' st' e')
     : ReachR C st (e_app e1 e2)
              C' st' e'
@@ -485,8 +479,7 @@ Inductive ReachR `{time T} (C : @dy_ctx T) (st : @state T)
              C' st' e'
              (EVALx : EvalR C st e (EVal v) (ST mem t))
              (REACHm : ReachR (C[|dy_c_lete x t ([||])|])
-                              (ST (t !-> v ; mem) 
-                                  (update C (ST mem t) x v)) m
+                              (ST (t !-> v ; mem) (tick t)) m
                               C' st' e')
     : ReachR C st (m_lete x e m)
              C' st' e'
@@ -554,10 +547,10 @@ Proof.
       destruct (eval C st0 e2 reached FUEL); eauto.
       destruct v; eauto. destruct st1.
       assert (In (Config C st (e_app e1 e2)) reached0); eauto. clear IH IH'.
-      specialize (IHFUEL (C' [|dy_c_lam x t ([||])|]) (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e reached0) as IH.
+      specialize (IHFUEL (C' [|dy_c_lam x t ([||])|]) (ST (t !-> ev; mem) (tick t)) e reached0) as IH.
       destruct IH as [IH IH'].
       destruct (eval (C' [|dy_c_lam x t ([||])|])
-                (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e reached0
+                (ST (t !-> ev; mem) (tick t)) e reached0
                 FUEL); eauto.
       destruct v; eauto.
     + specialize (IHFUEL C st e1 (Config C st (e_link e1 e2) :: l)) as IH.
@@ -575,10 +568,10 @@ Proof.
       destruct (eval C st e1 (Config C st (m_lete x e1 e2) :: l) FUEL);
       assert (In (Config C st (m_lete x e1 e2)) reached); try apply IH'; simpl; eauto.
       destruct v; simpl; eauto. destruct st0. clear IH IH'.
-      specialize (IHFUEL (C [|dy_c_lete x t ([||])|]) (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e2 reached) as IH.
+      specialize (IHFUEL (C [|dy_c_lete x t ([||])|]) (ST (t !-> ev; mem) (tick t)) e2 reached) as IH.
       destruct IH as [IH IH'].
       destruct (eval (C [|dy_c_lete x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e2 reached
+                     (ST (t !-> ev; mem) (tick t)) e2 reached
                      FUEL); eauto.
       destruct v; eauto.
     + specialize (IHFUEL C st e1 (Config C st (m_letm M e1 e2) :: l)) as IH.
@@ -603,10 +596,10 @@ Proof.
       destruct (eval C st0 e2 reached FUEL); eauto.
       destruct v; eauto. destruct st1.
       assert (In cf reached0); simpl in *; eauto. clear IH IH'.
-      specialize (IHFUEL (C' [|dy_c_lam x t ([||])|]) (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e reached0) as IH.
+      specialize (IHFUEL (C' [|dy_c_lam x t ([||])|]) (ST (t !-> ev; mem) (tick t)) e reached0) as IH.
       destruct IH as [IH IH'].
       destruct (eval (C' [|dy_c_lam x t ([||])|])
-                (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e reached0
+                (ST (t !-> ev; mem) (tick t)) e reached0
                 FUEL); eauto.
       destruct v; eauto.
     + specialize (IHFUEL C st e1 (Config C st (e_link e1 e2) :: l)) as IH.
@@ -623,10 +616,10 @@ Proof.
       destruct (eval C st e1 (Config C st (m_lete x e1 e2) :: l) FUEL);
       assert (In cf reached); try apply IH'; simpl; eauto.
       destruct v; simpl; eauto. destruct st0. clear IH IH'.
-      specialize (IHFUEL (C [|dy_c_lete x t ([||])|]) (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e2 reached) as IH.
+      specialize (IHFUEL (C [|dy_c_lete x t ([||])|]) (ST (t !-> ev; mem) (tick t)) e2 reached) as IH.
       destruct IH as [IH IH'].
       destruct (eval (C [|dy_c_lete x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e2 reached
+                     (ST (t !-> ev; mem) (tick t)) e2 reached
                      FUEL); eauto.
       destruct v; eauto.
     + specialize (IHFUEL C st e1 (Config C st (m_letm M e1 e2) :: l)) as IH.
@@ -661,11 +654,11 @@ Proof.
         destruct (eval C st0 e2 reached0 m); eauto;
         destruct v; eauto; destruct st1;
         assert (In cf (extract_reached (eval (C0 [|dy_c_lam x t ([||])|])
-                                             (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e
+                                             (ST (t !-> ev; mem) (tick t)) e
                                              reached1 m))) as HINT'';
         try (apply reach_myself; apply HINT');
         destruct (eval (C0 [|dy_c_lam x t ([||])|])
-                       (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e
+                       (ST (t !-> ev; mem) (tick t)) e
                        reached1 m); eauto; destruct v; eauto; fail);
       pose proof (relax_fuel C st e1 (Config C st (e_app e1 e2) :: l) reached v st0 FUEL m LE' EVAL1) as RR;
       rewrite RR in EVAL1'; inversion EVAL1'; subst.
@@ -676,23 +669,23 @@ Proof.
       try (
         specialize (HINT' H); destruct v; eauto; destruct st0;
         assert (In cf (extract_reached (eval (C0 [|dy_c_lam x t ([||])|])
-                                           (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e
+                                           (ST (t !-> ev; mem) (tick t)) e
                                            reached1 m))) as HINT'';
         try (apply reach_myself; apply HINT');
         destruct (eval (C0 [|dy_c_lam x t ([||])|])
-                       (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e
+                       (ST (t !-> ev; mem) (tick t)) e
                        reached1 m); eauto; destruct v; eauto);
       pose proof (relax_fuel C st1 e2 reached0 reached v st0 FUEL m LE' EVAL2) as RR';
       rewrite RR' in EVAL2'; inversion EVAL2'; subst.
       destruct v0; eauto. destruct st2.
       specialize (IHFUEL (C0 [|dy_c_lam x t ([||])|])
-                         (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e
+                         (ST (t !-> ev; mem) (tick t)) e
                          reached1 m LE') as HINT''.
       destruct (eval (C0 [|dy_c_lam x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e
+                     (ST (t !-> ev; mem) (tick t)) e
                      reached1 FUEL) eqn:EVAL3;
       destruct (eval (C0 [|dy_c_lam x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e
+                     (ST (t !-> ev; mem) (tick t)) e
                      reached1 m) eqn:EVAL3'; eauto;
       try (destruct v; eauto); destruct v0; eauto.
     + specialize (IHFUEL C st e1 (Config C st (e_link e1 e2) :: l) m LE') as HINT.
@@ -718,29 +711,29 @@ Proof.
       try (
         destruct v; eauto; destruct st0;
         assert (In cf (extract_reached (eval (C [|dy_c_lete x t ([||])|])
-                                             (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e2
+                                             (ST (t !-> ev; mem) (tick t)) e2
                                              reached0 m))) as HINT';
         try (apply reach_myself; apply HINT; eauto);
         destruct (eval (C [|dy_c_lete x t ([||])|])
-                       (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e2
+                       (ST (t !-> ev; mem) (tick t)) e2
                        reached0 m); eauto; destruct v; eauto; fail);
       pose proof (relax_fuel C st e1 (Config C st (m_lete x e1 e2) :: l) reached v st0 FUEL m LE' EVAL1) as RR;
       rewrite RR in EVAL1'; inversion EVAL1'; subst.
       destruct v0; eauto. destruct st1.
       destruct (eval (C [|dy_c_lete x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e2 reached0
+                     (ST (t !-> ev; mem) (tick t)) e2 reached0
                      FUEL) eqn:EVAL2; simpl;
       destruct (eval (C [|dy_c_lete x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e2 reached0
+                     (ST (t !-> ev; mem) (tick t)) e2 reached0
                      m) eqn:EVAL2';
       try (
         assert (In cf (extract_reached (eval (C [|dy_c_lete x t ([||])|])
-                                             (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e2 reached0
+                                             (ST (t !-> ev; mem) (tick t)) e2 reached0
                                              m))) as HINT';
         try (apply IHFUEL; eauto; rewrite EVAL2; eauto);
         rewrite EVAL2' in HINT'; eauto; destruct v; eauto);
       pose proof (relax_fuel (C [|dy_c_lete x t ([||])|])
-                             (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e2
+                             (ST (t !-> ev; mem) (tick t)) e2
                              reached0 reached v st0 FUEL m LE' EVAL2) as RR';
       rewrite RR' in EVAL2'; inversion EVAL2'; subst.
       destruct v0; eauto.
@@ -803,14 +796,14 @@ Proof.
     destruct IHr as [RR [RR' CONTAINED']]. rewrite <- RR in *. rewrite <- RR' in *. clear RR RR'.
     destruct v; eauto. destruct st2.
     specialize (IHFUEL (C0 [|dy_c_lam x t ([||])|])
-                       (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                       (ST (t !-> ev; mem) (tick t))
                        e reached1 reached2 CONTAINED').
     clear CONTAINED'.
     destruct (eval (C0 [|dy_c_lam x t ([||])|])
-                   (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                   (ST (t !-> ev; mem) (tick t))
                    e reached1 FUEL);
     destruct (eval (C0 [|dy_c_lam x t ([||])|])
-                   (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                   (ST (t !-> ev; mem) (tick t))
                    e reached2 FUEL);
     try (assert False as contra; eauto; inversion contra); eauto.
     destruct IHFUEL as [RR [RR' CONTAINED']]. rewrite <- RR in *. rewrite <- RR' in *. clear RR RR'.
@@ -844,13 +837,13 @@ Proof.
     destruct IHl as [RR [RR' CONTAINED']]. rewrite <- RR in *. rewrite <- RR' in *. clear RR RR'.
     destruct v; eauto. destruct st0.
     specialize (IHFUEL (C [|dy_c_lete x t ([||])|])
-                       (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                       (ST (t !-> ev; mem) (tick t))
                        e2 reached reached0 CONTAINED'). clear CONTAINED'.
     destruct (eval (C [|dy_c_lete x t ([||])|])
-                   (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                   (ST (t !-> ev; mem) (tick t))
                    e2 reached FUEL);
     destruct (eval (C [|dy_c_lete x t ([||])|])
-                   (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                   (ST (t !-> ev; mem) (tick t))
                    e2 reached0 FUEL);
     try (assert False as contra; eauto; inversion contra); eauto.
     destruct IHFUEL as [RR [RR' CONTAINED']]. rewrite <- RR in *. rewrite <- RR' in *.
@@ -919,19 +912,19 @@ Proof.
           destruct H as [[[?|?]|?]|?]; simpl in *; eauto).
       destruct st2.
       specialize (IHFUEL (C0 [|dy_c_lam x t ([||])|])
-                         (ST (t !-> ev; mem) (update C (ST mem t) x ev)) 
+                         (ST (t !-> ev; mem) (tick t)) 
                          e reached1 cf) as HINT3.
       specialize (IHFUEL (C0 [|dy_c_lam x t ([||])|])
-                         (ST (t !-> ev; mem) (update C (ST mem t) x ev)) 
+                         (ST (t !-> ev; mem) (tick t)) 
                          e reached2 cf) as HINT3'.
       pose proof (reach_same FUEL (C0 [|dy_c_lam x t ([||])|])
-                                  (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                                  (ST (t !-> ev; mem) (tick t))
                                   e reached2 reached1 CONTAINED) as contra. clear CONTAINED.
       destruct (eval (C0 [|dy_c_lam x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e
+                     (ST (t !-> ev; mem) (tick t)) e
                      reached1 FUEL);
       destruct (eval (C0 [|dy_c_lam x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e
+                     (ST (t !-> ev; mem) (tick t)) e
                      reached2 FUEL);
       try (rewrite HINT3 in H); try rewrite HINT3';
       try (rewrite HINT2 in H); try rewrite HINT2';
@@ -987,20 +980,20 @@ Proof.
       destruct v;
       try (rewrite HINT1 in H; rewrite HINT1'; destruct H as [[?|?]|?]; simpl in *; eauto). destruct st0.
       specialize (IHFUEL (C [|dy_c_lete x t ([||])|])
-                         (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                         (ST (t !-> ev; mem) (tick t))
                          e2 reached cf) as HINT2.
       specialize (IHFUEL (C [|dy_c_lete x t ([||])|])
-                         (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                         (ST (t !-> ev; mem) (tick t))
                          e2 reached0 cf) as HINT2'.
       pose proof (reach_same FUEL (C [|dy_c_lete x t ([||])|])
-                                  (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                                  (ST (t !-> ev; mem) (tick t))
                                   e2 reached0 reached CONTAINED) as contra.
       clear CONTAINED.
       destruct (eval (C [|dy_c_lete x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                     (ST (t !-> ev; mem) (tick t))
                      e2 reached FUEL);
       destruct (eval (C [|dy_c_lete x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                     (ST (t !-> ev; mem) (tick t))
                      e2 reached0 FUEL);
       try (rewrite HINT2 in H); try rewrite HINT2';
       try (rewrite HINT1 in H); try rewrite HINT1';
@@ -1074,19 +1067,19 @@ Proof.
           destruct H as [?|[[[?|?]|?]|?]]; simpl in *; eauto; inversion H).
       destruct st2.
       specialize (IHFUEL (C0 [|dy_c_lam x t ([||])|])
-                         (ST (t !-> ev; mem) (update C (ST mem t) x ev)) 
+                         (ST (t !-> ev; mem) (tick t)) 
                          e reached1 cf) as HINT3'.
       specialize (IHFUEL (C0 [|dy_c_lam x t ([||])|])
-                         (ST (t !-> ev; mem) (update C (ST mem t) x ev)) 
+                         (ST (t !-> ev; mem) (tick t)) 
                          e reached2 cf) as HINT3.
       pose proof (reach_same FUEL (C0 [|dy_c_lam x t ([||])|])
-                                  (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                                  (ST (t !-> ev; mem) (tick t))
                                   e reached2 reached1 CONTAINED) as contra. clear CONTAINED.
       destruct (eval (C0 [|dy_c_lam x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e
+                     (ST (t !-> ev; mem) (tick t)) e
                      reached1 FUEL);
       destruct (eval (C0 [|dy_c_lam x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev)) e
+                     (ST (t !-> ev; mem) (tick t)) e
                      reached2 FUEL);
       try (rewrite HINT3 in H); try rewrite HINT3';
       try (rewrite HINT2 in H); try rewrite HINT2';
@@ -1142,20 +1135,20 @@ Proof.
       destruct v;
       try (rewrite HINT1 in H; rewrite HINT1'; destruct H as [?|[[?|?]|?]]; simpl in *; eauto; inversion H). destruct st0.
       specialize (IHFUEL (C [|dy_c_lete x t ([||])|])
-                         (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                         (ST (t !-> ev; mem) (tick t))
                          e2 reached cf) as HINT2'.
       specialize (IHFUEL (C [|dy_c_lete x t ([||])|])
-                         (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                         (ST (t !-> ev; mem) (tick t))
                          e2 reached0 cf) as HINT2.
       pose proof (reach_same FUEL (C [|dy_c_lete x t ([||])|])
-                                  (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                                  (ST (t !-> ev; mem) (tick t))
                                   e2 reached0 reached CONTAINED) as contra.
       clear CONTAINED.
       destruct (eval (C [|dy_c_lete x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                     (ST (t !-> ev; mem) (tick t))
                      e2 reached FUEL);
       destruct (eval (C [|dy_c_lete x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                     (ST (t !-> ev; mem) (tick t))
                      e2 reached0 FUEL);
       try (rewrite HINT2 in H); try rewrite HINT2';
       try (rewrite HINT1 in H); try rewrite HINT1';
@@ -1219,7 +1212,7 @@ Proof.
     { rewrite <- EVAL2; rewrite separate_reach; eauto. }
     destruct v; simpl in *; eauto. destruct st1.
     destruct (eval (C0 [|dy_c_lam x t ([||])|])
-                   (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                   (ST (t !-> ev; mem) (tick t))
                    e reached0 FUEL) eqn:EVAL3;
     try (rewrite <- EVAL3; rewrite separate_reach; eauto).
     assert (In (Config C' st' e') (extract_reached (Resolved v st1 reached1))).
@@ -1243,7 +1236,7 @@ Proof.
       right. apply relax_fuel_reach with (FUEL := FUEL). nia. eauto. }
     destruct v0; simpl in *; eauto. destruct st1.
     destruct (eval (C_lam [|dy_c_lam x t ([||])|])
-                   (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                   (ST (t !-> ev; mem) (tick t))
                    e reached0 (Nat.max FUEL FUEL')) eqn:EVAL3;
     try (rewrite <- EVAL3; rewrite separate_reach; eauto).
     assert (In (Config C' st' e') (extract_reached (Resolved v0 st1 reached1))).
@@ -1270,7 +1263,7 @@ Proof.
     { apply relax_fuel with (FUEL := FUEL''). nia. eauto. }
     rewrite RR. clear RR.
     destruct (eval (C_lam [|dy_c_lam x t ([||])|])
-                   (ST (t !-> arg; mem) (update C (ST mem t) x arg))
+                   (ST (t !-> arg; mem) (tick t))
                    e reached0 (Nat.max FUEL (Nat.max FUEL' FUEL''))) eqn:EVAL3;
     try (rewrite <- EVAL3; apply relax_fuel_reach with (FUEL := FUEL); try nia; eauto;
          rewrite separate_reach; eauto).
@@ -1308,7 +1301,7 @@ Proof.
     { rewrite <- EVAL1; rewrite separate_reach; eauto. }
     destruct v; simpl in *; eauto. destruct st0.
     destruct (eval (C [|dy_c_lete x t ([||])|])
-                   (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                   (ST (t !-> ev; mem) (tick t))
                    m reached FUEL) eqn:EVAL2;
     try (rewrite <- EVAL2; rewrite separate_reach; eauto).
     assert (In (Config C' st' e') (extract_reached (Resolved v st0 reached0))).
@@ -1325,7 +1318,7 @@ Proof.
     { apply relax_fuel with (FUEL := FUEL'). nia. eauto. }
     simpl. rewrite RR. clear RR.
     destruct (eval (C [|dy_c_lete x t ([||])|])
-                   (ST (t !-> v; mem) (update C (ST mem t) x v))
+                   (ST (t !-> v; mem) (tick t))
                    m reached (Nat.max FUEL FUEL')) eqn:EVAL2;
     try (rewrite <- EVAL2; apply relax_fuel_reach with (FUEL := FUEL); try nia; eauto;
          rewrite separate_reach; eauto).
@@ -1407,7 +1400,7 @@ Proof.
       assert (EvalR C st0 e2 (EVal ev) (ST mem t)) as ARG.
       eauto. clear H.
       destruct (eval (C0 [|dy_c_lam x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                     (ST (t !-> ev; mem) (tick t))
                      e reached0 FUEL) eqn:EVAL3;
       try (rewrite <- EVAL3 in R; eauto; rewrite separate_reach in R; simpl in *;
            destruct R as [R|R]; eauto;
@@ -1456,8 +1449,7 @@ Proof.
       assert (EvalR C st e1 (EVal (Closure x0 e C0)) st0) as EVALx.
       eauto. clear H. destruct st0.
       destruct (eval (C [|dy_c_lete x t ([||])|])
-                     (ST (t !-> Closure x0 e C0; mem)
-                         (update C (ST mem t) x (Closure x0 e C0)))
+                     (ST (t !-> Closure x0 e C0; mem) (tick t))
                      e2 reached FUEL) eqn:EVAL2;
       try (rewrite <- EVAL2 in R; eauto; rewrite separate_reach in R; simpl in *;
            destruct R as [R|R]; eauto;
@@ -1533,18 +1525,18 @@ Proof.
       destruct (eval C st0 e2 reached FUEL) eqn:ARG; eauto.
       destruct v; eauto. destruct st1.
       destruct (eval (C0 [|dy_c_lam x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                     (ST (t !-> ev; mem) (tick t))
                      e reached0 FUEL) eqn:BODY; eauto.
       destruct v; eauto.
       pose proof (reach_same FUEL (C0 [|dy_c_lam x t ([||])|])
-                                  (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                                  (ST (t !-> ev; mem) (tick t))
                                   e [] reached0 (HINT _ reached0)) as R.
       rewrite BODY in R.
       destruct (eval (C0 [|dy_c_lam x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                     (ST (t !-> ev; mem) (tick t))
                      e [] FUEL) eqn:BODY'; try (inversion R; fail).
       specialize (IHFUEL (C0 [|dy_c_lam x t ([||])|])
-                         (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                         (ST (t !-> ev; mem) (tick t))
                          e). rewrite BODY' in IHFUEL.
       destruct R as [RR [RR' R]]. rewrite RR in *. rewrite RR' in *. clear RR RR'.
       destruct IHFUEL as [C' [e' [CONTAINED EVAL]]].
@@ -1565,17 +1557,17 @@ Proof.
     + destruct (eval C st e1 [Config C st (m_lete x e1 e2)] FUEL) eqn:EVALx; eauto.
       destruct v; eauto. destruct st0.
       destruct (eval (C [|dy_c_lete x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                     (ST (t !-> ev; mem) (tick t))
                      e2 reached FUEL) eqn:BODY; eauto.
       pose proof (reach_same FUEL (C [|dy_c_lete x t ([||])|])
-                                  (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                                  (ST (t !-> ev; mem) (tick t))
                                   e2 [] reached (HINT _ reached)) as R.
       rewrite BODY in R.
       destruct (eval (C [|dy_c_lete x t ([||])|])
-                     (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                     (ST (t !-> ev; mem) (tick t))
                      e2 []) eqn:BODY'; try (inversion R; fail).
       specialize (IHFUEL (C [|dy_c_lete x t ([||])|])
-                         (ST (t !-> ev; mem) (update C (ST mem t) x ev))
+                         (ST (t !-> ev; mem) (tick t))
                          e2). rewrite BODY' in IHFUEL.
       destruct R as [RR [RR' R]]. rewrite RR in *. rewrite RR' in *. clear RR RR'.
       destruct IHFUEL as [C' [e' [CONTAINED EVAL]]].

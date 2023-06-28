@@ -410,19 +410,10 @@ Qed.
 Theorem expr_ctx_bound :
   forall `{time T} init e C' st' e'
          (REACH : <| ([||]) (ST empty_mem init) e ~#> C' st' e' |>),
-         In (dy_to_st C') (snd (collect_ctx ([[||]]) e)).
+         ctx_bound_tm (snd (collect_ctx ([[||]]) e)) C' st' e'.
 Proof.
   intros. rename H into H'. rename H0 into H0'.
-  pose proof (reach_ctx_bound (snd (collect_ctx st_c_hole e)) ([||]) (ST empty_mem init) e C' st' e') as H.
-  assert (ctx_bound_tm (snd (collect_ctx ([[||]]) e)) 
-                       ([||]) (ST empty_mem init) e) as FINAL.
-  - split; simpl; eauto. intros. inversion INvl. 
-    destruct (collect_ctx ([[||]]) e); eauto.
-  - apply H in FINAL; try apply REACH. 
-    destruct FINAL as [MEM KILLER].
-    remember (collect_ctx (dy_to_st C') e') as ol.
-    destruct ol. apply KILLER. 
-    assert (l = (snd (collect_ctx (dy_to_st C') e'))) as RR.
-    rewrite <- Heqol; eauto.
-    rewrite RR. apply collect_ctx_refl.
+  eapply reach_ctx_bound; eauto.
+  split; simpl; eauto. intros. inversion INvl. 
+  destruct (collect_ctx ([[||]]) e); eauto.
 Qed.
