@@ -231,177 +231,12 @@ Fixpoint lift_ctx_af `{EB : Eq BT} `{EA : Eq AT} (final : BT) (C : @dy_ctx AT)
   | dy_c_letm M C' C'' => dy_c_letm M (lift_ctx_af final C') (lift_ctx_af final C'')
   end.
 
-Fixpoint map_inject {T} (Cout : @dy_ctx T) (Cin : @dy_ctx T) :=
-  match Cin with
-  | [||] => [||]
-  | dy_c_lam x t C' =>
-    dy_c_lam x t (map_inject Cout C')
-  | dy_c_lete x t C' =>
-    dy_c_lete x t (map_inject Cout C')
-  | dy_c_letm M C' C'' =>
-    dy_c_letm M (Cout[|map_inject Cout C'|]) (map_inject Cout C'')
-  end.
-
-Definition inject_ctx {T} (Cout : @dy_ctx T) (Cin : @dy_ctx T) :=
-  Cout[|map_inject Cout Cin|].
-
-Fixpoint delete_prefix {T} `{Eq T} (Cout : @dy_ctx T) (Cin : @dy_ctx T) :=
-  match Cout, Cin with
-  | [||], Cin => Cin
-  | dy_c_lam x t Cout', dy_c_lam x' t' Cin'
-  | dy_c_lete x t Cout', dy_c_lete x' t' Cin' =>
-    if eq_eid x x' && eqb t t' then
-      delete_prefix Cout' Cin'
-    else Cin
-  | dy_c_letm M Cout' Cout'', dy_c_letm M' Cin' Cin'' =>
-    if eq_mid M M' && eq_ctx Cout' Cin' then
-      delete_prefix Cout'' Cin''
-    else Cin
-  | _, _ => Cin
-  end.
-
-Ltac intro_refl :=
-  assert (forall x, eq_eid x x = true) as eid_refl; [intros; apply eq_eid_eq; eauto|idtac];
-  assert (forall M, eq_mid M M = true) as mid_refl; [intros; apply eq_mid_eq; eauto|idtac];
-  assert (forall {T} `{Eq T} t, eqb t t = true) as t_refl; [intros; apply eqb_eq; eauto|idtac];
-  assert (forall {T} `{Eq T} C, eq_ctx C C = true) as ctx_refl; [intros; apply eq_ctx_eq; eauto|idtac].
-
-Lemma delete_prefix_eq :
-  forall {T} `{Eq T} (Cout Cin : dy_ctx),
-    delete_prefix Cout (Cout[|Cin|]) = Cin.
-Proof.
-  intro_refl. intros. rename H into ET. revert Cin.
-  induction Cout; simpl; eauto;    
-    try rewrite eid_refl; try rewrite mid_refl; try rewrite t_refl; try rewrite ctx_refl;
-    simpl; eauto.
-Qed.
-
-Lemma delete_prefix_dec :
-  forall {T} `{Eq T} (Cout Cin : @dy_ctx T),
-    dy_level (delete_prefix Cout Cin) <= dy_level Cin.
-Proof.
-  intros. revert Cout. 
-  induction Cin; intros; destruct Cout; simpl; eauto;
-  try destruct (eq_eid x0 x); try destruct (eqb tx0 tx);
-  try destruct (eq_mid M0 M); try destruct (eq_ctx Cout1 Cin1);
-  simpl; try nia.
-  etransitivity; try apply IHCin; eauto.
-  etransitivity; try apply IHCin; eauto.
-  etransitivity; try apply IHCin2; nia.
-Qed.
-
-Require Import Program.
-
-Program Fixpoint delete_map 
-  {T} `{Eq T} (Cout Cin : dy_ctx) {measure (dy_level Cin)} :=
-  match Cin with
-  | [||] => [||]
-  | dy_c_lam x t C' =>
-    dy_c_lam x t (delete_map Cout C')
-  | dy_c_lete x t C' =>
-    dy_c_lete x t (delete_map Cout C')
-  | dy_c_letm M C' C'' =>
-    dy_c_letm M (delete_map Cout (delete_prefix Cout C'))
-                (delete_map Cout C'')
-  end.
-
-Next Obligation.
-  simpl.
-  pose proof (delete_prefix_dec Cout C').
-  nia.
-Defined.
-Next Obligation.
-  simpl.
-  pose proof (delete_prefix_dec Cout C'').
-  nia.
-Defined.
-
-(* reduction lemmas *)
-Lemma delete_map_red_lam :
-  forall {T} `{Eq T} Cout x t C',
-    delete_map Cout (dy_c_lam x t C') =
-      dy_c_lam x t (delete_map Cout C').
-Proof.
-  intros. unfold delete_map. unfold delete_map_func.
-  rewrite fix_sub_eq; simpl; try reflexivity.
-  intros x' f g Heq.
-  specialize (functional_extensionality_dep f g Heq).
-  intros RR. rewrite RR. reflexivity.
-Qed.
-
-Lemma delete_map_red_lete :
-  forall {T} `{Eq T} Cout x t C',
-    delete_map Cout (dy_c_lete x t C') =
-      dy_c_lete x t (delete_map Cout C').
-Proof.
-  intros. unfold delete_map. unfold delete_map_func.
-  rewrite fix_sub_eq; simpl; try reflexivity.
-  intros x' f g Heq.
-  specialize (functional_extensionality_dep f g Heq).
-  intros RR. rewrite RR. reflexivity.
-Qed.
-
-Lemma delete_map_red_letm :
-  forall {T} `{Eq T} Cout M C' C'',
-    delete_map Cout (dy_c_letm M C' C'') =
-      dy_c_letm M (delete_map Cout (delete_prefix Cout C'))
-                  (delete_map Cout C'').
-Proof.
-  intros. unfold delete_map. unfold delete_map_func.
-  rewrite fix_sub_eq; simpl; try reflexivity.
-  intros x' f g Heq.
-  specialize (functional_extensionality_dep f g Heq).
-  intros RR. rewrite RR. reflexivity.
-Qed.
-
-Ltac simpl_delete :=
-  simpl;
-  try rewrite delete_map_red_lam;
-  try rewrite delete_map_red_lete;
-  try rewrite delete_map_red_letm.
-
-Lemma delete_map_eq :
-  forall {T} `{Eq T} (Cout Cin : dy_ctx),
-    delete_map Cout (map_inject Cout Cin) = Cin.
-Proof.
-  intros. rename H into ET. revert Cout.
-  induction Cin; intros; simpl_delete; 
-  try rewrite IHCin; eauto.
-  rewrite delete_prefix_eq. 
-  rewrite IHCin1. rewrite IHCin2. eauto.
-Qed.
-
-Definition delete_inject {T} `{Eq T} (Cout Cin : dy_ctx) :=
-  delete_map Cout (delete_prefix Cout Cin).
-
-Lemma delete_inject_eq :
-  forall {T} `{Eq T} (Cout Cin : dy_ctx),
-    delete_inject Cout (inject_ctx Cout Cin) = Cin.
-Proof.
-  intros. unfold delete_inject. unfold inject_ctx.
-  rewrite delete_prefix_eq.
-  rewrite delete_map_eq. eauto.
-Qed.
-  
-Notation "Cout '<|' Cin '|>'" := (inject_ctx Cout Cin)
-                              (at level 100, Cin at next level, right associativity).
-
-Definition inject_ctx_v {T} `{Eq T} (Cout : @dy_ctx T) (v : @expr_value T) :=
-  match v with
-  | Closure x t C => Closure x t (Cout <|C|>)
-  end.
-
 Definition inject_ctx_mem {T} `{Eq T} (Cout : @dy_ctx T) (mem : T -> option (@expr_value T)) :=
   fun t =>
     match mem t with
     | Some v => Some (inject_ctx_v Cout v)
     | None => None
     end.
-
-Definition delete_ctx_v {T} `{Eq T} (Cout : @dy_ctx T) (v : @expr_value T) :=
-  match v with
-  | Closure x t C => Closure x t (delete_inject Cout C)
-  end.
 
 Definition delete_ctx_mem {T} `{Eq T} (Cout : @dy_ctx T) (mem : T -> option (@expr_value T)) :=
   fun t =>
@@ -420,117 +255,26 @@ Proof.
   destruct e. simpl. rewrite delete_inject_eq. reflexivity.
 Qed.
 
-Lemma map_inject_addr_x :
-  forall {T} `{Eq T} x (Cout : @dy_ctx T) (Cin : @dy_ctx T),
-    addr_x (map_inject Cout Cin) x = addr_x Cin x.
-Proof.
-  intros. revert Cout. 
-  induction Cin; intros; simpl; eauto;
-  destruct (addr_x Cin x) eqn:ADDR;
-  rewrite IHCin; eauto.
-Qed.
-
-Lemma map_inject_ctx_M :
-  forall {T} `{Eq T} M (Cout : @dy_ctx T) (Cin : @dy_ctx T),
-    ctx_M (map_inject Cout Cin) M =
-    match ctx_M Cin M with
-    | Some CM => Some (Cout <| CM |>)
-    | None => None
-    end.
-Proof.
-  intros. revert Cout.
-  induction Cin; intros; simpl; eauto.
-  rewrite IHCin2. destruct (ctx_M Cin2 M); eauto.
-  destruct (eq_mid M M0); eauto.
-Qed.
-
-Lemma plugin_ctx_addr_x :
-  forall {T} `{Eq T} x (Cout : @dy_ctx T) (Cin : @dy_ctx T),
-    match addr_x Cin x with
-    | Some t => addr_x (Cout[|Cin|]) x = Some t
-    | None => True
-    end.
-Proof.
-  intros. revert Cin.
-  induction Cout; intros; 
-  destruct (addr_x Cin x) eqn:ADDR; simpl; eauto;
-  try (specialize (IHCout Cin); rewrite ADDR in IHCout;
-      rewrite IHCout; eauto).
-  specialize (IHCout2 Cin); rewrite ADDR in IHCout2; rewrite IHCout2; eauto.
-Qed.
-
-Lemma plugin_ctx_ctx_M :
-  forall {T} `{Eq T} M (Cout : @dy_ctx T) (Cin : @dy_ctx T),
-    match ctx_M Cin M with
-    | Some CM => ctx_M (Cout[|Cin|]) M = Some CM
-    | None => True
-    end.
-Proof.
-  intros. revert Cin.
-  induction Cout; intros;
-  destruct (ctx_M Cin M) eqn:CTX; simpl; eauto;
-  try (specialize (IHCout Cin); rewrite CTX in IHCout;
-      rewrite IHCout; eauto).
-  specialize (IHCout2 Cin); rewrite CTX in IHCout2; rewrite IHCout2; eauto.
-Qed.
-
-Lemma inject_ctx_addr_x :
-  forall {T} `{Eq T} x (Cout : @dy_ctx T) (Cin : @dy_ctx T),
-    match addr_x Cin x with
-    | Some t => addr_x (Cout<|Cin|>) x = Some t
-    | None => True
-    end.
-Proof.
-  intros. destruct (addr_x Cin x) eqn:ADDR; eauto.
-  rewrite <- map_inject_addr_x with (Cout := Cout) in ADDR.
-  rewrite <- ADDR. 
-  pose proof plugin_ctx_addr_x.
-  specialize (H0 x Cout (map_inject Cout Cin)).
-  rewrite ADDR in H0. rewrite <- H0 in ADDR.
-  eauto.
-Qed.
-
-Lemma inject_ctx_ctx_M :
-  forall {T} `{Eq T} M (Cout : @dy_ctx T) (Cin : @dy_ctx T),
-    match ctx_M Cin M with
-    | Some CM => ctx_M (Cout<|Cin|>) M = Some (Cout <|CM|>)
-    | None => True
-    end.
-Proof.
-  intros. destruct (ctx_M Cin M) eqn:CTX; eauto.
-  pose proof (map_inject_ctx_M M Cout Cin).
-  rewrite CTX in H0.
-  pose proof (plugin_ctx_ctx_M M Cout (map_inject Cout Cin)).
-  rewrite H0 in H1. eauto.
-Qed.
-
-Definition link_update
+Definition link_tick
   `{EB : Eq BT} `{EA : Eq AT} 
   `{OB : @OrderT BT EB} `{OA : @OrderT AT EA}
   `{@Conc.time BT EB OB} `{@Conc.time AT EA OA}
-  (final : BT) (init : AT) (Cout : @dy_ctx BT)
-  (C : @dy_ctx (@link BT EB AT EA)) st x v :=
-  let Cout := filter_ctx_af (lift_ctx_bf init Cout) in
-  match st with
-  | ST mem (L bf af) =>
+  (final : BT) (init : AT) t :=
+  match t with
+  | (L bf af) =>
     if link_leb (L final init) (L bf af) then
-      L bf 
-        (update (delete_inject Cout (filter_ctx_af C))
-                (ST (delete_ctx_mem Cout (filter_mem_af final mem)) af)
-                x (delete_ctx_v Cout (filter_v_af v)))
+      L bf (tick af)
     else
-      L (update (filter_ctx_bf C) 
-                (ST (filter_mem_bf init mem) bf) 
-                x (filter_v_bf v)) af
+      L (tick bf) af
   end.
 
-Lemma link_update_lt :
+Lemma link_tick_lt :
   forall 
     `{EB : Eq BT} `{EA : Eq AT} 
     `{OB : @OrderT BT EB} `{OA : @OrderT AT EA}
     `{CB : @Conc.time BT EB OB} `{CA : @Conc.time AT EA OA}
-    final init Cout C mem t x v, 
-  let t' := @link_update BT EB AT EA OB OA CB CA final init Cout C (ST mem t) x v in
+    final init t, 
+  let t' := @link_tick BT EB AT EA OB OA CB CA final init t in
   link_leb t t' = true /\ link_eqb t t' = false.
 Proof.
   intros. destruct t; simpl in *.
@@ -538,18 +282,12 @@ Proof.
   destruct (eqb final bf) eqn:EQbf;
   destruct (leb init af) eqn:LEaf;
   simpl;
-  try (replace (leb bf bf) with true;
-    try (replace (eqb bf bf) with true);
-    try apply update_lt;
-    symmetry; try apply eqb_eq; try apply leb_refl; eauto);
-  assert (leb bf
-      (update (filter_ctx_bf C) (ST (filter_mem_bf init mem) bf) x
-      (filter_v_bf v)) = true) as RR;
-  try apply update_lt;
-  assert (eqb bf
-      (update (filter_ctx_bf C) (ST (filter_mem_bf init mem) bf) x
-      (filter_v_bf v)) = false) as RR';
-  try apply update_lt;
+  try rewrite eqb_refl; try rewrite leb_refl;
+  try apply tick_lt; eauto;
+  assert (leb bf (tick bf) = true) as RR;
+  try apply tick_lt;
+  assert (eqb bf (tick bf) = false) as RR';
+  try apply tick_lt;
   rewrite RR; rewrite RR'; eauto.
 Qed.
 
@@ -557,13 +295,40 @@ Qed.
   `{EB : Eq BT} `{EA : Eq AT} 
   `{OB : @OrderT BT EB} `{OA : @OrderT AT EA}
   `{CB : @Conc.time BT EB OB} `{CA : @Conc.time AT EA OA}
-  final init Cout
+  final init
   : (@Conc.time (@link BT EB AT EA) (@LinkEq BT EB AT EA) 
                 (@LinkOrderT BT EB AT EA OB OA)) :=
 {
-  update := link_update final init Cout;
-  update_lt := link_update_lt final init Cout
+  tick := link_tick final init;
+  tick_lt := link_tick_lt final init
 }.
+
+Definition delete_update {T} `{ET : Eq T} `{OT : @OrderT T ET} `{@time T ET OT} (Cout : @dy_ctx T) :=
+  fun C st x v =>
+    let delete_C := delete_inject Cout C in
+    let delete_st :=
+      match st with
+      | ST mem t => ST (delete_ctx_mem Cout mem) t
+      end in
+    let delete_v := 
+      match v with
+      | Closure x_v e_v C_v =>
+        Closure x_v e_v (delete_inject Cout C_v)
+      end in
+    update delete_C delete_st x delete_v.
+
+Lemma delete_update_lt {T} `{ET : Eq T} `{OT : @OrderT T ET} `{@time T ET OT} (Cout : @dy_ctx T) :
+  forall C mem t x v, let t' := delete_update Cout C (ST mem t) x v in
+                                leb t t' = true /\ eqb t t' = false.
+Proof.
+  intros. unfold delete_update in t'. apply update_lt.
+Qed.
+
+#[export] Instance delete_time {T} `{ET : Eq T} `{OT : @OrderT T ET} `{@time T ET OT} (Cout : @dy_ctx T) : @time T ET OT :=
+  {
+    update := delete_update Cout;
+    update_lt := delete_update_lt Cout
+  }.
 
 Lemma delete_update_eq {T} `{ET : Eq T} `{OT : @OrderT T ET} `{@time T ET OT} (Cout : @dy_ctx T) :
   forall C mem t x v,

@@ -8,7 +8,7 @@ Inductive state {T : Type} :=
 .
 
 Class time `{Eq T} :=
-{  
+{ 
   update : (@dy_ctx T) -> (@state T) -> expr_id -> (@expr_value T) -> T;
 }.
 
