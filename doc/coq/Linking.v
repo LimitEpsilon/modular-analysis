@@ -303,62 +303,6 @@ Qed.
   tick_lt := link_tick_lt final init
 }.
 
-Definition delete_update {T} `{ET : Eq T} `{OT : @OrderT T ET} `{@time T ET OT} (Cout : @dy_ctx T) :=
-  fun C st x v =>
-    let delete_C := delete_inject Cout C in
-    let delete_st :=
-      match st with
-      | ST mem t => ST (delete_ctx_mem Cout mem) t
-      end in
-    let delete_v := 
-      match v with
-      | Closure x_v e_v C_v =>
-        Closure x_v e_v (delete_inject Cout C_v)
-      end in
-    update delete_C delete_st x delete_v.
-
-Lemma delete_update_lt {T} `{ET : Eq T} `{OT : @OrderT T ET} `{@time T ET OT} (Cout : @dy_ctx T) :
-  forall C mem t x v, let t' := delete_update Cout C (ST mem t) x v in
-                                leb t t' = true /\ eqb t t' = false.
-Proof.
-  intros. unfold delete_update in t'. apply update_lt.
-Qed.
-
-#[export] Instance delete_time {T} `{ET : Eq T} `{OT : @OrderT T ET} `{@time T ET OT} (Cout : @dy_ctx T) : @time T ET OT :=
-  {
-    update := delete_update Cout;
-    update_lt := delete_update_lt Cout
-  }.
-
-Lemma delete_update_eq {T} `{ET : Eq T} `{OT : @OrderT T ET} `{@time T ET OT} (Cout : @dy_ctx T) :
-  forall C mem t x v,
-    let inject_v :=
-      match v with
-      | Closure x_v e_v C_v => Closure x_v e_v (Cout<|C_v|>)
-      end in
-    delete_update Cout (Cout<|C|>) (ST (inject_ctx_mem Cout mem) t) x inject_v =
-    update C (ST mem t) x v.
-Proof.
-  intros. destruct v. destruct inject_v eqn:INJ. inversion INJ. subst.
-  unfold delete_update. rewrite delete_inject_eq. rewrite delete_ctx_mem_eq.
-  rewrite delete_inject_eq. reflexivity.
-Qed.
-
-Lemma plugin_map_assoc :
-  forall {T} `{Eq T} (Cout C C' : @dy_ctx T),
-    (map_inject Cout C) [|map_inject Cout C'|] = (map_inject Cout (C [|C'|])).
-Proof.
-  intros. revert Cout C'. induction C; intros; simpl; eauto; try rewrite IHC; try rewrite IHC2; eauto.
-Qed.
-
-Lemma plugin_inject_assoc :
-  forall {T} `{Eq T} (Cout C C' : @dy_ctx T),
-    (Cout <| C |>)[| map_inject Cout C' |] = (Cout <|C[|C'|]|>).
-Proof.
-  intros. unfold inject_ctx. rewrite <- c_plugin_assoc.
-  rewrite plugin_map_assoc. eauto.
-Qed.
-
 Lemma inject_update_m_eq :
   forall {T} `{Eq T} t x e mem (Cout C : @dy_ctx T),
   (t !-> Closure x e (Cout <| C |>); inject_ctx_mem Cout mem) =

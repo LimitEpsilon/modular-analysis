@@ -1,23 +1,6 @@
 From MODULAR Require Export Abstract.
 From MODULAR Require Export Concrete.
 
-Ltac contradict :=
-  let contra := fresh "contra" in
-  assert False as contra; eauto 3; inversion contra.
-
-Lemma __R__ : forall b, b = false <-> ~ b = true.
-Proof. 
-  intros; destruct b; unfold "<>"; split; 
-  intros; try inversion H; try inversion H0; try contradict; eauto.
-Qed.
-
-Ltac refl_bool :=
-  match goal with
-  | |- _ = false => rewrite __R__; unfold "<>"
-  | |- _ <> true => rewrite <- __R__
-  | _ => idtac
-  end.
-
 Ltac lebt x :=
   apply leb_trans with (t' := x); try assumption; try apply tick_lt.
 
@@ -515,7 +498,7 @@ Proof.
     specialize (IHEVAL2 abs_C abs_st' α' H). clear H.
     destruct IHEVAL2 as [abs_C'' [abs_st'' [α'' [EQ'' SOUND'']]]]. destruct abs_st'' as [mem'' t''].
     remember (fun t' => if eqb t' (tick t)
-                        then Abs.update abs_C (Abs.ST mem'' t'') x (Closure x0 e0 abs_C'') 
+                        then Abs.tick abs_C (Abs.ST mem'' t'') x (Closure x0 e0 abs_C'') 
                         else α'' t') as α'''.
     assert (eq_bound t α'' α''') as EQ'''.
     { rewrite Heqα'''. apply eq_bound_tick. }
@@ -523,7 +506,7 @@ Proof.
             (ST (t !-> Closure x0 e0 C0; mem) (tick t))
             (abs_C'[| dy_c_lam x (α'' t) ([||]) |])
             (Abs.ST ((α'' t) !#-> Closure x0 e0 abs_C''; mem'') 
-                    (Abs.update abs_C (Abs.ST mem'' t'') x (Closure x0 e0 abs_C'')))).
+                    (Abs.tick abs_C (Abs.ST mem'' t'') x (Closure x0 e0 abs_C'')))).
     { clear EVAL1 EVAL2 EVAL3 BOUND SOUND IHEVAL3 EQ' time_inc1 C mem0 t0 B1 B2.
       destruct SOUND' as [SOUND' ?]. clear H.
       destruct SOUND'' as [SOUND'' ?]. clear H.
@@ -561,7 +544,7 @@ Proof.
     specialize (IHEVAL3 (abs_C' [|dy_c_lam x (α'' t) ([||])|])
                 (Abs.ST
                   (α'' t !#-> Closure x0 e0 abs_C''; mem'')
-                  (Abs.update abs_C (Abs.ST mem'' t'') x
+                  (Abs.tick abs_C (Abs.ST mem'' t'') x
                   (Closure x0 e0 abs_C''))) α''' H).
     destruct IHEVAL3 as [abs_C''' [abs_st''' [α'''' [EQ'''' SOUND''']]]].
     destruct SOUND' as [SOUND' EVAL'].
@@ -627,7 +610,7 @@ Proof.
     specialize (IHEVAL1 abs_C abs_st α SOUND).
     destruct IHEVAL1 as [abs_C' [abs_st' [α' [EQ' SOUND']]]].
     remember (fun t' => if eqb t' (tick t)
-                        then Abs.update abs_C abs_st'
+                        then Abs.tick abs_C abs_st'
                                         x (Closure x0 e0 abs_C') 
                         else α' t') as α''.
     destruct abs_st as [mem' t']. destruct abs_st' as [mem'' t''].
@@ -637,7 +620,7 @@ Proof.
             (ST (t !-> Closure x0 e0 C0; mem) (tick t))
             (abs_C [| dy_c_lete x (α' t) ([||]) |])
             (Abs.ST ((α' t) !#-> Closure x0 e0 abs_C'; mem'') 
-                    (Abs.update abs_C (Abs.ST mem'' t'') x (Closure x0 e0 abs_C')))).
+                    (Abs.tick abs_C (Abs.ST mem'' t'') x (Closure x0 e0 abs_C')))).
     { destruct SOUND' as [SOUND' ?]. clear H.
       rewrite Heqα''. simpl. repeat split.
       - rewrite eqb_refl. eauto.
@@ -673,7 +656,7 @@ Proof.
     specialize (IHEVAL2 (abs_C [|dy_c_lete x (α' t) ([||])|])
                 (Abs.ST
                   (α' t !#-> Closure x0 e0 abs_C'; mem'')
-                  (Abs.update abs_C (Abs.ST mem'' t'') x
+                  (Abs.tick abs_C (Abs.ST mem'' t'') x
                   (Closure x0 e0 abs_C'))) α'' H). clear H.
     destruct IHEVAL2 as [abs_C'' [abs_st'' [α''' [EQ''' SOUND''']]]].
     destruct SOUND' as [SOUND' EVAL'].

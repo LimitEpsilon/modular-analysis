@@ -596,14 +596,14 @@ Proof.
   rewrite IHCin1. rewrite IHCin2. eauto.
 Qed.
 
-Definition delete_inject {T} `{Eq T} (Cout Cin : dy_ctx) :=
+Definition delete_ctx {T} `{Eq T} (Cout Cin : dy_ctx) :=
   delete_map Cout (delete_prefix Cout Cin).
 
 Lemma delete_inject_eq :
   forall {T} `{Eq T} (Cout Cin : dy_ctx),
-    delete_inject Cout (inject_ctx Cout Cin) = Cin.
+    delete_ctx Cout (inject_ctx Cout Cin) = Cin.
 Proof.
-  intros. unfold delete_inject. unfold inject_ctx.
+  intros. unfold delete_ctx. unfold inject_ctx.
   rewrite delete_prefix_eq.
   rewrite delete_map_eq. eauto.
 Qed.
@@ -618,8 +618,23 @@ Definition inject_ctx_v {T} `{Eq T} (Cout : @dy_ctx T) (v : @expr_value T) :=
 
 Definition delete_ctx_v {T} `{Eq T} (Cout : @dy_ctx T) (v : @expr_value T) :=
   match v with
-  | Closure x t C => Closure x t (delete_inject Cout C)
+  | Closure x t C => Closure x t (delete_ctx Cout C)
   end.
+
+Lemma plugin_map_assoc :
+  forall {T} `{Eq T} (Cout C C' : @dy_ctx T),
+    (map_inject Cout C) [|map_inject Cout C'|] = (map_inject Cout (C [|C'|])).
+Proof.
+  intros. revert Cout C'. induction C; intros; simpl; eauto; try rewrite IHC; try rewrite IHC2; eauto.
+Qed.
+
+Lemma plugin_inject_assoc :
+  forall {T} `{Eq T} (Cout C C' : @dy_ctx T),
+    (Cout <| C |>)[| map_inject Cout C' |] = (Cout <|C[|C'|]|>).
+Proof.
+  intros. unfold inject_ctx. rewrite <- c_plugin_assoc.
+  rewrite plugin_map_assoc. eauto.
+Qed.
 
 Lemma map_inject_addr_x :
   forall {T} `{Eq T} x (Cout : @dy_ctx T) (Cin : @dy_ctx T),
@@ -718,3 +733,20 @@ Definition lt {T} `{OrderT T} (t1 t2 : T) :=
   leb t1 t2 = true /\ eqb t1 t2 = false.
 
 Notation "t1 '<' t2" := (lt t1 t2).
+
+Ltac contradict :=
+  let contra := fresh "contra" in
+  assert False as contra; eauto 3; inversion contra.
+
+Lemma __R__ : forall b, b = false <-> ~ b = true.
+Proof. 
+  intros; destruct b; unfold "<>"; split; 
+  intros; try inversion H; try inversion H0; try contradict; eauto.
+Qed.
+
+Ltac refl_bool :=
+  match goal with
+  | |- _ = false => rewrite __R__; unfold "<>"
+  | |- _ <> true => rewrite <- __R__
+  | _ => idtac
+  end.

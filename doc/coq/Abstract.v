@@ -9,7 +9,7 @@ Inductive state {T : Type} :=
 
 Class time `{Eq T} :=
 { 
-  update : (@dy_ctx T) -> (@state T) -> expr_id -> (@expr_value T) -> T;
+  tick : (@dy_ctx T) -> (@state T) -> expr_id -> (@expr_value T) -> T;
 }.
 
 Definition update_m {X} `{Eq T} mem (t : T) (x : X) :=
@@ -43,7 +43,7 @@ Inductive EvalR `{time T} (C : @dy_ctx T) (st : @state T)
                           (EVal arg) (ST mem t))
              (BODY : EvalR (C_lam [|dy_c_lam x t ([||])|])
                            (ST (t !#-> arg ; mem) 
-                               (update C (ST mem t) x arg))
+                               (tick C (ST mem t) x arg))
                            e (EVal v) st_v)
     : EvalR C st (e_app e1 e2) (EVal v) st_v
   | Eval_link m e C_m st_m v st_v
@@ -59,7 +59,7 @@ Inductive EvalR `{time T} (C : @dy_ctx T) (st : @state T)
                (EVALe : EvalR C st e (EVal v) (ST mem t))
                (EVALm : EvalR (C [|dy_c_lete x t ([||])|])
                         (ST (t !#-> v ; mem) 
-                            (update C (ST mem t) x v))
+                            (tick C (ST mem t) x v))
                         m (MVal C_m) st_m)
     : EvalR C st (m_lete x e m) (MVal C_m) st_m
   | Eval_letm M m' C' st'
@@ -99,7 +99,7 @@ Inductive ReachR `{time T} (C : dy_ctx) (st : state)
                              (EVal arg) (ST mem t))
                 (REACHb : ReachR (C_lam[|dy_c_lam x t ([||])|]) 
                                  (ST (t !#-> arg ; mem) 
-                                     (update C (ST mem t) x arg)) e
+                                     (tick C (ST mem t) x arg)) e
                                  C' st' e')
     : ReachR C st (e_app e1 e2)
              C' st' e'
@@ -124,7 +124,7 @@ Inductive ReachR `{time T} (C : dy_ctx) (st : state)
              (EVALx : EvalR C st e (EVal v) (ST mem t))
              (REACHm : ReachR (C[|dy_c_lete x t ([||])|])
                               (ST (t !#-> v ; mem) 
-                                  (update C (ST mem t) x v)) m
+                                  (tick C (ST mem t) x v)) m
                               C' st' e')
     : ReachR C st (m_lete x e m)
              C' st' e'
