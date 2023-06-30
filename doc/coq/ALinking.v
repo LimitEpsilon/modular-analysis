@@ -301,7 +301,7 @@ Proof.
   - destruct st_v. destruct arg.
     eapply Eval_app. apply IHEVAL1. apply IHEVAL2.
     pose proof (link_tick_eq Cout bmem C mem t x (Closure x1 e3 C1)) as RR.
-    simpl in *. replace inject_C with (lift_ctx_bf Cout <| lift_ctx_af C |>) by reflexivity.
+    simpl in *. subst inject_C.
     rewrite RR. clear RR.
     pose proof (link_update_m_eq Cout bmem mem t (Closure x1 e3 C1)) as RR. simpl in RR.
     rewrite RR. clear RR.
@@ -322,8 +322,7 @@ Proof.
   - eapply Eval_letm; eauto.
     assert (inject_C [|dy_c_letm M (lift_ctx_bf Cout <| lift_ctx_af C' |>) ([||])|] =
             (lift_ctx_bf Cout <| lift_ctx_af (C [|dy_c_letm M C' ([||])|]) |>)) as RR. 
-    { replace inject_C with (lift_ctx_bf Cout <| lift_ctx_af C |>) by reflexivity.
-      rewrite lift_plugin_af.
+    { subst inject_C. rewrite lift_plugin_af.
       rewrite <- plugin_inject_assoc. simpl. eauto. } 
     rewrite RR. clear RR. simpl in *. exact IHEVAL2.
 Qed.

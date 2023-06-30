@@ -1,0 +1,476 @@
+%! TEX program = xelatex
+% \PassOptionsToPackage{draft}{graphicx}
+\documentclass{beamer}
+
+\usepackage{kotex}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+
+\usepackage{setspace} % setstretch
+
+\usepackage{tabularray}
+\UseTblrLibrary{booktabs}
+\UseTblrLibrary{counter}
+
+%%% Math settings
+\usepackage{amssymb,amsmath,mathtools} % Before unicode-math
+\usepackage[math-style=TeX,bold-style=TeX]{unicode-math}
+
+%%% Font settings
+\setmainfont{Libertinus Serif}
+\setmathfont{Libertinus Math} % Before set*hangulfont
+\setmathfont{TeX Gyre Pagella Math}[range={\lbrace,\rbrace},Scale=1.1]
+\setmainhangulfont{Noto Serif CJK KR}
+\setsanshangulfont[BoldFont={* Bold}]{KoPubWorld Dotum.ttf}
+
+%%% PL constructs
+\usepackage{ebproof}
+\ebproofset{left label template=\textsc{[\inserttext]}}
+
+% For simplebnf
+\newfontfamily{\fallbackfont}{EB Garamond}
+\DeclareTextFontCommand{\textfallback}{\fallbackfont}
+\usepackage{newunicodechar}
+\newunicodechar{⩴}{\textfallback{⩴}}
+
+\usepackage{simplebnf}
+\RenewDocumentCommand\SimpleBNFDefEq{}{\ensuremath{⩴}}
+
+% because of simplebnf
+\newcommand*{\vbar}{|}
+\newcommand*{\finto}{\xrightarrow{\text{\textrm{fin}}}}
+\newcommand*{\istype}{\mathrel{⩴}}
+\newcommand*{\ortype}{\mathrel{|}}
+\newcommand*{\cons}{::}
+
+\def\ovbarw{1.2mu}
+\def\ovbarh{0.8}
+\newcommand*{\ovbar}[1]{\mkern \ovbarw\overline{\mkern-\ovbarw{\smash{#1}\scalebox{1}[\ovbarh]{\vphantom{i}}}\mkern-\ovbarw}\mkern \ovbarw}
+\newcommand*{\A}[1]{{#1}^{\#}}
+\newcommand*{\Expr}{\text{Expr}}
+\newcommand*{\ExprVar}{\text{ExprVar}}
+\newcommand*{\Module}{\text{Module}}
+\newcommand*{\ModVar}{\text{ModVar}}
+\newcommand*{\Time}{\mathbb{T}}
+\newcommand*{\ATime}{\A{\Time}}
+\newcommand*{\Ctx}[1]{\text{Ctx}\:{#1}}
+\newcommand*{\Value}[1]{\text{Val}\:{#1}}
+\newcommand*{\Mem}[1]{\text{Mem}\:{#1}}
+\newcommand*{\AMem}[1]{\A{\text{Mem}}\:{#1}}
+\newcommand*{\Config}[1]{\text{Config}\:{#1}}
+\newcommand*{\AConfig}[1]{\A{\text{Config}}\:{#1}}
+\newcommand*{\Result}[1]{\text{Result}\:{#1}}
+\newcommand*{\AResult}[1]{\A{\text{Result}}\:{#1}}
+\newcommand*{\link}[2]{{#1}\mathtt{!}{#2}}
+\newcommand*{\Reach}[1]{\underline{#1}^{*}}
+\newcommand*{\Resolved}[1]{\underline{#1}^{\circ}}
+\newcommand*{\sembracket}[1]{\lBrack{#1}\rBrack}
+\newcommand*{\fin}[2]{{#1}\xrightarrow{\text{fin}}{#2}}
+\newcommand*{\addr}{\mathsf{addr}}
+\newcommand*{\tick}{\mathsf{tick}}
+\newcommand*{\modctx}{\mathsf{ctx}}
+\newcommand*{\mapinject}{\mathsf{map\_inject}}
+\newcommand*{\inject}[2]{{#1}\langle{#2}\rangle}
+\newcommand*{\deletepre}{\mathsf{delete\_prefix}}
+\newcommand*{\deletemap}{\mathsf{delete\_map}}
+\newcommand*{\delete}{\mathsf{delete}}
+\newcommand*{\filter}{\mathsf{filter}}
+\newcommand*{\Let}{\mathtt{let}}
+\newcommand*{\doubleplus}{+\kern-1.3ex+\kern0.8ex}
+\newcommand*{\mdoubleplus}{\ensuremath{\mathbin{+\mkern-10mu+}}}
+
+%%%%%%%%%%%%%%%%%%%%%
+%  Beamer Settings  %
+%%%%%%%%%%%%%%%%%%%%%
+\usetheme[numbering=fraction,progressbar=frametitle]{metropolis}
+\useoutertheme[subsection=false]{miniframes}
+\usecolortheme{rose}
+
+\setbeamertemplate{itemize item}[square]
+\setbeamertemplate{itemize subitem}[triangle]
+\setbeamertemplate{itemize subsubitem}[circle]
+
+\usepackage{listings}
+\lstdefinestyle{mystyle}{
+    basicstyle=\ttfamily\footnotesize
+}
+\lstset{style=mystyle}
+
+\usepackage{pgfplots}
+\usetikzlibrary{shapes,arrows}
+
+\usepackage{adjustbox}
+\newcommand{\cfbox}[1]{\adjustbox{cfbox=#1}}
+
+\title{모듈별 프로그램 따로 분석}
+\author{이준협}
+\date{2023년 6월 30일}
+\institute{ROPAS Show \& Tell}
+
+\titlegraphic{%
+  \begin{tikzpicture}[overlay,remember picture]
+    \node at (current page.145) [xshift=3em, yshift=-1.3em] {
+      \includegraphics[width=3em]{snu-symbol.png}
+    };
+    \node at (current page.35) [xshift=-3em, yshift=-1.3em] {
+      \includegraphics[width=2.5em]{ropas-symbol.png}
+    };
+  \end{tikzpicture}%
+}
+
+\begin{document}
+\maketitle
+\begin{frame}[c]
+  \frametitle{Problem Statement}
+  \begin{itemize}
+    \item Given two program segments $e_1$ and $e_2$,
+    \item Want to derive a sound approximation of $\sembracket{\link{e_1}{e_2}}$ utilizing information obtained from \emph{separately} analyzing $e_1$ and $e_2$
+  \end{itemize}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Abstract Syntax}
+  \begin{bnfgrammar}
+    $x$ : \in \ExprVar
+    ;;
+    $M$ : \in \ModVar
+    ;;
+    $e$ : \in \Expr
+    ;;
+    $e$ ::= $x$ : identifier, expression
+    | $\lambda x.e$ : function
+    | $e$ $e$ : application
+    | $\link{e}{e}$ : linked expression
+    | $\varepsilon$ : empty module
+    | $M$ : identifier, module
+    | $\Let$ $x$ $e$ $e$ : let-binding, expression
+    | $\Let$ $M$ $e$ $e$ : let-binding, module
+  \end{bnfgrammar}
+\end{frame}
+
+\begin{frame}[c]
+  \frametitle{Operational Semantics : What Configurations Look Like}
+  \begin{bnfgrammar}
+    $t$ : \in \Time
+    ;;
+    $v$ : \in \Value{\Time}
+    ;;
+    $C$ : \in \Ctx{\Time}
+    ;;
+    $V$ : \in \Value{\Time}+\Ctx{\Time}
+    ;;
+    $\sigma$ : \in \Mem{\Time} \triangleq \fin{\Time}{\Value{\Time}}
+    ;;
+    $s$ : \in \Config{\Time} \triangleq \Ctx{\Time}\times\Mem{\Time}\times\Time
+    ;;
+    $r$ : \in \Result{\Time} \triangleq (\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time
+    ;;
+    $C$ ::= [] : hole
+    | $\lambda x^{t}.C$ : param
+    | $\Let$ $x^{t}$ $C$ : let $x$
+    | $\Let$ $M$ $C$ $C$ : let $M$
+    ;;
+    $v$ ::= $\langle \lambda x.e, C \rangle$ : closure
+  \end{bnfgrammar}
+\end{frame}
+
+\begin{frame}[c]
+  \frametitle{Time?}
+  \begin{block}{Concrete Time}
+    $(\Time, \le, \tick)$ is a \emph{concrete time} when
+    \begin{enumerate}
+      \item $(\Time, \le)$ is a total order.
+      \item $\tick\in\Time\rightarrow\Time$ satisfies: $\forall t\in\Time: t < \tick\:t$.
+    \end{enumerate}
+  \end{block}
+\end{frame}
+
+\begin{frame}[c]
+  \frametitle{Big-Step Evaluation Relation}
+  \[\Downarrow\subseteq(\Expr\times\Config{\Time})\times\Result{\Time}\]
+  \pause
+  \[
+    \begin{prooftree}
+      \hypo{t_{x}=\addr(C,x)}
+      \hypo{v=\sigma(t_{x})}
+      \infer[left label=ExprVar]2{
+      (x, C, \sigma, t)
+      \Downarrow
+      (v, \sigma, t)
+      }
+    \end{prooftree}
+  \]
+  \pause
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C, \sigma, t)
+          \Downarrow
+          (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \sigma_{\lambda}, t_{\lambda}) \\
+          (e_{2}, C, \sigma_{\lambda}, t_{\lambda})
+          \Downarrow
+          (v, \sigma_{a}, t_{a})                                                            \\
+          (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \sigma_{a}[t_{a}\mapsto v], \tick\:t_{a})
+          \Downarrow
+          (v', \sigma',t')
+        \end{matrix}
+      }
+      \infer[left label={App}]1{
+      (e_{1}\:e_{2}, C, \sigma, t)
+      \Downarrow
+      (v', \sigma',t')
+      }
+    \end{prooftree}
+  \]
+  \pause
+  \[
+    \begin{prooftree}
+      \infer[left label=Empty]0{
+      (\varepsilon, C, \sigma, t)
+      \Downarrow
+      (C, \sigma, t)
+      }
+    \end{prooftree}
+  \]
+\end{frame}
+
+\begin{frame}[c]
+  \frametitle{Big-Step Reachability Relation}
+  \[\rightsquigarrow\subseteq(\Expr\times\Config{\Time})\times(\Expr\times\Config{\Time})\]
+  \pause
+  \[
+    \begin{prooftree}
+      \infer[left label=LinkL]0{
+      (\link{e_{1}}{e_{2}}, C, \sigma, t)
+      \rightsquigarrow
+      (e_{1}, C, \sigma, t)
+      }
+    \end{prooftree}
+  \]
+  \pause
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C, \sigma, t)
+          \Downarrow
+          (C', \sigma', t')
+        \end{matrix}
+      }
+      \infer[left label=LinkR]1{
+      (\link{e_{1}}{e_{2}}, C, \sigma, t)
+      \rightsquigarrow
+      (e_{2}, C', \sigma', t')
+      }
+    \end{prooftree}
+  \]
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Collecting Semantics}
+  \begin{block}{Collecting Semantics}
+    The semantics for an expression $e$ under configuration $s\in\Config{\Time}$ is an element in $(\Expr\times\Config{\Time})\rightarrow(\wp(\Result{\Time}))_{\bot}$ defined as:
+    \[
+      \sembracket{e}(s)\triangleq\bigsqcup_{(e,s)\rightsquigarrow^{*}(e',s')}[(e',s')\mapsto\{r|(e',s')\Downarrow r\}]
+    \]
+  \end{block}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Example}
+  The semantics for the non-terminating lambda expression $\Omega=(\lambda x.xx)(\lambda x.xx)$ satisfies:
+  \[
+    \sembracket{\Omega}([],\varnothing,0)(\Omega,[],\varnothing,0)=\varnothing
+  \]
+  \pause
+  \[
+    \sembracket{\Omega}([],\varnothing,0)(Y,\_,\_,\_)=\bot
+  \]
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Concrete Linking}
+  \[
+    \sembracket{\link{e_1}{e_2}}(s)=\sembracket{e_1}(s)\sqcup\bigsqcup_{s'\in\sembracket{e_1}(s)(e_1,s)}\left(\sembracket{e_2}(s')\sqcup[(\link{e_1}{e_2},s)\mapsto\sembracket{e_2}(s')(e_2,s')]\right)
+  \]
+
+  \begin{align*}
+    \text{(Linked expression)} = & \text{(Exporting expression)} \sqcup                    \\
+                                 & \text{(Consuming expression under the exported config)}
+  \end{align*}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Abstract Semantics : What Configurations Look Like}
+  \begin{bnfgrammar}
+    $\A{t}$ : \in \ATime
+    ;;
+    $\A{v}$ : \in \Value{\ATime}
+    ;;
+    $\A{C}$ : \in \Ctx{\ATime}
+    ;;
+    $\A{V}$ : \in \Value{\ATime}+\Ctx{\ATime}
+    ;;
+    $\A{\sigma}$ : \in \AMem{\ATime} \triangleq \fin{\ATime}{\wp(\Value{\ATime})}
+    ;;
+    $\A{s}$ : \in \AConfig{\ATime} \triangleq \Ctx{\ATime}\times\AMem{\ATime}\times\ATime
+    ;;
+    $\A{r}$ : \in \AResult{\ATime} \triangleq (\Value{\ATime}+\Ctx{\ATime})\times\AMem{\ATime}\times\ATime
+  \end{bnfgrammar}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Time?}
+  \begin{definition}[Abstract time]
+    $(\ATime,\A{\tick})$ is an \emph{abstract time} when $\A{\tick}\in\Ctx{\ATime}\rightarrow\AMem{\ATime}\rightarrow\ATime\rightarrow\ExprVar\rightarrow\Value{\ATime}\rightarrow\ATime$ is the policy for advancing the timestamp.
+  \end{definition}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Big-Step Evaluation Relation}
+  \[
+    \begin{prooftree}
+      \hypo{\A{t_{x}}=\addr(\A{C},x)}
+      \hypo{\A{v}\in\A{\sigma}(\A{t_{x}})}
+      \infer[left label=ExprVar]2{
+      (x, \A{C}, \A{\sigma}, \A{t})
+      \A{\Downarrow}
+      (\A{v}, \A{\sigma}, \A{t})
+      }
+    \end{prooftree}
+  \]
+  \pause
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \A{C}, \A{\sigma}, \A{t})
+          \A{\Downarrow}
+          (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\sigma_{\lambda}}, \A{t_{\lambda}}) \\
+          (e_{2}, \A{C}, \A{\sigma_{\lambda}}, \A{t_{\lambda}})
+          \A{\Downarrow}
+          (\A{v}, \A{\sigma_{a}}, \A{t_{a}})                                                            \\
+          (e_{\lambda}, \A{C_{\lambda}}[\lambda x^{\A{t_{a}}}.[]], \A{\sigma_{a}}[\A{t_{a}}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\sigma_a}\:\A{t_{a}}\:x\:\A{v})
+          \A{\Downarrow}
+          (\A{v'}, \A{\sigma'},\A{t'})
+        \end{matrix}
+      }
+      \infer[left label={App}]1{
+      (e_{1}\:e_{2}, \A{C}, \A{\sigma}, \A{t})
+      \A{\Downarrow}
+      (\A{v'}, \A{\sigma'},\A{t'})
+      }
+    \end{prooftree}
+  \]
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Abstract Semantics}
+  \begin{block}{Abstract Semantics}
+    The semantics for an expression $e$ under configuration $\A{s}\in\AConfig{\ATime}$ is an element in $(\Expr\times\AConfig{\ATime})\rightarrow(\wp(\AResult{\ATime}))_{\bot}$ defined as:
+    \[
+      \A{\sembracket{e}}(\A{s})\triangleq\bigsqcup_{(e,\A{s}){\A\rightsquigarrow}^{*}(e',\A{s'})}[(e',\A{s'})\mapsto\{\A{r}|(e',\A{s'})\A\Downarrow \A{r}\}]
+    \]
+  \end{block}
+
+  \[
+    \A{\sembracket{e}}(\A{s})=\mathsf{lfp}(\lambda \A{f}.\A{F}([(e,\A{s})\mapsto\varnothing]\sqcup\A{f}))
+  \]
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Transfer Function}
+  \begin{definition}[Transfer function]
+    Given an element $\A{f}$ of $(\Expr\times\AConfig{\ATime})\rightarrow(\wp(\AResult{\ATime}))_{\bot}$,
+
+    \begin{itemize}
+      \item Define $\A{\Downarrow}_{\A{f}}$ and $\A{\rightsquigarrow}_{\A{f}}$ by replacing all assumptions of the form $\A{s}\A\Downarrow\A{r}$ to $\A{r}\in\A{f}(\A{s})$ in $\A\Downarrow$ and $\A\rightsquigarrow$.
+    \end{itemize}
+
+    We define the transfer function $\A{F}$ by:
+    \[
+      \A{F}(\A{f})\triangleq\A{f}\sqcup\bigsqcup_{
+      \scriptsize
+      \begin{array}{c}
+        (e,\A{s})\in\mathsf{dom}(\A{f}) \\
+        (e,\A{s})\A{\rightsquigarrow}_{\A{f}}(e',\A{s'})
+      \end{array}}[(e',\A{s'})\mapsto\{\A{r}|(e',\A{s'})\A{\Downarrow}_{\A{f}}\A{r}\}]
+    \]
+  \end{definition}
+\end{frame}
+
+\begin{frame}[c]
+  \frametitle{Soundness Given $\alpha$}
+  \begin{definition}[$\alpha$-soundness between results]
+    \begin{itemize}
+      \item Let $(V,\sigma,t)\in\Result{\Time}$ and $(\A{V},\A\sigma,\A{t})\in\AResult{\ATime}$.
+      \item Let $\alpha:\Time\rightarrow\ATime$, and extend $\alpha$ to a function in $\Ctx{\Time}\rightarrow\Ctx{\ATime}$ by mapping $\alpha$ over all timestamps.
+      \item Extend $\alpha$ to a function in $(\Ctx{\Time}+\Value{\Time})\rightarrow(\Ctx{\ATime}+\Value{\ATime})$
+      \item Extend $\alpha$ to a function in $\Mem{\Time}\rightarrow\AMem{\ATime}$ by defining
+            \[\alpha(\sigma)\triangleq\bigsqcup_{t\in\mathsf{dom}(\sigma)}[\alpha(t)\mapsto\{\alpha(\sigma(t))\}]\]
+    \end{itemize}
+
+    We say that $(\A{V},\A\sigma,\A{t})$ is an \emph{$\alpha$-sound approximation} of $(V,\sigma,t)$ when $\alpha(V)=\A{V}$, $\alpha(\sigma)\sqsubseteq\A\sigma$, and $\alpha(t)=\A{t}$.
+  \end{definition}
+\end{frame}
+
+\begin{frame}[c]
+  \frametitle{Soundness}
+  \begin{definition}[Soundness between semantics]
+    \begin{itemize}
+      \item Let $f\in(\Expr\times\Config{\Time})\rightarrow(\wp(\Result{\Time}))_{\bot}$ and $\A{f}\in(\Expr\times\AConfig{\ATime})\rightarrow(\wp(\AResult{\ATime}))_{\bot}$.
+    \end{itemize}
+
+    We say that $\A{f}$ is a sound approximation of $f$ if:
+    \begin{align*}
+      \forall e\in\Expr,s\in\Config{\Time},r\in\Result{\Time}: \\
+      \:\:r\in f(e,s)\Rightarrow                               \\
+      \exists\alpha,\alpha',\A{s},\A{r}:\alpha(s)\sqsubseteq\A{s}\wedge\alpha'(r)\sqsubseteq\A{r}\in\A{f}(e,\A{s})
+    \end{align*}
+  \end{definition}
+\end{frame}
+\begin{frame}
+  \frametitle{Why?}
+  \begin{block}{Preservation of soundness}
+    \begin{itemize}
+      \item Let $s\in\Config{\Time}$ and $\A{s}\in\AConfig{\ATime}$.
+      \item Let all timestamps in the $C$ and $\sigma$ component of $s$ be strictly less than the $t$ component.
+      \item Let $\A{s}$ be an $\alpha$-sound approximation of $s$ for some $\alpha$.
+    \end{itemize}
+
+    Then for all $e$, $\A{\sembracket{e}}(\A{s})$ is a sound approximation of $\sembracket{e}(s)$.
+  \end{block}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Abstract Linking}
+  Define an \emph{injection} operator that, given $\A{s}\in\AConfig{\ATime},\A{r}\in\AResult{\A{\Time'}}$, gives $\A{s}\rhd\A{r}\in\AResult{(\ATime+\A{\Time'})}$, that satisfies:
+  \begin{enumerate}
+    \item $\alpha(s)\sqsubseteq\A{s}\Rightarrow\exists\alpha':\alpha'(s)\sqsubseteq(\A{s}\rhd\varnothing)$.
+    \item $\exists\A{\tick}_{+}$ such that $(\ATime+\A{\Time'},\A{\tick}_{+})$ is an abstract time, and
+          \[
+            \A{s}\rhd\A{\sembracket{e}}(\A{s'})\sqsubseteq\A{\sembracket{e}}(\A{s}\rhd\A{s'})
+          \]
+  \end{enumerate}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Abstract Linking}
+  Recall:
+  \[
+    \sembracket{\link{e_1}{e_2}}(s)=\sembracket{e_1}(s)\sqcup\bigsqcup_{s'\in\sembracket{e_1}(s)(e_1,s)}\left(\sembracket{e_2}(s')\sqcup[(\link{e_1}{e_2},s)\mapsto\sembracket{e_2}(s')(e_2,s')]\right)
+  \]
+  \begin{enumerate}
+    \onslide+<2->\item Given a sound approximation $\A{f}$ of $\sembracket{e_1}(s)$ under $\ATime$, extract a set containing $\alpha$-sound approximations of all exported configurations $s'$.
+          \onslide+<3->\item Inject the exported context onto the separately analyzed results $\A{\sembracket{e_2}}(\varnothing)$, then perform the fixpoint computation starting from there to obtain $\A{\sembracket{e_2}}(\A{s'})$ which is a sound approximation of $\sembracket{e_2}(s')$.
+  \end{enumerate}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Why Can We Compute $\A{\sembracket{e}}$?}
+  \begin{theorem}[Finiteness of time implies finiteness of abstraction]
+    If $\ATime$ is finite,
+    \[
+      \forall e,\A{s}: |\A{\sembracket{e}}(\A{s})|<\infty
+    \]
+  \end{theorem}
+\end{frame}
+\begin{frame}[c]
+  \centering\LARGE
+  감사합니다
+\end{frame}
+\end{document}
+%%% Local Variables:
+%%% coding: utf-8
+%%% mode: latex
+%%% TeX-engine: xetex
+%%% End:

@@ -26,6 +26,7 @@
 \newtheorem{definition}{Definition}[section]
 \newtheorem{lem}{Lemma}[section]
 \newtheorem{thm}{Theorem}[section]
+\newtheorem{example}{Example}[section]
 
 %%% Font settings
 \setmainfont{Libertinus Serif}
@@ -66,12 +67,15 @@
 \newcommand*{\Module}{\text{Module}}
 \newcommand*{\ModVar}{\text{ModVar}}
 \newcommand*{\Time}{\mathbb{T}}
-\newcommand*{\ATime}{\mathbb{T}^{\#}}
+\newcommand*{\ATime}{\A{\Time}}
 \newcommand*{\Ctx}[1]{\text{Ctx}\:{#1}}
 \newcommand*{\Value}[1]{\text{Val}\:{#1}}
-\newcommand*{\AValue}[1]{\text{Val}^{\#}\:{#1}}
 \newcommand*{\Mem}[1]{\text{Mem}\:{#1}}
-\newcommand*{\AMem}[1]{\text{Mem}^{\#}\:{#1}}
+\newcommand*{\AMem}[1]{\A{\text{Mem}}\:{#1}}
+\newcommand*{\Config}[1]{\text{Config}\:{#1}}
+\newcommand*{\AConfig}[1]{\A{\text{Config}}\:{#1}}
+\newcommand*{\Result}[1]{\text{Result}\:{#1}}
+\newcommand*{\AResult}[1]{\A{\text{Result}}\:{#1}}
 \newcommand*{\link}[2]{{#1}\mathtt{!}{#2}}
 \newcommand*{\Reach}[1]{\underline{#1}^{*}}
 \newcommand*{\Resolved}[1]{\underline{#1}^{\circ}}
@@ -164,6 +168,10 @@ Also, we present the notational conventions used in this paper to represent memb
   ;;
   $\sigma$ : \in \Mem{\Time} \triangleq \fin{\Time}{\Value{\Time}}
   ;;
+  $s$ : \in \Config{\Time} \triangleq \Ctx{\Time}\times\Mem{\Time}\times\Time
+  ;;
+  $r$ : \in \Result{\Time} \triangleq (\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time
+  ;;
   $C$ ::= [] : hole
   | $\lambda x^{t}.C$ : function parameter binding
   | $\Let$ $x^{t}$ $C$ : let expression binding
@@ -179,9 +187,7 @@ Now we give the conditions that the concrete time domain must satisfy.
   $(\Time, \le, \tick)$ is a \emph{concrete time} when
   \begin{enumerate}
     \item $(\Time, \le)$ is a total order.
-    \item $\tick\in\Ctx{\Time}\rightarrow\Mem{\Time}\rightarrow\Time\rightarrow\ExprVar\rightarrow\Value{\Time}\rightarrow\Time$ gives a strictly larger timestamp. That is,
-          \[\forall C\in\Ctx{\Time}, \sigma\in\Mem{\Time},t\in\Time,x\in\ExprVar,v\in\Value{\Time}: t < \tick\:C\:\sigma\:t\:x\:v.\]
-          $\tick$ updates the timestamp when $v$ is bound to $x$ under the context $C$ and state $(\sigma, t)$.
+    \item $\tick\in\Time\rightarrow\Time$ satisfies: $\forall t\in\Time: t < \tick\:t$.
   \end{enumerate}
 \end{definition}
 
@@ -227,14 +233,14 @@ Finally, the function that looks up the dynamic context bound to a module variab
 \subsection{The Evaluation Relation}
 
 Now we are in a position to define the big-step evaluation relation.
-The relation $\Downarrow$ relates $(e,C,\sigma,t)\in\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time$ with
-$(V,\sigma,t)\in(\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time$.
+The relation $\Downarrow$ relates $(e,C,\sigma,t)\in\Expr\times\Config{\Time}$ with
+$(V,\sigma,t)\in\Result{\Time}$.
 Note that we constrain whether the evaluation relation returns $v\in\Value{\Time}$(when the expression being evaluated is not a module) or $C\in\Ctx{\Time}$ by the definition of the relation.
 
 \[
   \begin{prooftree}
     \hypo{t_{x}=\addr(C,x)}
-    \hypo{\sigma(t_{x}) = v}
+    \hypo{v=\sigma(t_{x})}
     \infer[left label=ExprVar]2{
     (x, C, \sigma, t)
     \Downarrow
@@ -260,7 +266,7 @@ Note that we constrain whether the evaluation relation returns $v\in\Value{\Time
         (e_{2}, C, \sigma_{\lambda}, t_{\lambda})
         \Downarrow
         (v, \sigma_{a}, t_{a})                                                            \\
-        (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \sigma_{a}[t_{a}\mapsto v], \tick\:C\:\sigma_{a}\:t_{a}\:x\:v)
+        (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \sigma_{a}[t_{a}\mapsto v], \tick\:t_{a})
         \Downarrow
         (v', \sigma',t')
       \end{matrix}
@@ -317,7 +323,7 @@ That is, linking may return either values or modules.
         (e_{1}, C, \sigma, t)
         \Downarrow
         (v, \sigma', t') \\
-        (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \sigma'[t'\mapsto v], \tick\:C\:\sigma'\:t'\:x\:v)
+        (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \sigma'[t'\mapsto v], \tick\:t')
         \Downarrow
         (C', \sigma'', t'')
       \end{matrix}
@@ -393,7 +399,7 @@ We first define the one-step reachability relation $\rightsquigarrow$.
     \infer[left label={AppBody}]1{
     (e_{1}\:e_{2}, C, \sigma, t)
     \rightsquigarrow
-    (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \sigma_{a}[t_{a}\mapsto v], \tick\:C\:\sigma_{a}\:t_{a}\:x\:v)
+    (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \sigma_{a}[t_{a}\mapsto v], \tick\:t_{a})
     }
   \end{prooftree}
 \]
@@ -429,7 +435,7 @@ We first define the one-step reachability relation $\rightsquigarrow$.
     \rightsquigarrow
     (e_{1}, C, \sigma, t)
     }
-  \end{prooftree}\:\:
+  \end{prooftree}\qquad
   \begin{prooftree}
     \hypo{
       \begin{matrix}
@@ -441,7 +447,7 @@ We first define the one-step reachability relation $\rightsquigarrow$.
     \infer[left label=LetER]1{
     (\mathtt{let}\:x\:e_1\:e_2, C, \sigma, t)
     \rightsquigarrow
-    (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \sigma'[t'\mapsto v], \tick\:C\:\sigma'\:t'\:x\:v)
+    (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \sigma'[t'\mapsto v], \tick\:t')
     }
   \end{prooftree}
 \]
@@ -476,99 +482,448 @@ That is, there may be stuck states because the value of free variables are not k
 Since we want to collect the most precise information that describes the execution of the program, we have to collect all reachable states.
 The relation that collects the reachable states $\rightsquigarrow^{*}$ is defined as the reflexive and transitive closure of $\rightsquigarrow$.
 
-\begin{definition}[Reachable states]
-  \[
-    \Reach{e}(C,\sigma,t)\triangleq\{(e',C',\sigma,t')| (e,C,\sigma,t)\rightsquigarrow^{*}(e',C',\sigma',t')\}
-  \]
-\end{definition}
-
-\begin{definition}[Resolved states]
-  \[
-    \Resolved{e}(C,\sigma,t)\triangleq\{((e',C',\sigma',t'),(V,\sigma'',t''))|(e,C,\sigma,t)\rightsquigarrow^{*}(e',C',\sigma',t')\wedge(e',C'\sigma',t')\Downarrow(V,\sigma'',t'')\}
-  \]
-\end{definition}
-
 \begin{definition}[Collecting semantics]
-  The semantics for an expression $e$ under context $C$, memory $\sigma$ and time $t$ is:
+  The semantics for an expression $e$ under configuration $s\in\Config{\Time}$ is an element in $(\Expr\times\Config{\Time})\rightarrow(\wp(\Result{\Time}))_{\bot}$ defined as:
   \[
-    \sembracket{e}(C,\sigma,t)\triangleq(\Resolved{e}(C,\sigma,t),\Reach{e}(C,\sigma,t))
+    \sembracket{e}(s)\triangleq\bigsqcup_{(e,s)\rightsquigarrow^{*}(e',s')}[(e',s')\mapsto\{r|(e',s')\Downarrow r\}]
   \]
+
+  That is, the semantics collect all reachable configurations and all results the configurations might return.
 \end{definition}
 
-To justify separate analysis, we first decompose the collecting semantics of the linking expression into a composition of the semantics of the left and right expressions.
-\begin{lem}[Separation of linking, resolved part]
-  $\:$
-
-  \begin{itemize}
-    \item Let $E=\{(C',\sigma',t')|(e_{1},C,\sigma,t)\Downarrow(C',\sigma',t')\}$(exported configurations).
-  \end{itemize}
+\begin{example}
+  The semantics for the non-terminating lambda expression $\Omega=(\lambda x.xx)(\lambda x.xx)$ satisfies:
   \[
-    \Resolved{\link{e_1}{e_2}}(C,\sigma,t)=
-    \Resolved{e_1}(C,\sigma,t)\cup\bigcup_{(C',\sigma',t')\in E}{(\Resolved{e_2}(C',\sigma',t')\cup\underbrace{\{((\link{e_1}{e_2}, C, \sigma, t), (V,\sigma'',t''))|(e_{2},C',\sigma',t')\Downarrow(V,\sigma'',t'')\}}_{\text{The final evaluation}})}
+    \sembracket{\Omega}([],\varnothing,0)(\Omega,[],\varnothing,0)=\varnothing
   \]
+  since $(\Omega,[],\varnothing,0)$ is reached by $\Omega$ under $([],\varnothing,0)$ but does not return any results.
+\end{example}
+
+To justify separate analysis, we decompose the collecting semantics of the linking expression into a composition of the semantics of the left and right expressions.
+\begin{lem}[Concrete linking]
+  \[
+    \sembracket{\link{e_1}{e_2}}(s)=\sembracket{e_1}(s)\sqcup\bigsqcup_{s'\in\sembracket{e_1}(s)(e_1,s)}\left(\sembracket{e_2}(s')\sqcup[(\link{e_1}{e_2},s)\mapsto\sembracket{e_2}(s')(e_2,s')]\right)
+  \]
+
+  That is, the semantics of the linked expression is the join of the semantics of the exporting expression and the semantics of the consuming expression under the exported configuration.
 \end{lem}
 
-\begin{lem}[Separation of linking, reached part]
-  $\:$
+\section{Abstract Semantics}
 
-  \begin{itemize}
-    \item Let $E=\{(C',\sigma',t')|(e_{1},C,\sigma,t)\Downarrow(C',\sigma',t')\}$(exported configurations).
-  \end{itemize}
+The abstract semantics is almost exactly the same as the concrete semantics, except for the fact that the memory domain is now a finite map from the abstract time domain to a \emph{set} of values.
+
+\begin{bnfgrammar}
+  $\A{t}$ : \in \ATime
+  ;;
+  $\A{v}$ : \in \Value{\ATime}
+  ;;
+  $\A{C}$ : \in \Ctx{\ATime}
+  ;;
+  $\A{V}$ : \in \Value{\ATime}+\Ctx{\ATime}
+  ;;
+  $\A{\sigma}$ : \in \AMem{\ATime} \triangleq \fin{\ATime}{\wp(\Value{\ATime})}
+  ;;
+  $\A{s}$ : \in \AConfig{\ATime} \triangleq \Ctx{\ATime}\times\AMem{\ATime}\times\ATime
+  ;;
+  $\A{r}$ : \in \AResult{\ATime} \triangleq (\Value{\ATime}+\Ctx{\ATime})\times\AMem{\ATime}\times\ATime
+\end{bnfgrammar}
+
+\subsection{Big-Step Evaluation}
+
+First the abstract evaluation relation $\A{\Downarrow}$ is defined.
+Note that the update for the memory is now a weak update. That is,
+\begin{definition}[Weak update]
+  Given $\A{\sigma}\in\AMem{\ATime}$, $\A{t}\in\ATime$, $\A{v}\in\Value{\ATime}$, we define $\A{\sigma}[\A{t}\A{\mapsto}\A{v}]$ as:
   \[
-    \Reach{\link{e_1}{e_2}}(C,\sigma,t)= \{(\link{e_1}{e_2},C,\sigma,t)\}\cup\Reach{e_1}(C,\sigma,t)\cup\bigcup_{(C',\sigma',t')\in E}{\Reach{e_2}(C',\sigma',t')}                                                                                                                                         \\
-  \]
-\end{lem}
-
-Now we only need a way to calculate $\sembracket{e_{2}}(C',\sigma',t')$ by utilizing the separately calculated $\sembracket{e_{2}}([],\varnothing,t_{0})$.
-The problem here is that when we calculate the two modules separately, we cannot enforce the order of the time component of each component.
-The order is important, because the \emph{equivalence} of the concrete semantics depends on the fact that the $\tick$ function always generates a fresh timestamp larger than the times in the context and in the memory.
-The notion of equivalence between concrete configurations and the notion of soundness between the concrete and abstract configurations is essential in developing a formal guarantee that our modular separate analysis does generate some sound abstract state.
-
-\begin{definition}[Domain of a configuration]
-  We define the domain of a configuration given by $C, \sigma, t$ to be
-  \[
-    \mathsf{Dom}(C,\sigma,t)\triangleq\{t'|t'\in C\lor t'\in\mathsf{Dom}(\sigma)\lor t' = t\}
-  \]
-\end{definition}
-
-\begin{definition}[Equivalence between concrete configurations]
-  $\:$
-
-  \begin{itemize}
-    \item Let $(\Time,\le,\tick)$ and $(\Time',\le',\tick')$ be two concrete times.
-    \item Let $(C,\sigma,t)$ be a configuration in the first time domain and $(C',\sigma',t')$ be a configuration in the second time domain.
-  \end{itemize}
-  The two configurations are equivalent if there exists a strictly increasing function $f\in\mathsf{Dom}(C,\sigma,t)\rightarrow\mathsf{Dom}(C',\sigma',t')$ that translates $(C,\sigma,t)$ into $(C',\sigma',t')$.
-  \[
-    (C,\sigma,t)\equiv(C',\sigma',t')\triangleq\exists f\in\mathsf{Dom}(C,\sigma,t)\rightarrow\mathsf{Dom}(C',\sigma',t'): f\text{ strictly increases}\wedge f(C)= C' \wedge f(t) = t' \wedge f\circ\sigma = \sigma'\circ f
-  \]
-
-  Furthermore, we extend the definition of $\equiv$ to a relation between $(\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time$ and $(\Value{\Time'}+\Ctx{\Time'})\times\Mem{\Time'}\times\Time'$ to mean that
-  \[
-    (V,\sigma,t)\equiv(V',\sigma',t')\triangleq
+    \A{\sigma}[\A{t}\A{\mapsto}\A{v}](\A{t'})\triangleq
     \begin{cases}
-      x=x'\wedge e=e'\wedge (C,\sigma,t)\equiv(C',\sigma',t') & (V=\langle\lambda x.e,C\rangle\wedge V'=\langle\lambda x'.e',C'\rangle) \\
-      (C,\sigma,t)\equiv(C',\sigma',t')                       & (V=C\wedge V'=C')                                                       \\
-      \text{False}                                            & (\text{otherwise})
+      \A{\sigma}(\A{t})\cup\{\A{v}\} & (\A{t'}=\A{t})     \\
+      \A{\sigma}(\A{t'})             & (\text{otherwise})
     \end{cases}
   \]
 \end{definition}
 
-We can prove that this relation indeed defines an equivalence relation, since such a function $f$ automatically becomes a bijection between $\mathsf{Dom}(C,\sigma,t)$ and $\mathsf{Dom}(C',\sigma',t')$.
+Also, for the abstract time, we do not enforce the existence of an ordering on the timestamps, but we do need a policy for performing the tick operation.
+Since we want to utilize the information when the binding is performed, the $\A{\tick}$ function takes in more information than simply the previous abstract time.
+\begin{definition}[Abstract time]
+  $(\ATime,\A{\tick})$ is an \emph{abstract time} when $\A{\tick}\in\Ctx{\ATime}\rightarrow\AMem{\ATime}\rightarrow\ATime\rightarrow\ExprVar\rightarrow\Value{\ATime}\rightarrow\ATime$ is the policy for advancing the timestamp.
+\end{definition}
+In our semantics, $\A{\tick}\:\A{C}\:\A{\sigma}\:\A{t}\:x\:\A{v}$ is performed when $\A{v}$ is bound to $x$ under configuration $(\A{C},\A{\sigma},\A{t})$.
 
-\begin{lem}[Preservation of equivalence]
+\[
+  \begin{prooftree}
+    \hypo{\A{t_{x}}=\addr(\A{C},x)}
+    \hypo{\A{v}\in\A{\sigma}(\A{t_{x}})}
+    \infer[left label=ExprVar]2{
+    (x, \A{C}, \A{\sigma}, \A{t})
+    \A{\Downarrow}
+    (\A{v}, \A{\sigma}, \A{t})
+    }
+  \end{prooftree}\qquad
+  \begin{prooftree}
+    \infer[left label=Fn]0{
+    (\lambda x.e, \A{C}, \A{\sigma}, \A{t})
+    \A{\Downarrow}
+    (\langle\lambda x.e, \A{C}\rangle, \A{\sigma}, \A{t})
+    }
+  \end{prooftree}
+\]
+
+\[
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        \A{\Downarrow}
+        (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\sigma_{\lambda}}, \A{t_{\lambda}}) \\
+        (e_{2}, \A{C}, \A{\sigma_{\lambda}}, \A{t_{\lambda}})
+        \A{\Downarrow}
+        (\A{v}, \A{\sigma_{a}}, \A{t_{a}})                                                            \\
+        (e_{\lambda}, \A{C_{\lambda}}[\lambda x^{\A{t_{a}}}.[]], \A{\sigma_{a}}[\A{t_{a}}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\sigma_a}\:\A{t_{a}}\:x\:\A{v})
+        \A{\Downarrow}
+        (\A{v'}, \A{\sigma'},\A{t'})
+      \end{matrix}
+    }
+    \infer[left label={App}]1{
+    (e_{1}\:e_{2}, \A{C}, \A{\sigma}, \A{t})
+    \A{\Downarrow}
+    (\A{v'}, \A{\sigma'},\A{t'})
+    }
+  \end{prooftree}\:\:
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        \A{\Downarrow}
+        (\A{C'}, \A{\sigma'}, \A{t'}) \\
+        (e_{2}, \A{C'}, \A{\sigma'}, \A{t'})
+        \A{\Downarrow}
+        (\A{V}, \A{\sigma''}, \A{t''})
+      \end{matrix}
+    }
+    \infer[left label=Linking]1{
+    (\link{e_{1}}{e_{2}}, \A{C}, \A{\sigma}, \A{t})
+    \A\Downarrow
+    (\A{V}, \A{\sigma''}, \A{t''})
+    }
+  \end{prooftree}
+\]
+
+\[
+  \begin{prooftree}
+    \infer[left label=Empty]0{
+    (\varepsilon, \A{C}, \A{\sigma}, \A{t})
+    \A{\Downarrow}
+    (\A{C}, \A{\sigma}, \A{t})
+    }
+  \end{prooftree}\qquad
+  \begin{prooftree}
+    \hypo{\A{C'}=\modctx(\A{C},M)}
+    \infer[left label=ModVar]1{
+    (M, \A{C}, \A{\sigma}, \A{t})
+    \A{\Downarrow}
+    (\A{C'}, \A{\sigma}, \A{t})
+    }
+  \end{prooftree}
+\]
+
+\[
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        \A\Downarrow
+        (\A{v}, \A{\sigma'}, \A{t'}) \\
+        (e_{2}, \A{C}[\mathtt{let}\:x^{\A{t'}}\:[]], \A{\sigma'}[\A{t'}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\sigma'}\:\A{t'}\:x\:\A{v})
+        \A\Downarrow
+        (\A{C'}, \A{\sigma''}, \A{t''})
+      \end{matrix}
+    }
+    \infer[left label=LetE]1{
+    (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A{\sigma}, \A{t})
+    \A\Downarrow
+    (\A{C'}, \A{\sigma''}, \A{t''})
+    }
+  \end{prooftree}
+\]
+
+\[
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        \A\Downarrow
+        (\A{C'}, \A{\sigma'}, \A{t'}) \\
+        (e_{2}, \A{C}[\mathtt{let}\:M\:\A{C'}\:[]], \A{\sigma'}, \A{t'})
+        \A\Downarrow
+        (\A{C''}, \A{\sigma''}, \A{t''})
+      \end{matrix}
+    }
+    \infer[left label=LetM]1{
+    (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A{\sigma}, \A{t})
+    \A\Downarrow
+    (\A{C''}, \A{\sigma''}, \A{t''})
+    }
+  \end{prooftree}
+\]
+
+\subsection{Big-Step Reachability}
+The abstract one-step reachability relation $\A\rightsquigarrow$ is defined as:
+
+\[
+  \begin{prooftree}
+    \infer[left label={AppL}]0{
+    (e_{1}\:e_{2}, \A{C}, \A{\sigma}, \A{t})
+    \A\rightsquigarrow
+    (e_{1}, \A{C}, \A{\sigma}, \A{t})
+    }
+  \end{prooftree}\qquad
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        \A{\Downarrow}
+        (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\sigma_{\lambda}}, \A{t_{\lambda}})
+      \end{matrix}
+    }
+    \infer[left label={AppR}]1{
+    (e_{1}\:e_{2}, \A{C}, \A{\sigma}, \A{t})
+    \A\rightsquigarrow
+    (e_{2}, \A{C}, \A{\sigma_{\lambda}}, \A{t_{\lambda}})
+    }
+  \end{prooftree}
+\]
+
+\[
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        \A{\Downarrow}
+        (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\sigma_{\lambda}}, \A{t_{\lambda}}) \\
+        (e_{2}, \A{C}, \A{\sigma_{\lambda}}, \A{t_{\lambda}})
+        \A{\Downarrow}
+        (\A{v}, \A{\sigma_{a}}, \A{t_{a}})
+      \end{matrix}
+    }
+    \infer[left label={AppBody}]1{
+    (e_{1}\:e_{2}, \A{C}, \A{\sigma}, \A{t})
+    \A\rightsquigarrow
+    (e_{\lambda}, \A{C_{\lambda}}[\lambda x^{\A{t_{a}}}.[]], \A{\sigma_{a}}[\A{t_{a}}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\sigma_a}\:\A{t_{a}}\:x\:\A{v})
+    }
+  \end{prooftree}
+\]
+
+\[
+  \begin{prooftree}
+    \infer[left label=LinkL]0{
+    (\link{e_{1}}{e_{2}}, \A{C}, \A{\sigma}, \A{t})
+    \A\rightsquigarrow
+    (e_{1}, \A{C}, \A{\sigma}, \A{t})
+    }
+  \end{prooftree}\qquad
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        \A{\Downarrow}
+        (\A{C'}, \A{\sigma'}, \A{t'})
+      \end{matrix}
+    }
+    \infer[left label=LinkR]1{
+    (\link{e_{1}}{e_{2}}, \A{C}, \A{\sigma}, \A{t})
+    \A\rightsquigarrow
+    (e_{2}, \A{C'}, \A{\sigma'}, \A{t'})
+    }
+  \end{prooftree}
+\]
+
+\[
+  \begin{prooftree}
+    \infer[left label=LetEL]0{
+    (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A{\sigma}, \A{t})
+    \A\rightsquigarrow
+    (e_{1}, \A{C}, \A{\sigma}, \A{t})
+    }
+  \end{prooftree}
+\]
+
+\[
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        \A\Downarrow
+        (\A{v}, \A{\sigma'}, \A{t'})
+      \end{matrix}
+    }
+    \infer[left label=LetER]1{
+    (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A{\sigma}, \A{t})
+    \A\rightsquigarrow
+    (e_{2}, \A{C}[\mathtt{let}\:x^{\A{t'}}\:[]], \A{\sigma'}[\A{t'}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\sigma'}\:\A{t'}\:x\:\A{v})
+    }
+  \end{prooftree}
+\]
+
+\[
+  \begin{prooftree}
+    \infer[left label=LetML]0{
+    (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A{\sigma}, \A{t})
+    \A\rightsquigarrow
+    (e_{1}, \A{C}, \A{\sigma}, \A{t})
+    }
+  \end{prooftree}\:\:
+  \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        \A\Downarrow
+        (\A{C'}, \A{\sigma'}, \A{t'})
+      \end{matrix}
+    }
+    \infer[left label=LetMR]1{
+    (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A{\sigma}, \A{t})
+    \A\rightsquigarrow
+    (e_{2}, \A{C}[\mathtt{let}\:M\:\A{C'}\:[]], \A{\sigma'}, \A{t'})
+    }
+  \end{prooftree}
+\]
+
+\subsection{Soundness}
+
+From the relations above, we can define the abstract semantics:
+\begin{definition}[Abstract semantics]
+  The semantics for an expression $e$ under configuration $\A{s}\in\AConfig{\ATime}$ is an element in $(\Expr\times\AConfig{\ATime})\rightarrow(\wp(\AResult{\ATime}))_{\bot}$ defined as:
+  \[
+    \A{\sembracket{e}}(\A{s})\triangleq\bigsqcup_{(e,\A{s}){\A\rightsquigarrow}^{*}(e',\A{s'})}[(e',\A{s'})\mapsto\{\A{r}|(e',\A{s'})\A\Downarrow \A{r}\}]
+  \]
+\end{definition}
+
+We need to present how to compute the abstract semantics by equating the semantics with the least fixed point of some transfer function.
+
+\begin{definition}[Transfer function]
+  Given an element $\A{f}$ of $(\Expr\times\AConfig{\ATime})\rightarrow(\wp(\AResult{\ATime}))_{\bot}$,
+
+  \begin{itemize}
+    \item Define $\A{\Downarrow}_{\A{f}}$ and $\A{\rightsquigarrow}_{\A{f}}$ by replacing all assumptions of the form $\A{s}\A\Downarrow\A{r}$ to $\A{r}\in\A{f}(\A{s})$ in $\A\Downarrow$ and $\A\rightsquigarrow$.
+  \end{itemize}
+
+  We define the transfer function $\A{F}$ by:
+  \[
+    \A{F}(\A{f})\triangleq\A{f}\sqcup\bigsqcup_{
+      \scriptsize
+      \begin{array}{c}
+        (e,\A{s})\in\mathsf{dom}(\A{f})\\
+        (e,\A{s})\A{\rightsquigarrow}_{\A{f}}(e',\A{s'})
+      \end{array}}[(e',\A{s'})\mapsto\{\A{r}|(e',\A{s'})\A{\Downarrow}_{\A{f}}\A{r}\}]
+  \]
+\end{definition}
+
+\begin{lem}[Abstract semantics as a fixpoint]
+\[
+  \A{\sembracket{e}}(\A{s})=\mathsf{lfp}(\lambda \A{f}.\A{F}([(e,\A{s})\mapsto\varnothing]\sqcup\A{f}))
+\]  
+\end{lem}
+
+The usual thing to do now is to connect the collecting semantics $\sembracket{e}$ with the abstract semantics $\A{\sembracket{e}}$ via a Galois connection.
+However, we do not enforce the existence of an explicit abstraction and concretization function.
+Instead, we define a notion of soundness between abstract and concrete results and prove that for any $\A{\tick}$, the abstract semantics overapproximate the collecting semantics if it starts from a sound configuration.
+
+\begin{definition}[$\alpha$-soundness between results]
   $\:$
 
   \begin{itemize}
-    \item Let $(\Time,\le,\tick)$ and $(\Time',\le',\tick')$ be two concrete times.
-    \item Let $(C,\sigma,t)$ be a configuration in the first time domain and $(C',\sigma',t')$ be a configuration in the second time domain.
-    \item Let all timestamps in $C$ and $\mathsf{Dom}(\sigma)$ be strictly less than $t$.
-    \item Let $(C,\sigma,t)\equiv (C',\sigma',t')$.
+    \item Let $(V,\sigma,t)\in\Result{\Time}$ and $(\A{V},\A\sigma,\A{t})\in\AResult{\ATime}$. We do not assume that $\Time$ and $\ATime$ are concrete/abstract times.
+    \item Let $\alpha:\Time\rightarrow\ATime$, and extend $\alpha$ to a function in $\Ctx{\Time}\rightarrow\Ctx{\ATime}$ by mapping $\alpha$ over all timestamps.
+    \item Extend $\alpha$ to a function in $(\Ctx{\Time}+\Value{\Time})\rightarrow(\Ctx{\ATime}+\Value{\ATime})$ accordingly.
+    \item Extend $\alpha$ to a function in $\Mem{\Time}\rightarrow\AMem{\ATime}$ by defining
+        \[\alpha(\sigma)\triangleq\bigsqcup_{t\in\mathsf{dom}(\sigma)}[\alpha(t)\mapsto\{\alpha(\sigma(t))\}]\]
   \end{itemize}
 
-  Then for all $e$, if $(e,C,\sigma,t)\Downarrow(V,\sigma'',t'')$, there exists $V',\sigma''',t'''$ such that $(e,C',\sigma',t')\Downarrow(V',\sigma''',t''')$ and $(V,\sigma'',t'')\equiv(V',\sigma''',t''')$.
-  Likewise, if $(e,C,\sigma,t)\rightsquigarrow(e',C'',\sigma'',t'')$, there exists $C''',\sigma''',t'''$ such that $(e,C',\sigma',t')\rightsquigarrow(e',C''',\sigma''',t''')$ and $(C'',\sigma'',t'')\equiv(C''',\sigma''',t''')$.
+  We say that $(\A{V},\A\sigma,\A{t})$ is an \emph{$\alpha$-sound approximation} of $(V,\sigma,t)$ when $\alpha(V)=\A{V}$, $\alpha(\sigma)\sqsubseteq\A\sigma$, and $\alpha(t)=\A{t}$.
+\end{definition}
+
+\begin{definition}[Soundness between semantics]
+  $\:$
+
+  \begin{itemize}
+    \item Let $f\in(\Expr\times\Config{\Time})\rightarrow(\wp(\Result{\Time}))_{\bot}$ and $\A{f}\in(\Expr\times\AConfig{\ATime})\rightarrow(\wp(\AResult{\ATime}))_{\bot}$.
+  \end{itemize}
+
+  We say that $\A{f}$ is a sound approximation of $f$ if:
+  \[
+    \forall e\in\Expr,s\in\Config{\Time},r\in\Result{\Time}:r\in f(e,s)\Rightarrow\exists\alpha,\alpha',\A{s},\A{r}:\alpha(s)\sqsubseteq\A{s}\wedge\alpha'(r)\sqsubseteq\A{r}\in\A{f}(e,\A{s})
+  \]
+
+  That is, $\A{f}$ is sound with respect to $f$ iff for every $(e,s), r$ pair in $f$, there exists an $\alpha$-sound pair in $\A{f}$.
+\end{definition}
+
+\begin{lem}[Preservation of soundness, relation version]
+  $\:$
+
+  \begin{itemize}
+    \item Let $s\in\Config{\Time}$ and $\A{s}\in\AConfig{\ATime}$.
+    \item Let all timestamps in the $C$ and $\sigma$ component of $s$ be strictly less than the $t$ component.
+    \item Let $\A{s}$ be an $\alpha$-sound approximation of $s$ for some $\alpha$.
+  \end{itemize}
+
+  Then for all $e$, 
+  \begin{enumerate}
+    \item If $(e,s)\Downarrow r$, then there exists $\alpha',\A{r}$ such that $(e,\A{s})\A\Downarrow\A{r}$ and $\alpha'(s)\sqsubseteq\A{s}$ and $\alpha'(r)\sqsubseteq\A{r}$.
+    \item If $(e,s)\rightsquigarrow (e',s')$, then there exists $\alpha', \A{s'}$ such that $(e,\A{s})\rightsquigarrow(e',\A{s'})$ and $\alpha'(s)\sqsubseteq\A{s}$ and $\alpha'(s')\sqsubseteq\A{s'}$.
+  \end{enumerate}
 \end{lem}
+
+\begin{lem}[Preservation of soundness]
+  $\:$
+
+  \begin{itemize}
+    \item Let $s\in\Config{\Time}$ and $\A{s}\in\AConfig{\ATime}$.
+    \item Let all timestamps in the $C$ and $\sigma$ component of $s$ be strictly less than the $t$ component.
+    \item Let $\A{s}$ be an $\alpha$-sound approximation of $s$ for some $\alpha$.
+  \end{itemize}
+
+  Then for all $e$, $\A{\sembracket{e}}(\A{s})$ is a sound approximation of $\sembracket{e}(s)$.
+\end{lem}
+
+What's remarkable is that we did not put any constraint on the $\tick$ and $\A{\tick}$ functions.
+
+\begin{thm}[Abstract linking] Let $\A{f}$ be a sound approximation of $\sembracket{e_{1}}(s)$
+  We want to compute sets $\tilde{R^{\circ}}^{\#}$ and $\tilde{R^{*}}^{\#}$ satisfying
+  \[
+    \Resolved{\link{e_1}{e_2}}(C,\sigma,t)\ovbar{\subseteq}^{\#} \tilde{R^{\circ}}^{\#}
+    \quad\wedge\quad
+    \Reach{\link{e_1}{e_2}}(C,\sigma,t)\ovbar{\subseteq}^{\#} \tilde{R^{*}}^{\#}
+  \]
+
+  \begin{itemize}
+    \item Given ${R^{\circ}}^{\#}$ and ${R^{*}}^{\#}$ that satisfies $\Resolved{e_1}(C,\sigma,t)\ovbar{\subseteq}^{\#} {R^{\circ}}^{\#}$ and $\Reach{e_1}(C,\sigma,t)\ovbar{\subseteq}^{\#} {R^{*}}^{\#}$,
+    \item Let $\A{E}=\{(\A{C_{0}},\A{\sigma_{0}},\A{t'})|\exists \A{C},\A{\sigma},\A{t}:(C,\sigma,t)\lhd(\A{C},\A{\sigma},\A{t})\wedge((e_{1},\A{C},\A{\sigma},\A{t}),(\A{C_{0}},\A{\sigma_{0}},\A{t'}))\in \A{R^{\circ}}\}$.
+    \item Let $\A{R^{\circ}}(\A{C_{0}},\A{\sigma_{0}})=\{((e_{2},\A{C_{0}},\A{\sigma_{0}},\A{t_{0}}), (\inject{\A{C_{0}}}{\A{V}},\inject{\A{C_{0}}}{\A{\sigma}};\A{\sigma_{0}},\A{t}))|((e_{2},[],\varnothing,\A{t_{0}}),(\A{V},\A{\sigma},\A{t}))\in\A{\Resolved{e_{2}}}([],\varnothing,\A{t_{0}})\}$.
+    \item Let $\A{R^{*}}(\A{C_{0}},\A{\sigma_{0}})=\{(e',\inject{\A{C_{0}}}{\A{C}},\inject{\A{C_{0}}}{\A{\sigma}};\A{\sigma_{0}},\A{t})|(e',\A{C},\A{\sigma},\A{t})\in\Reach{e_{2}}([],\varnothing,\A{t_{0}})\}$.
+  \end{itemize}
+
+  We have:
+  \[
+    \A{\sembracket{e_{2}}}(\A{C_{0}},\A{\sigma_{0}},\A{t_{0}})=\mathsf{lfp}(\lambda (\A{R^{\circ}}, \A{R^{*}}).\A{\mathcal{F}}(\A{R^{\circ}}\cup \A{R^{\circ}}(\A{C_{0}},\A{\sigma_{0}}), \A{R^{*}}\cup \A{R^{*}}(\A{C_{0}},\A{\sigma_{0}})))
+  \]
+
+  Thus, if we pick some $(\A{C},\A{\sigma},\A{t})$ satisfying $(C,\sigma,t)\lhd(\A{C},\A{\sigma},\A{t})$:
+  \[
+    \Resolved{\link{e_1}{e_2}}(C,\sigma,t)\A{\ovbar{\subseteq}}
+    \A{R^{\circ}}\cup\bigcup_{(\A{C_{0}},\A{\sigma_{0}},\A{t'})\in \A{E}}{(\A{\Resolved{e_2}}(\A{C_{0}},\A{\sigma_{0}},\A{t_{0}})\cup\underbrace{\{((\link{e_1}{e_2}, \A{C}, \A{\sigma}, \A{t}), (\A{V},\A{\sigma'},\A{t'}))|(e_{2},\A{C_{0}},\A{\sigma_{0}},\A{t_{0}})\A{\Downarrow}(\A{V},\A{\sigma'},\A{t'})\}}_{\text{The final evaluation}})}
+  \]
+  \begin{align*}
+    \Reach{\link{e_1}{e_2}}(C,\sigma,t)\A{\ovbar{\subseteq}}\{(\link{e_1}{e_2},\A{C},\A{\sigma},\A{t})\}\cup \A{R^{*}}\cup\bigcup_{(\A{C_{0}},\A{\sigma_{0}},\A{t'})\in \A{E}}{\A{\Reach{e_2}}(\A{C_{0}},\A{\sigma_{0}},\A{t_{0}})}
+  \end{align*}
+\end{thm}
+
+\begin{thm}[Finiteness of time implies finiteness of abstraction]
+  If $\ATime$ is finite,
+  \[
+    \forall e,\A{s}: |\A{\sembracket{e}}(\A{s})|<\infty
+  \]
+\end{thm}
 
 Now we need to define a concrete time on $\Time+\Time'$, when the first time domain exports $C',\sigma'$ to the second time domain.
 What we want to prove is: $(C',\sigma',t')\equiv(C',\sigma',t_{0})$, when the first configuration is in $\Time$ and the second configuration is in $\Time+\Time'$, with $t_{0}$ being the initial time in $\Time'$.
@@ -643,16 +998,6 @@ Finally, before delving into the definition of the linked time domain, we need t
   \begin{itemize}
     \item Let $(\Time,\le,\tick)$ and $(\Time',\le',\tick')$ be two concrete times.
     \item Let $C_{0}\in\Ctx{\Time}$ be the injected context.
-    \item Define the $\le_{+}$ order by
-          \[
-            t \le_{+} t' \triangleq
-            \begin{cases}
-              t \le t'     & (t,t'\in\Time)          \\
-              t \le' t'    & (t,t'\in\Time')         \\
-              \text{True}  & (t\in\Time,t'\in\Time') \\
-              \text{False} & (t\in\Time',t'\in\Time)
-            \end{cases}
-          \]
     \item Define the $\tick_{+}$ function so that the timestamps produced from the \emph{injected} context and state are exactly the timestamps produced before injection.
           \[
             \tick_{+}(C,\sigma,t,x,v)\triangleq
@@ -663,7 +1008,7 @@ Finally, before delving into the definition of the linked time domain, we need t
           \]
   \end{itemize}
 
-  Then $(\Time+\Time',\le_{+},\tick_{+})$ is a concrete time.
+  Then $(\Time+\Time',\tick_{+})$ is a concrete time.
 \end{lem}
 
 \begin{lem}[Preservation of timestamps under linked time]
@@ -689,164 +1034,6 @@ Finally, before delving into the definition of the linked time domain, we need t
   Likewise, if $(e,C,\sigma,t)\rightsquigarrow^{*}(e',C',\sigma',t')$ under $\Time'$, then
   $(e,\inject{C_0}{C},\inject{C_0}{\sigma};\sigma_{0},t)\rightsquigarrow^{*}(e',\inject{C_0}{C'},\inject{C_0}{\sigma};\sigma_0,t')$ under $\Time+\Time'$.
 \end{lem}
-
-\begin{definition}[Subset to an equivalent set]
-  $\:$
-
-  \begin{itemize}
-    \item $A\ovbar{\subseteq}B$ in the context when $A,B\in(\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time)$ is defined as
-          \[
-            (e,C,\sigma,t)\in A\Rightarrow \exists C',\sigma',t' : (C,\sigma,t)\equiv(C',\sigma',t')\wedge(e,C',\sigma',t')\in B
-          \]
-    \item $A\ovbar{\subseteq}B$ in the context when $A,B\in(\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time)\times(\Value{\Time}\times\Mem{\Time}\times\Time)$ is defined as
-          \begin{align*}
-            ((e,C,\sigma,t),(V,\sigma',t'))\in A\Rightarrow \exists C',\sigma'',t'',V',\sigma''',t''' : & (C,\sigma,t)\equiv(C',\sigma'',t'')\wedge(V,\sigma',t')\equiv(V',\sigma''',t''')\wedge \\
-                                                                                                        & ((e,C',\sigma'',t''),(V',\sigma''',t'''))\in B
-          \end{align*}
-  \end{itemize}
-\end{definition}
-
-Before going into the formulation of linking in the concrete semantics, we need to cast $\sembracket{e}$ into a fixpoint computation form.
-We define a transfer function $\mathcal{F}$ that takes $(R^{\circ},R^{*})\in\wp((\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time)\times(\Value{\Time}\times\Mem{\Time}\times\Time))\times\wp(\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time)$ and outputs $({R'}^{\circ},{R'}^{*})$ that are one step away from the original sets.
-\begin{definition}[Transfer function]
-  $\:$
-
-  \begin{itemize}
-    \item Given $(R^{\circ},R^{*})\in\wp((\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time)\times(\Value{\Time}\times\Mem{\Time}\times\Time))\times\wp(\Expr\times\Ctx{\Time}\times\Mem{\Time}\times\Time)$,
-    \item Let the relations $\Downarrow_{R^{\circ}}$ and $\rightsquigarrow_{R^{\circ}}$ be defined as exactly the relations $\Downarrow$ and $\rightsquigarrow$ with all assumptions of the form $a\Downarrow b$ replaced with the assumptions $(a,b)\in R^{\circ}$.
-    \item Let $\Delta R^{\circ}=\{(a,b)|a\in R^{*}\wedge a\Downarrow_{R^{\circ}}b\}$ and $\Delta R^{*}=\{b|\exists a\in R^{*}:a\rightsquigarrow_{R^{\circ}}b\}$
-    \item The definition of the transfer function is $\mathcal{F}(R^{\circ},R^{*})\triangleq(R^{\circ}\cup\Delta R^{\circ}, R^{*}\cup\Delta R^{*})$.
-  \end{itemize}
-\end{definition}
-
-\begin{lem}[Collecting semantics as a least fixpoint]
-  \[
-    \sembracket{e}(C,\sigma,t)=\mathsf{lfp}(\lambda (R^{\circ}, R^{*}).\mathcal{F}(R^{\circ}, R^{*}\cup\{(e,C,\sigma,t)\}))
-  \]
-\end{lem}
-
-\begin{thm}[Linking of collected states] We want to compute $\sembracket{\link{e_{1}}{e_{2}}}(C,\sigma,t)$.
-  $\:$
-
-  \begin{itemize}
-    \item Given $R^{\circ}$ and $R^{*}$ that satisfies $\Resolved{e_{1}}(C,\sigma,t)\ovbar{\subseteq} R^{\circ}$ and $\Reach{e_{1}}(C,\sigma,t)\ovbar{\subseteq} R^{*}$,
-    \item Let $E=\{(C_{0},\sigma_{0},t'')|\exists C',\sigma',t':(C,\sigma,t)\equiv(C',\sigma',t')\wedge((e_{1},C',\sigma',t'),(C_{0},\sigma_{0},t''))\in R^{\circ}\}$(exported configurations).
-    \item Let $R^{\circ}(C_{0},\sigma_{0})=\{((e_{2},C_{0},\sigma_{0},t_{0}), (\inject{C_{0}}{V},\inject{C_{0}}{\sigma'};\sigma_{0},t'))|((e_{2},[],\varnothing,t_{0}),(V,\sigma',t'))\in\Resolved{e_{2}}([],\varnothing,t_{0})\}$(separate resolved).
-    \item Let $R^{*}(C_{0},\sigma_{0})=\{(e',\inject{C_{0}}{C'},\inject{C_{0}}{\sigma'};\sigma_{0},t')|(e',C',\sigma',t')\in\Reach{e_{2}}([],\varnothing,t_{0})\}$(separate reached).
-  \end{itemize}
-
-  We have:
-  \[
-    \sembracket{e_{2}}(C_{0},\sigma_{0},t_{0})=\mathsf{lfp}(\lambda (R^{\circ}, R^{*}).\mathcal{F}(R^{\circ}\cup R^{\circ}(C_{0},\sigma_{0}), R^{*}\cup R^{*}(C_{0},\sigma_{0})))
-  \]
-
-  Thus:
-  \[
-    \Resolved{\link{e_1}{e_2}}(C,\sigma,t)\ovbar{\subseteq}
-    R^{\circ}\cup\bigcup_{(C_{0},\sigma_{0},t')\in E}{(\Resolved{e_2}(C_{0},\sigma_{0},t_{0})\cup\underbrace{\{((\link{e_1}{e_2}, C, \sigma, t), (V,\sigma'',t''))|((e_{2},C_{0},\sigma_{0},t_{0}),(V,\sigma'',t''))\in\Resolved{e_{2}}(C_{0},\sigma_{0},t_{0})\}}_{\text{The final evaluation}})}
-  \]
-  \begin{align*}
-    \Reach{\link{e_1}{e_2}}(C,\sigma,t)\ovbar{\subseteq}\{(\link{e_1}{e_2},C,\sigma,t)\}\cup R^{*}\cup\bigcup_{(C_{0},\sigma_{0},t')\in E}{\Reach{e_2}(C_{0},\sigma_{0},t_{0})}
-  \end{align*}
-\end{thm}
-
-\section{Abstract Semantics}
-
-The abstract semantics is almost exactly the same as the concrete semantics, except for the fact that the memory domain is now a finite map from the abstract time domain to a \emph{set} of abstract values.
-
-\begin{bnfgrammar}
-  $t^{\#}$ : \in \ATime
-  ;;
-  $v^{\#}$ : \in \AValue{\ATime}
-  ;;
-  $C^{\#}$ : \in \Ctx{\ATime}
-  ;;
-  $V^{\#}$ : \in \AValue{\ATime}+\Ctx{\ATime}
-  ;;
-  $\sigma^{\#}$ : \in \AMem{\Time} \triangleq \fin{\ATime}{\wp(\AValue{\ATime})}
-  ;;
-  $v^{\#}$ ::= $\langle \lambda x.e, C^{\#} \rangle$ : closure
-\end{bnfgrammar}
-
-\begin{definition}[Soundness]
-  $\:$
-
-  \begin{itemize}
-    \item Given two configurations $(C,\sigma,t)$ in $\Time$ and $(C^{\#},\sigma^{\#},t^{\#})$ in $\ATime$, we say that the latter is a sound approximation of the former when
-          there exists an $\alpha:\Time\rightarrow\ATime$ such that $\alpha(t)=t^{\#}\wedge\alpha(C)=C^{\#}\wedge\forall t:\alpha(\sigma(t))\in\sigma^{\#}(\alpha(t))$.
-          We write this as $(C,\sigma,t)\lhd(C^{\#},\sigma^{\#},t^{\#})$.
-    \item Given two states $(e,C,\sigma,t)$ and $(e',C^{\#},\sigma^{\#},t^{\#})$, the latter is said to be a sound approximation of the former when $e=e'$ and $(C,\sigma,t)\lhd(C^{\#},\sigma^{\#},t^{\#})$.
-    \item Given two results $(V,\sigma,t)$ and $(V^{\#}, \sigma^{\#},t^{\#})$, the latter is said to be a sound approximation of the former either if
-          they are both of the form $(C,\sigma,t)$ and $(C^{\#},\sigma^{\#},t^{\#})$ and the latter is a sound approximation of the former,
-          or if they are of the form $(\langle\lambda x.e,C\rangle,\sigma,t)$ and $(\langle\lambda x'.e',C^{\#}\rangle,\sigma^{\#},t^{\#})$ satisfying $x=x'\wedge(C,\sigma,t)\lhd(C^{\#},\sigma^{\#},t^{\#})$.
-    \item Given two sets $S$ and $S^{\#}$,
-          we write $S\ovbar{\subseteq}^{\#} S^{\#}$ when for every element of $S$, there exists a sound approximation in $S^{\#}$.
-  \end{itemize}
-\end{definition}
-
-We define the abstract evaluation relation $\Downarrow^{\#}$ and abstract reachability relation $\rightsquigarrow^{\#}$ exactly as their concrete counterparts, except that the update for the memory is now a weak update and
-variables can evaluate to any value in $\sigma^{\#}(\addr)$.
-
-\begin{lem}[Preservation of soundness]
-  $\:$
-
-  \begin{itemize}
-    \item Let $(C,\sigma,t)$ be a concrete configuration and $(C^{\#},\sigma^{\#},t^{\#})$ be an abstract configuration.
-    \item Let all timestamps in $C$ and $\mathsf{Dom}(\sigma)$ be strictly less than $t$.
-    \item Let $(C,\sigma,t)\lhd(\A{C},\A{\sigma},\A{t})$.
-  \end{itemize}
-
-  Then for all $e$, if $(e,C,\sigma,t)\Downarrow(V,\sigma',t')$, there exists $\A{V},\A{\sigma'},\A{t'}$ such that $(e,\A{C},\A{\sigma},\A{t})\A{\Downarrow}(\A{V},\A{\sigma'},\A{t'})$ and $(V,\sigma',t')\lhd(\A{V},\A{\sigma'},\A{t'})$.
-  Likewise, if $(e,C,\sigma,t)\rightsquigarrow(e',C',\sigma',t')$, there exists $\A{C'},\A{\sigma'},\A{t'}$ such that $(e,\A{C},\A{\sigma},\A{t})\rightsquigarrow(e',\A{C'},\A{\sigma'},\A{t'})$ and $(C',\sigma',t')\lhd(\A{C'},\A{\sigma'},\A{t'})$.
-\end{lem}
-
-\begin{lem}[Equivalence preserves soundness]
-  $\:$
-
-  \begin{itemize}
-    \item Let $(C,\sigma,t)$ and $(C',\sigma',t')$ be concrete configurations and $(C^{\#},\sigma^{\#},t^{\#})$ be an abstract configuration.
-    \item Let $(C,\sigma,t)\equiv(C',\sigma',t')$ and $(C,\sigma,t)\lhd(\A{C},\A{\sigma},\A{t})$.
-  \end{itemize}
-
-  Then $(C',\sigma',t')\lhd(\A{C},\A{\sigma},\A{t})$.
-\end{lem}
-
-\begin{thm}[Abstract linking]
-  We want to compute sets $\tilde{R^{\circ}}^{\#}$ and $\tilde{R^{*}}^{\#}$ satisfying
-  \[
-    \Resolved{\link{e_1}{e_2}}(C,\sigma,t)\ovbar{\subseteq}^{\#} \tilde{R^{\circ}}^{\#}
-    \quad\wedge\quad
-    \Reach{\link{e_1}{e_2}}(C,\sigma,t)\ovbar{\subseteq}^{\#} \tilde{R^{*}}^{\#}
-  \]
-
-  \begin{itemize}
-    \item Given ${R^{\circ}}^{\#}$ and ${R^{*}}^{\#}$ that satisfies $\Resolved{e_1}(C,\sigma,t)\ovbar{\subseteq}^{\#} {R^{\circ}}^{\#}$ and $\Reach{e_1}(C,\sigma,t)\ovbar{\subseteq}^{\#} {R^{*}}^{\#}$,
-    \item Let $\A{E}=\{(\A{C_{0}},\A{\sigma_{0}},\A{t'})|\exists \A{C},\A{\sigma},\A{t}:(C,\sigma,t)\lhd(\A{C},\A{\sigma},\A{t})\wedge((e_{1},\A{C},\A{\sigma},\A{t}),(\A{C_{0}},\A{\sigma_{0}},\A{t'}))\in \A{R^{\circ}}\}$.
-    \item Let $\A{R^{\circ}}(\A{C_{0}},\A{\sigma_{0}})=\{((e_{2},\A{C_{0}},\A{\sigma_{0}},\A{t_{0}}), (\inject{\A{C_{0}}}{\A{V}},\inject{\A{C_{0}}}{\A{\sigma}};\A{\sigma_{0}},\A{t}))|((e_{2},[],\varnothing,\A{t_{0}}),(\A{V},\A{\sigma},\A{t}))\in\A{\Resolved{e_{2}}}([],\varnothing,\A{t_{0}})\}$.
-    \item Let $\A{R^{*}}(\A{C_{0}},\A{\sigma_{0}})=\{(e',\inject{\A{C_{0}}}{\A{C}},\inject{\A{C_{0}}}{\A{\sigma}};\A{\sigma_{0}},\A{t})|(e',\A{C},\A{\sigma},\A{t})\in\Reach{e_{2}}([],\varnothing,\A{t_{0}})\}$.
-  \end{itemize}
-
-  We have:
-  \[
-    \A{\sembracket{e_{2}}}(\A{C_{0}},\A{\sigma_{0}},\A{t_{0}})=\mathsf{lfp}(\lambda (\A{R^{\circ}}, \A{R^{*}}).\A{\mathcal{F}}(\A{R^{\circ}}\cup \A{R^{\circ}}(\A{C_{0}},\A{\sigma_{0}}), \A{R^{*}}\cup \A{R^{*}}(\A{C_{0}},\A{\sigma_{0}})))
-  \]
-
-  Thus, if we pick some $(\A{C},\A{\sigma},\A{t})$ satisfying $(C,\sigma,t)\lhd(\A{C},\A{\sigma},\A{t})$:
-  \[
-    \Resolved{\link{e_1}{e_2}}(C,\sigma,t)\A{\ovbar{\subseteq}}
-    \A{R^{\circ}}\cup\bigcup_{(\A{C_{0}},\A{\sigma_{0}},\A{t'})\in \A{E}}{(\A{\Resolved{e_2}}(\A{C_{0}},\A{\sigma_{0}},\A{t_{0}})\cup\underbrace{\{((\link{e_1}{e_2}, \A{C}, \A{\sigma}, \A{t}), (\A{V},\A{\sigma'},\A{t'}))|(e_{2},\A{C_{0}},\A{\sigma_{0}},\A{t_{0}})\A{\Downarrow}(\A{V},\A{\sigma'},\A{t'})\}}_{\text{The final evaluation}})}
-  \]
-  \begin{align*}
-    \Reach{\link{e_1}{e_2}}(C,\sigma,t)\A{\ovbar{\subseteq}}\{(\link{e_1}{e_2},\A{C},\A{\sigma},\A{t})\}\cup \A{R^{*}}\cup\bigcup_{(\A{C_{0}},\A{\sigma_{0}},\A{t'})\in \A{E}}{\A{\Reach{e_2}}(\A{C_{0}},\A{\sigma_{0}},\A{t_{0}})}
-  \end{align*}
-\end{thm}
-
-\begin{thm}[Finiteness of time implies finiteness of abstraction]
-  If $\ATime$ is finite,
-  \[
-    \forall e,\A{C},\A{\sigma},\A{t}: |\A{\Resolved{e}}(\A{C},\A{\sigma},\A{t})|<\infty\wedge|\A{\Reach{e}}(\A{C},\A{\sigma},\A{t})|<\infty
-  \]
-\end{thm}
 
 \printbibliography
 \end{document}
