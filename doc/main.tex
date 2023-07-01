@@ -50,6 +50,7 @@
 
 \usepackage{simplebnf}
 \RenewDocumentCommand\SimpleBNFDefEq{}{\ensuremath{⩴}}
+\RenewDocumentCommand\SimpleBNFDefEq{}{\ensuremath{\rightarrow}}
 
 % because of simplebnf
 \newcommand*{\vbar}{|}
@@ -68,17 +69,19 @@
 \newcommand*{\ModVar}{\text{ModVar}}
 \newcommand*{\Time}{\mathbb{T}}
 \newcommand*{\ATime}{\A{\Time}}
-\newcommand*{\Ctx}[1]{\text{Ctx}\:{#1}}
-\newcommand*{\Value}[1]{\text{Val}\:{#1}}
-\newcommand*{\Mem}[1]{\text{Mem}\:{#1}}
-\newcommand*{\AMem}[1]{\A{\text{Mem}}\:{#1}}
-\newcommand*{\Config}[1]{\text{Config}\:{#1}}
-\newcommand*{\AConfig}[1]{\A{\text{Config}}\:{#1}}
-\newcommand*{\Result}[1]{\text{Result}\:{#1}}
-\newcommand*{\AResult}[1]{\A{\text{Result}}\:{#1}}
+\newcommand*{\Ctx}[1]{\text{Ctx}\vphantom{#1}}
+\newcommand*{\Value}[1]{\text{Val}\vphantom{#1}}
+\newcommand*{\Mem}[1]{\text{Mem}\vphantom{#1}}
+\newcommand*{\mem}{m}
+\newcommand*{\AMem}[1]{\A{\text{Mem}}\vphantom{#1}}
+\newcommand*{\Config}[1]{\text{Config}\vphantom{#1}}
+\newcommand*{\AConfig}[1]{\A{\text{Config}}\vphantom{#1}}
+\newcommand*{\Result}[1]{\text{Result}\vphantom{#1}}
+\newcommand*{\AResult}[1]{\A{\text{Result}}\vphantom{#1}}
 \newcommand*{\link}[2]{{#1}\mathtt{!}{#2}}
-\newcommand*{\Reach}[1]{\underline{#1}^{*}}
-\newcommand*{\Resolved}[1]{\underline{#1}^{\circ}}
+\newcommand*{\EE}{\mathsf{E}}
+\newcommand*{\LL}{\mathsf{L}}
+\newcommand*{\Link}{\mathsf{Link}}
 \newcommand*{\sembracket}[1]{\lBrack{#1}\rBrack}
 \newcommand*{\fin}[2]{{#1}\xrightarrow{\text{fin}}{#2}}
 \newcommand*{\addr}{\mathsf{addr}}
@@ -106,13 +109,13 @@ In this section we define the abstract syntax for a simple language that capture
 The language is basically an extension of untyped lambda calculus with modules and the linking operator.
 
 \begin{bnfgrammar}
-  $x$ : \in \ExprVar
+  $x$ : $\mathrm{Expression\:Identifier}$ \in \ExprVar
   ;;
-  $M$ : \in \ModVar
+  $M$ : $\mathrm{Module\:Identifier}$ \in \ModVar
   ;;
-  $e$ : \in \Expr
+  $e$ : $\mathrm{Expression}$ \in \Expr
   ;;
-  $e$ ::= $x$ : identifier, expression
+  $e$ : $\mathrm{Expression}$ ::= $x$ : identifier, expression
   | $\lambda x.e$ : function
   | $e$ $e$ : application
   | $\link{e}{e}$ : linked expression
@@ -158,21 +161,21 @@ We first define sets that are parametrized by our choice of the time domain, mai
 Also, we present the notational conventions used in this paper to represent members of each domain.
 
 \begin{bnfgrammar}
-  $t$ : \in \Time
+  $t$ : $\mathrm{Time}$ \in \Time
   ;;
-  $v$ : \in \Value{\Time}
+  $C$ : $\mathrm{Context}$ \in \Ctx{\Time}
   ;;
-  $C$ : \in \Ctx{\Time}
+  $v$ : $\mathrm{Result\:of\:expressions}$ \in \Value{\Time} \triangleq \Expr\times\Ctx{\Time}
   ;;
-  $V$ : \in \Value{\Time}+\Ctx{\Time}
+  $V$ : $\mathrm{Result\:of\:expressions/modules}$ \in \Value{\Time}+\Ctx{\Time}
   ;;
-  $\sigma$ : \in \Mem{\Time} \triangleq \fin{\Time}{\Value{\Time}}
+  $\mem$ : $\mathrm{Memory}$ \in \Mem{\Time} \triangleq \fin{\Time}{\Value{\Time}}
   ;;
-  $s$ : \in \Config{\Time} \triangleq \Ctx{\Time}\times\Mem{\Time}\times\Time
+  $s$ : $\mathrm{Configuration}$ \in \Config{\Time} \triangleq \Ctx{\Time}\times\Mem{\Time}\times\Time
   ;;
-  $r$ : \in \Result{\Time} \triangleq (\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time
+  $r$ : $\mathrm{Result}$ \in \Result{\Time} \triangleq (\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time
   ;;
-  $C$ ::= [] : hole
+  $C$ : $\mathrm{Context}$ ::= [] : hole
   | $\lambda x^{t}.C$ : function parameter binding
   | $\Let$ $x^{t}$ $C$ : let expression binding
   | $\Let$ $M$ $C$ $C$ : let module context binding
@@ -233,25 +236,25 @@ Finally, the function that looks up the dynamic context bound to a module variab
 \subsection{The Evaluation Relation}
 
 Now we are in a position to define the big-step evaluation relation.
-The relation $\Downarrow$ relates $(e,C,\sigma,t)\in\Expr\times\Config{\Time}$ with
-$(V,\sigma,t)\in\Result{\Time}$.
+The relation $\Downarrow$ relates $(e,C,\mem,t)\in\Expr\times\Config{\Time}$ with
+$(V,\mem,t)\in\Result{\Time}$.
 Note that we constrain whether the evaluation relation returns $v\in\Value{\Time}$(when the expression being evaluated is not a module) or $C\in\Ctx{\Time}$ by the definition of the relation.
 
 \[
   \begin{prooftree}
     \hypo{t_{x}=\addr(C,x)}
-    \hypo{v=\sigma(t_{x})}
+    \hypo{v=\mem(t_{x})}
     \infer[left label=ExprVar]2{
-    (x, C, \sigma, t)
+    (x, C, \mem, t)
     \Downarrow
-    (v, \sigma, t)
+    (v, \mem, t)
     }
   \end{prooftree}\qquad
   \begin{prooftree}
     \infer[left label=Fn]0{
-    (\lambda x.e, C, \sigma, t)
+    (\lambda x.e, C, \mem, t)
     \Downarrow
-    (\langle\lambda x.e, C\rangle, \sigma, t)
+    (\langle\lambda x.e, C\rangle, \mem, t)
     }
   \end{prooftree}
 \]
@@ -260,38 +263,38 @@ Note that we constrain whether the evaluation relation returns $v\in\Value{\Time
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, C, \sigma, t)
+        (e_{1}, C, \mem, t)
         \Downarrow
-        (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \sigma_{\lambda}, t_{\lambda}) \\
-        (e_{2}, C, \sigma_{\lambda}, t_{\lambda})
+        (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
+        (e_{2}, C, \mem_{\lambda}, t_{\lambda})
         \Downarrow
-        (v, \sigma_{a}, t_{a})                                                            \\
-        (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \sigma_{a}[t_{a}\mapsto v], \tick\:t_{a})
+        (v, \mem_{a}, t_{a})                                                            \\
+        (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \mem_{a}[t_{a}\mapsto v], \tick\:t_{a})
         \Downarrow
-        (v', \sigma',t')
+        (v', \mem',t')
       \end{matrix}
     }
     \infer[left label={App}]1{
-    (e_{1}\:e_{2}, C, \sigma, t)
+    (e_{1}\:e_{2}, C, \mem, t)
     \Downarrow
-    (v', \sigma',t')
+    (v', \mem',t')
     }
   \end{prooftree}\qquad
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, C, \sigma, t)
+        (e_{1}, C, \mem, t)
         \Downarrow
-        (C', \sigma', t') \\
-        (e_{2}, C', \sigma', t')
+        (C', \mem', t') \\
+        (e_{2}, C', \mem', t')
         \Downarrow
-        (V, \sigma'', t'')
+        (V, \mem'', t'')
       \end{matrix}
     }
     \infer[left label=Linking]1{
-    (\link{e_{1}}{e_{2}}, C, \sigma, t)
+    (\link{e_{1}}{e_{2}}, C, \mem, t)
     \Downarrow
-    (V, \sigma'', t'')
+    (V, \mem'', t'')
     }
   \end{prooftree}
 \]
@@ -301,17 +304,17 @@ That is, linking may return either values or modules.
 \[
   \begin{prooftree}
     \infer[left label=Empty]0{
-    (\varepsilon, C, \sigma, t)
+    (\varepsilon, C, \mem, t)
     \Downarrow
-    (C, \sigma, t)
+    (C, \mem, t)
     }
   \end{prooftree}\qquad
   \begin{prooftree}
     \hypo{C'=\modctx(C,M)}
     \infer[left label=ModVar]1{
-    (M, C, \sigma, t)
+    (M, C, \mem, t)
     \Downarrow
-    (C', \sigma, t)
+    (C', \mem, t)
     }
   \end{prooftree}
 \]
@@ -320,35 +323,35 @@ That is, linking may return either values or modules.
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, C, \sigma, t)
+        (e_{1}, C, \mem, t)
         \Downarrow
-        (v, \sigma', t') \\
-        (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \sigma'[t'\mapsto v], \tick\:t')
+        (v, \mem', t') \\
+        (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \mem'[t'\mapsto v], \tick\:t')
         \Downarrow
-        (C', \sigma'', t'')
+        (C', \mem'', t'')
       \end{matrix}
     }
     \infer[left label=LetE]1{
-    (\mathtt{let}\:x\:e_1\:e_2, C, \sigma, t)
+    (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
     \Downarrow
-    (C', \sigma'', t'')
+    (C', \mem'', t'')
     }
   \end{prooftree}\qquad
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, C, \sigma, t)
+        (e_{1}, C, \mem, t)
         \Downarrow
-        (C', \sigma', t') \\
-        (e_{2}, C[\mathtt{let}\:M\:C'\:[]], \sigma', t')
+        (C', \mem', t') \\
+        (e_{2}, C[\mathtt{let}\:M\:C'\:[]], \mem', t')
         \Downarrow
-        (C'', \sigma'', t'')
+        (C'', \mem'', t'')
       \end{matrix}
     }
     \infer[left label=LetM]1{
-    (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \sigma, t)
+    (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \mem, t)
     \Downarrow
-    (C'', \sigma'', t'')
+    (C'', \mem'', t'')
     }
   \end{prooftree}
 \]
@@ -357,29 +360,29 @@ The equivalence of the evaluation relation with a reference interpreter is forma
 
 \section{Collecting Semantics}
 
-To describe what happens when an expression $e$ is excecuted under the context $C$, memory $\sigma$ and initial time $t$, we need to collect all \emph{reachable states} starting from $(e,C,\sigma,t)$ and all values that are returned by the reachable states.
+To describe what happens when an expression $e$ is excecuted under the context $C$, memory $\mem$ and initial time $t$, we need to collect all \emph{reachable states} starting from $(e,C,\mem,t)$ and all values that are returned by the reachable states.
 We first define the one-step reachability relation $\rightsquigarrow$.
 
 \[
   \begin{prooftree}
     \infer[left label={AppL}]0{
-    (e_{1}\:e_{2}, C, \sigma, t)
+    (e_{1}\:e_{2}, C, \mem, t)
     \rightsquigarrow
-    (e_{1},C, \sigma,t)
+    (e_{1},C, \mem,t)
     }
   \end{prooftree}\qquad
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, C, \sigma, t)
+        (e_{1}, C, \mem, t)
         \Downarrow
-        (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \sigma_{\lambda}, t_{\lambda})
+        (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda})
       \end{matrix}
     }
     \infer[left label={AppR}]1{
-    (e_{1}\:e_{2}, C, \sigma, t)
+    (e_{1}\:e_{2}, C, \mem, t)
     \rightsquigarrow
-    (e_{2}, C, \sigma_{\lambda}, t_{\lambda})
+    (e_{2}, C, \mem_{\lambda}, t_{\lambda})
     }
   \end{prooftree}
 \]
@@ -388,18 +391,18 @@ We first define the one-step reachability relation $\rightsquigarrow$.
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, C, \sigma, t)
+        (e_{1}, C, \mem, t)
         \Downarrow
-        (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \sigma_{\lambda}, t_{\lambda}) \\
-        (e_{2}, C, \sigma_{\lambda}, t_{\lambda})
+        (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
+        (e_{2}, C, \mem_{\lambda}, t_{\lambda})
         \Downarrow
-        (v, \sigma_{a}, t_{a})
+        (v, \mem_{a}, t_{a})
       \end{matrix}
     }
     \infer[left label={AppBody}]1{
-    (e_{1}\:e_{2}, C, \sigma, t)
+    (e_{1}\:e_{2}, C, \mem, t)
     \rightsquigarrow
-    (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \sigma_{a}[t_{a}\mapsto v], \tick\:t_{a})
+    (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \mem_{a}[t_{a}\mapsto v], \tick\:t_{a})
     }
   \end{prooftree}
 \]
@@ -407,23 +410,23 @@ We first define the one-step reachability relation $\rightsquigarrow$.
 \[
   \begin{prooftree}
     \infer[left label=LinkL]0{
-    (\link{e_{1}}{e_{2}}, C, \sigma, t)
+    (\link{e_{1}}{e_{2}}, C, \mem, t)
     \rightsquigarrow
-    (e_{1}, C, \sigma, t)
+    (e_{1}, C, \mem, t)
     }
   \end{prooftree}\qquad
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, C, \sigma, t)
+        (e_{1}, C, \mem, t)
         \Downarrow
-        (C', \sigma', t')
+        (C', \mem', t')
       \end{matrix}
     }
     \infer[left label=LinkR]1{
-    (\link{e_{1}}{e_{2}}, C, \sigma, t)
+    (\link{e_{1}}{e_{2}}, C, \mem, t)
     \rightsquigarrow
-    (e_{2}, C', \sigma', t')
+    (e_{2}, C', \mem', t')
     }
   \end{prooftree}
 \]
@@ -431,23 +434,23 @@ We first define the one-step reachability relation $\rightsquigarrow$.
 \[
   \begin{prooftree}
     \infer[left label=LetEL]0{
-    (\mathtt{let}\:x\:e_1\:e_2, C, \sigma, t)
+    (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
     \rightsquigarrow
-    (e_{1}, C, \sigma, t)
+    (e_{1}, C, \mem, t)
     }
   \end{prooftree}\qquad
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, C, \sigma, t)
+        (e_{1}, C, \mem, t)
         \Downarrow
-        (v, \sigma', t')
+        (v, \mem', t')
       \end{matrix}
     }
     \infer[left label=LetER]1{
-    (\mathtt{let}\:x\:e_1\:e_2, C, \sigma, t)
+    (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
     \rightsquigarrow
-    (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \sigma'[t'\mapsto v], \tick\:t')
+    (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \mem'[t'\mapsto v], \tick\:t')
     }
   \end{prooftree}
 \]
@@ -455,23 +458,23 @@ We first define the one-step reachability relation $\rightsquigarrow$.
 \[
   \begin{prooftree}
     \infer[left label=LetML]0{
-    (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \sigma, t)
+    (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \mem, t)
     \rightsquigarrow
-    (e_{1}, C, \sigma, t)
+    (e_{1}, C, \mem, t)
     }
   \end{prooftree}\qquad
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, C, \sigma, t)
+        (e_{1}, C, \mem, t)
         \Downarrow
-        (C', \sigma', t')
+        (C', \mem', t')
       \end{matrix}
     }
     \infer[left label=LetMR]1{
-    (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \sigma, t)
+    (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \mem, t)
     \rightsquigarrow
-    (e_{2}, C[\mathtt{let}\:M\:C'\:[]], \sigma', t')
+    (e_{2}, C[\mathtt{let}\:M\:C'\:[]], \mem', t')
     }
   \end{prooftree}
 \]
@@ -483,9 +486,9 @@ Since we want to collect the most precise information that describes the executi
 The relation that collects the reachable states $\rightsquigarrow^{*}$ is defined as the reflexive and transitive closure of $\rightsquigarrow$.
 
 \begin{definition}[Collecting semantics]
-  The semantics for an expression $e$ under configuration $s\in\Config{\Time}$ is an element in $(\Expr\times\Config{\Time})\rightarrow(\wp(\Result{\Time}))_{\bot}$ defined as:
+  The semantics for an expression $e$ under configuration $s\in\Config{\Time}$ is an element in $(\Expr\times\Config{\Time})\rightarrow{\wp(\Result{\Time})}_{\bot}$ defined as:
   \[
-    \sembracket{e}(s)\triangleq\bigsqcup_{(e,s)\rightsquigarrow^{*}(e',s')}[(e',s')\mapsto\{r|(e',s')\Downarrow r\}]
+    \sembracket{e}(s)\triangleq\bigcup_{(e,s)\rightsquigarrow^{*}(e',s')}[(e',s')\mapsto\{r|(e',s')\Downarrow r\}]
   \]
 
   That is, the semantics collect all reachable configurations and all results the configurations might return.
@@ -493,39 +496,51 @@ The relation that collects the reachable states $\rightsquigarrow^{*}$ is define
 
 \begin{example}
   The semantics for the non-terminating lambda expression $\Omega=(\lambda x.xx)(\lambda x.xx)$ satisfies:
-  \[
-    \sembracket{\Omega}([],\varnothing,0)(\Omega,[],\varnothing,0)=\varnothing
-  \]
-  since $(\Omega,[],\varnothing,0)$ is reached by $\Omega$ under $([],\varnothing,0)$ but does not return any results.
+  \begin{align*}
+    \sembracket{\Omega}([],\varnothing,0)(\Omega,[],\varnothing,0)=\varnothing \\
+    \sembracket{\Omega}([],\varnothing,0)(Y,\_,\_,\_)=\bot
+  \end{align*}
+  since (1) $(\Omega,[],\varnothing,0)$ is reached by $(\Omega,[],\varnothing,0)$ but does not return, and (2) since the $Y$ combinator cannot be reached.
 \end{example}
 
 To justify separate analysis, we decompose the collecting semantics of the linking expression into a composition of the semantics of the left and right expressions.
-\begin{lem}[Concrete linking]
+
+\begin{definition}[Linking operator]
+  \begin{align*}
+    \EE\:e_1\:s         & \triangleq\sembracket{e_1}(s)(e_1,s)                                                                                    & (\text{Exported from }e_1\text{ under }s)             \\
+    \LL\:E\:e_2         & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s')                                                                         & (\text{Reached under exported context})               \\
+    \LL^{\circ}\:E\:e_2 & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s')(e_2,s')                                                                 & (\text{Resolved under exported context})              \\
+    \Link\:e_1\:e_2\:s  & \triangleq\sembracket{e_1}(s)\cup\LL\:(\EE\:e_1\:s)\:e_2\cup[(\link{e_1}{e_2},s)\mapsto\LL^{\circ}\:(\EE\:e_1\:s)\:e_2] & (\text{Linking of }e_1\text{ and }e_2\text{ under }s)
+  \end{align*}
+\end{definition}
+\begin{thm}[Concrete linking]
   \[
-    \sembracket{\link{e_1}{e_2}}(s)=\sembracket{e_1}(s)\sqcup\bigsqcup_{s'\in\sembracket{e_1}(s)(e_1,s)}\left(\sembracket{e_2}(s')\sqcup[(\link{e_1}{e_2},s)\mapsto\sembracket{e_2}(s')(e_2,s')]\right)
+    \sembracket{\link{e_1}{e_2}}(s)=\Link\:e_1\:e_2\:s
   \]
 
-  That is, the semantics of the linked expression is the join of the semantics of the exporting expression and the semantics of the consuming expression under the exported configuration.
-\end{lem}
+  That is, the semantics of the linked expression is the union of the semantics of the exporting expression and the semantics of the consuming expression under the exported configuration.
+\end{thm}
 
 \section{Abstract Semantics}
 
 The abstract semantics is almost exactly the same as the concrete semantics, except for the fact that the memory domain is now a finite map from the abstract time domain to a \emph{set} of values.
+Note we do not need to define the $\A{C}$, $\A{v}$, $\A{V}$ components, as they are \emph{exactly} their concrete counterparts.
+They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
 
 \begin{bnfgrammar}
-  $\A{t}$ : \in \ATime
+  $\A{t}$ : $\mathrm{Abstract\:time}$ \in \ATime
   ;;
-  $\A{v}$ : \in \Value{\ATime}
+  $\A{C}$ : $\mathrm{Context}$ \in \Ctx{\ATime}
   ;;
-  $\A{C}$ : \in \Ctx{\ATime}
+  $\A{v}$ : $\mathrm{Result\:of\:expressions}$ \in \Value{\ATime}
   ;;
-  $\A{V}$ : \in \Value{\ATime}+\Ctx{\ATime}
+  $\A{V}$ : $\mathrm{Result\:of\:expressions/modules}$ \in \Value{\ATime}+\Ctx{\ATime}
   ;;
-  $\A{\sigma}$ : \in \AMem{\ATime} \triangleq \fin{\ATime}{\wp(\Value{\ATime})}
+  $\A{\mem}$ : $\mathrm{Abstract\:Memory}$ \in \AMem{\ATime} \triangleq \fin{\ATime}{\wp(\Value{\ATime})}
   ;;
-  $\A{s}$ : \in \AConfig{\ATime} \triangleq \Ctx{\ATime}\times\AMem{\ATime}\times\ATime
+  $\A{s}$ : $\mathrm{Abstract\:Configuration}$ \in \AConfig{\ATime} \triangleq \Ctx{\ATime}\times\AMem{\ATime}\times\ATime
   ;;
-  $\A{r}$ : \in \AResult{\ATime} \triangleq (\Value{\ATime}+\Ctx{\ATime})\times\AMem{\ATime}\times\ATime
+  $\A{r}$ : $\mathrm{Abstract\:Result}$ \in \AResult{\ATime} \triangleq (\Value{\ATime}+\Ctx{\ATime})\times\AMem{\ATime}\times\ATime
 \end{bnfgrammar}
 
 \subsection{Big-Step Evaluation}
@@ -533,12 +548,12 @@ The abstract semantics is almost exactly the same as the concrete semantics, exc
 First the abstract evaluation relation $\A{\Downarrow}$ is defined.
 Note that the update for the memory is now a weak update. That is,
 \begin{definition}[Weak update]
-  Given $\A{\sigma}\in\AMem{\ATime}$, $\A{t}\in\ATime$, $\A{v}\in\Value{\ATime}$, we define $\A{\sigma}[\A{t}\A{\mapsto}\A{v}]$ as:
+  Given $\A{\mem}\in\AMem{\ATime}$, $\A{t}\in\ATime$, $\A{v}\in\Value{\ATime}$, we define $\A{\mem}[\A{t}\A{\mapsto}\A{v}]$ as:
   \[
-    \A{\sigma}[\A{t}\A{\mapsto}\A{v}](\A{t'})\triangleq
+    \A{\mem}[\A{t}\A{\mapsto}\A{v}](\A{t'})\triangleq
     \begin{cases}
-      \A{\sigma}(\A{t})\cup\{\A{v}\} & (\A{t'}=\A{t})     \\
-      \A{\sigma}(\A{t'})             & (\text{otherwise})
+      \A{\mem}(\A{t})\cup\{\A{v}\} & (\A{t'}=\A{t})     \\
+      \A{\mem}(\A{t'})             & (\text{otherwise})
     \end{cases}
   \]
 \end{definition}
@@ -548,23 +563,23 @@ Since we want to utilize the information when the binding is performed, the $\A{
 \begin{definition}[Abstract time]
   $(\ATime,\A{\tick})$ is an \emph{abstract time} when $\A{\tick}\in\Ctx{\ATime}\rightarrow\AMem{\ATime}\rightarrow\ATime\rightarrow\ExprVar\rightarrow\Value{\ATime}\rightarrow\ATime$ is the policy for advancing the timestamp.
 \end{definition}
-In our semantics, $\A{\tick}\:\A{C}\:\A{\sigma}\:\A{t}\:x\:\A{v}$ is performed when $\A{v}$ is bound to $x$ under configuration $(\A{C},\A{\sigma},\A{t})$.
+In our semantics, $\A{\tick}\:\A{C}\:\A{\mem}\:\A{t}\:x\:\A{v}$ is performed when $\A{v}$ is bound to $x$ under configuration $(\A{C},\A{\mem},\A{t})$.
 
 \[
   \begin{prooftree}
     \hypo{\A{t_{x}}=\addr(\A{C},x)}
-    \hypo{\A{v}\in\A{\sigma}(\A{t_{x}})}
+    \hypo{\A{v}\in\A{\mem}(\A{t_{x}})}
     \infer[left label=ExprVar]2{
-    (x, \A{C}, \A{\sigma}, \A{t})
+    (x, \A{C}, \A{\mem}, \A{t})
     \A{\Downarrow}
-    (\A{v}, \A{\sigma}, \A{t})
+    (\A{v}, \A{\mem}, \A{t})
     }
   \end{prooftree}\qquad
   \begin{prooftree}
     \infer[left label=Fn]0{
-    (\lambda x.e, \A{C}, \A{\sigma}, \A{t})
+    (\lambda x.e, \A{C}, \A{\mem}, \A{t})
     \A{\Downarrow}
-    (\langle\lambda x.e, \A{C}\rangle, \A{\sigma}, \A{t})
+    (\langle\lambda x.e, \A{C}\rangle, \A{\mem}, \A{t})
     }
   \end{prooftree}
 \]
@@ -573,38 +588,38 @@ In our semantics, $\A{\tick}\:\A{C}\:\A{\sigma}\:\A{t}\:x\:\A{v}$ is performed w
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        (e_{1}, \A{C}, \A{\mem}, \A{t})
         \A{\Downarrow}
-        (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\sigma_{\lambda}}, \A{t_{\lambda}}) \\
-        (e_{2}, \A{C}, \A{\sigma_{\lambda}}, \A{t_{\lambda}})
+        (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\mem_{\lambda}}, \A{t_{\lambda}}) \\
+        (e_{2}, \A{C}, \A{\mem_{\lambda}}, \A{t_{\lambda}})
         \A{\Downarrow}
-        (\A{v}, \A{\sigma_{a}}, \A{t_{a}})                                                            \\
-        (e_{\lambda}, \A{C_{\lambda}}[\lambda x^{\A{t_{a}}}.[]], \A{\sigma_{a}}[\A{t_{a}}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\sigma_a}\:\A{t_{a}}\:x\:\A{v})
+        (\A{v}, \A{\mem_{a}}, \A{t_{a}})                                                            \\
+        (e_{\lambda}, \A{C_{\lambda}}[\lambda x^{\A{t_{a}}}.[]], \A{\mem_{a}}[\A{t_{a}}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem_a}\:\A{t_{a}}\:x\:\A{v})
         \A{\Downarrow}
-        (\A{v'}, \A{\sigma'},\A{t'})
+        (\A{v'}, \A{\mem'},\A{t'})
       \end{matrix}
     }
     \infer[left label={App}]1{
-    (e_{1}\:e_{2}, \A{C}, \A{\sigma}, \A{t})
+    (e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
     \A{\Downarrow}
-    (\A{v'}, \A{\sigma'},\A{t'})
+    (\A{v'}, \A{\mem'},\A{t'})
     }
   \end{prooftree}\:\:
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        (e_{1}, \A{C}, \A{\mem}, \A{t})
         \A{\Downarrow}
-        (\A{C'}, \A{\sigma'}, \A{t'}) \\
-        (e_{2}, \A{C'}, \A{\sigma'}, \A{t'})
+        (\A{C'}, \A{\mem'}, \A{t'}) \\
+        (e_{2}, \A{C'}, \A{\mem'}, \A{t'})
         \A{\Downarrow}
-        (\A{V}, \A{\sigma''}, \A{t''})
+        (\A{V}, \A{\mem''}, \A{t''})
       \end{matrix}
     }
     \infer[left label=Linking]1{
-    (\link{e_{1}}{e_{2}}, \A{C}, \A{\sigma}, \A{t})
+    (\link{e_{1}}{e_{2}}, \A{C}, \A{\mem}, \A{t})
     \A\Downarrow
-    (\A{V}, \A{\sigma''}, \A{t''})
+    (\A{V}, \A{\mem''}, \A{t''})
     }
   \end{prooftree}
 \]
@@ -612,17 +627,17 @@ In our semantics, $\A{\tick}\:\A{C}\:\A{\sigma}\:\A{t}\:x\:\A{v}$ is performed w
 \[
   \begin{prooftree}
     \infer[left label=Empty]0{
-    (\varepsilon, \A{C}, \A{\sigma}, \A{t})
+    (\varepsilon, \A{C}, \A{\mem}, \A{t})
     \A{\Downarrow}
-    (\A{C}, \A{\sigma}, \A{t})
+    (\A{C}, \A{\mem}, \A{t})
     }
   \end{prooftree}\qquad
   \begin{prooftree}
     \hypo{\A{C'}=\modctx(\A{C},M)}
     \infer[left label=ModVar]1{
-    (M, \A{C}, \A{\sigma}, \A{t})
+    (M, \A{C}, \A{\mem}, \A{t})
     \A{\Downarrow}
-    (\A{C'}, \A{\sigma}, \A{t})
+    (\A{C'}, \A{\mem}, \A{t})
     }
   \end{prooftree}
 \]
@@ -631,18 +646,18 @@ In our semantics, $\A{\tick}\:\A{C}\:\A{\sigma}\:\A{t}\:x\:\A{v}$ is performed w
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        (e_{1}, \A{C}, \A{\mem}, \A{t})
         \A\Downarrow
-        (\A{v}, \A{\sigma'}, \A{t'}) \\
-        (e_{2}, \A{C}[\mathtt{let}\:x^{\A{t'}}\:[]], \A{\sigma'}[\A{t'}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\sigma'}\:\A{t'}\:x\:\A{v})
+        (\A{v}, \A{\mem'}, \A{t'}) \\
+        (e_{2}, \A{C}[\mathtt{let}\:x^{\A{t'}}\:[]], \A{\mem'}[\A{t'}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem'}\:\A{t'}\:x\:\A{v})
         \A\Downarrow
-        (\A{C'}, \A{\sigma''}, \A{t''})
+        (\A{C'}, \A{\mem''}, \A{t''})
       \end{matrix}
     }
     \infer[left label=LetE]1{
-    (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A{\sigma}, \A{t})
+    (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A{\mem}, \A{t})
     \A\Downarrow
-    (\A{C'}, \A{\sigma''}, \A{t''})
+    (\A{C'}, \A{\mem''}, \A{t''})
     }
   \end{prooftree}
 \]
@@ -651,18 +666,18 @@ In our semantics, $\A{\tick}\:\A{C}\:\A{\sigma}\:\A{t}\:x\:\A{v}$ is performed w
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        (e_{1}, \A{C}, \A{\mem}, \A{t})
         \A\Downarrow
-        (\A{C'}, \A{\sigma'}, \A{t'}) \\
-        (e_{2}, \A{C}[\mathtt{let}\:M\:\A{C'}\:[]], \A{\sigma'}, \A{t'})
+        (\A{C'}, \A{\mem'}, \A{t'}) \\
+        (e_{2}, \A{C}[\mathtt{let}\:M\:\A{C'}\:[]], \A{\mem'}, \A{t'})
         \A\Downarrow
-        (\A{C''}, \A{\sigma''}, \A{t''})
+        (\A{C''}, \A{\mem''}, \A{t''})
       \end{matrix}
     }
     \infer[left label=LetM]1{
-    (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A{\sigma}, \A{t})
+    (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
     \A\Downarrow
-    (\A{C''}, \A{\sigma''}, \A{t''})
+    (\A{C''}, \A{\mem''}, \A{t''})
     }
   \end{prooftree}
 \]
@@ -673,23 +688,23 @@ The abstract one-step reachability relation $\A\rightsquigarrow$ is defined as:
 \[
   \begin{prooftree}
     \infer[left label={AppL}]0{
-    (e_{1}\:e_{2}, \A{C}, \A{\sigma}, \A{t})
+    (e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
     \A\rightsquigarrow
-    (e_{1}, \A{C}, \A{\sigma}, \A{t})
+    (e_{1}, \A{C}, \A{\mem}, \A{t})
     }
   \end{prooftree}\qquad
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        (e_{1}, \A{C}, \A{\mem}, \A{t})
         \A{\Downarrow}
-        (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\sigma_{\lambda}}, \A{t_{\lambda}})
+        (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\mem_{\lambda}}, \A{t_{\lambda}})
       \end{matrix}
     }
     \infer[left label={AppR}]1{
-    (e_{1}\:e_{2}, \A{C}, \A{\sigma}, \A{t})
+    (e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
     \A\rightsquigarrow
-    (e_{2}, \A{C}, \A{\sigma_{\lambda}}, \A{t_{\lambda}})
+    (e_{2}, \A{C}, \A{\mem_{\lambda}}, \A{t_{\lambda}})
     }
   \end{prooftree}
 \]
@@ -698,18 +713,18 @@ The abstract one-step reachability relation $\A\rightsquigarrow$ is defined as:
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        (e_{1}, \A{C}, \A{\mem}, \A{t})
         \A{\Downarrow}
-        (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\sigma_{\lambda}}, \A{t_{\lambda}}) \\
-        (e_{2}, \A{C}, \A{\sigma_{\lambda}}, \A{t_{\lambda}})
+        (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\mem_{\lambda}}, \A{t_{\lambda}}) \\
+        (e_{2}, \A{C}, \A{\mem_{\lambda}}, \A{t_{\lambda}})
         \A{\Downarrow}
-        (\A{v}, \A{\sigma_{a}}, \A{t_{a}})
+        (\A{v}, \A{\mem_{a}}, \A{t_{a}})
       \end{matrix}
     }
     \infer[left label={AppBody}]1{
-    (e_{1}\:e_{2}, \A{C}, \A{\sigma}, \A{t})
+    (e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
     \A\rightsquigarrow
-    (e_{\lambda}, \A{C_{\lambda}}[\lambda x^{\A{t_{a}}}.[]], \A{\sigma_{a}}[\A{t_{a}}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\sigma_a}\:\A{t_{a}}\:x\:\A{v})
+    (e_{\lambda}, \A{C_{\lambda}}[\lambda x^{\A{t_{a}}}.[]], \A{\mem_{a}}[\A{t_{a}}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem_a}\:\A{t_{a}}\:x\:\A{v})
     }
   \end{prooftree}
 \]
@@ -717,23 +732,23 @@ The abstract one-step reachability relation $\A\rightsquigarrow$ is defined as:
 \[
   \begin{prooftree}
     \infer[left label=LinkL]0{
-    (\link{e_{1}}{e_{2}}, \A{C}, \A{\sigma}, \A{t})
+    (\link{e_{1}}{e_{2}}, \A{C}, \A{\mem}, \A{t})
     \A\rightsquigarrow
-    (e_{1}, \A{C}, \A{\sigma}, \A{t})
+    (e_{1}, \A{C}, \A{\mem}, \A{t})
     }
   \end{prooftree}\qquad
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        (e_{1}, \A{C}, \A{\mem}, \A{t})
         \A{\Downarrow}
-        (\A{C'}, \A{\sigma'}, \A{t'})
+        (\A{C'}, \A{\mem'}, \A{t'})
       \end{matrix}
     }
     \infer[left label=LinkR]1{
-    (\link{e_{1}}{e_{2}}, \A{C}, \A{\sigma}, \A{t})
+    (\link{e_{1}}{e_{2}}, \A{C}, \A{\mem}, \A{t})
     \A\rightsquigarrow
-    (e_{2}, \A{C'}, \A{\sigma'}, \A{t'})
+    (e_{2}, \A{C'}, \A{\mem'}, \A{t'})
     }
   \end{prooftree}
 \]
@@ -741,9 +756,9 @@ The abstract one-step reachability relation $\A\rightsquigarrow$ is defined as:
 \[
   \begin{prooftree}
     \infer[left label=LetEL]0{
-    (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A{\sigma}, \A{t})
+    (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A{\mem}, \A{t})
     \A\rightsquigarrow
-    (e_{1}, \A{C}, \A{\sigma}, \A{t})
+    (e_{1}, \A{C}, \A{\mem}, \A{t})
     }
   \end{prooftree}
 \]
@@ -752,15 +767,15 @@ The abstract one-step reachability relation $\A\rightsquigarrow$ is defined as:
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        (e_{1}, \A{C}, \A{\mem}, \A{t})
         \A\Downarrow
-        (\A{v}, \A{\sigma'}, \A{t'})
+        (\A{v}, \A{\mem'}, \A{t'})
       \end{matrix}
     }
     \infer[left label=LetER]1{
-    (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A{\sigma}, \A{t})
+    (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A{\mem}, \A{t})
     \A\rightsquigarrow
-    (e_{2}, \A{C}[\mathtt{let}\:x^{\A{t'}}\:[]], \A{\sigma'}[\A{t'}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\sigma'}\:\A{t'}\:x\:\A{v})
+    (e_{2}, \A{C}[\mathtt{let}\:x^{\A{t'}}\:[]], \A{\mem'}[\A{t'}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem'}\:\A{t'}\:x\:\A{v})
     }
   \end{prooftree}
 \]
@@ -768,23 +783,23 @@ The abstract one-step reachability relation $\A\rightsquigarrow$ is defined as:
 \[
   \begin{prooftree}
     \infer[left label=LetML]0{
-    (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A{\sigma}, \A{t})
+    (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
     \A\rightsquigarrow
-    (e_{1}, \A{C}, \A{\sigma}, \A{t})
+    (e_{1}, \A{C}, \A{\mem}, \A{t})
     }
   \end{prooftree}\:\:
   \begin{prooftree}
     \hypo{
       \begin{matrix}
-        (e_{1}, \A{C}, \A{\sigma}, \A{t})
+        (e_{1}, \A{C}, \A{\mem}, \A{t})
         \A\Downarrow
-        (\A{C'}, \A{\sigma'}, \A{t'})
+        (\A{C'}, \A{\mem'}, \A{t'})
       \end{matrix}
     }
     \infer[left label=LetMR]1{
-    (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A{\sigma}, \A{t})
+    (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
     \A\rightsquigarrow
-    (e_{2}, \A{C}[\mathtt{let}\:M\:\A{C'}\:[]], \A{\sigma'}, \A{t'})
+    (e_{2}, \A{C}[\mathtt{let}\:M\:\A{C'}\:[]], \A{\mem'}, \A{t'})
     }
   \end{prooftree}
 \]
@@ -793,7 +808,7 @@ The abstract one-step reachability relation $\A\rightsquigarrow$ is defined as:
 
 From the relations above, we can define the abstract semantics:
 \begin{definition}[Abstract semantics]
-  The semantics for an expression $e$ under configuration $\A{s}\in\AConfig{\ATime}$ is an element in $(\Expr\times\AConfig{\ATime})\rightarrow(\wp(\AResult{\ATime}))_{\bot}$ defined as:
+  The semantics for an expression $e$ under configuration $\A{s}\in\AConfig{\ATime}$ is an element in $(\Expr\times\AConfig{\ATime})\rightarrow{\wp(\AResult{\ATime})}_{\bot}$ defined as:
   \[
     \A{\sembracket{e}}(\A{s})\triangleq\bigsqcup_{(e,\A{s}){\A\rightsquigarrow}^{*}(e',\A{s'})}[(e',\A{s'})\mapsto\{\A{r}|(e',\A{s'})\A\Downarrow \A{r}\}]
   \]
@@ -802,27 +817,27 @@ From the relations above, we can define the abstract semantics:
 We need to present how to compute the abstract semantics by equating the semantics with the least fixed point of some transfer function.
 
 \begin{definition}[Transfer function]
-  Given an element $\A{f}$ of $(\Expr\times\AConfig{\ATime})\rightarrow(\wp(\AResult{\ATime}))_{\bot}$,
+  Given an element $\A{a}$ of $(\Expr\times\AConfig{\ATime})\rightarrow{\wp(\AResult{\ATime})}_{\bot}$,
 
   \begin{itemize}
-    \item Define $\A{\Downarrow}_{\A{f}}$ and $\A{\rightsquigarrow}_{\A{f}}$ by replacing all assumptions of the form $\A{s}\A\Downarrow\A{r}$ to $\A{r}\in\A{f}(\A{s})$ in $\A\Downarrow$ and $\A\rightsquigarrow$.
+    \item Define $\A{\Downarrow}_{\A{a}}$ and $\A{\rightsquigarrow}_{\A{a}}$ by replacing all assumptions of the form $\A{s}\A\Downarrow\A{r}$ to $\A{r}\in\A{a}(\A{s})$ in $\A\Downarrow$ and $\A\rightsquigarrow$.
   \end{itemize}
 
   We define the transfer function $\A{F}$ by:
   \[
-    \A{F}(\A{f})\triangleq\A{f}\sqcup\bigsqcup_{
-      \scriptsize
-      \begin{array}{c}
-        (e,\A{s})\in\mathsf{dom}(\A{f})\\
-        (e,\A{s})\A{\rightsquigarrow}_{\A{f}}(e',\A{s'})
-      \end{array}}[(e',\A{s'})\mapsto\{\A{r}|(e',\A{s'})\A{\Downarrow}_{\A{f}}\A{r}\}]
+    \A{F}(\A{a})\triangleq\A{a}\sqcup\bigsqcup_{
+    \scriptsize
+    \begin{array}{c}
+      (e,\A{s})\in\mathsf{dom}(\A{a}) \\
+      (e,\A{s})\A{\rightsquigarrow}_{\A{a}}(e',\A{s'})
+    \end{array}}[(e',\A{s'})\mapsto\{\A{r}|(e',\A{s'})\A{\Downarrow}_{\A{a}}\A{r}\}]
   \]
 \end{definition}
 
 \begin{lem}[Abstract semantics as a fixpoint]
-\[
-  \A{\sembracket{e}}(\A{s})=\mathsf{lfp}(\lambda \A{f}.\A{F}([(e,\A{s})\mapsto\varnothing]\sqcup\A{f}))
-\]  
+  \[
+    \A{\sembracket{e}}(\A{s})=\mathsf{lfp}(\lambda \A{a}.\A{F}([(e,\A{s})\mapsto\varnothing]\sqcup\A{a}))
+  \]
 \end{lem}
 
 The usual thing to do now is to connect the collecting semantics $\sembracket{e}$ with the abstract semantics $\A{\sembracket{e}}$ via a Galois connection.
@@ -833,29 +848,29 @@ Instead, we define a notion of soundness between abstract and concrete results a
   $\:$
 
   \begin{itemize}
-    \item Let $(V,\sigma,t)\in\Result{\Time}$ and $(\A{V},\A\sigma,\A{t})\in\AResult{\ATime}$. We do not assume that $\Time$ and $\ATime$ are concrete/abstract times.
+    \item Let $(V,\mem,t)\in\Result{\Time}$ and $(\A{V},\A\mem,\A{t})\in\AResult{\ATime}$. We do not assume that $\Time$ and $\ATime$ are concrete/abstract times.
     \item Let $\alpha:\Time\rightarrow\ATime$, and extend $\alpha$ to a function in $\Ctx{\Time}\rightarrow\Ctx{\ATime}$ by mapping $\alpha$ over all timestamps.
     \item Extend $\alpha$ to a function in $(\Ctx{\Time}+\Value{\Time})\rightarrow(\Ctx{\ATime}+\Value{\ATime})$ accordingly.
     \item Extend $\alpha$ to a function in $\Mem{\Time}\rightarrow\AMem{\ATime}$ by defining
-        \[\alpha(\sigma)\triangleq\bigsqcup_{t\in\mathsf{dom}(\sigma)}[\alpha(t)\mapsto\{\alpha(\sigma(t))\}]\]
+          \[\alpha(\mem)\triangleq\bigsqcup_{t\in\mathsf{dom}(\mem)}[\alpha(t)\mapsto\{\alpha(\mem(t))\}]\]
   \end{itemize}
 
-  We say that $(\A{V},\A\sigma,\A{t})$ is an \emph{$\alpha$-sound approximation} of $(V,\sigma,t)$ when $\alpha(V)=\A{V}$, $\alpha(\sigma)\sqsubseteq\A\sigma$, and $\alpha(t)=\A{t}$.
+  We say that $(\A{V},\A\mem,\A{t})$ is an \emph{$\alpha$-sound approximation} of $(V,\mem,t)$ when $\alpha(V)=\A{V}$, $\alpha(\mem)\sqsubseteq\A\mem$, and $\alpha(t)=\A{t}$.
 \end{definition}
 
 \begin{definition}[Soundness between semantics]
   $\:$
 
   \begin{itemize}
-    \item Let $f\in(\Expr\times\Config{\Time})\rightarrow(\wp(\Result{\Time}))_{\bot}$ and $\A{f}\in(\Expr\times\AConfig{\ATime})\rightarrow(\wp(\AResult{\ATime}))_{\bot}$.
+    \item Let $a\in(\Expr\times\Config{\Time})\rightarrow{\wp(\Result{\Time})}_{\bot}$ and $\A{a}\in(\Expr\times\AConfig{\ATime})\rightarrow{\wp(\AResult{\ATime})}_{\bot}$.
   \end{itemize}
 
-  We say that $\A{f}$ is a sound approximation of $f$ if:
+  We say that $\A{a}$ is a sound approximation of $a$ and write $a\lesssim\A{a}$ if:
   \[
-    \forall e\in\Expr,s\in\Config{\Time},r\in\Result{\Time}:r\in f(e,s)\Rightarrow\exists\alpha,\alpha',\A{s},\A{r}:\alpha(s)\sqsubseteq\A{s}\wedge\alpha'(r)\sqsubseteq\A{r}\in\A{f}(e,\A{s})
+    \forall e\in\Expr,s\in\Config{\Time},r\in\Result{\Time}:r\in a(e,s)\Rightarrow\exists\alpha,\alpha',\A{s},\A{r}:\alpha(s)\sqsubseteq\A{s}\wedge\alpha'(r)\sqsubseteq\A{r}\in\A{a}(e,\A{s})
   \]
 
-  That is, $\A{f}$ is sound with respect to $f$ iff for every $(e,s), r$ pair in $f$, there exists an $\alpha$-sound pair in $\A{f}$.
+  That is, $\A{a}$ is sound with respect to $a$ iff for every $(e,s), r$ pair in $a$, there exists an $\alpha$-sound pair in $\A{a}$.
 \end{definition}
 
 \begin{lem}[Preservation of soundness, relation version]
@@ -863,14 +878,14 @@ Instead, we define a notion of soundness between abstract and concrete results a
 
   \begin{itemize}
     \item Let $s\in\Config{\Time}$ and $\A{s}\in\AConfig{\ATime}$.
-    \item Let all timestamps in the $C$ and $\sigma$ component of $s$ be strictly less than the $t$ component.
+    \item Let all timestamps in the $C$ and $\mem$ component of $s$ be strictly less than the $t$ component.
     \item Let $\A{s}$ be an $\alpha$-sound approximation of $s$ for some $\alpha$.
   \end{itemize}
 
-  Then for all $e$, 
+  Then for all $e$,
   \begin{enumerate}
     \item If $(e,s)\Downarrow r$, then there exists $\alpha',\A{r}$ such that $(e,\A{s})\A\Downarrow\A{r}$ and $\alpha'(s)\sqsubseteq\A{s}$ and $\alpha'(r)\sqsubseteq\A{r}$.
-    \item If $(e,s)\rightsquigarrow (e',s')$, then there exists $\alpha', \A{s'}$ such that $(e,\A{s})\rightsquigarrow(e',\A{s'})$ and $\alpha'(s)\sqsubseteq\A{s}$ and $\alpha'(s')\sqsubseteq\A{s'}$.
+    \item If $(e,s)\rightsquigarrow (e',s')$, then there exists $\alpha', \A{s'}$ such that $(e,\A{s})\A\rightsquigarrow(e',\A{s'})$ and $\alpha'(s)\sqsubseteq\A{s}$ and $\alpha'(s')\sqsubseteq\A{s'}$.
   \end{enumerate}
 \end{lem}
 
@@ -879,44 +894,15 @@ Instead, we define a notion of soundness between abstract and concrete results a
 
   \begin{itemize}
     \item Let $s\in\Config{\Time}$ and $\A{s}\in\AConfig{\ATime}$.
-    \item Let all timestamps in the $C$ and $\sigma$ component of $s$ be strictly less than the $t$ component.
+    \item Let all timestamps in the $C$ and $\mem$ component of $s$ be strictly less than the $t$ component.
     \item Let $\A{s}$ be an $\alpha$-sound approximation of $s$ for some $\alpha$.
   \end{itemize}
 
-  Then for all $e$, $\A{\sembracket{e}}(\A{s})$ is a sound approximation of $\sembracket{e}(s)$.
+  Then for all $e$, $\sembracket{e}(s)\lesssim\A{\sembracket{e}}(\A{s})$.
 \end{lem}
 
 What's remarkable is that we did not put any constraint on the $\tick$ and $\A{\tick}$ functions.
-
-\begin{thm}[Abstract linking] Let $\A{f}$ be a sound approximation of $\sembracket{e_{1}}(s)$
-  We want to compute sets $\tilde{R^{\circ}}^{\#}$ and $\tilde{R^{*}}^{\#}$ satisfying
-  \[
-    \Resolved{\link{e_1}{e_2}}(C,\sigma,t)\ovbar{\subseteq}^{\#} \tilde{R^{\circ}}^{\#}
-    \quad\wedge\quad
-    \Reach{\link{e_1}{e_2}}(C,\sigma,t)\ovbar{\subseteq}^{\#} \tilde{R^{*}}^{\#}
-  \]
-
-  \begin{itemize}
-    \item Given ${R^{\circ}}^{\#}$ and ${R^{*}}^{\#}$ that satisfies $\Resolved{e_1}(C,\sigma,t)\ovbar{\subseteq}^{\#} {R^{\circ}}^{\#}$ and $\Reach{e_1}(C,\sigma,t)\ovbar{\subseteq}^{\#} {R^{*}}^{\#}$,
-    \item Let $\A{E}=\{(\A{C_{0}},\A{\sigma_{0}},\A{t'})|\exists \A{C},\A{\sigma},\A{t}:(C,\sigma,t)\lhd(\A{C},\A{\sigma},\A{t})\wedge((e_{1},\A{C},\A{\sigma},\A{t}),(\A{C_{0}},\A{\sigma_{0}},\A{t'}))\in \A{R^{\circ}}\}$.
-    \item Let $\A{R^{\circ}}(\A{C_{0}},\A{\sigma_{0}})=\{((e_{2},\A{C_{0}},\A{\sigma_{0}},\A{t_{0}}), (\inject{\A{C_{0}}}{\A{V}},\inject{\A{C_{0}}}{\A{\sigma}};\A{\sigma_{0}},\A{t}))|((e_{2},[],\varnothing,\A{t_{0}}),(\A{V},\A{\sigma},\A{t}))\in\A{\Resolved{e_{2}}}([],\varnothing,\A{t_{0}})\}$.
-    \item Let $\A{R^{*}}(\A{C_{0}},\A{\sigma_{0}})=\{(e',\inject{\A{C_{0}}}{\A{C}},\inject{\A{C_{0}}}{\A{\sigma}};\A{\sigma_{0}},\A{t})|(e',\A{C},\A{\sigma},\A{t})\in\Reach{e_{2}}([],\varnothing,\A{t_{0}})\}$.
-  \end{itemize}
-
-  We have:
-  \[
-    \A{\sembracket{e_{2}}}(\A{C_{0}},\A{\sigma_{0}},\A{t_{0}})=\mathsf{lfp}(\lambda (\A{R^{\circ}}, \A{R^{*}}).\A{\mathcal{F}}(\A{R^{\circ}}\cup \A{R^{\circ}}(\A{C_{0}},\A{\sigma_{0}}), \A{R^{*}}\cup \A{R^{*}}(\A{C_{0}},\A{\sigma_{0}})))
-  \]
-
-  Thus, if we pick some $(\A{C},\A{\sigma},\A{t})$ satisfying $(C,\sigma,t)\lhd(\A{C},\A{\sigma},\A{t})$:
-  \[
-    \Resolved{\link{e_1}{e_2}}(C,\sigma,t)\A{\ovbar{\subseteq}}
-    \A{R^{\circ}}\cup\bigcup_{(\A{C_{0}},\A{\sigma_{0}},\A{t'})\in \A{E}}{(\A{\Resolved{e_2}}(\A{C_{0}},\A{\sigma_{0}},\A{t_{0}})\cup\underbrace{\{((\link{e_1}{e_2}, \A{C}, \A{\sigma}, \A{t}), (\A{V},\A{\sigma'},\A{t'}))|(e_{2},\A{C_{0}},\A{\sigma_{0}},\A{t_{0}})\A{\Downarrow}(\A{V},\A{\sigma'},\A{t'})\}}_{\text{The final evaluation}})}
-  \]
-  \begin{align*}
-    \Reach{\link{e_1}{e_2}}(C,\sigma,t)\A{\ovbar{\subseteq}}\{(\link{e_1}{e_2},\A{C},\A{\sigma},\A{t})\}\cup \A{R^{*}}\cup\bigcup_{(\A{C_{0}},\A{\sigma_{0}},\A{t'})\in \A{E}}{\A{\Reach{e_2}}(\A{C_{0}},\A{\sigma_{0}},\A{t_{0}})}
-  \end{align*}
-\end{thm}
+Moreover, we can guarantee that $\A{\sembracket{e}}(\A{s})$ can be computed.
 
 \begin{thm}[Finiteness of time implies finiteness of abstraction]
   If $\ATime$ is finite,
@@ -925,10 +911,7 @@ What's remarkable is that we did not put any constraint on the $\tick$ and $\A{\
   \]
 \end{thm}
 
-Now we need to define a concrete time on $\Time+\Time'$, when the first time domain exports $C',\sigma'$ to the second time domain.
-What we want to prove is: $(C',\sigma',t')\equiv(C',\sigma',t_{0})$, when the first configuration is in $\Time$ and the second configuration is in $\Time+\Time'$, with $t_{0}$ being the initial time in $\Time'$.
-Then the reachable states from $(e_{2},C',\sigma',t_{0})$ under the sum domain are equivalent to the reachable states from $(e_{2},C',\sigma',t')$.
-Thus, because we can obtain a subset of the reachable states from $(e_{2},C',\sigma',t_{0})$ by simply \emph{injecting} $C'$ and $\sigma'$ into the reachable states obtained from $\sembracket{e_{2}}([],\varnothing,t_{0})$, we can compute a set \textit{equivalent to} $\sembracket{e_{2}}(C',\sigma',t')$ starting from the \emph{separately analyzed} results.
+Now for separate analysis, we need to define an abstract time on $\ATime_1+\ATime_2$, when the first time domain exports $\A{s'}$ to the second time domain.
 
 Before elaborating on how to link the time domains, we need to define the injection and deletion operators that inject the exported context into the separately analyzed results.
 The notation for injecting $C_{1}$ into $C_{2}$ is $\inject{C_{1}}{C_{2}}$, similar to the plugin operator defined above.
@@ -946,7 +929,7 @@ The notation for injecting $C_{1}$ into $C_{2}$ is $\inject{C_{1}}{C_{2}}$, simi
 \[
   \inject{C_{1}}{C_{2}}\triangleq C_{1}[\mapinject(C_{1},C_{2})]
 \]
-We extend the injection operator to map over all closures in a memory so that $\inject{C}{\sigma}$ can be defined naturally.
+We extend the injection operator to map over all closures in a memory so that $\inject{C}{\A\mem}$ can be defined naturally.
 
 \[
   \deletepre(C_{1},C_{2})\triangleq
@@ -988,8 +971,15 @@ Finally, before delving into the definition of the linked time domain, we need t
 \]
 
 \[
-  \filter(\sigma,\Time)\triangleq
-  \lambda t\in\Time.\mathsf{let}\:\langle\lambda x.e,C\rangle\coloneq\sigma(t)\:\mathsf{in}\:\langle\lambda x.e,\filter(C,\Time)\rangle
+  \filter(v,\Time)\triangleq
+  \begin{array}{ll}
+    \langle\lambda x.e,\filter(C,\Time)\rangle & (v=\langle\lambda x.e,C\rangle)
+  \end{array}
+\]
+
+\[
+  \filter(\A\mem,\Time)\triangleq
+  \lambda t\in\Time.\{\filter(v,\Time)|v\in\A{m}(t)\}
 \]
 
 \begin{lem}[Linking of time domains]
@@ -1000,10 +990,10 @@ Finally, before delving into the definition of the linked time domain, we need t
     \item Let $C_{0}\in\Ctx{\Time}$ be the injected context.
     \item Define the $\tick_{+}$ function so that the timestamps produced from the \emph{injected} context and state are exactly the timestamps produced before injection.
           \[
-            \tick_{+}(C,\sigma,t,x,v)\triangleq
+            \tick_{+}(C,\mem,t,x,v)\triangleq
             \begin{cases}
-              \tick(\filter(C,\Time),\filter(\sigma,\Time),t,x,\filter(v,\Time))                                            & (t\in\Time)  \\
-              \tick'(\filter(\delete(C_0,C),\Time'),\filter(\delete(C_0,\sigma),\Time'),t,x,\filter(\delete(C_0,v),\Time')) & (t\in\Time')
+              \tick(\filter(C,\Time),\filter(\mem,\Time),t,x,\filter(v,\Time))                                            & (t\in\Time)  \\
+              \tick'(\filter(\delete(C_0,C),\Time'),\filter(\delete(C_0,\mem),\Time'),t,x,\filter(\delete(C_0,v),\Time')) & (t\in\Time')
             \end{cases}
           \]
   \end{itemize}
@@ -1017,22 +1007,22 @@ Finally, before delving into the definition of the linked time domain, we need t
   \begin{itemize}
     \item Let $(\Time,\le,\tick)$ and $(\Time',\le',\tick')$ be two concrete times.
     \item Let $C_{0}\in\Ctx{\Time}$ be the injected context.
-    \item Let $\sigma_{0}\in\Mem{\Time}$ be the injected memory, and let
+    \item Let $\mem_{0}\in\Mem{\Time}$ be the injected memory, and let
           \[
-            \sigma;\sigma_{0}\triangleq\lambda t.
+            \mem;\mem_{0}\triangleq\lambda t.
             \begin{cases}
-              \sigma(t)     & (t\in\Time') \\
-              \sigma_{0}(t) & (t\in\Time)
+              \mem(t)     & (t\in\Time') \\
+              \mem_{0}(t) & (t\in\Time)
             \end{cases}
           \]
-          for $\sigma\in\Mem{\Time'}$.
+          for $\mem\in\Mem{\Time'}$.
   \end{itemize}
 
-  Now, if $(e,C,\sigma,t)\Downarrow(V,\sigma',t')$ under $\Time'$, then
-  $(e,\inject{C_0}{C},\inject{C_0}{\sigma};\sigma_{0},t)\Downarrow(\inject{C_0}{V},\inject{C_0}{\sigma};\sigma_0,t')$ under $\Time+\Time'$.
+  Now, if $(e,C,\mem,t)\Downarrow(V,\mem',t')$ under $\Time'$, then
+  $(e,\inject{C_0}{C},\inject{C_0}{\mem};\mem_{0},t)\Downarrow(\inject{C_0}{V},\inject{C_0}{\mem};\mem_0,t')$ under $\Time+\Time'$.
 
-  Likewise, if $(e,C,\sigma,t)\rightsquigarrow^{*}(e',C',\sigma',t')$ under $\Time'$, then
-  $(e,\inject{C_0}{C},\inject{C_0}{\sigma};\sigma_{0},t)\rightsquigarrow^{*}(e',\inject{C_0}{C'},\inject{C_0}{\sigma};\sigma_0,t')$ under $\Time+\Time'$.
+  Likewise, if $(e,C,\mem,t)\rightsquigarrow^{*}(e',C',\mem',t')$ under $\Time'$, then
+  $(e,\inject{C_0}{C},\inject{C_0}{\mem};\mem_{0},t)\rightsquigarrow^{*}(e',\inject{C_0}{C'},\inject{C_0}{\mem};\mem_0,t')$ under $\Time+\Time'$.
 \end{lem}
 
 \printbibliography

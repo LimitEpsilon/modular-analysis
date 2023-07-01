@@ -137,12 +137,12 @@ Definition lift_v_af {BT AT} v : @expr_value (@link BT AT) :=
   | Closure x e C => Closure x e (lift_ctx_af C)
   end.
 
-Definition link_tick `{time BT} `{time AT} (Cout : @dy_ctx BT) :=
+Definition link_tick `{Eq BT} `{time AT} (Cout : @dy_ctx BT) :=
   fun C st x v =>
     match st with
     | ST mem t =>
       match t with
-      | BF t => BF (tick (filter_ctx_bf C) (ST (filter_mem_bf mem) t) x (filter_v_bf v))
+      | BF t => BF t
       | AF t =>
         let Cout := lift_ctx_bf Cout in
         AF
@@ -152,7 +152,7 @@ Definition link_tick `{time BT} `{time AT} (Cout : @dy_ctx BT) :=
       end
     end.
 
-#[export] Instance link_time `{time BT} `{time AT} (Cout : @dy_ctx BT) : (@time (@link BT AT) (@link_eq BT _ AT _)) :=
+#[export] Instance link_time `{Eq BT} `{time AT} (Cout : @dy_ctx BT) : (@time (@link BT AT) (@link_eq BT _ AT _)) :=
   {
     tick := link_tick Cout
   }.
@@ -182,7 +182,7 @@ Proof.
   rewrite IHC2. rewrite IHC1. eauto.
 Qed.
 
-Lemma filter_delete_eq `{time BT} `{time AT} (Cout : @dy_ctx BT):
+Lemma filter_delete_eq `{Eq BT} `{time AT} (Cout : @dy_ctx BT):
   forall bmem amem,
   filter_mem_af
     (delete_ctx_mem (lift_ctx_bf Cout)
@@ -198,7 +198,7 @@ Proof.
   rewrite delete_inject_eq. rewrite filter_lift_eq_af. eauto.
 Qed.
 
-Lemma link_tick_eq `{time BT} `{time AT} (Cout : @dy_ctx BT) :
+Lemma link_tick_eq `{Eq BT} `{time AT} (Cout : @dy_ctx BT) :
   forall bmem C amem t x v,
     link_tick Cout ((lift_ctx_bf Cout)<|(lift_ctx_af C)|>)
                 (ST (link_mem bmem Cout amem) (AF t)) x 
@@ -213,7 +213,7 @@ Proof.
   reflexivity.
 Qed.
 
-Lemma link_update_m_eq `{time BT} `{time AT} (Cout : @dy_ctx BT):
+Lemma link_update_m_eq `{Eq BT} `{time AT} (Cout : @dy_ctx BT):
   forall bmem amem t v,
   (AF t !#-> inject_ctx_v (lift_ctx_bf Cout) (lift_v_af v);
     (link_mem bmem Cout amem)) =
@@ -261,7 +261,7 @@ Proof.
   rewrite IHC2. eauto.
 Qed.
 
-Lemma delete_eval_eq `{time BT} `{time AT} (Cout : @dy_ctx BT) :
+Lemma delete_eval_eq `{Eq BT} `{time AT} (Cout : @dy_ctx BT) :
   forall bmem C st e v st'
          (EVAL : @EvalR AT _ _ C st e v st'),
     let inject_C := (lift_ctx_bf Cout) <|(lift_ctx_af C)|> in
