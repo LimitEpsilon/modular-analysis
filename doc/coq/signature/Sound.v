@@ -1,5 +1,5 @@
-From MODULAR Require Export Abstract.
-From MODULAR Require Export Concrete.
+From Signature Require Export Abstract.
+From Signature Require Export Concrete.
 
 Ltac lebt x :=
   apply leb_trans with (t' := x); try assumption; try apply tick_lt.

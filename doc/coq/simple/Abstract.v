@@ -1,4 +1,4 @@
-From MODULAR Require Export Syntax.
+From Simple Require Export Syntax.
 
 Generalizable Variables T.
 

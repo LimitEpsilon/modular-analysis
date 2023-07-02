@@ -1,4 +1,4 @@
-From MODULAR Require Export Syntax.
+From Signature Require Export Syntax.
 
 Generalizable Variables T.
 

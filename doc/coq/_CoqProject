@@ -1,1 +1,5 @@
--Q . MODULAR
+-docroot modular
+-R simple Simple
+simple
+-R signature Signature
+signature

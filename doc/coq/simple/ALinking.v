@@ -1,4 +1,4 @@
-From MODULAR Require Export Abstract.
+From Simple Require Export Abstract.
 Require Export Coq.Logic.FunctionalExtensionality.
 
 Generalizable Variables T BT AT.
