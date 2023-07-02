@@ -73,6 +73,58 @@ Inductive EvalR `{time T} (C : @dy_ctx T) (st : @state T)
 #[export] Hint Constructors EvalR : core.
 
 (* Reachability relation *)
+Inductive one_reach `{time T} (C : dy_ctx) (st : state)
+    : tm -> (@dy_ctx T) -> (@state T) -> tm -> Prop :=
+  | one_appl e1 e2
+    : one_reach C st (e_app e1 e2) 
+                C st e1
+  | one_appr e1 e2 x e C_lam st_lam
+             (FN : EvalR C st e1 
+                  (EVal (Closure x e C_lam)) st_lam)
+    : one_reach C st (e_app e1 e2)
+                C st_lam e2
+  | one_appbody e1 e2 x e C_lam st_lam
+                arg mem t
+                (FN : EvalR C st e1 
+                            (EVal (Closure x e C_lam)) st_lam)
+                (ARG : EvalR C st_lam e2
+                             (EVal arg) (ST mem t))
+    : one_reach C st (e_app e1 e2)
+                (C_lam[|dy_c_lam x t ([||])|]) 
+                (ST (t !#-> arg ; mem) (tick C (ST mem t) x arg)) e
+  | one_linkl m e
+    : one_reach C st (e_link m e)
+                C st m
+  | one_linkr m e C_m st_m
+              (MOD : EvalR C st m (MVal C_m) st_m)
+    : one_reach C st (e_link m e)
+                C_m st_m e
+  | one_letel x e m
+    : one_reach C st (m_lete x e m)
+                C st e
+  | one_leter x e m v mem t
+              (EVALx : EvalR C st e (EVal v) (ST mem t))
+    : one_reach C st (m_lete x e m)
+                (C[|dy_c_lete x t ([||])|])
+                (ST (t !#-> v ; mem) (tick C (ST mem t) x v)) m
+  | one_letml M m1 m2
+    : one_reach C st (m_letm M m1 m2)
+                C st m1
+  | one_letmr M m1 m2 C_M st_M
+              (EVALM : EvalR C st m1 (MVal C_M) st_M)
+    : one_reach C st (m_letm M m1 m2)
+                (C[|dy_c_letm M C_M ([||])|]) st_M m2
+.
+
+Inductive multi_reach `{time T} (C : dy_ctx) (st : state)
+    : tm -> (@dy_ctx T) -> (@state T) -> tm -> Prop :=
+  | multi_refl e : multi_reach C st e C st e
+  | multi_step e C' st' e' C'' st'' e''
+               (REACHl : one_reach C st e C' st' e')
+               (REACHr : multi_reach C' st' e' C'' st'' e'')
+    : multi_reach C st e C'' st'' e''
+.
+
 Inductive ReachR `{time T} (C : dy_ctx) (st : state)
     : tm -> (@dy_ctx T) -> (@state T) -> tm -> Prop :=
   | r_refl e
@@ -149,6 +201,11 @@ Notation "'<|' C1 st1 tm1 '~#>' C2 st2 tm2 '|>'" := (ReachR C1 st1 tm1 C2 st2 tm
                                                 C1 at next level, st1 at next level, tm1 at next level,
                                                 C2 at next level, st2 at next level, tm2 at next level).
 
+Notation "'<|' C1 st1 tm1 '~#>*' C2 st2 tm2 '|>'" := (multi_reach C1 st1 tm1 C2 st2 tm2) 
+                                               (at level 10, 
+                                                C1 at next level, st1 at next level, tm1 at next level,
+                                                C2 at next level, st2 at next level, tm2 at next level).
+
 (* sanity check *)
 Lemma reach_trans : forall `{time T} (C1 : @dy_ctx T) st1 e1
                          C2 st2 e2
@@ -160,6 +217,25 @@ Proof.
   intros. generalize dependent e3.
   revert C3 st3.
   induction REACH1; eauto.
+Qed.
+
+Lemma reach_same `{time T} :
+  forall (C1 : @dy_ctx T) st1 e1 C2 st2 e2,
+  <| C1 st1 e1 ~#> C2 st2 e2 |> <-> <| C1 st1 e1 ~#>* C2 st2 e2 |>.
+Proof.
+  intros; split; intro REACH; induction REACH; eauto;
+  try apply multi_refl;
+  try (eapply multi_step; eauto).
+  - apply one_appl.
+  - eapply one_appr; eauto.
+  - eapply one_appbody; eauto.
+  - eapply one_linkl; eauto.
+  - eapply one_linkr; eauto.
+  - eapply one_letel; eauto.
+  - eapply one_leter; eauto.
+  - eapply one_letml; eauto.
+  - eapply one_letmr; eauto.
+  - destruct REACHl; eauto.
 Qed.
 
 Lemma value_reach_only_itself_e :

@@ -1059,15 +1059,15 @@ Finally, before delving into the definition of the linked time domain, we need t
 \end{definition}
 
 \begin{thm}[Abstract linking] 
-  $\:$
+  Let $s$ be a concrete configuration.
 
-  Let $\A{s}$ be an $\alpha$-sound approximation of $s$ for some $\alpha$, let $\sembracket{e_1}(s)\lesssim\A{a}$, and let $\sembracket{e_1}(s)(e_1,s)\lesssim\A{a}(\A{s})$. Then:
+  Let $\A{s}$ be an $\alpha$-sound approximation of $s$ for some $\alpha$, let $\sembracket{e_1}(s)\lesssim\A{a}$, and let $\sembracket{e_1}(s)(e_1,s)\lesssim\A{a}(e_1,\A{s})$. Then:
   \[
     \sembracket{\link{e_1}{e_2}}(s)\lesssim\A\Link\:\A{a}\:e_1\:e_2\:\A{s}
   \]
   and
   \[
-    \sembracket{\link{e_1}{e_2}}(s)(\link{e_1}{e_2},s)\lesssim(\A\Link\:\A{a}\:e_1\:e_2\:\A{s})(\A{s})
+    \sembracket{\link{e_1}{e_2}}(s)(\link{e_1}{e_2},s)\lesssim(\A\Link\:\A{a}\:e_1\:e_2\:\A{s})(\link{e_1}{e_2},\A{s})
   \]
 \end{thm}
 
