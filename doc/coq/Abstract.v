@@ -219,7 +219,7 @@ Proof.
   induction REACH1; eauto.
 Qed.
 
-Lemma reach_same `{time T} :
+Lemma reach_eq `{time T} :
   forall (C1 : @dy_ctx T) st1 e1 C2 st2 e2,
   <| C1 st1 e1 ~#> C2 st2 e2 |> <-> <| C1 st1 e1 ~#>* C2 st2 e2 |>.
 Proof.
@@ -483,13 +483,105 @@ Proof.
     destruct o; intros; apply B; simpl; rewrite in_app_iff; left; eauto.
 Qed.
 
+Lemma in_l_or_not `{Eq T} :
+  forall (t : T) l, In t l \/ ~(In t l).
+Proof.
+  intros t. induction l; eauto.
+  destruct IHl as [IHl | IHl]; simpl; eauto.
+  assert (eqb a t = true \/ eqb a t = false) as CASES.
+  { destruct (eqb a t); eauto. }
+  destruct CASES as [EQ | NEQ];
+  try (rewrite eqb_eq in EQ); try (rewrite eqb_neq in NEQ).
+  left; eauto.
+  right. red; intros contra. destruct contra; eauto.
+Qed.
+
+Definition collect_ctx_val `{time T} (v : @expr_value T) :=
+  match v with
+  | Closure x e C => snd (collect_ctx (dy_to_st C) (e_lam x e))
+  end.
+
+Fixpoint collect_ctx_mem `{time T} (l : list T) (st : @state T) :=
+  match l with
+  | [] => []
+  | t :: tl =>
+    match st with
+    | ST mem _ =>
+      (fold_left 
+        (fun acc val => (collect_ctx_val val) ++ acc) 
+        (mem t) []) ++ (collect_ctx_mem tl st)
+    end
+  end.
+
+Lemma fold_left_in :
+  forall {A B} (l : list A) (a : A) (b : B) (f : A -> list B) (INa : In a l) (INb : In b (f a)),
+  In b (fold_left (fun acc x => f x ++ acc) l []).
+Proof.
+  assert (forall {A B} (f : A -> list B) (la : list A) (lb : list B),
+    fold_left (fun acc x => f x ++ acc) la lb = (fold_left (fun acc x => f x ++ acc) la []) ++ lb) as RR.
+  { intros A B f. induction la; eauto.
+    intros. simpl. rewrite app_nil_r. rewrite IHla.
+    rewrite (IHla (f a)). rewrite app_assoc. eauto. }
+  intros A B l. induction l; intros; eauto.
+  simpl in *. rewrite app_nil_r. rewrite RR.
+  rewrite in_app_iff.
+  destruct INa as [EQ | NEQ].
+  - rewrite EQ. right; eauto.
+  - left. eapply IHl; eauto.
+Qed.
+
+Lemma finite_m_then_bound `{time T} :
+  forall l (st : @state T)
+         (FINITE : forall t, match st with | ST mem _ => mem t <> [] -> In t l end),
+    ctx_bound_st (collect_ctx_mem l st) st.
+Proof.
+  intros l. induction l; intros; destruct st; simpl; intros.
+  - apply FINITE with (t := addr). red; intros contra.
+    rewrite contra in INvl. simpl in INvl. eauto.
+  - assert (In sC (collect_ctx_val (Closure x e C_v))) as IN'.
+    { apply IN. } clear IN. rename IN' into IN.
+    assert (a = addr \/ (a <> addr /\ In addr l)) as CASES.
+    { assert (a = addr \/ a <> addr) as CASES.
+      { rewrite <- eqb_eq. destruct (eqb a addr); eauto. }
+      destruct CASES as [EQ | NEQ]; eauto. right. split; eauto.
+      assert (In addr (a :: l)). apply FINITE. red; intros contra. rewrite contra in INvl; inversion INvl.
+      simpl in H1. destruct H1; eauto. contradict. }
+    destruct CASES as [EQ | [NEQ IN']]; rewrite in_app_iff.
+    + rewrite EQ. left. eapply fold_left_in; eauto.
+    + right.
+      remember (fun t' => if eqb t' a then [] else mem t') as mem'.
+      assert (forall t : T, mem' t <> [] -> In t l) as FINITE'.
+      { rewrite Heqmem'. intros. destruct (eqb t0 a) eqn:EQ.
+        contradict. specialize (FINITE t0 H1).
+        destruct FINITE; eauto. rewrite eqb_neq in EQ. contradict. }
+      specialize (IHl (ST mem' t) FINITE'). rewrite Heqmem' in IHl.
+      clear Heqmem' mem' FINITE'. simpl in IHl.
+      specialize (IHl addr x e C_v).
+      replace (eqb addr a) with false in IHl; try (symmetry; apply eqb_neq; eauto).
+      specialize (IHl INvl sC IN).
+      clear addr x e C_v FINITE INvl IN NEQ IN'. rename IHl into IN.
+      revert a t mem sC IN.
+      induction l; simpl; eauto.
+      intros. rewrite in_app_iff in *.
+      destruct IN.
+      * left. destruct (eqb a a0); simpl in *; eauto. contradict.
+      * right. eapply IHl; eauto.
+Qed.
+
 Theorem expr_ctx_bound :
-  forall `{time T} init e C' st' e'
-         (REACH : <| ([||]) (ST empty_mem init) e ~#> C' st' e' |>),
-         ctx_bound_tm (snd (collect_ctx ([[||]]) e)) C' st' e'.
+  forall `{time T} C st e C' st' e' l
+         (FINITE : forall t, match st with | ST mem _ => mem t <> [] -> In t l end)
+         (REACH : <| C st e ~#> C' st' e' |>),
+  ctx_bound_tm ((snd (collect_ctx (dy_to_st C) e)) ++ (collect_ctx_mem l st)) C' st' e'.
 Proof.
   intros. rename H into H'. rename H0 into H0'.
   eapply reach_ctx_bound; eauto.
-  split; simpl; eauto. intros. inversion INvl. 
-  destruct (collect_ctx ([[||]]) e); eauto.
+  split; simpl; eauto.
+  destruct st. simpl. intros. rewrite in_app_iff. right.
+  revert addr x e0 C_v INvl sC IN.
+  assert (ctx_bound_st (collect_ctx_mem l (ST mem t)) (ST mem t)).
+  { apply finite_m_then_bound; eauto. }
+  apply H.
+  destruct (collect_ctx (dy_to_st C) e); simpl.
+  intros. rewrite in_app_iff. left; eauto.
 Qed.
