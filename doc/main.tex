@@ -97,7 +97,7 @@
 \newcommand*{\doubleplus}{+\kern-1.3ex+\kern0.8ex}
 \newcommand*{\mdoubleplus}{\ensuremath{\mathbin{+\mkern-10mu+}}}
 
-\title{Semantics for Modular Analysis}
+\title{A General and Accessible Framework for Modular Analysis}
 \author{Joonhyup Lee}
 \date{}
 \begin{document}
@@ -133,7 +133,7 @@ Also, note that the nonterminals for the modules and expressions are not separat
 The rationale for the exclusion of recursive modules/first-class modules/functors is because we want to enforce static scoping.
 That is, we need to be able to statically determine where variables were bound when using them.
 To enforce static scoping when function applications might return modules, we need to employ signatures to project the dynamically computed modules onto a statically known context.
-Concretely, we need to define signatures $S$ where $\lambda M:>S.e$ statically resolves the context when $M$ is used in the body $e$, and $e:>S$ enforces that a dynamic computation is resolved into one static form.
+Concretely, we need to define signatures $S$ where $\lambda M:>S.e$ statically resolves the context when $M$ is used in the body $e$, and $(e_1\:e_2):>S$ enforces that a dynamic computation is resolved into one static form.
 
 The rationale for not separating modules and expressions in the syntax is because we want to utilize the linking operator to link both modules to expressions and modules to modules.
 That is, we want expressions to be parsed as $(m_1!m_2)!e$.
@@ -913,7 +913,7 @@ Moreover, we can guarantee that $\A{\sembracket{e}}(\A{s})$ can be computed.
 
 Now for separate analysis, we need to define an abstract time on $\ATime_1+\ATime_2$, when the first time domain exports $\A{s'}$ to the second time domain.
 
-Before elaborating on how to link the time domains, we need to define the injection and deletion operators that inject the exported context into the separately analyzed results.
+Before elaborating on how to add the time domains, we need to define the injection and deletion operators that inject the exported context into the separately analyzed results.
 The notation for injecting $C_{1}$ into $C_{2}$ is $\inject{C_{1}}{C_{2}}$, similar to the plugin operator defined above.
 
 \[
@@ -982,48 +982,113 @@ Finally, before delving into the definition of the linked time domain, we need t
   \lambda t\in\Time.\{\filter(v,\Time)|v\in\A{m}(t)\}
 \]
 
-\begin{lem}[Linking of time domains]
+\begin{definition}[Injection of a configuration]
   $\:$
 
   \begin{itemize}
-    \item Let $(\Time,\le,\tick)$ and $(\Time',\le',\tick')$ be two concrete times.
-    \item Let $C_{0}\in\Ctx{\Time}$ be the injected context.
-    \item Define the $\tick_{+}$ function so that the timestamps produced from the \emph{injected} context and state are exactly the timestamps produced before injection.
+    \item Let $\A{s}=(\A{C_1},\A{\mem_1},\A{t_1})$ be an exported configuration from $\ATime_1$.
+    \item Let $\A{r}=(\A{V_2},\A{\mem_2},\A{t_2})$ be a result in $\ATime_2$.
+  \end{itemize}
+
+  Define $\A{s}\rhd\A{r}\triangleq(\A{C_1}\langle\A{V_2}\rangle,\A{C_1}\langle\A{\mem_2}\rangle\sqcup\A{\mem_1},\A{t_2})$ to be a result in $\ATime_1+\ATime_2$.
+
+  We extend the $\rhd$ operator to inject $\A{s}$ in an element of $(\Expr\times\AConfig{\ATime})\rightarrow{\wp(\AResult{\ATime})}_{\bot}$:
+  \[
+    \A{s}\rhd\A{a}\triangleq\bigsqcup_{\A{s'}\in\mathsf{dom}(\A{a})}[\A{s}\rhd\A{s'}\mapsto\{\A{s}\rhd\A{r}|\A{r}\in\A{a}(\A{s'})\}]
+  \]
+\end{definition}
+
+\begin{definition}[Addition of time domains]
+  $\:$
+
+  \begin{itemize}
+    \item Let $\A{s_1}=(\A{C_1},\A{\mem_1},\A{t_1})$ be a configuration in $\ATime_1$, and let $(\ATime_2,\A{\tick})$ be an abstract time.
+    \item Define the $\A{\tick_{+}}(\A{s_1})$ function as:
           \[
-            \tick_{+}(C,\mem,t,x,v)\triangleq
+            \A\tick_{+}(\A{s_1})(\A{C},\A\mem,\A{t},x,\A{v})\triangleq
             \begin{cases}
-              \tick(\filter(C,\Time),\filter(\mem,\Time),t,x,\filter(v,\Time))                                            & (t\in\Time)  \\
-              \tick'(\filter(\delete(C_0,C),\Time'),\filter(\delete(C_0,\mem),\Time'),t,x,\filter(\delete(C_0,v),\Time')) & (t\in\Time')
+              \A{t}                                                                      & (\A{t}\in\ATime_1) \\
+              \A{\tick}\:\filter(\delete(\A{C_1},(\A{C},\A\mem,\A{t},x,\A{v})),\ATime_2) & (\A{t}\in\ATime_2)
             \end{cases}
           \]
   \end{itemize}
 
-  Then $(\Time+\Time',\tick_{+})$ is a concrete time.
-\end{lem}
+  Then we call the abstract time $(\ATime_1+\ATime_2,\A\tick_{+}(\A{s_1}))$ the linked time of $(\ATime_2,\A{\tick})$ under exported configuration $\A{s_1}$.
+\end{definition}
 
-\begin{lem}[Preservation of timestamps under linked time]
+\begin{lem}[Injection preserves soundness]
   $\:$
 
-  \begin{itemize}
-    \item Let $(\Time,\le,\tick)$ and $(\Time',\le',\tick')$ be two concrete times.
-    \item Let $C_{0}\in\Ctx{\Time}$ be the injected context.
-    \item Let $\mem_{0}\in\Mem{\Time}$ be the injected memory, and let
-          \[
-            \mem;\mem_{0}\triangleq\lambda t.
-            \begin{cases}
-              \mem(t)     & (t\in\Time') \\
-              \mem_{0}(t) & (t\in\Time)
-            \end{cases}
-          \]
-          for $\mem\in\Mem{\Time'}$.
-  \end{itemize}
-
-  Now, if $(e,C,\mem,t)\Downarrow(V,\mem',t')$ under $\Time'$, then
-  $(e,\inject{C_0}{C},\inject{C_0}{\mem};\mem_{0},t)\Downarrow(\inject{C_0}{V},\inject{C_0}{\mem};\mem_0,t')$ under $\Time+\Time'$.
-
-  Likewise, if $(e,C,\mem,t)\rightsquigarrow^{*}(e',C',\mem',t')$ under $\Time'$, then
-  $(e,\inject{C_0}{C},\inject{C_0}{\mem};\mem_{0},t)\rightsquigarrow^{*}(e',\inject{C_0}{C'},\inject{C_0}{\mem};\mem_0,t')$ under $\Time+\Time'$.
+  Let $s=(C,\mem,t)$ be a configuration in a concrete time $(\Time,\le,\tick)$ with all timestamps in $C,\mem$ strictly less than $t$, and let $\A{s}$ be an $\alpha$-sound approximation of $s$ with timestamps in $\ATime_1$.
+  Then there exists an $\alpha'$ such that $\A{s}\rhd([],\varnothing,\A{0})$ is an $\alpha'$-sound approximation of $s$, when $\A{0}\in\ATime_2$.
 \end{lem}
+
+\begin{lem}[Injection preserves timestamps under added time]
+  $\:$
+
+  Let $\A{s}$ be a configuration in $\ATime_1$, $\A{\sembracket{e}}(\A{s'})$ be the semantics of $e$ under $(\ATime_2,\A\tick)$, and $\A{\sembracket{e}}(\A{s}\rhd\A{s'})$ be the semantics of $e$ under $(\ATime_1+\ATime_2,\A\tick_{+}(\A{s}))$.
+  Then:
+  \[
+    \A{s}\rhd\A{\sembracket{e}}(\A{s'})\sqsubseteq\A{\sembracket{e}}(\A{s}\rhd\A{s'})
+  \]
+\end{lem}
+
+\begin{definition}[Addition between exported configurations and separately analyzed results]
+  $\:$
+
+  Let $\A{s_1}$ be a configuration in $\ATime_1$, and let $\A{a_2}=\A{\sembracket{e}}(\A{s'})$ be the semantics of $e$ under $(\ATime_2,\A\tick)$.
+  Define the ``addition'' between $\A{s_1}$ and $\A{a_2}$ as:
+  \[
+    \A{s_1}\oplus\A{a_2}\triangleq\mathsf{lfp}(\lambda\A{a}.\A{F}((\A{s_1}\rhd\A{a_2})\sqcup\A{a}))
+  \]
+\end{definition}
+
+\begin{lem}[Addition of semantics equals semantics under added time]
+  \[
+    \A{s_1}\oplus\A{\sembracket{e_2}}(\A{s'}) = \A{\sembracket{e}}(\A{s}\rhd\A{s'})
+  \]
+\end{lem}
+
+\begin{definition}[Abstract linking operator]
+  \begin{align*}
+    \A\EE\:\A{a}\:e_1\:\A{s}        & \triangleq\A{a}(e_1,\A{s})                                                                                    & (\text{Exported from }e_1\text{ under }\A{s}\text{ using }\A{a})             \\
+    \A\LL\:\A{E}\:e_2               & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{e_2}([],\varnothing,\A{0}))                                                                         & (\text{Reached under exported context})               \\
+    \A{\LL^{\circ}}\:\A{E}\:e_2     & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{e_2}([],\varnothing,\A{0}))(e_2,\A{s'}\rhd([],\varnothing,\A{0}))                                                                 & (\text{Resolved under exported context})              \\
+    \A\Link\:\A{a}\:e_1\:e_2\:\A{s} & \triangleq\A{a}(\A{s})\cup\A\LL\:(\A\EE\:\A{a}\:e_1\:\A{s})\:e_2\sqcup[(\link{e_1}{e_2},\A{s})\mapsto\A{\LL^{\circ}}\:(\A\EE\:\A{a}\:e_1\:\A{s})\:e_2] & (\text{Linking under }\A{s}\text{ using }\A{a})
+  \end{align*}
+\end{definition}
+
+\begin{thm}[Abstract linking] 
+  $\:$
+
+  Let $\A{s}$ be an $\alpha$-sound approximation of $s$ for some $\alpha$, let $\sembracket{e_1}(s)\lesssim\A{a}$, and let $\sembracket{e_1}(s)(e_1,s)\lesssim\A{a}(\A{s})$. Then:
+  \[
+    \sembracket{\link{e_1}{e_2}}(s)\lesssim\A\Link\:\A{a}\:e_1\:e_2\:\A{s}
+  \]
+  and
+  \[
+    \sembracket{\link{e_1}{e_2}}(s)(\link{e_1}{e_2},s)\lesssim(\A\Link\:\A{a}\:e_1\:e_2\:\A{s})(\A{s})
+  \]
+\end{thm}
+
+Why did we introduce $\A{a}$, instead of using $\A{\sembracket{e_1}}(\A{s})$ directly for the overapproximation of $\sembracket{e_1}(s)$?
+
+\begin{thm}[Compositionality of abstract linking]
+  $\:$
+
+  Let $\{e_i\}_{i\ge 0}$ be a sequence of expressions and let $s$ be a concrete configuration. Define $\{l_i\}_{i\ge 0}$ as:
+  \[
+    l_0\triangleq e_0\qquad l_{i+1}\triangleq\link{l_i}{e_{i+1}}
+  \]
+  and define $L_i\triangleq\sembracket{l_i}(s)$. Now, given an $\alpha$-sound approximation $\A{s}$ of $s$, define
+  \[
+    \A{L_0}\triangleq\A{e_0}(\A{s})\qquad\A{L_{i+1}}\triangleq\A\Link\:\A{L_i}\:l_i\:e_{i+1}\:\A{s}
+  \]
+  Then we have:
+  \[
+    \forall n:L_n\lesssim\A{L_n}
+  \]
+\end{thm}
 
 \printbibliography
 \end{document}
