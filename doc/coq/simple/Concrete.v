@@ -430,6 +430,58 @@ Proof.
 Qed.
 
 (* Reachability relation *)
+Inductive one_reach `{time T} (C : dy_ctx) (st : state)
+    : tm -> (@dy_ctx T) -> (@state T) -> tm -> Prop :=
+  | one_appl e1 e2
+    : one_reach C st (e_app e1 e2) 
+                C st e1
+  | one_appr e1 e2 x e C_lam st_lam
+             (FN : EvalR C st e1 
+                  (EVal (Closure x e C_lam)) st_lam)
+    : one_reach C st (e_app e1 e2)
+                C st_lam e2
+  | one_appbody e1 e2 x e C_lam st_lam
+                arg mem t
+                (FN : EvalR C st e1 
+                            (EVal (Closure x e C_lam)) st_lam)
+                (ARG : EvalR C st_lam e2
+                             (EVal arg) (ST mem t))
+    : one_reach C st (e_app e1 e2)
+                (C_lam[|dy_c_lam x t ([||])|]) 
+                (ST (t !-> arg ; mem) (tick t)) e
+  | one_linkl m e
+    : one_reach C st (e_link m e)
+                C st m
+  | one_linkr m e C_m st_m
+              (MOD : EvalR C st m (MVal C_m) st_m)
+    : one_reach C st (e_link m e)
+                C_m st_m e
+  | one_letel x e m
+    : one_reach C st (m_lete x e m)
+                C st e
+  | one_leter x e m v mem t
+              (EVALx : EvalR C st e (EVal v) (ST mem t))
+    : one_reach C st (m_lete x e m)
+                (C[|dy_c_lete x t ([||])|])
+                (ST (t !-> v ; mem) (tick t)) m
+  | one_letml M m1 m2
+    : one_reach C st (m_letm M m1 m2)
+                C st m1
+  | one_letmr M m1 m2 C_M st_M
+              (EVALM : EvalR C st m1 (MVal C_M) st_M)
+    : one_reach C st (m_letm M m1 m2)
+                (C[|dy_c_letm M C_M ([||])|]) st_M m2
+.
+
+Inductive multi_reach `{time T} (C : dy_ctx) (st : state)
+    : tm -> (@dy_ctx T) -> (@state T) -> tm -> Prop :=
+  | multi_refl e : multi_reach C st e C st e
+  | multi_step e C' st' e' C'' st'' e''
+               (REACHl : one_reach C st e C' st' e')
+               (REACHr : multi_reach C' st' e' C'' st'' e'')
+    : multi_reach C st e C'' st'' e''
+.
+
 Inductive ReachR `{time T} (C : @dy_ctx T) (st : @state T)
     : tm -> (@dy_ctx T) -> (@state T) -> tm -> Prop :=
   | r_refl e
@@ -504,6 +556,11 @@ Notation "'<|' C1 st1 tm1 '~>' C2 st2 tm2 '|>'" := (ReachR C1 st1 tm1 C2 st2 tm2
                                                 C1 at next level, st1 at next level, tm1 at next level,
                                                 C2 at next level, st2 at next level, tm2 at next level).
 
+Notation "'<|' C1 st1 tm1 '~>*' C2 st2 tm2 '|>'" := (multi_reach C1 st1 tm1 C2 st2 tm2) 
+                                               (at level 10, 
+                                                C1 at next level, st1 at next level, tm1 at next level,
+                                                C2 at next level, st2 at next level, tm2 at next level).
+
 (* sanity check *)
 Lemma reach_trans : forall {T} `{time T} (C1 : @dy_ctx T) st1 e1
                          C2 st2 e2
@@ -515,6 +572,26 @@ Proof.
   intros. generalize dependent e3.
   revert C3 st3.
   induction REACH1; eauto.
+Qed.
+
+
+Lemma reach_eq `{time T} :
+  forall (C1 : @dy_ctx T) st1 e1 C2 st2 e2,
+  <| C1 st1 e1 ~> C2 st2 e2 |> <-> <| C1 st1 e1 ~>* C2 st2 e2 |>.
+Proof.
+  intros; split; intro REACH; induction REACH; eauto;
+  try apply multi_refl;
+  try (eapply multi_step; eauto).
+  - apply one_appl.
+  - eapply one_appr; eauto.
+  - eapply one_appbody; eauto.
+  - eapply one_linkl; eauto.
+  - eapply one_linkr; eauto.
+  - eapply one_letel; eauto.
+  - eapply one_leter; eauto.
+  - eapply one_letml; eauto.
+  - eapply one_letmr; eauto.
+  - destruct REACHl; eauto.
 Qed.
 
 Definition extract_reached {T} (interp : @interpreter_state T) :=
@@ -1646,223 +1723,4 @@ Proof.
     rewrite <- IHEVAL1 in IHEVAL2.
     destruct (collect_ctx (dy_to_st C [[|st_c_letm M s ([[||]])|]]) m'').
     apply IHEVAL2.
-Qed.
-
-(* finite ctx predicate *)
-Definition ctx_bound_st {T} ub (st : @state T):=
-  match st with
-  | ST mem t =>
-    forall addr,
-      match mem addr with
-      | Some (Closure x e C_v) =>
-        let (o, ctxs) := collect_ctx (dy_to_st C_v) (e_lam x e) in
-        forall sC (IN : In sC ctxs),
-               In sC ub
-      | None => True
-      end
-  end.
-
-Definition ctx_bound_tm {T} ub (C : @dy_ctx T) (st : @state T) e :=
-  ctx_bound_st ub st /\
-  let (o, ctxs) := collect_ctx (dy_to_st C) e in
-  forall sC (IN : In sC ctxs),
-         In sC ub.
-
-Lemma eval_ctx_bound :
-  forall `{TIME : time T} ub
-         (C : @dy_ctx T) st e
-         v st'
-         (INIT : ctx_bound_tm ub C st e)
-         (EVAL : EvalR C st e v st'),
-    match v with
-    | EVal (Closure x e' C_lam) =>
-      ctx_bound_tm ub C_lam st' (e_lam x e')
-    | MVal C_m =>
-      ctx_bound_st ub st'
-    (* | _ => ctx_bound_st ub st' *)
-    end.
-Proof.
-  intros. rename H into H'. rename H0 into H''.
-  induction EVAL; try destruct v as [x' e' C_lam'];
-  destruct INIT as [A B]; eauto.
-  - rewrite <- STATE in *. split; eauto.
-    specialize (A addr). rewrite <- ACCESS in A. eauto.
-  - destruct st. split; eauto.
-  - apply IHEVAL3. clear IHEVAL3.
-    simpl in B. 
-    assert (forall sC : st_ctx, In sC (snd (collect_ctx (dy_to_st C) e1)) -> In sC ub).
-    { intros. specialize (B sC). apply B. rewrite in_app_iff.
-      left. eauto. }
-    assert (ctx_bound_tm ub C st e1). 
-    { split; eauto. destruct (collect_ctx (dy_to_st C) e1); eauto. }
-    specialize (IHEVAL1 H0). clear H H0.
-    destruct IHEVAL1 as [A' B'].
-    assert (forall sC : st_ctx, In sC (snd (collect_ctx (dy_to_st C) e2)) -> In sC ub).
-    { intros. specialize (B sC). apply B. rewrite in_app_iff.
-      right. eauto. }
-    assert (ctx_bound_tm ub C st_lam e2).
-    { split; eauto. destruct (collect_ctx (dy_to_st C) e2); eauto. }
-    specialize (IHEVAL2 H0). clear H H0.
-    simpl in B'. split; 
-    try (rewrite dy_to_st_plugin; simpl;
-         (destruct (collect_ctx (dy_to_st C_lam [[|st_c_lam x ([[||]])|]]) e));
-         simpl in B'; intros; apply B'; eauto).
-    simpl. intros. unfold update_m. 
-    destruct arg as [x'' e'' C_lam''].
-    destruct IHEVAL2 as [A'' B''].
-    destruct (eqb addr t); eauto.
-    simpl in A''. apply A''.
-  - apply IHEVAL2. clear IHEVAL2.
-    simpl in B.
-    assert (forall sC : st_ctx, In sC (snd (collect_ctx (dy_to_st C) m)) -> In sC ub).
-    { intros. destruct (collect_ctx (dy_to_st C) m).
-      destruct o; try destruct (collect_ctx s e); apply B;
-      try rewrite in_app_iff; try left; eauto. }
-    assert (ctx_bound_tm ub C st m). 
-    { split; eauto. destruct (collect_ctx (dy_to_st C) m); eauto. }
-    specialize (IHEVAL1 H0). clear H H0.
-    split; eauto. eapply Meval_then_collect in EVAL1; eauto.
-    destruct (collect_ctx (dy_to_st C) m). 
-    destruct o; try (inversion EVAL1; fail).
-    rewrite <- EVAL1. destruct (collect_ctx s e).
-    simpl in B. intros. apply B. rewrite in_app_iff. right; eauto.
-  - apply IHEVAL2. clear IHEVAL2.
-    simpl in B. 
-    assert (forall sC : st_ctx, In sC (snd (collect_ctx (dy_to_st C) e)) -> In sC ub).
-    { intros. destruct (collect_ctx (dy_to_st C [[|st_c_lete x ([[||]])|]]) m).
-      destruct o; apply B; rewrite in_app_iff; left; eauto. }
-    assert (ctx_bound_tm ub C st e). 
-    { split; eauto. destruct (collect_ctx (dy_to_st C) e); eauto. }
-    specialize (IHEVAL1 H0). clear H H0.
-    destruct IHEVAL1 as [A' B'].
-    split;
-    try (rewrite dy_to_st_plugin; simpl;
-         (destruct (collect_ctx (dy_to_st C [[|st_c_lete x ([[||]])|]]) m));
-         destruct o; intros; apply B; rewrite in_app_iff; right; eauto).
-    simpl. unfold update_m. intros.
-    destruct (eqb addr t); eauto.
-    apply A'.
-  - apply IHEVAL2. clear IHEVAL2.
-    simpl in B. 
-    assert (forall sC : st_ctx, In sC (snd (collect_ctx (dy_to_st C) m')) -> In sC ub).
-    { intros. destruct (collect_ctx (dy_to_st C) m'). 
-      destruct o; eauto. destruct (collect_ctx (dy_to_st C [[|st_c_letm M s ([[||]])|]]) m'').
-      destruct o; apply B; rewrite in_app_iff; left; eauto. }
-    assert (ctx_bound_tm ub C st m'). 
-    { split; eauto. destruct (collect_ctx (dy_to_st C) m'); eauto. }
-    specialize (IHEVAL1 H0). clear H H0.
-    split; eauto.
-    rewrite dy_to_st_plugin; simpl.
-    eapply Meval_then_collect in EVAL1; eauto.
-    destruct (collect_ctx (dy_to_st C) m'). 
-    destruct o; try inversion EVAL1. clear H. rewrite <- EVAL1.
-    destruct (collect_ctx (dy_to_st C [[|st_c_letm M s ([[||]])|]]) m'').
-    intros. destruct o; apply B; rewrite in_app_iff; right; eauto.
-Qed.
-
-Lemma reach_ctx_bound :
-  forall `{TIME : time T} ub
-         (C : @dy_ctx T) st e
-         C' st' e'
-         (INIT : ctx_bound_tm ub C st e)
-         (REACH : <| C st e ~> C' st' e' |>),
-    ctx_bound_tm ub C' st' e'.
-Proof.
-  intros. rename H into H'. rename H0 into H''. induction REACH; eauto; 
-          apply IHREACH; destruct INIT as [A B].
-  - simpl in B. split; eauto.
-    destruct (collect_ctx (dy_to_st C) e1).
-    intros; apply B. simpl in *. rewrite in_app_iff. left; eauto.
-  - apply eval_ctx_bound with (ub := ub) in FN.
-    destruct FN as [A' B'].
-    split; eauto. simpl in B.
-    destruct (collect_ctx (dy_to_st C) e2).
-    intros; apply B. simpl in *. rewrite in_app_iff. right; eauto.
-    split; eauto. simpl in B.
-    destruct (collect_ctx (dy_to_st C) e1).
-    intros; apply B. simpl in *. rewrite in_app_iff. left; eauto.
-  - apply eval_ctx_bound with (ub := ub) in FN.
-    apply eval_ctx_bound with (ub := ub) in ARG. destruct arg as [x'' e'' C''].
-    destruct FN as [A' B']. destruct ARG as [A'' B''].
-    split. simpl. intros. unfold update_m.
-    destruct (eqb addr t).
-    simpl in B''. apply B''.
-    simpl in A''. apply A''.
-    rewrite dy_to_st_plugin. simpl. simpl in B'.
-    destruct (collect_ctx (dy_to_st C_lam [[|st_c_lam x ([[||]])|]]) e).
-    simpl in B'. intros; apply B'. right; eauto.
-    destruct FN as [A' B'].
-    split; eauto. simpl in B.
-    destruct (collect_ctx (dy_to_st C) e2).
-    intros; apply B. simpl in *. rewrite in_app_iff. right; eauto.
-    split; eauto. simpl in B.
-    destruct (collect_ctx (dy_to_st C) e1).
-    intros; apply B. simpl in *. rewrite in_app_iff. left; eauto.
-  - split; eauto. simpl in B.
-    destruct (collect_ctx (dy_to_st C) m). 
-    intros. destruct o; try destruct (collect_ctx s e); apply B; eauto.
-    rewrite in_app_iff. left; eauto.
-  - eapply Meval_then_collect in MOD as MOD'; eauto.
-    apply eval_ctx_bound with (ub := ub) in MOD.
-    split; eauto. simpl in B.
-    destruct (collect_ctx (dy_to_st C) m).
-    destruct o; inversion MOD'. clear H. rewrite <- MOD'.
-    destruct (collect_ctx s e). 
-    intros; apply B; simpl; rewrite in_app_iff; right; eauto.
-    split; eauto. simpl in B.
-    destruct (collect_ctx (dy_to_st C) m). 
-    intros. destruct o; try destruct (collect_ctx s e); apply B; eauto.
-    rewrite in_app_iff. left; eauto.
-  - split; eauto. simpl in B.
-    destruct (collect_ctx (dy_to_st C) e).
-    destruct (collect_ctx (dy_to_st C [[|st_c_lete x ([[||]])|]]) m). 
-    destruct o0; intros; apply B; simpl; rewrite in_app_iff; left; eauto.
-  - apply eval_ctx_bound with (ub := ub) in EVALx; eauto. 
-    destruct v as [x'' e'' C_lam''].
-    destruct EVALx as [A' B'].
-    split. simpl. unfold update_m. intros.
-    destruct (eqb addr t); eauto. apply A'.
-    simpl in B. rewrite dy_to_st_plugin. simpl.
-    destruct (collect_ctx (dy_to_st C [[|st_c_lete x ([[||]])|]]) m).
-    destruct o; intros; apply B; rewrite in_app_iff; right; eauto.
-    (* copy of the goal before *)
-    split; eauto. simpl in B.
-    destruct (collect_ctx (dy_to_st C) e).
-    destruct (collect_ctx (dy_to_st C [[|st_c_lete x ([[||]])|]]) m). 
-    destruct o0; intros; apply B; simpl; rewrite in_app_iff; left; eauto.
-  - split; eauto. simpl in B.
-    destruct (collect_ctx (dy_to_st C) m1). destruct o; eauto.
-    destruct (collect_ctx (dy_to_st C [[|st_c_letm M s ([[||]])|]]) m2). 
-    destruct o; intros; apply B; simpl; rewrite in_app_iff; left; eauto.
-  - eapply Meval_then_collect in EVALM as EVALM'; eauto.
-    apply eval_ctx_bound with (ub := ub) in EVALM.
-    split; eauto. simpl in B.
-    destruct (collect_ctx (dy_to_st C) m1). destruct o; inversion EVALM'.
-    clear H. rewrite dy_to_st_plugin; simpl. rewrite <- EVALM'.
-    destruct (collect_ctx (dy_to_st C [[|st_c_letm M s ([[||]])|]]) m2).
-    destruct o; intros; apply B; rewrite in_app_iff; right; eauto.
-    (* copy of the goal before *)
-    split; eauto. simpl in B.
-    destruct (collect_ctx (dy_to_st C) m1). destruct o; eauto.
-    destruct (collect_ctx (dy_to_st C [[|st_c_letm M s ([[||]])|]]) m2). 
-    destruct o; intros; apply B; simpl; rewrite in_app_iff; left; eauto.
-Qed.
-
-Theorem expr_ctx_bound :
-  forall `{TIME : time T} t e (C' : @dy_ctx T) st' e'
-         (REACH : <| ([||]) (ST empty_mem t) e ~> C' st' e' |>),
-         In (dy_to_st C') (snd (collect_ctx ([[||]]) e)).
-Proof.
-  intros. rename H into H'. rename H0 into H''.
-  pose proof (reach_ctx_bound (snd (collect_ctx st_c_hole e)) ([||]) (ST empty_mem t) e C' st' e') as H.
-  assert (ctx_bound_tm (snd (collect_ctx ([[||]]) e)) 
-                       ([||]) (ST empty_mem t) e) as FINAL.
-  - split; simpl; eauto. destruct (collect_ctx ([[||]]) e); eauto.
-  - apply H in FINAL; try apply REACH. 
-    destruct FINAL as [MEM KILLER].
-    remember (collect_ctx (dy_to_st C') e') as ol.
-    destruct ol. apply KILLER. 
-    assert (l = (snd (collect_ctx (dy_to_st C') e'))) as RR.
-    rewrite <- Heqol; eauto.
-    rewrite RR. apply collect_ctx_refl.
 Qed.

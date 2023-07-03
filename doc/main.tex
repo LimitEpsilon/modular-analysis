@@ -840,7 +840,7 @@ We need to present how to compute the abstract semantics by equating the semanti
 
 \begin{lem}[Abstract semantics as a fixpoint]
   \[
-    \A{\sembracket{e}}(\A{s})=\mathsf{lfp}(\lambda \A{a}.\A{F}([(e,\A{s})\mapsto\varnothing]\sqcup\A{a}))
+    \A{\sembracket{e}}(\A{s})=\mathsf{lfp}(\lambda \A{a}.\A{F}(\A{a})\sqcup[(e,\A{s})\mapsto\varnothing])
   \]
 \end{lem}
 
@@ -1043,7 +1043,7 @@ Finally, before delving into the definition of the linked time domain, we need t
   Let $\A{s_1}$ be a configuration in $\ATime_1$, and let $\A{a_2}=\A{\sembracket{e}}(\A{s'})$ be the semantics of $e$ under $(\ATime_2,\A\tick)$.
   Define the ``addition'' between $\A{s_1}$ and $\A{a_2}$ as:
   \[
-    \A{s_1}\oplus\A{a_2}\triangleq\mathsf{lfp}(\lambda\A{a}.\A{F}((\A{s_1}\rhd\A{a_2})\sqcup\A{a}))
+    \A{s_1}\oplus\A{a_2}\triangleq\mathsf{lfp}(\lambda\A{a}.\A{F}(\A{a})\sqcup(\A{s_1}\rhd\A{a_2}))
   \]
 \end{definition}
 

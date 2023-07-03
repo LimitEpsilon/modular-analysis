@@ -719,3 +719,226 @@ Proof.
     destruct abs_st''. destruct SOUND''' as [? [RR' ?]].
     rewrite RR in *. rewrite RR' in *. eauto.
 Qed.
+
+Lemma sound_reach :
+  forall `{Conc.time CT} `{Abs.time AT} C st e C' st' e'
+         (REACH : one_reach C st e C' st' e')
+         (BOUND : time_bound C st)
+         abs_C abs_st α
+         (SOUND : sound α C st abs_C abs_st),
+    exists abs_C' abs_st' α',
+      match st with
+      | ST _ t =>
+        eq_bound t α α' /\
+        sound α' C' st' abs_C' abs_st' /\
+        Abs.one_reach abs_C abs_st e abs_C' abs_st' e'
+      end.
+Proof.
+  intros.
+  rename H into ECT. rename H0 into OCT. rename H1 into T1.
+  rename H2 into EAT. rename H3 into T2.
+  destruct st.
+  destruct REACH.
+  - exists abs_C. exists abs_st. exists α.
+    repeat split; eauto. apply Abs.one_appl.
+  - eapply sound_eval in FN; eauto.
+    destruct FN as [abs_C' [abs_st' [α' [EQ [SOUND' EVAL']]]]].
+    exists abs_C. exists abs_st'. exists α'.
+    repeat split; eauto.
+    destruct abs_st'; simpl in *. destruct st_lam.
+    destruct SOUND' as [? [RR' ?]].
+    repeat split; eauto.
+    destruct abs_st; simpl in SOUND.
+    destruct SOUND as [? [RR ?]].
+    rewrite <- RR.
+    destruct BOUND as [? [? ?]].
+    eapply bound_trans_ctx_eq; eauto.
+    rewrite eq_bound_comm. eauto.
+    eapply Abs.one_appr; eauto.
+  - eapply sound_eval in FN as SOUND'; eauto.
+    destruct SOUND' as [abs_C' [abs_st' [α' [EQ [SOUND' EVAL']]]]].
+    apply time_bound_e in FN as BOUND'; eauto.
+    destruct st_lam; simpl in BOUND'. simpl in BOUND.
+    destruct BOUND as [BOUND [NONE SOME]].
+    destruct BOUND' as [BOUND' [NONE' SOME']].
+    apply time_increase_e in FN as INC'; eauto.
+    assert (dy_ctx_bound C t1).
+    { eapply relax_ctx_bound; eauto. }
+    assert (sound α' C (ST mem1 t1) abs_C abs_st').
+    { destruct abs_st'; destruct SOUND' as [? [? ?]].
+      destruct abs_st; destruct SOUND as [? [RR ?]].
+      repeat split; eauto. rewrite <- RR.
+      apply bound_trans_ctx_eq with (t := t); eauto.
+      rewrite eq_bound_comm. eauto. }
+    eapply sound_eval in ARG as SOUND''; repeat split; eauto.
+    destruct arg. destruct SOUND'' as [abs_C'' [abs_st'' [α'' [EQ'' [SOUND'' EVAL'']]]]].
+    apply time_bound_e in ARG as BOUND''; repeat split; eauto. clear H H0.
+    apply time_increase_e in ARG as INC''; eauto.
+    destruct abs_st' as [mem' t']. destruct abs_st'' as [mem'' t''].
+    replace (trans_ctx α'' C0) with abs_C'' in *;
+    try (destruct SOUND'' as [? [? ?]]; eauto; fail).
+    replace (trans_ctx α' C_lam) with abs_C' in *;
+    try (destruct SOUND' as [? [? ?]]; eauto; fail).
+    remember (fun t => if eqb t (tick t0)
+                        then Abs.tick abs_C (Abs.ST mem'' t'') x (Closure x0 e0 abs_C'') 
+                        else α'' t) as α'''.
+    assert (eq_bound t0 α'' α''') as EQ'''.
+    { rewrite Heqα'''. apply eq_bound_tick. }
+    assert (sound α''' (C_lam [|dy_c_lam x t0 ([||])|])
+            (ST (t0 !-> Closure x0 e0 C0; mem0) (tick t0))
+            (abs_C'[| dy_c_lam x t'' ([||]) |])
+            (Abs.ST (t'' !#-> Closure x0 e0 abs_C''; mem'') 
+                    (Abs.tick abs_C (Abs.ST mem'' t'') x (Closure x0 e0 abs_C'')))).
+    { rewrite Heqα'''. simpl. repeat split.
+      - rewrite eqb_refl. eauto.
+      - rewrite plugin_trans_ctx; simpl.
+        replace (eqb t0 (tick t0)) with false; try (symmetry; apply tick_lt).
+        rewrite <- Heqα'''.
+        replace (trans_ctx α''' C_lam) with abs_C'. destruct SOUND'' as [RR ?]; rewrite RR; eauto.
+        destruct SOUND' as [? [RR ?]]. rewrite <- RR.
+        apply bound_trans_ctx_eq with (t := t1). apply BOUND'.
+        rewrite Heqα'''. red. intros. rewrite leb_t_neq_tick. apply EQ''. eauto. lebt t1.
+      - rewrite <- Heqα'''. destruct SOUND'' as [? [RR HINT]].
+        unfold update_m. unfold Abs.update_m. intros.
+        destruct (eqb p t0) eqn:EQp.
+        + rewrite eqb_eq in EQp. rewrite EQp.
+          replace (eqb t0 (tick t0)) with false; try (symmetry; apply tick_lt).
+          rewrite H; rewrite eqb_refl.
+          replace (trans_ctx α''' C0) with (trans_ctx α'' C0).
+          left; rewrite RR; eauto.
+          apply bound_trans_ctx_eq with (t := t0); eauto. apply BOUND''.
+        + pose proof (p_bound_or_not p t0) as CASES.
+          destruct BOUND'' as [B1'' [B2'' B3'']].
+          destruct CASES as [L | R]; 
+          try (specialize (B2'' p R); rewrite B2''; eauto; fail).
+          destruct (mem0 p) eqn: ACCESS; eauto. destruct e3.
+          specialize (HINT p L). rewrite ACCESS in HINT.
+          replace (eqb p (tick t0)) with false; try (symmetry; apply BOUND0).
+          replace (trans_ctx α''' C1) with (trans_ctx α'' C1).
+          { rewrite <- H. 
+            destruct (eqb (α'' p) (α'' t0)) eqn:EQb;
+            try (rewrite eqb_eq in EQb; rewrite <- EQb; right); apply HINT. }
+          { apply bound_trans_ctx_eq with (t := t0); eauto.
+            specialize (B3'' p L). rewrite ACCESS in B3''. exact B3''. }
+    }
+    exists (abs_C' [|dy_c_lam x t'' ([||])|]).
+    exists (Abs.ST (t'' !#-> Closure x0 e0 abs_C''; mem'')
+                   (Abs.tick abs_C (Abs.ST mem'' t'') x (Closure x0 e0 abs_C''))).
+    exists α'''.
+    split. red; intros.
+    replace (α t'0) with (α' t'0).
+    replace (α' t'0) with (α'' t'0).
+    apply EQ'''. lebt t. lebt t1.
+    symmetry. apply EQ''. lebt t.
+    symmetry. apply EQ. eauto.
+    split. exact H.
+    eapply Abs.one_appbody; eauto.
+  - exists abs_C. exists abs_st. exists α.
+    split. red; intros; eauto.
+    split. apply SOUND.
+    eapply Abs.one_linkl; eauto.
+  - eapply sound_eval in MOD; eauto.
+    destruct MOD as [abs_C' [abs_st' [α' [EQ [SOUND' EVAL']]]]].
+    exists (trans_ctx α' C_m). exists abs_st'. exists α'.
+    repeat split; eauto.
+    destruct abs_st'; simpl in *. destruct st_m.
+    destruct SOUND' as [? [RR' ?]].
+    repeat split; eauto.
+    eapply Abs.one_linkr; eauto.
+  - exists abs_C. exists abs_st. exists α.
+    split. red; intros; eauto.
+    split. apply SOUND.
+    eapply Abs.one_letel.
+  - eapply sound_eval in EVALx as SOUND'; eauto. destruct v.
+    destruct SOUND' as [abs_C' [abs_st' [α' [EQ [SOUND' EVAL']]]]].
+    eapply time_increase_e in EVALx as INC'; eauto.
+    eapply time_bound_e in EVALx as BOUND'; eauto.
+    destruct abs_st as [mem' t']. destruct abs_st' as [mem'' t''].
+    replace (trans_ctx α' C0) with abs_C' in *; try (symmetry; destruct SOUND' as [? [? ?]]; eauto).
+    remember (fun t => if eqb t (tick t0)
+                       then Abs.tick abs_C (Abs.ST mem'' t'')
+                             x (Closure x0 e0 abs_C') 
+                       else α' t) as α''.
+    assert (eq_bound t0 α' α'') as EQ''.
+    { rewrite Heqα''. apply eq_bound_tick. }
+    assert (sound α'' (C [|dy_c_lete x t0 ([||])|])
+            (ST (t0 !-> Closure x0 e0 C0; mem0) (tick t0))
+            (abs_C [| dy_c_lete x t'' ([||]) |])
+            (Abs.ST (t'' !#-> Closure x0 e0 abs_C'; mem'') 
+                    (Abs.tick abs_C (Abs.ST mem'' t'') x (Closure x0 e0 abs_C')))).
+    { rewrite Heqα''. simpl. repeat split.
+      - rewrite eqb_refl. eauto.
+      - destruct SOUND' as [? [? ?]].
+        rewrite plugin_trans_ctx; simpl.
+        replace (eqb t0 (tick t0)) with false; try (symmetry; apply tick_lt).
+        rewrite <- Heqα''.
+        replace (trans_ctx α'' C) with abs_C.
+        replace (α' t0) with t''. eauto.
+        destruct SOUND as [? [RR ?]]. rewrite <- RR.
+        apply bound_trans_ctx_eq with (t := t). apply BOUND.
+        rewrite Heqα''. red. intros. rewrite leb_t_neq_tick. apply EQ. eauto. lebt t.
+      - rewrite <- Heqα''. destruct SOUND' as [? [RR HINT]].
+        unfold update_m. unfold Abs.update_m. intros.
+        destruct (eqb p t0) eqn:EQp.
+        + rewrite eqb_eq in EQp. rewrite EQp.
+          replace (eqb t0 (tick t0)) with false; try (symmetry; apply tick_lt).
+          replace t'' with (α' t0). rewrite eqb_refl.
+          replace (trans_ctx α'' C0) with (trans_ctx α' C0).
+          left; rewrite RR; eauto.
+          apply bound_trans_ctx_eq with (t := t0); eauto. apply BOUND'.
+        + pose proof (p_bound_or_not p t0) as CASES.
+          destruct BOUND' as [B1' [B2' B3']].
+          destruct CASES as [L | R]; 
+          try (specialize (B2' p R); rewrite B2'; eauto; fail).
+          destruct (mem0 p) eqn: ACCESS; eauto. destruct e1.
+          specialize (HINT p L). rewrite ACCESS in HINT.
+          replace (eqb p (tick t0)) with false; try (symmetry; apply BOUND0).
+          replace (trans_ctx α'' C1) with (trans_ctx α' C1).
+          { replace t'' with (α' t0).
+            destruct (eqb (α' p) (α' t0)) eqn:EQb;
+            try (rewrite eqb_eq in EQb; rewrite <- EQb; right); apply HINT. }
+          { apply bound_trans_ctx_eq with (t := t0); eauto.
+            specialize (B3' p L). rewrite ACCESS in B3'. exact B3'. }
+    }
+    exists (abs_C [|dy_c_lete x t'' ([||])|]).
+    exists (Abs.ST (t'' !#-> Closure x0 e0 abs_C'; mem'')
+                   (Abs.tick abs_C (Abs.ST mem'' t'') x (Closure x0 e0 abs_C'))).
+    exists α''.
+    split. red; intros.
+    replace (α t'0) with (α' t'0).
+    apply EQ''. lebt t. 
+    symmetry. apply EQ. eauto.
+    split. exact H.
+    eapply Abs.one_leter; eauto.
+  - exists abs_C. exists abs_st. exists α.
+    split. red; intros; eauto.
+    split. assumption.
+    apply Abs.one_letml.
+  - eapply sound_eval in EVALM as SOUND'; eauto.
+    destruct SOUND' as [abs_C' [abs_st' [α' [EQ [SOUND' EVAL']]]]].
+    eapply time_increase_e in EVALM as INC'; eauto.
+    eapply time_bound_e in EVALM as BOUND'; eauto. destruct st_M.
+    destruct abs_st as [mem' t']. destruct abs_st' as [mem'' t''].
+    replace (trans_ctx α' C_M) with abs_C' in *;
+    try (symmetry; destruct SOUND' as [? [? ?]]; eauto).
+    assert (sound α' (C [|dy_c_letm M C_M ([||])|]) (ST mem0 t0)
+            (abs_C [|dy_c_letm M abs_C' ([||]) |]) (Abs.ST mem'' t'')).
+    { destruct SOUND' as [? [? ?]].
+      destruct SOUND as [? [RR ?]].
+      repeat split; simpl; eauto.
+      rewrite plugin_trans_ctx. simpl.
+      assert (trans_ctx α' C = abs_C) as RR'.
+      rewrite <- RR. apply bound_trans_ctx_eq with (t := t).
+      simpl in BOUND. destruct BOUND; eauto. 
+      red; intros. symmetry; apply EQ; eauto.
+      rewrite RR'.
+      replace (trans_ctx α' C_M) with abs_C';
+      try (symmetry; eauto).
+    }
+    exists (abs_C [|dy_c_letm M abs_C' ([||])|]).
+    exists (Abs.ST mem'' t'').
+    exists α'.
+    split. red; intros; eauto.
+    split. exact H.
+    eapply Abs.one_letmr. eauto.
+Qed.
