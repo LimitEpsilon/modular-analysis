@@ -473,15 +473,10 @@ The relation that collects the reachable states $\rightsquigarrow^{*}$ is define
 
 To justify separate analysis, we decompose the collecting semantics of the linking expression into a composition of the semantics of the left and right expressions.
 
-\begin{definition}[Exported configurations]
+\begin{definition}[Auxiliary operators for concrete linking]
   \begin{align*}
-    \EE\:e_1\:s & \triangleq\sembracket{e_1}(s)(e_1,s) & (\text{Exported from }e_1\text{ under }s)
-  \end{align*}
-\end{definition}
-
-\begin{definition}[Reached under exported configurations]
-  \begin{align*}
-    \LL\:E\:e_2         & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s')         & (\text{Reached under exported context})  \\
+    \EE\:e_1\:s         & \triangleq\sembracket{e_1}(s)(e_1,s)                    & (\text{Exported from }e_1\text{ under }s) \\
+    \LL\:E\:e_2         & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s')         & (\text{Reached under exported context})   \\
     \LL^{\circ}\:E\:e_2 & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s')(e_2,s') & (\text{Resolved under exported context})
   \end{align*}
 \end{definition}
@@ -911,73 +906,81 @@ Now for separate analysis, we need to define an abstract time on $\ATime_1+\ATim
 
 Before elaborating on how to add the time domains, we need to define the injection and deletion operators that inject the exported context into the separately analyzed results.
 The notation for injecting $C_{1}$ into $C_{2}$ is $\inject{C_{1}}{C_{2}}$, similar to the plugin operator defined above.
+\begin{figure}[htb]
+  \footnotesize
+  \[
+    \mapinject(C_{1},C_{2})\triangleq
+    \begin{cases}
+      []                                                          & (C_{2}=[])                \\
+      \lambda x^{t}. \mapinject(C_{1},C')                         & (C_{2}=\lambda x^{t}. C') \\
+      \Let\:x^{t}\:\mapinject(C_{1},C')                           & (C_{2}=\Let\:x^{t}\:C')   \\
+      \Let\:M\:C_{1}[\mapinject(C_{1},C')]\:\mapinject(C_{1},C'') & (C_{2}=\Let\:M\:C'\:C'')
+    \end{cases}
+  \]
 
-\[
-  \mapinject(C_{1},C_{2})\triangleq
-  \begin{cases}
-    []                                                          & (C_{2}=[])                \\
-    \lambda x^{t}. \mapinject(C_{1},C')                         & (C_{2}=\lambda x^{t}. C') \\
-    \Let\:x^{t}\:\mapinject(C_{1},C')                           & (C_{2}=\Let\:x^{t}\:C')   \\
-    \Let\:M\:C_{1}[\mapinject(C_{1},C')]\:\mapinject(C_{1},C'') & (C_{2}=\Let\:M\:C'\:C'')
-  \end{cases}
-\]
+  \[
+    \inject{C_{1}}{C_{2}}\triangleq C_{1}[\mapinject(C_{1},C_{2})]
+  \]
 
-\[
-  \inject{C_{1}}{C_{2}}\triangleq C_{1}[\mapinject(C_{1},C_{2})]
-\]
+  \[
+    \deletepre(C_{1},C_{2})\triangleq
+    \begin{cases}
+      \deletepre(C_{1}',C_{2}') & ((C_{1},C_{2})=(\lambda x^{t}.C_{1}',\lambda x^{t}.C_{2}')) \\
+      \deletepre(C_{1}',C_{2}') & ((C_{1},C_{2})=(\Let\: x^{t}\:C_{1}',\Let\:x^{t}\:C_{2}'))  \\
+      \deletepre(C_{1}',C_{2}') & ((C_{1},C_{2})=(\Let\:M\:C'\:C_{1}',\Let\:M\:C'\:C_{2}'))   \\
+      C_{2}                     & (\text{otherwise})
+    \end{cases}
+  \]
+
+  \[
+    \deletemap(C_{1},C_{2})\triangleq
+    \begin{cases}
+      []                                                                     & (C_{2}=[])               \\
+      \lambda x^{t}.\deletemap(C_{1},C')                                     & (C_{2}=\lambda x^{t}.C') \\
+      \Let\:x^{t}\:\deletemap(C_{1},C')                                      & (C_{2}=\Let\:x^{t}\:C')  \\
+      \Let\:M\:\deletemap(C_{1},\deletepre(C_{1},C'))\:\deletemap(C_{1},C'') & (C_{2}=\Let\:M\:C'\:C'')
+    \end{cases}
+  \]
+
+  \[
+    \delete(C_{1},C_{2})\triangleq \deletemap(C_{1},\deletepre(C_{1},C_{2}))
+  \]
+  \caption{Definitions for the injection and deletion operators.}
+\end{figure}
+
 We extend the injection operator to map over all closures in a memory so that $\inject{C}{\A\mem}$ can be defined naturally.
 
-\[
-  \deletepre(C_{1},C_{2})\triangleq
-  \begin{cases}
-    \deletepre(C_{1}',C_{2}') & ((C_{1},C_{2})=(\lambda x^{t}.C_{1}',\lambda x^{t}.C_{2}')) \\
-    \deletepre(C_{1}',C_{2}') & ((C_{1},C_{2})=(\Let\: x^{t}\:C_{1}',\Let\:x^{t}\:C_{2}'))  \\
-    \deletepre(C_{1}',C_{2}') & ((C_{1},C_{2})=(\Let\:M\:C'\:C_{1}',\Let\:M\:C'\:C_{2}'))   \\
-    C_{2}                     & (\text{otherwise})
-  \end{cases}
-\]
-
-\[
-  \scriptsize
-  \deletemap(C_{1},C_{2})\triangleq
-  \begin{cases}
-    []                                                                     & (C_{2}=[])               \\
-    \lambda x^{t}.\deletemap(C_{1},C')                                     & (C_{2}=\lambda x^{t}.C') \\
-    \Let\:x^{t}\:\deletemap(C_{1},C')                                      & (C_{2}=\Let\:x^{t}\:C')  \\
-    \Let\:M\:\deletemap(C_{1},\deletepre(C_{1},C'))\:\deletemap(C_{1},C'') & (C_{2}=\Let\:M\:C'\:C'')
-  \end{cases}
-\]
-
-\[
-  \delete(C_{1},C_{2})\triangleq \deletemap(C_{1},\deletepre(C_{1},C_{2}))
-\]
 The deletion operation has the expected property that $\delete(C,\inject{C}{C'})=C'$.
 
 Finally, before delving into the definition of the linked time domain, we need to define a filter function that filters the context and memory by membership in each time domain.
 
-\[
-  \filter(C,\Time)\triangleq
-  \begin{cases}
-    []                                             & (C=[])                                   \\
-    \lambda x^{t}.\filter(C',\Time)                & (C=\lambda x^{t}.C'\wedge t\in\Time)     \\
-    \Let\:x^{t}\:\filter(C',\Time)                 & (C=\Let\:x^{t}\:C'\wedge t\in\Time)      \\
-    \Let\:M\:\filter(C',\Time)\:\filter(C'',\Time) & (C=\Let\:M\:C'\:C'')                     \\
-    \filter(C',\Time)                              & (C=\lambda x^{t}.C'\wedge t\not\in\Time) \\
-    \filter(C',\Time)                              & (C=\Let\:x^{t}\:C'\wedge t\not\in\Time)
-  \end{cases}
-\]
+\begin{figure}[htb]
+  \footnotesize
+  \[
+    \filter(C,\Time)\triangleq
+    \begin{cases}
+      []                                             & (C=[])                                   \\
+      \lambda x^{t}.\filter(C',\Time)                & (C=\lambda x^{t}.C'\wedge t\in\Time)     \\
+      \Let\:x^{t}\:\filter(C',\Time)                 & (C=\Let\:x^{t}\:C'\wedge t\in\Time)      \\
+      \Let\:M\:\filter(C',\Time)\:\filter(C'',\Time) & (C=\Let\:M\:C'\:C'')                     \\
+      \filter(C',\Time)                              & (C=\lambda x^{t}.C'\wedge t\not\in\Time) \\
+      \filter(C',\Time)                              & (C=\Let\:x^{t}\:C'\wedge t\not\in\Time)
+    \end{cases}
+  \]
 
-\[
-  \filter(v,\Time)\triangleq
-  \begin{array}{ll}
-    \langle\lambda x.e,\filter(C,\Time)\rangle & (v=\langle\lambda x.e,C\rangle)
-  \end{array}
-\]
+  \[
+    \filter(v,\Time)\triangleq
+    \begin{array}{ll}
+      \langle\lambda x.e,\filter(C,\Time)\rangle & (v=\langle\lambda x.e,C\rangle)
+    \end{array}
+  \]
 
-\[
-  \filter(\A\mem,\Time)\triangleq
-  \lambda t\in\Time.\{\filter(v,\Time)|v\in\A{m}(t)\}
-\]
+  \[
+    \filter(\A\mem,\Time)\triangleq
+    \lambda t\in\Time.\{\filter(v,\Time)|v\in\A{m}(t)\}
+  \]
+  \caption{Definitions for the filter operation.}
+\end{figure}
 
 \begin{definition}[Injection of a configuration]
   $\:$
@@ -1049,7 +1052,7 @@ Finally, before delving into the definition of the linked time domain, we need t
 \begin{definition}[Auxiliary operators for linking]
   \begin{align*}
     \A\EE\:\A{a}\:e_1\:\A{s}    & \triangleq\A{a}(e_1,\A{s})                                                                                                          & (\text{Exported by }e_1\text{ under }\A{s}\text{ using }\A{a}) \\
-    \A\LL\:\A{E}\:e_2           & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}([],\varnothing,\A{0}))                                       & (\text{Reached under exported context})                          \\
+    \A\LL\:\A{E}\:e_2           & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}([],\varnothing,\A{0}))                                       & (\text{Reached under exported context})                        \\
     \A{\LL^{\circ}}\:\A{E}\:e_2 & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}([],\varnothing,\A{0}))(e_2,\A{s'}\rhd([],\varnothing,\A{0})) & (\text{Resolved under exported context})
   \end{align*}
 \end{definition}
