@@ -1661,6 +1661,7 @@ Proof.
       destruct v; eauto.
 Qed.
 
+(* well-definedness *)
 Corollary EvalR_then_ReachR :
   forall `{TIME : time T} C st e v st'
          (R : EvalR C st e v st'),
@@ -1690,37 +1691,4 @@ Lemma value_reach_only_itself :
 Proof.
   intros; repeat split; inversion pf; inversion REACH; subst; eauto;
   try inversion H2.
-Qed.
-
-Lemma Meval_then_collect :
-  forall `{TIME : time T} C st m v st_m
-         (EVAL : EvalR C st m v st_m)
-         C_m (MVAL : v = MVal C_m),
-        match collect_ctx (dy_to_st C) m with
-        | (Some C_m', _) => C_m' = dy_to_st C_m
-        | (None, _) => False
-        end.
-Proof.
-  intros. rename H into H'. revert C_m MVAL.
-  induction EVAL; intros; simpl; try inversion MVAL; subst; eauto.
-  - specialize (IHEVAL1 C_m eq_refl). 
-    specialize (IHEVAL2 C_m0 eq_refl). 
-    destruct (collect_ctx (dy_to_st C) m). destruct o.
-    rewrite <- IHEVAL1 in IHEVAL2.
-    destruct (collect_ctx s e). exact IHEVAL2. 
-    exact IHEVAL1.
-  - pose proof (mod_is_static_some C M) as H.
-    destruct H as [A B]. specialize (A C_m).
-    symmetry in ACCESS. specialize (A ACCESS).
-    rewrite A. eauto.
-  - rewrite dy_to_st_plugin in IHEVAL2.
-    simpl in IHEVAL2.
-    remember (collect_ctx (dy_to_st C [[|st_c_lete x ([[||]])|]]) m) as ol.
-    destruct ol. apply IHEVAL2; eauto.
-  - rewrite dy_to_st_plugin in IHEVAL2. simpl in IHEVAL2.
-    specialize (IHEVAL1 C' eq_refl). specialize (IHEVAL2 C_m eq_refl).
-    destruct (collect_ctx (dy_to_st C) m'). destruct o; try apply IHEVAL1.
-    rewrite <- IHEVAL1 in IHEVAL2.
-    destruct (collect_ctx (dy_to_st C [[|st_c_letm M s ([[||]])|]]) m'').
-    apply IHEVAL2.
 Qed.

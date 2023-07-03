@@ -1,58 +1,24 @@
 %! TEX program = xelatex
-\documentclass{article}
-\usepackage{geometry}
-\geometry{
- a4paper,
- total={170mm,257mm},
- left=20mm,
- top=20mm,
-}
+\documentclass[acmsmall,screen]{acmart}
 \usepackage{setspace} % setstretch
-
-\usepackage{graphicx}
-\usepackage{kotex}
 \usepackage{csquotes}
 \usepackage{tabularray}
-\UseTblrLibrary{booktabs}
-\UseTblrLibrary{counter}
 
-\usepackage{biblatex}
-\addbibresource{citations.bib}
+%\usepackage{biblatex}
+%\addbibresource{citations.bib}
 
 %%% Math settings
-\usepackage{amssymb,amsmath,amsthm,mathtools} % Before unicode-math
-\usepackage[math-style=TeX,bold-style=TeX]{unicode-math}
+\usepackage{amsthm,mathtools}
 \theoremstyle{definition}
 \newtheorem{definition}{Definition}[section]
 \newtheorem{lem}{Lemma}[section]
 \newtheorem{thm}{Theorem}[section]
 \newtheorem{example}{Example}[section]
 
-%%% Font settings
-\setmainfont{Libertinus Serif}
-\setsansfont{Libertinus Sans}[Scale=MatchUppercase]
-\setmonofont{JuliaMono}[Scale=MatchLowercase]
-\setmathfont{Libertinus Math} % Before set*hangulfont
-\setmathfont{TeX Gyre Pagella Math}[range={\lbrace,\rbrace},Scale=1.1]
-\setmainhangulfont{Noto Serif CJK KR}
-\setsanshangulfont[BoldFont={* Bold}]{KoPubWorld Dotum.ttf}
-\setmonohangulfont{D2Coding}
-
 %%% PL constructs
 \usepackage{ebproof}
 \ebproofset{left label template=\textsc{[\inserttext]}}
 
-% For simplebnf
-\newfontfamily{\fallbackfont}{EB Garamond}
-\DeclareTextFontCommand{\textfallback}{\fallbackfont}
-\usepackage{newunicodechar}
-\newunicodechar{⩴}{\textfallback{⩴}}
-
-\usepackage{simplebnf}
-\RenewDocumentCommand\SimpleBNFDefEq{}{\ensuremath{⩴}}
-\RenewDocumentCommand\SimpleBNFDefEq{}{\ensuremath{\rightarrow}}
-
-% because of simplebnf
 \newcommand*{\vbar}{|}
 \newcommand*{\finto}{\xrightarrow{\text{\textrm{fin}}}}
 \newcommand*{\istype}{\mathrel{⩴}}
@@ -99,7 +65,7 @@
 
 \title{A General and Accessible Framework for Modular Analysis}
 \author{Joonhyup Lee}
-\date{}
+%\date{}
 \begin{document}
 \maketitle
 
@@ -107,24 +73,24 @@
 
 In this section we define the abstract syntax for a simple language that captures the essence of modules and linking.
 The language is basically an extension of untyped lambda calculus with modules and the linking operator.
-
-\begin{bnfgrammar}
-  $x$ : $\mathrm{Expression\:Identifier}$ \in \ExprVar
-  ;;
-  $M$ : $\mathrm{Module\:Identifier}$ \in \ModVar
-  ;;
-  $e$ : $\mathrm{Expression}$ \in \Expr
-  ;;
-  $e$ : $\mathrm{Expression}$ ::= $x$ : identifier, expression
-  | $\lambda x.e$ : function
-  | $e$ $e$ : application
-  | $\link{e}{e}$ : linked expression
-  | $\varepsilon$ : empty module
-  | $M$ : identifier, module
-  | $\Let$ $x$ $e$ $e$ : let-binding, expression
-  | $\Let$ $M$ $e$ $e$ : let-binding, module
-\end{bnfgrammar}
-
+\begin{figure}[htb]
+  \centering
+  \footnotesize
+  \begin{tabular}{rccll}
+    Expression Identifier & $x$ & $\in$         & $\ExprVar$                                   \\
+    Module Identifier     & $M$ & $\in$         & $\ModVar$                                    \\
+    Expression            & $e$ & $\in$         & $\Expr$                                      \\
+    Expression            & $e$ & $\rightarrow$ & $x$                & identifier, expression  \\
+                          &     & $\vbar$       & $\lambda x.e$      & function                \\
+                          &     & $\vbar$       & $e$ $e$            & application             \\
+                          &     & $\vbar$       & $\link{e}{e}$      & linked expression       \\
+                          &     & $\vbar$       & $\varepsilon$      & empty module            \\
+                          &     & $\vbar$       & $M$                & identifier, module      \\
+                          &     & $\vbar$       & $\Let$ $x$ $e$ $e$ & let-binding, expression \\
+                          &     & $\vbar$       & $\Let$ $M$ $e$ $e$ & let-binding, module     \\
+  \end{tabular}
+  \caption{Abstract syntax of the simple module language.}
+\end{figure}
 \subsection{Rationale for the design of the simple language}
 
 There are no recursive modules, first-class modules, or functors in the simple language that is defined.
@@ -160,28 +126,25 @@ Now, we start by defining what we mean by \emph{time} and \emph{context}, which 
 We first define sets that are parametrized by our choice of the time domain, mainly the \emph{value}, \emph{memory}, and \emph{context} domains.
 Also, we present the notational conventions used in this paper to represent members of each domain.
 
-\begin{bnfgrammar}
-  $t$ : $\mathrm{Time}$ \in \Time
-  ;;
-  $C$ : $\mathrm{Context}$ \in \Ctx{\Time}
-  ;;
-  $v$ : $\mathrm{Result\:of\:expressions}$ \in \Value{\Time} \triangleq \Expr\times\Ctx{\Time}
-  ;;
-  $V$ : $\mathrm{Result\:of\:expressions/modules}$ \in \Value{\Time}+\Ctx{\Time}
-  ;;
-  $\mem$ : $\mathrm{Memory}$ \in \Mem{\Time} \triangleq \fin{\Time}{\Value{\Time}}
-  ;;
-  $s$ : $\mathrm{Configuration}$ \in \Config{\Time} \triangleq \Ctx{\Time}\times\Mem{\Time}\times\Time
-  ;;
-  $r$ : $\mathrm{Result}$ \in \Result{\Time} \triangleq (\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time
-  ;;
-  $C$ : $\mathrm{Context}$ ::= [] : hole
-  | $\lambda x^{t}.C$ : function parameter binding
-  | $\Let$ $x^{t}$ $C$ : let expression binding
-  | $\Let$ $M$ $C$ $C$ : let module context binding
-  ;;
-  $v$ ::= $\langle \lambda x.e, C \rangle$ : closure
-\end{bnfgrammar}
+\begin{figure}[htb]
+  \centering
+  \footnotesize
+  \begin{tabular}{rccll}
+    Time                          & $t$    & $\in$         & $\Time$                                                                                                          \\
+    Context                       & $C$    & $\in$         & $\Ctx\Time$                                                                                                      \\
+    Result of expressions         & $v$    & $\in$         & $\Value\Time \triangleq \Expr\times\Ctx\Time$                                                                    \\
+    Result of expressions/modules & $V$    & $\in$         & $\Value{\Time}+\Ctx{\Time}$                                                                                      \\
+    Memory                        & $\mem$ & $\in$         & $\Mem{\Time} \triangleq \fin{\Time}{\Value{\Time}}$                                                              \\
+    Configuration                 & $s$    & $\in$         & $\Config{\Time} \triangleq \Ctx{\Time}\times\Mem{\Time}\times\Time$                                              \\
+    Result                        & $r$    & $\in$         & $\Result{\Time} \triangleq (\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time$                              \\
+    Context                       & $C$    & $\rightarrow$ & []                                                                                  & hole                       \\
+                                  &        & $\vbar$       & $\lambda x^{t}.C$                                                                   & function parameter binding \\
+                                  &        & $\vbar$       & $\Let$ $x^{t}$ $C$                                                                  & let expression binding     \\
+                                  &        & $\vbar$       & $\Let$ $M$ $C$ $C$                                                                  & let module binding         \\
+    Result of expressions         & $v$    & $\rightarrow$ & $\langle \lambda x.e, C \rangle$                                                    & closure
+  \end{tabular}
+  \caption{Definition of the semantic domains.}
+\end{figure}
 
 Above, there are no constraints placed upon the set $\Time$.
 Now we give the conditions that the concrete time domain must satisfy.
@@ -210,13 +173,11 @@ Next, the function that extracts the address for an $\ExprVar$ must be defined.
 \[
   \addr(C,x)\triangleq
   \begin{cases}
-    \bot         & (C=[])                                                           \\
-    \bot         & (C=\lambda x'^{t}.C'\wedge x'\neq x\wedge \addr(C',x)=\bot)      \\
-    \bot         & (C=\mathtt{let}\:x'^{t}C'\wedge x'\neq x\wedge \addr(C',x)=\bot) \\
-    t            & (C=\lambda x'^{t}.C'\wedge x'= x\wedge \addr(C',x)=\bot)         \\
-    t            & (C=\mathtt{let}\:x'^{t}C'\wedge x'= x\wedge \addr(C',x)=\bot)    \\
-    t'           & (C=\lambda x'^{t}.C'\wedge \addr(C',x)=t')                       \\
-    t'           & (C=\mathtt{let}\:x'^{t}\:C'\wedge \addr(C',x)=t')                \\
+    \bot         & (C=[])                                                        \\
+    t            & (C=\lambda x'^{t}.C'\wedge x'= x\wedge \addr(C',x)=\bot)      \\
+    t            & (C=\mathtt{let}\:x'^{t}C'\wedge x'= x\wedge \addr(C',x)=\bot) \\
+    \addr(C',x)  & (C=\lambda x'^{t}.C'\wedge o.w)                               \\
+    \addr(C',x)  & (C=\mathtt{let}\:x'^{t}\:C'\wedge o.w)                        \\
     \addr(C'',x) & (C=\mathtt{let}\:M\:C'\:C'')
   \end{cases}
 \]
@@ -226,10 +187,8 @@ Finally, the function that looks up the dynamic context bound to a module variab
   \begin{cases}
     \bot           & (C=[])                                                             \\
     C'             & (C=\mathtt{let}\:M'\:C'\:C''\wedge M'= M\wedge\modctx(C'',M)=\bot) \\
-    \modctx(C'',M) & (C=\mathtt{let}\:M'\:C'\:C''\wedge\modctx(C'',M)\neq\bot)          \\
-    \modctx(C'',M) & (C=\mathtt{let}\:M'\:C'\:C''\wedge M'\neq M)                       \\
-    \modctx(C',M)  & (C=\lambda x^{t}.C')                                               \\
-    \modctx(C',M)  & (C=\mathtt{let}\:x^{t}\:C')
+    \modctx(C'',M) & (C=\mathtt{let}\:M'\:C'\:C''\wedge o.w)                            \\
+    \modctx(C',M)  & (C=\lambda x^{t}.C'\lor C=\Let\:x^{t}\:C')
   \end{cases}
 \]
 
@@ -240,244 +199,253 @@ The relation $\Downarrow$ relates $(e,C,\mem,t)\in\Expr\times\Config{\Time}$ wit
 $(V,\mem,t)\in\Result{\Time}$.
 Note that we constrain whether the evaluation relation returns $v\in\Value{\Time}$(when the expression being evaluated is not a module) or $C\in\Ctx{\Time}$ by the definition of the relation.
 
-\[
-  \begin{prooftree}
-    \hypo{t_{x}=\addr(C,x)}
-    \hypo{v=\mem(t_{x})}
-    \infer[left label=ExprVar]2{
-    (x, C, \mem, t)
-    \Downarrow
-    (v, \mem, t)
-    }
-  \end{prooftree}\qquad
-  \begin{prooftree}
-    \infer[left label=Fn]0{
-    (\lambda x.e, C, \mem, t)
-    \Downarrow
-    (\langle\lambda x.e, C\rangle, \mem, t)
-    }
-  \end{prooftree}
-\]
+\begin{figure}[htb]
+  \footnotesize
+  \[
+    \begin{prooftree}
+      \hypo{t_{x}=\addr(C,x)}
+      \hypo{v=\mem(t_{x})}
+      \infer[left label=ExprVar]2{
+      (x, C, \mem, t)
+      \Downarrow
+      (v, \mem, t)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \infer[left label=Fn]0{
+      (\lambda x.e, C, \mem, t)
+      \Downarrow
+      (\langle\lambda x.e, C\rangle, \mem, t)
+      }
+    \end{prooftree}
+  \]
 
-\[
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, C, \mem, t)
-        \Downarrow
-        (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
-        (e_{2}, C, \mem_{\lambda}, t_{\lambda})
-        \Downarrow
-        (v, \mem_{a}, t_{a})                                                            \\
-        (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \mem_{a}[t_{a}\mapsto v], \tick\:t_{a})
-        \Downarrow
-        (v', \mem',t')
-      \end{matrix}
-    }
-    \infer[left label={App}]1{
-    (e_{1}\:e_{2}, C, \mem, t)
-    \Downarrow
-    (v', \mem',t')
-    }
-  \end{prooftree}\qquad
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, C, \mem, t)
-        \Downarrow
-        (C', \mem', t') \\
-        (e_{2}, C', \mem', t')
-        \Downarrow
-        (V, \mem'', t'')
-      \end{matrix}
-    }
-    \infer[left label=Linking]1{
-    (\link{e_{1}}{e_{2}}, C, \mem, t)
-    \Downarrow
-    (V, \mem'', t'')
-    }
-  \end{prooftree}
-\]
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C, \mem, t)
+          \Downarrow
+          (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
+          (e_{2}, C, \mem_{\lambda}, t_{\lambda})
+          \Downarrow
+          (v, \mem_{a}, t_{a})                                                            \\
+          (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \mem_{a}[t_{a}\mapsto v], \tick\:t_{a})
+          \Downarrow
+          (v', \mem',t')
+        \end{matrix}
+      }
+      \infer[left label={App}]1{
+      (e_{1}\:e_{2}, C, \mem, t)
+      \Downarrow
+      (v', \mem',t')
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C, \mem, t)
+          \Downarrow
+          (C', \mem', t') \\
+          (e_{2}, C', \mem', t')
+          \Downarrow
+          (V, \mem'', t'')
+        \end{matrix}
+      }
+      \infer[left label=Linking]1{
+      (\link{e_{1}}{e_{2}}, C, \mem, t)
+      \Downarrow
+      (V, \mem'', t'')
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \infer[left label=Empty]0{
+      (\varepsilon, C, \mem, t)
+      \Downarrow
+      (C, \mem, t)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{C'=\modctx(C,M)}
+      \infer[left label=ModVar]1{
+      (M, C, \mem, t)
+      \Downarrow
+      (C', \mem, t)
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C, \mem, t)
+          \Downarrow
+          (v, \mem', t') \\
+          (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \mem'[t'\mapsto v], \tick\:t')
+          \Downarrow
+          (C', \mem'', t'')
+        \end{matrix}
+      }
+      \infer[left label=LetE]1{
+      (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
+      \Downarrow
+      (C', \mem'', t'')
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C, \mem, t)
+          \Downarrow
+          (C', \mem', t') \\
+          (e_{2}, C[\mathtt{let}\:M\:C'\:[]], \mem', t')
+          \Downarrow
+          (C'', \mem'', t'')
+        \end{matrix}
+      }
+      \infer[left label=LetM]1{
+      (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \mem, t)
+      \Downarrow
+      (C'', \mem'', t'')
+      }
+    \end{prooftree}
+  \]
+  \caption{The concrete big-step evaluation relation.}
+\end{figure}
 Note that we do not constrain whether $v$ or $C$ is returned by $e_{2}$ in the linking case.
 That is, linking may return either values or modules.
-
-\[
-  \begin{prooftree}
-    \infer[left label=Empty]0{
-    (\varepsilon, C, \mem, t)
-    \Downarrow
-    (C, \mem, t)
-    }
-  \end{prooftree}\qquad
-  \begin{prooftree}
-    \hypo{C'=\modctx(C,M)}
-    \infer[left label=ModVar]1{
-    (M, C, \mem, t)
-    \Downarrow
-    (C', \mem, t)
-    }
-  \end{prooftree}
-\]
-
-\[
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, C, \mem, t)
-        \Downarrow
-        (v, \mem', t') \\
-        (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \mem'[t'\mapsto v], \tick\:t')
-        \Downarrow
-        (C', \mem'', t'')
-      \end{matrix}
-    }
-    \infer[left label=LetE]1{
-    (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
-    \Downarrow
-    (C', \mem'', t'')
-    }
-  \end{prooftree}\qquad
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, C, \mem, t)
-        \Downarrow
-        (C', \mem', t') \\
-        (e_{2}, C[\mathtt{let}\:M\:C'\:[]], \mem', t')
-        \Downarrow
-        (C'', \mem'', t'')
-      \end{matrix}
-    }
-    \infer[left label=LetM]1{
-    (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \mem, t)
-    \Downarrow
-    (C'', \mem'', t'')
-    }
-  \end{prooftree}
-\]
 
 The equivalence of the evaluation relation with a reference interpreter is formalized in Coq.
 
 \section{Collecting Semantics}
 
 To describe what happens when an expression $e$ is excecuted under the context $C$, memory $\mem$ and initial time $t$, we need to collect all \emph{reachable states} starting from $(e,C,\mem,t)$ and all values that are returned by the reachable states.
-We first define the one-step reachability relation $\rightsquigarrow$.
+The single-step reachability relation $\rightsquigarrow$ is defined in .
 
-\[
-  \begin{prooftree}
-    \infer[left label={AppL}]0{
-    (e_{1}\:e_{2}, C, \mem, t)
-    \rightsquigarrow
-    (e_{1},C, \mem,t)
-    }
-  \end{prooftree}\qquad
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, C, \mem, t)
-        \Downarrow
-        (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda})
-      \end{matrix}
-    }
-    \infer[left label={AppR}]1{
-    (e_{1}\:e_{2}, C, \mem, t)
-    \rightsquigarrow
-    (e_{2}, C, \mem_{\lambda}, t_{\lambda})
-    }
-  \end{prooftree}
-\]
+\begin{figure}[htb]
+  \centering
+  \footnotesize
+  \[
+    \begin{prooftree}
+      \infer[left label={AppL}]0{
+      (e_{1}\:e_{2}, C, \mem, t)
+      \rightsquigarrow
+      (e_{1},C, \mem,t)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C, \mem, t)
+          \Downarrow
+          (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda})
+        \end{matrix}
+      }
+      \infer[left label={AppR}]1{
+      (e_{1}\:e_{2}, C, \mem, t)
+      \rightsquigarrow
+      (e_{2}, C, \mem_{\lambda}, t_{\lambda})
+      }
+    \end{prooftree}
+  \]
 
-\[
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, C, \mem, t)
-        \Downarrow
-        (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
-        (e_{2}, C, \mem_{\lambda}, t_{\lambda})
-        \Downarrow
-        (v, \mem_{a}, t_{a})
-      \end{matrix}
-    }
-    \infer[left label={AppBody}]1{
-    (e_{1}\:e_{2}, C, \mem, t)
-    \rightsquigarrow
-    (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \mem_{a}[t_{a}\mapsto v], \tick\:t_{a})
-    }
-  \end{prooftree}
-\]
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C, \mem, t)
+          \Downarrow
+          (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
+          (e_{2}, C, \mem_{\lambda}, t_{\lambda})
+          \Downarrow
+          (v, \mem_{a}, t_{a})
+        \end{matrix}
+      }
+      \infer[left label={AppBody}]1{
+      (e_{1}\:e_{2}, C, \mem, t)
+      \rightsquigarrow
+      (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \mem_{a}[t_{a}\mapsto v], \tick\:t_{a})
+      }
+    \end{prooftree}
+  \]
 
-\[
-  \begin{prooftree}
-    \infer[left label=LinkL]0{
-    (\link{e_{1}}{e_{2}}, C, \mem, t)
-    \rightsquigarrow
-    (e_{1}, C, \mem, t)
-    }
-  \end{prooftree}\qquad
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, C, \mem, t)
-        \Downarrow
-        (C', \mem', t')
-      \end{matrix}
-    }
-    \infer[left label=LinkR]1{
-    (\link{e_{1}}{e_{2}}, C, \mem, t)
-    \rightsquigarrow
-    (e_{2}, C', \mem', t')
-    }
-  \end{prooftree}
-\]
+  \[
+    \begin{prooftree}
+      \infer[left label=LinkL]0{
+      (\link{e_{1}}{e_{2}}, C, \mem, t)
+      \rightsquigarrow
+      (e_{1}, C, \mem, t)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C, \mem, t)
+          \Downarrow
+          (C', \mem', t')
+        \end{matrix}
+      }
+      \infer[left label=LinkR]1{
+      (\link{e_{1}}{e_{2}}, C, \mem, t)
+      \rightsquigarrow
+      (e_{2}, C', \mem', t')
+      }
+    \end{prooftree}
+  \]
 
-\[
-  \begin{prooftree}
-    \infer[left label=LetEL]0{
-    (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
-    \rightsquigarrow
-    (e_{1}, C, \mem, t)
-    }
-  \end{prooftree}\qquad
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, C, \mem, t)
-        \Downarrow
-        (v, \mem', t')
-      \end{matrix}
-    }
-    \infer[left label=LetER]1{
-    (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
-    \rightsquigarrow
-    (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \mem'[t'\mapsto v], \tick\:t')
-    }
-  \end{prooftree}
-\]
+  \[
+    \begin{prooftree}
+      \infer[left label=LetEL]0{
+      (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
+      \rightsquigarrow
+      (e_{1}, C, \mem, t)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C, \mem, t)
+          \Downarrow
+          (v, \mem', t')
+        \end{matrix}
+      }
+      \infer[left label=LetER]1{
+      (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
+      \rightsquigarrow
+      (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \mem'[t'\mapsto v], \tick\:t')
+      }
+    \end{prooftree}
+  \]
 
-\[
-  \begin{prooftree}
-    \infer[left label=LetML]0{
-    (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \mem, t)
-    \rightsquigarrow
-    (e_{1}, C, \mem, t)
-    }
-  \end{prooftree}\qquad
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, C, \mem, t)
-        \Downarrow
-        (C', \mem', t')
-      \end{matrix}
-    }
-    \infer[left label=LetMR]1{
-    (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \mem, t)
-    \rightsquigarrow
-    (e_{2}, C[\mathtt{let}\:M\:C'\:[]], \mem', t')
-    }
-  \end{prooftree}
-\]
+  \[
+    \begin{prooftree}
+      \infer[left label=LetML]0{
+      (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \mem, t)
+      \rightsquigarrow
+      (e_{1}, C, \mem, t)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C, \mem, t)
+          \Downarrow
+          (C', \mem', t')
+        \end{matrix}
+      }
+      \infer[left label=LetMR]1{
+      (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \mem, t)
+      \rightsquigarrow
+      (e_{2}, C[\mathtt{let}\:M\:C'\:[]], \mem', t')
+      }
+    \end{prooftree}
+  \]
+  \caption{The concrete single-step reachability relation.}
+\end{figure}
 The well-definedness of the reachability relation with respect to a reference interpreter is formalized in Coq.
 
 We want to enable separate analysis without making any assumptions on the free variables.
@@ -498,21 +466,32 @@ The relation that collects the reachable states $\rightsquigarrow^{*}$ is define
   The semantics for the non-terminating lambda expression $\Omega=(\lambda x.xx)(\lambda x.xx)$ satisfies:
   \begin{align*}
     \sembracket{\Omega}([],\varnothing,0)(\Omega,[],\varnothing,0)=\varnothing \\
-    \sembracket{\Omega}([],\varnothing,0)(Y,\_,\_,\_)=\bot
+    \sembracket{\Omega}([],\varnothing,0)(\lambda x.x,\_,\_,\_)=\bot
   \end{align*}
-  since (1) $(\Omega,[],\varnothing,0)$ is reached by $(\Omega,[],\varnothing,0)$ but does not return, and (2) since the $Y$ combinator cannot be reached.
+  since $(\Omega,[],\varnothing,0)$ is reached by $(\Omega,[],\varnothing,0)$ but does not return, and since $\lambda x.x$ cannot be reached.
 \end{example}
 
 To justify separate analysis, we decompose the collecting semantics of the linking expression into a composition of the semantics of the left and right expressions.
 
-\begin{definition}[Linking operator]
+\begin{definition}[Exported configurations]
   \begin{align*}
-    \EE\:e_1\:s         & \triangleq\sembracket{e_1}(s)(e_1,s)                                                                                    & (\text{Exported from }e_1\text{ under }s)             \\
-    \LL\:E\:e_2         & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s')                                                                         & (\text{Reached under exported context})               \\
-    \LL^{\circ}\:E\:e_2 & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s')(e_2,s')                                                                 & (\text{Resolved under exported context})              \\
-    \Link\:e_1\:e_2\:s  & \triangleq\sembracket{e_1}(s)\cup\LL\:(\EE\:e_1\:s)\:e_2\cup[(\link{e_1}{e_2},s)\mapsto\LL^{\circ}\:(\EE\:e_1\:s)\:e_2] & (\text{Linking of }e_1\text{ and }e_2\text{ under }s)
+    \EE\:e_1\:s & \triangleq\sembracket{e_1}(s)(e_1,s) & (\text{Exported from }e_1\text{ under }s)
   \end{align*}
 \end{definition}
+
+\begin{definition}[Reached under exported configurations]
+  \begin{align*}
+    \LL\:E\:e_2         & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s')         & (\text{Reached under exported context})  \\
+    \LL^{\circ}\:E\:e_2 & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s')(e_2,s') & (\text{Resolved under exported context})
+  \end{align*}
+\end{definition}
+
+\begin{definition}[Linking operator]
+  \begin{align*}
+    \Link\:e_1\:e_2\:s & \triangleq\sembracket{e_1}(s)\cup\LL\:(\EE\:e_1\:s)\:e_2\cup[(\link{e_1}{e_2},s)\mapsto\LL^{\circ}\:(\EE\:e_1\:s)\:e_2]
+  \end{align*}
+\end{definition}
+
 \begin{thm}[Concrete linking]
   \[
     \sembracket{\link{e_1}{e_2}}(s)=\Link\:e_1\:e_2\:s
@@ -527,21 +506,21 @@ The abstract semantics is almost exactly the same as the concrete semantics, exc
 Note we do not need to define the $\A{C}$, $\A{v}$, $\A{V}$ components, as they are \emph{exactly} their concrete counterparts.
 They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
 
-\begin{bnfgrammar}
-  $\A{t}$ : $\mathrm{Abstract\:time}$ \in \ATime
-  ;;
-  $\A{C}$ : $\mathrm{Context}$ \in \Ctx{\ATime}
-  ;;
-  $\A{v}$ : $\mathrm{Result\:of\:expressions}$ \in \Value{\ATime}
-  ;;
-  $\A{V}$ : $\mathrm{Result\:of\:expressions/modules}$ \in \Value{\ATime}+\Ctx{\ATime}
-  ;;
-  $\A{\mem}$ : $\mathrm{Abstract\:Memory}$ \in \AMem{\ATime} \triangleq \fin{\ATime}{\wp(\Value{\ATime})}
-  ;;
-  $\A{s}$ : $\mathrm{Abstract\:Configuration}$ \in \AConfig{\ATime} \triangleq \Ctx{\ATime}\times\AMem{\ATime}\times\ATime
-  ;;
-  $\A{r}$ : $\mathrm{Abstract\:Result}$ \in \AResult{\ATime} \triangleq (\Value{\ATime}+\Ctx{\ATime})\times\AMem{\ATime}\times\ATime
-\end{bnfgrammar}
+%\begin{bnfgrammar}
+%  $\A{t}$ : $\mathrm{Abstract\:time}$ \in \ATime
+%  ;;
+%  $\A{C}$ : $\mathrm{Context}$ \in \Ctx{\ATime}
+%  ;;
+%  $\A{v}$ : $\mathrm{Result\:of\:expressions}$ \in \Value{\ATime}
+%  ;;
+%  $\A{V}$ : $\mathrm{Result\:of\:expressions/modules}$ \in \Value{\ATime}+\Ctx{\ATime}
+%  ;;
+%  $\A{\mem}$ : $\mathrm{Abstract\:Memory}$ \in \AMem{\ATime} \triangleq \fin{\ATime}{\wp(\Value{\ATime})}
+%  ;;
+%  $\A{s}$ : $\mathrm{Abstract\:Configuration}$ \in \AConfig{\ATime} \triangleq \Ctx{\ATime}\times\AMem{\ATime}\times\ATime
+%  ;;
+%  $\A{r}$ : $\mathrm{Abstract\:Result}$ \in \AResult{\ATime} \triangleq (\Value{\ATime}+\Ctx{\ATime})\times\AMem{\ATime}\times\ATime
+%\end{bnfgrammar}
 
 \subsection{Big-Step Evaluation}
 
@@ -564,246 +543,259 @@ Since we want to utilize the information when the binding is performed, the $\A{
   $(\ATime,\A{\tick})$ is an \emph{abstract time} when $\A{\tick}\in\Ctx{\ATime}\rightarrow\AMem{\ATime}\rightarrow\ATime\rightarrow\ExprVar\rightarrow\Value{\ATime}\rightarrow\ATime$ is the policy for advancing the timestamp.
 \end{definition}
 In our semantics, $\A{\tick}\:\A{C}\:\A{\mem}\:\A{t}\:x\:\A{v}$ is performed when $\A{v}$ is bound to $x$ under configuration $(\A{C},\A{\mem},\A{t})$.
+\begin{figure}[htb]
+  \footnotesize
+  \[
+    \begin{prooftree}
+      \hypo{\A{t_{x}}=\addr(\A{C},x)}
+      \hypo{\A{v}\in\A{\mem}(\A{t_{x}})}
+      \infer[left label=ExprVar]2{
+      (x, \A{C}, \A{\mem}, \A{t})
+      \A{\Downarrow}
+      (\A{v}, \A{\mem}, \A{t})
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \infer[left label=Fn]0{
+      (\lambda x.e, \A{C}, \A{\mem}, \A{t})
+      \A{\Downarrow}
+      (\langle\lambda x.e, \A{C}\rangle, \A{\mem}, \A{t})
+      }
+    \end{prooftree}
+  \]
 
-\[
-  \begin{prooftree}
-    \hypo{\A{t_{x}}=\addr(\A{C},x)}
-    \hypo{\A{v}\in\A{\mem}(\A{t_{x}})}
-    \infer[left label=ExprVar]2{
-    (x, \A{C}, \A{\mem}, \A{t})
-    \A{\Downarrow}
-    (\A{v}, \A{\mem}, \A{t})
-    }
-  \end{prooftree}\qquad
-  \begin{prooftree}
-    \infer[left label=Fn]0{
-    (\lambda x.e, \A{C}, \A{\mem}, \A{t})
-    \A{\Downarrow}
-    (\langle\lambda x.e, \A{C}\rangle, \A{\mem}, \A{t})
-    }
-  \end{prooftree}
-\]
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \A{C}, \A{\mem}, \A{t})
+          \A{\Downarrow}
+          (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\mem_{\lambda}}, \A{t_{\lambda}}) \\
+          (e_{2}, \A{C}, \A{\mem_{\lambda}}, \A{t_{\lambda}})
+          \A{\Downarrow}
+          (\A{v}, \A{\mem_{a}}, \A{t_{a}})                                                            \\
+          (e_{\lambda}, \A{C_{\lambda}}[\lambda x^{\A{t_{a}}}.[]], \A{\mem_{a}}[\A{t_{a}}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem_a}\:\A{t_{a}}\:x\:\A{v})
+          \A{\Downarrow}
+          (\A{v'}, \A{\mem'},\A{t'})
+        \end{matrix}
+      }
+      \infer[left label={App}]1{
+      (e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
+      \A{\Downarrow}
+      (\A{v'}, \A{\mem'},\A{t'})
+      }
+    \end{prooftree}
+  \]
 
-\[
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, \A{C}, \A{\mem}, \A{t})
-        \A{\Downarrow}
-        (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\mem_{\lambda}}, \A{t_{\lambda}}) \\
-        (e_{2}, \A{C}, \A{\mem_{\lambda}}, \A{t_{\lambda}})
-        \A{\Downarrow}
-        (\A{v}, \A{\mem_{a}}, \A{t_{a}})                                                            \\
-        (e_{\lambda}, \A{C_{\lambda}}[\lambda x^{\A{t_{a}}}.[]], \A{\mem_{a}}[\A{t_{a}}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem_a}\:\A{t_{a}}\:x\:\A{v})
-        \A{\Downarrow}
-        (\A{v'}, \A{\mem'},\A{t'})
-      \end{matrix}
-    }
-    \infer[left label={App}]1{
-    (e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
-    \A{\Downarrow}
-    (\A{v'}, \A{\mem'},\A{t'})
-    }
-  \end{prooftree}\:\:
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, \A{C}, \A{\mem}, \A{t})
-        \A{\Downarrow}
-        (\A{C'}, \A{\mem'}, \A{t'}) \\
-        (e_{2}, \A{C'}, \A{\mem'}, \A{t'})
-        \A{\Downarrow}
-        (\A{V}, \A{\mem''}, \A{t''})
-      \end{matrix}
-    }
-    \infer[left label=Linking]1{
-    (\link{e_{1}}{e_{2}}, \A{C}, \A{\mem}, \A{t})
-    \A\Downarrow
-    (\A{V}, \A{\mem''}, \A{t''})
-    }
-  \end{prooftree}
-\]
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \A{C}, \A{\mem}, \A{t})
+          \A{\Downarrow}
+          (\A{C'}, \A{\mem'}, \A{t'}) \\
+          (e_{2}, \A{C'}, \A{\mem'}, \A{t'})
+          \A{\Downarrow}
+          (\A{V}, \A{\mem''}, \A{t''})
+        \end{matrix}
+      }
+      \infer[left label=Linking]1{
+      (\link{e_{1}}{e_{2}}, \A{C}, \A{\mem}, \A{t})
+      \A\Downarrow
+      (\A{V}, \A{\mem''}, \A{t''})
+      }
+    \end{prooftree}
+  \]
 
-\[
-  \begin{prooftree}
-    \infer[left label=Empty]0{
-    (\varepsilon, \A{C}, \A{\mem}, \A{t})
-    \A{\Downarrow}
-    (\A{C}, \A{\mem}, \A{t})
-    }
-  \end{prooftree}\qquad
-  \begin{prooftree}
-    \hypo{\A{C'}=\modctx(\A{C},M)}
-    \infer[left label=ModVar]1{
-    (M, \A{C}, \A{\mem}, \A{t})
-    \A{\Downarrow}
-    (\A{C'}, \A{\mem}, \A{t})
-    }
-  \end{prooftree}
-\]
+  \[
+    \begin{prooftree}
+      \infer[left label=Empty]0{
+      (\varepsilon, \A{C}, \A{\mem}, \A{t})
+      \A{\Downarrow}
+      (\A{C}, \A{\mem}, \A{t})
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{\A{C'}=\modctx(\A{C},M)}
+      \infer[left label=ModVar]1{
+      (M, \A{C}, \A{\mem}, \A{t})
+      \A{\Downarrow}
+      (\A{C'}, \A{\mem}, \A{t})
+      }
+    \end{prooftree}
+  \]
 
-\[
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, \A{C}, \A{\mem}, \A{t})
-        \A\Downarrow
-        (\A{v}, \A{\mem'}, \A{t'}) \\
-        (e_{2}, \A{C}[\mathtt{let}\:x^{\A{t'}}\:[]], \A{\mem'}[\A{t'}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem'}\:\A{t'}\:x\:\A{v})
-        \A\Downarrow
-        (\A{C'}, \A{\mem''}, \A{t''})
-      \end{matrix}
-    }
-    \infer[left label=LetE]1{
-    (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A{\mem}, \A{t})
-    \A\Downarrow
-    (\A{C'}, \A{\mem''}, \A{t''})
-    }
-  \end{prooftree}
-\]
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \A{C}, \A{\mem}, \A{t})
+          \A\Downarrow
+          (\A{v}, \A{\mem'}, \A{t'}) \\
+          (e_{2}, \A{C}[\mathtt{let}\:x^{\A{t'}}\:[]], \A{\mem'}[\A{t'}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem'}\:\A{t'}\:x\:\A{v})
+          \A\Downarrow
+          (\A{C'}, \A{\mem''}, \A{t''})
+        \end{matrix}
+      }
+      \infer[left label=LetE]1{
+      (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A{\mem}, \A{t})
+      \A\Downarrow
+      (\A{C'}, \A{\mem''}, \A{t''})
+      }
+    \end{prooftree}
+  \]
 
-\[
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, \A{C}, \A{\mem}, \A{t})
-        \A\Downarrow
-        (\A{C'}, \A{\mem'}, \A{t'}) \\
-        (e_{2}, \A{C}[\mathtt{let}\:M\:\A{C'}\:[]], \A{\mem'}, \A{t'})
-        \A\Downarrow
-        (\A{C''}, \A{\mem''}, \A{t''})
-      \end{matrix}
-    }
-    \infer[left label=LetM]1{
-    (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
-    \A\Downarrow
-    (\A{C''}, \A{\mem''}, \A{t''})
-    }
-  \end{prooftree}
-\]
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \A{C}, \A{\mem}, \A{t})
+          \A\Downarrow
+          (\A{C'}, \A{\mem'}, \A{t'}) \\
+          (e_{2}, \A{C}[\mathtt{let}\:M\:\A{C'}\:[]], \A{\mem'}, \A{t'})
+          \A\Downarrow
+          (\A{C''}, \A{\mem''}, \A{t''})
+        \end{matrix}
+      }
+      \infer[left label=LetM]1{
+      (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
+      \A\Downarrow
+      (\A{C''}, \A{\mem''}, \A{t''})
+      }
+    \end{prooftree}
+  \]
+  \caption{The abstract big-step evaluation relation.}
+\end{figure}
 
 \subsection{Big-Step Reachability}
-The abstract one-step reachability relation $\A\rightsquigarrow$ is defined as:
+The abstract single-step reachability relation $\A\rightsquigarrow$ is defined as:
 
-\[
-  \begin{prooftree}
-    \infer[left label={AppL}]0{
-    (e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
-    \A\rightsquigarrow
-    (e_{1}, \A{C}, \A{\mem}, \A{t})
-    }
-  \end{prooftree}\qquad
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, \A{C}, \A{\mem}, \A{t})
-        \A{\Downarrow}
-        (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\mem_{\lambda}}, \A{t_{\lambda}})
-      \end{matrix}
-    }
-    \infer[left label={AppR}]1{
-    (e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
-    \A\rightsquigarrow
-    (e_{2}, \A{C}, \A{\mem_{\lambda}}, \A{t_{\lambda}})
-    }
-  \end{prooftree}
-\]
+\begin{figure}[htb]
+  \centering
+  \footnotesize
+  \[
+    \begin{prooftree}
+      \infer[left label={AppL}]0{
+      (e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
+      \A\rightsquigarrow
+      (e_{1}, \A{C}, \A{\mem}, \A{t})
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \A{C}, \A{\mem}, \A{t})
+          \A{\Downarrow}
+          (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\mem_{\lambda}}, \A{t_{\lambda}})
+        \end{matrix}
+      }
+      \infer[left label={AppR}]1{
+      (e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
+      \A\rightsquigarrow
+      (e_{2}, \A{C}, \A{\mem_{\lambda}}, \A{t_{\lambda}})
+      }
+    \end{prooftree}
+  \]
 
-\[
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, \A{C}, \A{\mem}, \A{t})
-        \A{\Downarrow}
-        (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\mem_{\lambda}}, \A{t_{\lambda}}) \\
-        (e_{2}, \A{C}, \A{\mem_{\lambda}}, \A{t_{\lambda}})
-        \A{\Downarrow}
-        (\A{v}, \A{\mem_{a}}, \A{t_{a}})
-      \end{matrix}
-    }
-    \infer[left label={AppBody}]1{
-    (e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
-    \A\rightsquigarrow
-    (e_{\lambda}, \A{C_{\lambda}}[\lambda x^{\A{t_{a}}}.[]], \A{\mem_{a}}[\A{t_{a}}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem_a}\:\A{t_{a}}\:x\:\A{v})
-    }
-  \end{prooftree}
-\]
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \A{C}, \A{\mem}, \A{t})
+          \A{\Downarrow}
+          (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\mem_{\lambda}}, \A{t_{\lambda}}) \\
+          (e_{2}, \A{C}, \A{\mem_{\lambda}}, \A{t_{\lambda}})
+          \A{\Downarrow}
+          (\A{v}, \A{\mem_{a}}, \A{t_{a}})
+        \end{matrix}
+      }
+      \infer[left label={AppBody}]1{
+      (e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
+      \A\rightsquigarrow
+      (e_{\lambda}, \A{C_{\lambda}}[\lambda x^{\A{t_{a}}}.[]], \A{\mem_{a}}[\A{t_{a}}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem_a}\:\A{t_{a}}\:x\:\A{v})
+      }
+    \end{prooftree}
+  \]
 
-\[
-  \begin{prooftree}
-    \infer[left label=LinkL]0{
-    (\link{e_{1}}{e_{2}}, \A{C}, \A{\mem}, \A{t})
-    \A\rightsquigarrow
-    (e_{1}, \A{C}, \A{\mem}, \A{t})
-    }
-  \end{prooftree}\qquad
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, \A{C}, \A{\mem}, \A{t})
-        \A{\Downarrow}
-        (\A{C'}, \A{\mem'}, \A{t'})
-      \end{matrix}
-    }
-    \infer[left label=LinkR]1{
-    (\link{e_{1}}{e_{2}}, \A{C}, \A{\mem}, \A{t})
-    \A\rightsquigarrow
-    (e_{2}, \A{C'}, \A{\mem'}, \A{t'})
-    }
-  \end{prooftree}
-\]
+  \[
+    \begin{prooftree}
+      \infer[left label=LinkL]0{
+      (\link{e_{1}}{e_{2}}, \A{C}, \A{\mem}, \A{t})
+      \A\rightsquigarrow
+      (e_{1}, \A{C}, \A{\mem}, \A{t})
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \A{C}, \A{\mem}, \A{t})
+          \A{\Downarrow}
+          (\A{C'}, \A{\mem'}, \A{t'})
+        \end{matrix}
+      }
+      \infer[left label=LinkR]1{
+      (\link{e_{1}}{e_{2}}, \A{C}, \A{\mem}, \A{t})
+      \A\rightsquigarrow
+      (e_{2}, \A{C'}, \A{\mem'}, \A{t'})
+      }
+    \end{prooftree}
+  \]
 
-\[
-  \begin{prooftree}
-    \infer[left label=LetEL]0{
-    (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A{\mem}, \A{t})
-    \A\rightsquigarrow
-    (e_{1}, \A{C}, \A{\mem}, \A{t})
-    }
-  \end{prooftree}
-\]
+  \[
+    \begin{prooftree}
+      \infer[left label=LetEL]0{
+      (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A{\mem}, \A{t})
+      \A\rightsquigarrow
+      (e_{1}, \A{C}, \A{\mem}, \A{t})
+      }
+    \end{prooftree}
+  \]
 
-\[
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, \A{C}, \A{\mem}, \A{t})
-        \A\Downarrow
-        (\A{v}, \A{\mem'}, \A{t'})
-      \end{matrix}
-    }
-    \infer[left label=LetER]1{
-    (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A{\mem}, \A{t})
-    \A\rightsquigarrow
-    (e_{2}, \A{C}[\mathtt{let}\:x^{\A{t'}}\:[]], \A{\mem'}[\A{t'}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem'}\:\A{t'}\:x\:\A{v})
-    }
-  \end{prooftree}
-\]
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \A{C}, \A{\mem}, \A{t})
+          \A\Downarrow
+          (\A{v}, \A{\mem'}, \A{t'})
+        \end{matrix}
+      }
+      \infer[left label=LetER]1{
+      (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A{\mem}, \A{t})
+      \A\rightsquigarrow
+      (e_{2}, \A{C}[\mathtt{let}\:x^{\A{t'}}\:[]], \A{\mem'}[\A{t'}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem'}\:\A{t'}\:x\:\A{v})
+      }
+    \end{prooftree}
+  \]
 
-\[
-  \begin{prooftree}
-    \infer[left label=LetML]0{
-    (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
-    \A\rightsquigarrow
-    (e_{1}, \A{C}, \A{\mem}, \A{t})
-    }
-  \end{prooftree}\:\:
-  \begin{prooftree}
-    \hypo{
-      \begin{matrix}
-        (e_{1}, \A{C}, \A{\mem}, \A{t})
-        \A\Downarrow
-        (\A{C'}, \A{\mem'}, \A{t'})
-      \end{matrix}
-    }
-    \infer[left label=LetMR]1{
-    (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
-    \A\rightsquigarrow
-    (e_{2}, \A{C}[\mathtt{let}\:M\:\A{C'}\:[]], \A{\mem'}, \A{t'})
-    }
-  \end{prooftree}
-\]
+  \[
+    \begin{prooftree}
+      \infer[left label=LetML]0{
+      (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
+      \A\rightsquigarrow
+      (e_{1}, \A{C}, \A{\mem}, \A{t})
+      }
+    \end{prooftree}
+  \]
 
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \A{C}, \A{\mem}, \A{t})
+          \A\Downarrow
+          (\A{C'}, \A{\mem'}, \A{t'})
+        \end{matrix}
+      }
+      \infer[left label=LetMR]1{
+      (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
+      \A\rightsquigarrow
+      (e_{2}, \A{C}[\mathtt{let}\:M\:\A{C'}\:[]], \A{\mem'}, \A{t'})
+      }
+    \end{prooftree}
+  \]
+  \caption{The abstract single-step reachability relation.}
+\end{figure}
 \subsection{Soundness}
 
 From the relations above, we can define the abstract semantics:
@@ -822,12 +814,12 @@ We need to present how to compute the abstract semantics by equating the semanti
   \begin{itemize}
     \item Define $\A{\Downarrow}_{\A{a}}$ and $\A{\rightsquigarrow}_{\A{a}}$ by replacing all assumptions of the form $(e,\A{s})\A\Downarrow\A{r}$ to $\A{r}\in\A{a}(e,\A{s})$ in $\A\Downarrow$ and $\A\rightsquigarrow$.
     \item Define the $\A{\mathsf{step}}$ function that collects all results derivable in one step from $(e,\A{s})$ using $\A{a}$.
-    \[
-      \A{\mathsf{step}}(\A{a})(e,\A{s})\triangleq
-      [(e,\A{s})\mapsto\{\A{r}|(e,\A{s})\A{\Downarrow}_{\A{a}}\A{r}\}]
-      \sqcup
-      \bigsqcup_{(e,\A{s})\A{\rightsquigarrow}_{\A{a}}(e',\A{s'})}[(e',\A{s'})\mapsto\varnothing]
-    \]
+          \[
+            \A{\mathsf{step}}(\A{a})(e,\A{s})\triangleq
+            [(e,\A{s})\mapsto\{\A{r}|(e,\A{s})\A{\Downarrow}_{\A{a}}\A{r}\}]
+            \sqcup
+            \bigsqcup_{(e,\A{s})\A{\rightsquigarrow}_{\A{a}}(e',\A{s'})}[(e',\A{s'})\mapsto\varnothing]
+          \]
   \end{itemize}
 
   We define the transfer function $\A{F}$ by:
@@ -874,7 +866,7 @@ Instead, we define a notion of soundness between abstract and concrete results a
     \forall e\in\Expr,s\in\Config{\Time},r\in\Result{\Time}:r\in a(e,s)\Rightarrow\exists\alpha,\alpha',\A{s},\A{r}:\alpha(s)\sqsubseteq\A{s}\wedge\alpha'(r)\sqsubseteq\A{r}\in\A{a}(e,\A{s})
   \]
 
-  That is, $\A{a}$ is sound with respect to $a$ iff for every $(e,s), r$ pair in $a$, there exists an $\alpha$-sound pair in $\A{a}$.
+  $\A{a}$ is sound with respect to $a$ iff for every $(e,s), r$ pair in $a$, there exists an $\alpha$-sound pair in $\A{a}$.
 \end{definition}
 
 \begin{lem}[Preservation of soundness, relation version]
@@ -888,8 +880,8 @@ Instead, we define a notion of soundness between abstract and concrete results a
 
   Then for all $e$,
   \begin{enumerate}
-    \item If $(e,s)\Downarrow r$, then there exists $\alpha',\A{r}$ such that $(e,\A{s})\A\Downarrow\A{r}$ and $\alpha'(s)\sqsubseteq\A{s}$ and $\alpha'(r)\sqsubseteq\A{r}$.
-    \item If $(e,s)\rightsquigarrow (e',s')$, then there exists $\alpha', \A{s'}$ such that $(e,\A{s})\A\rightsquigarrow(e',\A{s'})$ and $\alpha'(s)\sqsubseteq\A{s}$ and $\alpha'(s')\sqsubseteq\A{s'}$.
+    \item If $(e,s)\Downarrow r$, then $\exists\alpha',\A{r}$ such that $(e,\A{s})\A\Downarrow\A{r}$, $\alpha'(s)\sqsubseteq\A{s}$, and $\alpha'(r)\sqsubseteq\A{r}$.
+    \item If $(e,s)\rightsquigarrow (e',s')$, then $\exists\alpha', \A{s'}$ such that $(e,\A{s})\A\rightsquigarrow(e',\A{s'})$, $\alpha'(s)\sqsubseteq\A{s}$, and $\alpha'(s')\sqsubseteq\A{s'}$.
   \end{enumerate}
 \end{lem}
 
@@ -946,6 +938,7 @@ We extend the injection operator to map over all closures in a memory so that $\
 \]
 
 \[
+  \scriptsize
   \deletemap(C_{1},C_{2})\triangleq
   \begin{cases}
     []                                                                     & (C_{2}=[])               \\
@@ -1053,13 +1046,18 @@ Finally, before delving into the definition of the linked time domain, we need t
   \]
 \end{lem}
 
-\begin{definition}[Abstract linking operator]
+\begin{definition}[Auxiliary operators for linking]
   \begin{align*}
-    \A\EE\:\A{a}\:e_1\:\A{s}        & \triangleq\A{a}(e_1,\A{s})                                                                                                                             & (\text{Exported from }e_1\text{ under }\A{s}\text{ using }\A{a}) \\
-    \A\LL\:\A{E}\:e_2               & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}([],\varnothing,\A{0}))                                                          & (\text{Reached under exported context})                          \\
-    \A{\LL^{\circ}}\:\A{E}\:e_2     & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}([],\varnothing,\A{0}))(e_2,\A{s'}\rhd([],\varnothing,\A{0}))                    & (\text{Resolved under exported context})                         \\
-    \A\Link\:\A{a}\:e_1\:e_2\:\A{s} & \triangleq\A{a}(\A{s})\cup\A\LL\:(\A\EE\:\A{a}\:e_1\:\A{s})\:e_2\sqcup[(\link{e_1}{e_2},\A{s})\mapsto\A{\LL^{\circ}}\:(\A\EE\:\A{a}\:e_1\:\A{s})\:e_2] & (\text{Linking under }\A{s}\text{ using }\A{a})
+    \A\EE\:\A{a}\:e_1\:\A{s}    & \triangleq\A{a}(e_1,\A{s})                                                                                                          & (\text{Exported by }e_1\text{ under }\A{s}\text{ using }\A{a}) \\
+    \A\LL\:\A{E}\:e_2           & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}([],\varnothing,\A{0}))                                       & (\text{Reached under exported context})                          \\
+    \A{\LL^{\circ}}\:\A{E}\:e_2 & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}([],\varnothing,\A{0}))(e_2,\A{s'}\rhd([],\varnothing,\A{0})) & (\text{Resolved under exported context})
   \end{align*}
+\end{definition}
+
+\begin{definition}[Abstract linking operator]
+  \[
+    \A\Link\:\A{a}\:e_1\:e_2\:\A{s}\triangleq\A{a}(\A{s})\cup\A\LL\:(\A\EE\:\A{a}\:e_1\:\A{s})\:e_2\sqcup[(\link{e_1}{e_2},\A{s})\mapsto\A{\LL^{\circ}}\:(\A\EE\:\A{a}\:e_1\:\A{s})\:e_2]
+  \]
 \end{definition}
 
 \begin{thm}[Abstract linking]
@@ -1094,7 +1092,7 @@ Why did we introduce $\A{a}$, instead of using $\A{\sembracket{e_1}}(\A{s})$ dir
   \]
 \end{thm}
 
-\printbibliography
+%\printbibliography
 \end{document}
 %%% Local Variables: 
 %%% coding: utf-8
