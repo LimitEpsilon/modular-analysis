@@ -71,6 +71,12 @@ Proof.
   rewrite Nat.eqb_neq. unfold not. intros. apply H. subst; eauto.
 Qed.
 
+Inductive st_ctx :=
+  | st_hole
+  | st_binde (x : expr_id) (C : st_ctx)
+  | st_bindm (M : mod_id) (CM : st_ctx) (C : st_ctx)
+.
+
 Inductive tm :=
   | e_var (x : expr_id)
   | e_lam (x : expr_id) (e : tm)
@@ -78,84 +84,53 @@ Inductive tm :=
   | e_link (m : tm) (e : tm)
   | m_empty
   | m_var (M : mod_id)
-  | m_lete (x : expr_id) (e : tm) (m : tm)
-  | m_letm (M : mod_id) (m1 : tm) (m2 : tm)
+  | m_lam (M : mod_id) (s : st_ctx) (e : tm)
+  | m_app (e1 : tm) (e2 : tm) (s : st_ctx)
 .
 
 Inductive value : tm -> Prop :=
   | v_fn x e : value (e_lam x e)
+  | v_ft M s e : value (m_lam M s e)
 .
-
-Inductive st_ctx :=
-  | st_c_hole
-  | st_c_lam (x : expr_id) (C : st_ctx)
-  | st_c_lete (x : expr_id) (C : st_ctx)
-  | st_c_letm (M : mod_id) (CM : st_ctx) (C : st_ctx)
-.
-
-Fixpoint st_level (C : st_ctx) : nat :=
-  match C with
-  | st_c_hole => 0
-  | st_c_lam _ C'
-  | st_c_lete _ C' => S (st_level C')
-  | st_c_letm _ _ C' => st_level C'
-  end.
 
 Fixpoint st_ctx_M (C : st_ctx) (M : mod_id) :=
   match C with
-  | st_c_hole => None
-  | st_c_lam _ C'
-  | st_c_lete _ C' => st_ctx_M C' M
-  | st_c_letm M' CM' C' =>
+  | st_hole => None
+  | st_binde _ C' => st_ctx_M C' M
+  | st_bindm M' CM' C' =>
     match st_ctx_M C' M with
     | Some CM => Some CM
     | None => if eq_mid M M' then Some CM' else None
     end
   end.
 
-Fixpoint st_c_plugin (Cout : st_ctx) (Cin : st_ctx) :=
+Fixpoint st_plugin (Cout : st_ctx) (Cin : st_ctx) :=
   match Cout with
-  | st_c_hole => Cin
-  | st_c_lam x C' => st_c_lam x (st_c_plugin C' Cin)
-  | st_c_lete x C' => st_c_lete x (st_c_plugin C' Cin)
-  | st_c_letm M' CM' C' => st_c_letm M' CM' (st_c_plugin C' Cin)
+  | st_hole => Cin
+  | st_binde x C' => st_binde x (st_plugin C' Cin)
+  | st_bindm M' CM' C' => st_bindm M' CM' (st_plugin C' Cin)
   end.
 
-Lemma st_c_plugin_assoc : forall C1 C2 C3,
-  st_c_plugin (st_c_plugin C1 C2) C3 =
-  st_c_plugin C1 (st_c_plugin C2 C3). 
+Lemma st_plugin_assoc : forall C1 C2 C3,
+  st_plugin (st_plugin C1 C2) C3 =
+  st_plugin C1 (st_plugin C2 C3). 
 Proof.
   induction C1; eauto; 
   intros; simpl; try rewrite IHC1; eauto.
   rewrite IHC1_2. eauto.
 Qed.
 
-Lemma st_c_plugin_add_level :
-  forall C1 C2, st_level (st_c_plugin C1 C2) = st_level C1 + st_level C2.
-Proof.
-  induction C1; induction C2; intros; simpl; eauto.
-  - assert (RR : st_level (st_c_letm M C2_1 C2_2) = st_level C2_2); eauto.
-    specialize (IHC1 (st_c_letm M C2_1 C2_2)).
-    rewrite IHC1. rewrite RR. eauto.
-  - assert (RR : st_level (st_c_letm M C2_1 C2_2) = st_level C2_2); eauto.
-    specialize (IHC1 (st_c_letm M C2_1 C2_2)).
-    rewrite IHC1. rewrite RR. eauto.
-  - assert (RR : st_level (st_c_letm M0 C2_1 C2_2) = st_level C2_2); eauto.
-    specialize (IHC1_2 (st_c_letm M0 C2_1 C2_2)).
-    rewrite IHC1_2. rewrite RR. eauto.
-Qed.
-
-Notation "Cout '[[|' Cin '|]]'" := (st_c_plugin Cout Cin)
+Notation "Cout '[[|' Cin '|]]'" := (st_plugin Cout Cin)
                               (at level 100, Cin at next level, right associativity).
 
-Notation "'[[||]]'" := (st_c_hole) (at level 100).
+Notation "'[[||]]'" := (st_hole) (at level 100).
 
 (* collect all static contexts reachable from the current configuration *)
 Fixpoint collect_ctx C e :=
   match e with
   | e_var x => (None, [C])
   | e_lam x e' => 
-    let ctx_body := snd (collect_ctx (C [[|st_c_lam x ([[||]])|]]) e') in
+    let ctx_body := snd (collect_ctx (C [[|st_binde x ([[||]])|]]) e') in
     (None, C :: ctx_body)
   | e_app e1 e2 =>
     let ctxs1 := snd (collect_ctx C e1) in
@@ -174,24 +149,18 @@ Fixpoint collect_ctx C e :=
     | Some C_M => (Some C_M, [C])
     | None => (None, [C])
     end
-  | m_lete x e m' =>
-    let ctxs_e := snd (collect_ctx C e) in
-    let (ctx_o, ctxs_m) := collect_ctx 
-                           (C [[|st_c_lete x ([[||]])|]]) m' in
-    (ctx_o, ctxs_e ++ ctxs_m)
-  | m_letm M m1 m2 =>
-    match collect_ctx C m1 with
-    | (Some C_M, ctxs_m1) => 
-      let (ctx_o, ctxs_m2) := collect_ctx
-                              (C [[|st_c_letm M C_M ([[||]])|]]) m2 in
-      (ctx_o, ctxs_m1 ++ ctxs_m2)
-    | (None, ctxs_m1) => (None, ctxs_m1)
-    end
+  | m_lam M s e =>
+    let ctx_body := snd (collect_ctx (C [[|st_bindm M s ([[||]])|]]) e) in
+    (None, C :: ctx_body)
+  | m_app e1 e2 s =>
+    let ctxs1 := snd (collect_ctx C e1) in
+    let ctxs2 := snd (collect_ctx C e2) in
+    (Some (st_plugin C s), ctxs1 ++ ctxs2)
   end.
 
 Lemma st_ctx_M_plugin :
   forall Cout Cin M,
-    st_ctx_M (st_c_plugin Cout Cin) M =
+    st_ctx_M (st_plugin Cout Cin) M =
       match st_ctx_M Cin M with
       | Some CM => Some CM
       | None =>
@@ -209,10 +178,10 @@ Proof.
     rewrite IHCout2.
     destruct (st_ctx_M Cout2 M0). eauto.
     assert (RR : forall Cout0 Cin0, 
-    st_ctx_M (st_c_plugin Cout0 Cin0) M0 = None -> st_ctx_M Cin0 M0 = None).
+    st_ctx_M (st_plugin Cout0 Cin0) M0 = None -> st_ctx_M Cin0 M0 = None).
     { induction Cout0; intros; simpl; eauto. 
       simpl in H. apply IHCout0_2.
-      destruct (st_ctx_M (st_c_plugin Cout0_2 Cin0) M0).
+      destruct (st_ctx_M (st_plugin Cout0_2 Cin0) M0).
       inversion H. eauto. }
     specialize (IHCout1 Cin M0).
     rewrite (RR Cout2 Cin IHCout2) in IHCout1.
@@ -231,49 +200,39 @@ Proof.
     destruct (collect_ctx s e2); simpl in *. 
     apply in_app_iff. left. eauto.
   - destruct (st_ctx_M C M); simpl; left; eauto.
-  - destruct (collect_ctx (C [[|st_c_lete x ([[||]])|]]) e2).
-    apply in_app_iff. left. eauto.
-  - remember (collect_ctx C e1) as ol.
-    destruct ol as [o l]. specialize (IHe1 C). rewrite <- Heqol in IHe1.
-    destruct o; eauto.
-    destruct (collect_ctx (C [[|st_c_letm M s ([[||]])|]]) e2).
-    apply in_app_iff. left. eauto.
+  - apply in_app_iff. eauto.
 Qed.
 
 (* dynamic context *)
 Inductive dy_ctx {time : Type} :=
-  | dy_c_hole
-  | dy_c_lam (x: expr_id) (tx : time) (C : dy_ctx)
-  | dy_c_lete (x : expr_id) (tx : time) (C : dy_ctx)
-  | dy_c_letm (M : mod_id) (CM : dy_ctx) (C : dy_ctx)
+  | dy_hole
+  | dy_binde (x: expr_id) (tx : time) (C : dy_ctx)
+  | dy_bindm (M : mod_id) (CM : dy_ctx) (C : dy_ctx)
 .
 
-Fixpoint dy_plugin_c {time : Type} (Cout : @dy_ctx time) (Cin : @dy_ctx time) :=
+Fixpoint dy_plugin {time : Type} (Cout : @dy_ctx time) (Cin : @dy_ctx time) :=
   match Cout with
-  | dy_c_hole => Cin
-  | dy_c_lam x tx C' => dy_c_lam x tx (dy_plugin_c C' Cin)
-  | dy_c_lete x tx C' => dy_c_lete x tx (dy_plugin_c C' Cin)
-  | dy_c_letm M CM C' => dy_c_letm M CM (dy_plugin_c C' Cin)
+  | dy_hole => Cin
+  | dy_binde x tx C' => dy_binde x tx (dy_plugin C' Cin)
+  | dy_bindm M CM C' => dy_bindm M CM (dy_plugin C' Cin)
   end.
 
 Fixpoint addr_x {time : Type} (C : @dy_ctx time) (x : expr_id) :=
   match C with
-  | dy_c_hole => None
-  | dy_c_lam x' tx' C'
-  | dy_c_lete x' tx' C' =>
+  | dy_hole => None
+  | dy_binde x' tx' C' =>
     match addr_x C' x with
     | None => if eq_eid x x' then (Some tx') else None
     | addr => addr
     end
-  | dy_c_letm _ _ C' => addr_x C' x
+  | dy_bindm _ _ C' => addr_x C' x
   end.
 
 Fixpoint ctx_M {time : Type} (C : @dy_ctx time) (M : mod_id) :=
   match C with
-  | dy_c_hole => None
-  | dy_c_lam _ _ C'
-  | dy_c_lete _ _ C' => ctx_M C' M
-  | dy_c_letm M' CM' C' =>
+  | dy_hole => None
+  | dy_binde _ _ C' => ctx_M C' M
+  | dy_bindm M' CM' C' =>
     match ctx_M C' M with
     | Some CM => Some CM
     | None => if eq_mid M M' then Some CM' else None
@@ -282,7 +241,8 @@ Fixpoint ctx_M {time : Type} (C : @dy_ctx time) (M : mod_id) :=
 
 (* a term, a context *)
 Inductive expr_value {time : Type} :=
-  | Closure (x : expr_id) (e : tm) (C : @dy_ctx time)
+  | Fun (x : expr_id) (e : tm) (C : @dy_ctx time)
+  | Func (M : mod_id) (e : tm) (C : @dy_ctx time)
 .
 
 Inductive dy_value {time : Type} :=
@@ -290,27 +250,18 @@ Inductive dy_value {time : Type} :=
   | MVal (mv : @dy_ctx time)
 .
 
-Notation "Cout '[|' Cin '|]'" := (dy_plugin_c Cout Cin)
+Notation "Cout '[|' Cin '|]'" := (dy_plugin Cout Cin)
                               (at level 100, Cin at next level, right associativity).
-Notation "'[||]'" := (dy_c_hole) (at level 100).
+Notation "'[||]'" := (dy_hole) (at level 100).
 
 Fixpoint In_ctx {T} (t : T) (C : @dy_ctx T) :=
   match C with
   | [||] => False
-  | dy_c_lam _ t' C'
-  | dy_c_lete _ t' C' => t = t' \/ In_ctx t C'
-  | dy_c_letm _ C' C'' => In_ctx t C' \/ In_ctx t C''
+  | dy_binde _ t' C' => t = t' \/ In_ctx t C'
+  | dy_bindm _ C' C'' => In_ctx t C' \/ In_ctx t C''
   end.
 
-Fixpoint dy_level {T} (C : @dy_ctx T) :=
-  match C with
-  | [||] => 0
-  | dy_c_lam _ _ C'
-  | dy_c_lete _ _ C' => S (dy_level C')
-  | dy_c_letm _ C' C'' => S (Nat.max (dy_level C') (dy_level C''))
-  end.
-
-Lemma c_plugin_assoc : forall {T} (C1 : @dy_ctx T) C2 C3, C1[| C2[| C3 |] |] = ((C1[|C2|])[|C3|]).
+Lemma dy_plugin_assoc : forall {T} (C1 : @dy_ctx T) C2 C3, C1[| C2[| C3 |] |] = ((C1[|C2|])[|C3|]).
 Proof.
   induction C1; eauto; 
   intros; simpl; try rewrite IHC1; eauto.
@@ -319,10 +270,9 @@ Qed.
 
 Fixpoint dy_to_st {T} (C : @dy_ctx T) :=
   match C with
-  | ([||]) => st_c_hole
-  | dy_c_lam x _ C' => st_c_lam x (dy_to_st C')
-  | dy_c_lete x _ C' => st_c_lete x (dy_to_st C')
-  | dy_c_letm M CM C' => st_c_letm M (dy_to_st CM) (dy_to_st C')
+  | ([||]) => st_hole
+  | dy_binde x _ C' => st_binde x (dy_to_st C')
+  | dy_bindm M CM C' => st_bindm M (dy_to_st CM) (dy_to_st C')
   end.
 
 Lemma in_plugin_iff :
@@ -338,12 +288,12 @@ Proof.
   try destruct H as [? | [? | ?]];
   try destruct H as [[? | ?] | ?];
   eauto.
-  destruct H; try assumption; inversion H. 
+  destruct H; try assumption; inversion H.
 Qed.
 
 Lemma dy_to_st_plugin :
   forall {T} (Cout : @dy_ctx T) Cin,
-    dy_to_st (Cout[|Cin|]) = st_c_plugin (dy_to_st Cout) (dy_to_st Cin).
+    dy_to_st (Cout[|Cin|]) = st_plugin (dy_to_st Cout) (dy_to_st Cin).
 Proof.
   induction Cout; intros; simpl; try rewrite IHCout; eauto.
   rewrite IHCout2. eauto.
@@ -396,10 +346,9 @@ Class Eq T : Type :=
 Fixpoint eq_ctx {T} `{Eq T} (C1 : @dy_ctx T) (C2 : @dy_ctx T) :=
   match C1, C2 with
   | [||], [||] => true
-  | dy_c_lam x1 t1 C1', dy_c_lam x2 t2 C2'
-  | dy_c_lete x1 t1 C1', dy_c_lete x2 t2 C2' =>
+  | dy_binde x1 t1 C1', dy_binde x2 t2 C2' =>
     eq_eid x1 x2 && eqb t1 t2 && eq_ctx C1' C2'
-  | dy_c_letm M1 C1' C1'', dy_c_letm M2 C2' C2'' =>
+  | dy_bindm M1 C1' C1'', dy_bindm M2 C2' C2'' =>
     eq_mid M1 M2 && eq_ctx C1' C2' && eq_ctx C1'' C2''
   | _, _ => false
   end.
@@ -453,6 +402,35 @@ Proof.
   - destruct (eq_ctx C C') eqn:EQ; try reflexivity.
     rewrite eq_ctx_eq in EQ. apply H0 in EQ. inversion EQ.
 Qed.
+
+(* projection *)
+
+Fixpoint project {T} (d : @dy_ctx T) (s : st_ctx) :=
+  match s with
+  | [[||]] => Some ([||])
+  | st_binde x C =>
+    match addr_x d x with
+    | Some t =>
+      match project d C with
+      | Some C' => Some (dy_binde x t C')
+      | None => None
+      end
+    | None => None
+    end
+  | st_bindm M CM C =>
+    match ctx_M d M with
+    | Some CM' =>
+      match project CM' CM with
+      | Some C' =>
+        match project d C with
+        | Some C'' => Some (dy_bindm M C' C'')
+        | None => None
+        end
+      | None => None
+      end
+    | None => None
+    end
+  end.
 
 (* injection, deletion *)
 

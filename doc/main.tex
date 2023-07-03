@@ -820,17 +820,21 @@ We need to present how to compute the abstract semantics by equating the semanti
   Given an element $\A{a}$ of $(\Expr\times\AConfig{\ATime})\rightarrow{\wp(\AResult{\ATime})}_{\bot}$,
 
   \begin{itemize}
-    \item Define $\A{\Downarrow}_{\A{a}}$ and $\A{\rightsquigarrow}_{\A{a}}$ by replacing all assumptions of the form $\A{s}\A\Downarrow\A{r}$ to $\A{r}\in\A{a}(\A{s})$ in $\A\Downarrow$ and $\A\rightsquigarrow$.
+    \item Define $\A{\Downarrow}_{\A{a}}$ and $\A{\rightsquigarrow}_{\A{a}}$ by replacing all assumptions of the form $(e,\A{s})\A\Downarrow\A{r}$ to $\A{r}\in\A{a}(e,\A{s})$ in $\A\Downarrow$ and $\A\rightsquigarrow$.
+    \item Define the $\A{\mathsf{step}}$ function that collects all results derivable in one step from $(e,\A{s})$ using $\A{a}$.
+    \[
+      \A{\mathsf{step}}(\A{a})(e,\A{s})\triangleq
+      [(e,\A{s})\mapsto\{\A{r}|(e,\A{s})\A{\Downarrow}_{\A{a}}\A{r}\}]
+      \sqcup
+      \bigsqcup_{(e,\A{s})\A{\rightsquigarrow}_{\A{a}}(e',\A{s'})}[(e',\A{s'})\mapsto\varnothing]
+    \]
   \end{itemize}
 
   We define the transfer function $\A{F}$ by:
   \[
-    \A{F}(\A{a})\triangleq\A{a}\sqcup\bigsqcup_{
-    \scriptsize
-    \begin{array}{c}
-      (e,\A{s})\in\mathsf{dom}(\A{a}) \\
-      (e,\A{s})\A{\rightsquigarrow}_{\A{a}}(e',\A{s'})
-    \end{array}}[(e',\A{s'})\mapsto\{\A{r}|(e',\A{s'})\A{\Downarrow}_{\A{a}}\A{r}\}]
+    \A{F}(\A{a})\triangleq
+    \bigsqcup_{(e,\A{s})\in\mathsf{dom}(\A{a})}
+    {\A{\mathsf{step}}(\A{a})(e,\A{s})}
   \]
 \end{definition}
 
@@ -1051,14 +1055,14 @@ Finally, before delving into the definition of the linked time domain, we need t
 
 \begin{definition}[Abstract linking operator]
   \begin{align*}
-    \A\EE\:\A{a}\:e_1\:\A{s}        & \triangleq\A{a}(e_1,\A{s})                                                                                    & (\text{Exported from }e_1\text{ under }\A{s}\text{ using }\A{a})             \\
-    \A\LL\:\A{E}\:e_2               & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{e_2}([],\varnothing,\A{0}))                                                                         & (\text{Reached under exported context})               \\
-    \A{\LL^{\circ}}\:\A{E}\:e_2     & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{e_2}([],\varnothing,\A{0}))(e_2,\A{s'}\rhd([],\varnothing,\A{0}))                                                                 & (\text{Resolved under exported context})              \\
+    \A\EE\:\A{a}\:e_1\:\A{s}        & \triangleq\A{a}(e_1,\A{s})                                                                                                                             & (\text{Exported from }e_1\text{ under }\A{s}\text{ using }\A{a}) \\
+    \A\LL\:\A{E}\:e_2               & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}([],\varnothing,\A{0}))                                                          & (\text{Reached under exported context})                          \\
+    \A{\LL^{\circ}}\:\A{E}\:e_2     & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}([],\varnothing,\A{0}))(e_2,\A{s'}\rhd([],\varnothing,\A{0}))                    & (\text{Resolved under exported context})                         \\
     \A\Link\:\A{a}\:e_1\:e_2\:\A{s} & \triangleq\A{a}(\A{s})\cup\A\LL\:(\A\EE\:\A{a}\:e_1\:\A{s})\:e_2\sqcup[(\link{e_1}{e_2},\A{s})\mapsto\A{\LL^{\circ}}\:(\A\EE\:\A{a}\:e_1\:\A{s})\:e_2] & (\text{Linking under }\A{s}\text{ using }\A{a})
   \end{align*}
 \end{definition}
 
-\begin{thm}[Abstract linking] 
+\begin{thm}[Abstract linking]
   Let $s$ be a concrete configuration.
 
   Let $\A{s}$ be an $\alpha$-sound approximation of $s$ for some $\alpha$, let $\sembracket{e_1}(s)\lesssim\A{a}$, and let $\sembracket{e_1}(s)(e_1,s)\lesssim\A{a}(e_1,\A{s})$. Then:
