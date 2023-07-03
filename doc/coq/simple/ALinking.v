@@ -326,3 +326,70 @@ Proof.
       rewrite <- plugin_inject_assoc. simpl. eauto. } 
     rewrite RR. clear RR. simpl in *. exact IHEVAL2.
 Qed.
+
+Lemma delete_reach_eq `{Eq BT} `{time AT} (Cout : @dy_ctx BT) :
+  forall bmem C st e C' st' e'
+         (REACH : @one_reach AT _ _ C st e C' st' e'),
+    let inject_C := (lift_ctx_bf Cout) <|(lift_ctx_af C)|> in
+    let inject_C' := (lift_ctx_bf Cout) <|(lift_ctx_af C')|> in
+    let inject_st :=
+      match st with
+      | ST amem t => ST (link_mem bmem Cout amem) (AF t)
+      end in
+    let inject_st' :=
+      match st' with
+      | ST amem' t' => ST (link_mem bmem Cout amem') (AF t')
+      end in
+    @one_reach (@link BT AT) _ (link_time Cout)
+      inject_C inject_st e inject_C' inject_st' e'.
+Proof.
+  intros. destruct REACH; try destruct st.
+  - apply one_appl.
+  - destruct st_lam.
+    apply delete_eval_eq with (Cout := Cout) (bmem := bmem) in FN.
+    eapply one_appr; simpl in *; eauto.
+  - apply delete_eval_eq with (Cout := Cout) (bmem := bmem) in FN.
+    apply delete_eval_eq with (Cout := Cout) (bmem := bmem) in ARG.
+    destruct st_lam. subst inject_C inject_st inject_C' inject_st'.
+    rewrite <- link_update_m_eq. rewrite lift_plugin_af. rewrite <- plugin_inject_assoc.
+    simpl in *.
+    replace (AF (tick C (ST mem t) x arg)) with 
+      (link_tick Cout (lift_ctx_bf Cout <| lift_ctx_af C |>)
+        (ST (link_mem bmem Cout mem) (AF t)) x (inject_ctx_v (lift_ctx_bf Cout) (lift_v_af arg))).
+    apply (@one_appbody (@link BT AT) _ (link_time Cout) 
+                        (lift_ctx_bf Cout <| lift_ctx_af C |>)
+                        (ST (link_mem bmem Cout mem0) (AF t0))
+                        e1 e2 x e (lift_ctx_bf Cout <| lift_ctx_af C_lam |>)
+                        (ST (link_mem bmem Cout mem1) (AF t1))
+                        (inject_ctx_v (lift_ctx_bf Cout) (lift_v_af arg))
+                        (link_mem bmem Cout mem) (AF t)). eauto. eauto.
+    destruct arg. simpl.
+    repeat rewrite delete_inject_eq. repeat rewrite filter_delete_eq. repeat rewrite filter_lift_eq_af. eauto.
+  - apply one_linkl.
+  - destruct st_m.
+    apply delete_eval_eq with (Cout := Cout) (bmem := bmem) in MOD.
+    eapply one_linkr; simpl in *; eauto.
+  - apply one_letel.
+  - apply delete_eval_eq with (Cout := Cout) (bmem := bmem) in EVALx.
+    subst inject_C inject_st inject_C' inject_st'.
+    rewrite <- link_update_m_eq. rewrite lift_plugin_af. rewrite <- plugin_inject_assoc.
+    simpl in *.
+    replace (AF (tick C (ST mem t) x v)) with 
+      (link_tick Cout (lift_ctx_bf Cout <| lift_ctx_af C |>)
+        (ST (link_mem bmem Cout mem) (AF t)) x (inject_ctx_v (lift_ctx_bf Cout) (lift_v_af v))).
+    apply (@one_leter (@link BT AT) _ (link_time Cout) 
+                      (lift_ctx_bf Cout <| lift_ctx_af C |>)
+                      (ST (link_mem bmem Cout mem0) (AF t0))
+                      x e m 
+                      (inject_ctx_v (lift_ctx_bf Cout) (lift_v_af v))
+                      (link_mem bmem Cout mem) (AF t)). eauto.
+    destruct v. simpl.
+    repeat rewrite delete_inject_eq. repeat rewrite filter_delete_eq. repeat rewrite filter_lift_eq_af. eauto.
+  - apply one_letml.
+  - destruct st_M.
+    apply delete_eval_eq with (Cout := Cout) (bmem := bmem) in EVALM.
+    subst inject_C inject_st inject_C' inject_st'.
+    rewrite lift_plugin_af. rewrite <- plugin_inject_assoc.
+    simpl in *.
+    eapply one_letmr; simpl in *; eauto.
+Qed.
