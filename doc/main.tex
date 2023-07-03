@@ -1,11 +1,114 @@
 %! TEX program = xelatex
-\documentclass[acmsmall,screen]{acmart}
-\usepackage{setspace} % setstretch
-\usepackage{csquotes}
-\usepackage{tabularray}
+\documentclass[acmsmall,screen,review]{acmart}
 
-%\usepackage{biblatex}
-%\addbibresource{citations.bib}
+%%% Typesetting for listings
+\usepackage{listings}
+\setmonofont{JuliaMono}[Scale=MatchLowercase]
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{ltblue}{rgb}{0,0.4,0.4}
+\definecolor{dkviolet}{rgb}{0.3,0,0.5}
+
+%%% lstlisting coq style (inspired from a file of Assia Mahboubi)
+\lstdefinelanguage{Coq}{ 
+    % Anything betweeen $ becomes LaTeX math mode
+    mathescape=true,
+    % Comments may or not include Latex commands
+    texcl=false, 
+    % Vernacular commands
+    morekeywords=[1]{Section, Module, End, Require, Import, Export,
+        Variable, Variables, Parameter, Parameters, Axiom, Hypothesis,
+        Hypotheses, Notation, Local, Tactic, Reserved, Scope, Open, Close,
+        Bind, Delimit, Definition, Let, Ltac, Fixpoint, CoFixpoint, Add,
+        Morphism, Relation, Implicit, Arguments, Unset, Contextual,
+        Strict, Prenex, Implicits, Inductive, CoInductive, Record,
+        Structure, Canonical, Coercion, Context, Class, Global, Instance,
+        Program, Infix, Theorem, Lemma, Corollary, Proposition, Fact,
+        Remark, Example, Proof, Goal, Save, Qed, Defined, Hint, Resolve,
+        Rewrite, View, Search, Show, Print, Printing, All, Eval, Check,
+        Projections, inside, outside, Def},
+    % Gallina
+    morekeywords=[2]{forall, exists, exists2, fun, fix, cofix, struct,
+        match, with, end, as, in, return, let, if, is, then, else, for, of,
+        nosimpl, when},
+    % Sorts
+    morekeywords=[3]{Type, Prop, Set, true, false, option},
+    % Various tactics, some are std Coq subsumed by ssr, for the manual purpose
+    morekeywords=[4]{pose, set, move, case, elim, apply, clear, hnf,
+        intro, intros, generalize, rename, pattern, after, destruct,
+        induction, using, refine, inversion, injection, rewrite, congr,
+        unlock, compute, ring, field, fourier, replace, fold, unfold,
+        change, cutrewrite, simpl, have, suff, wlog, suffices, without,
+        loss, nat_norm, assert, cut, trivial, revert, bool_congr, nat_congr,
+        symmetry, transitivity, auto, split, left, right, autorewrite},
+    % Terminators
+    morekeywords=[5]{by, done, exact, reflexivity, tauto, romega, omega,
+        assumption, solve, contradiction, discriminate},
+    % Control
+    morekeywords=[6]{do, last, first, try, idtac, repeat},
+    % Comments delimiters, we do turn this off for the manual
+    morecomment=[s]{(*}{*)},
+    % Spaces are not displayed as a special character
+    showstringspaces=false,
+    % String delimiters
+    morestring=[b]",
+    morestring=[d],
+    % Size of tabulations
+    tabsize=3,
+    % Enables ASCII chars 128 to 255
+    extendedchars=false,
+    % Case sensitivity
+    sensitive=true,
+    % Automatic breaking of long lines
+    breaklines=false,
+    % Default style fors listings
+    basicstyle=\small,
+    % Position of captions is bottom
+    captionpos=b,
+    % flexible columns
+    columns=[l]flexible,
+    % Style for (listings') identifiers
+    identifierstyle={\ttfamily\color{black}},
+    % Style for declaration keywords
+    keywordstyle=[1]{\ttfamily\color{dkviolet}},
+    % Style for gallina keywords
+    keywordstyle=[2]{\ttfamily\color{dkgreen}},
+    % Style for sorts keywords
+    keywordstyle=[3]{\ttfamily\color{ltblue}},
+    % Style for tactics keywords
+    keywordstyle=[4]{\ttfamily\color{dkblue}},
+    % Style for terminators keywords
+    keywordstyle=[5]{\ttfamily\color{dkred}},
+    %Style for iterators
+    %keywordstyle=[6]{\ttfamily\color{dkpink}},
+    % Style for strings
+    stringstyle=\ttfamily,
+    % Style for comments
+    commentstyle={\ttfamily\color{dkgreen}},
+    %moredelim=**[is][\ttfamily\color{red}]{/&}{&/},
+    literate=
+    {\\forall}{{\color{dkgreen}{$\forall\;$}}}1
+    {\\exists}{{$\exists\;$}}1
+    {<-}{{$\leftarrow\;$}}1
+    {=>}{{$\Rightarrow\;$}}1
+    {==}{{\code{==}\;}}1
+    {==>}{{\code{==>}\;}}1
+    %    {:>}{{\code{:>}\;}}1
+    {->}{{$\rightarrow\;$}}1
+    {<->}{{$\leftrightarrow\;$}}1
+    {<==}{{$\leq\;$}}1
+    {\#}{{$^\star$}}1 
+    {\\o}{{$\circ\;$}}1 
+    {\@}{{$\cdot$}}1 
+    {\/\\}{{$\wedge\;$}}1
+    {\\\/}{{$\vee\;$}}1
+    {++}{{\code{++}}}1
+    {~}{{\ }}1
+    {\@\@}{{$@$}}1
+    {\\mapsto}{{$\mapsto\;$}}1
+    {\\hline}{{\rule{\linewidth}{0.5pt}}}1
+    %
+}[keywords,comments,strings]
 
 %%% Math settings
 \usepackage{amsthm,mathtools}
@@ -19,6 +122,7 @@
 \usepackage{ebproof}
 \ebproofset{left label template=\textsc{[\inserttext]}}
 
+%%% Custom commands
 \newcommand*{\vbar}{|}
 \newcommand*{\finto}{\xrightarrow{\text{\textrm{fin}}}}
 \newcommand*{\istype}{\mathrel{⩴}}
@@ -65,14 +169,14 @@
 
 \title{A General and Accessible Framework for Modular Analysis}
 \author{Joonhyup Lee}
-%\date{}
 \begin{document}
 \maketitle
 
 \section{Abstract Syntax}
 
 In this section we define the abstract syntax for a simple language that captures the essence of modules and linking.
-The language is basically an extension of untyped lambda calculus with modules and the linking operator.
+The language is basically an extension of untyped lambda calculus with modules and the linking construct.
+
 \begin{figure}[htb]
   \centering
   \footnotesize
@@ -101,7 +205,7 @@ That is, we need to be able to statically determine where variables were bound w
 To enforce static scoping when function applications might return modules, we need to employ signatures to project the dynamically computed modules onto a statically known context.
 Concretely, we need to define signatures $S$ where $\lambda M:>S.e$ statically resolves the context when $M$ is used in the body $e$, and $(e_1\:e_2):>S$ enforces that a dynamic computation is resolved into one static form.
 
-The rationale for not separating modules and expressions in the syntax is because we want to utilize the linking operator to link both modules to expressions and modules to modules.
+The rationale for not separating modules and expressions in the syntax is because we want to utilize the linking construct to link both modules to expressions and modules to modules.
 That is, we want expressions to be parsed as $(m_1!m_2)!e$.
 $\link{m_1}{m_2}$ links a module with a module, and $(m_1!m_2)!e$ links a module with an expression.
 Why this is convenient will be clear when we explain separate analysis; we want to link modules with modules as well as expressions.
@@ -158,39 +262,43 @@ Now we give the conditions that the concrete time domain must satisfy.
 \end{definition}
 
 Now for the auxiliary operators that is used when defining the evaluation relation.
-We first define the plugin operator for the dynamic context.
-\[
-  C_{1}[C_{2}]\triangleq
-  \begin{cases}
-    C_{2}                           & (C_{1}=[])                       \\
-    \lambda x^{t}.C'[C_{2}]         & (C_{1}=\lambda x^{t}.C')         \\
-    \mathtt{let}\:x^{t}\:C'[C_{2}]  & (C_{1}=\mathtt{let}\:x^{t}\:C')  \\
-    \mathtt{let}\:M\:C'\:C''[C_{2}] & (C_{1}=\mathtt{let}\:M\:C'\:C'')
-  \end{cases}
-\]
+We define the plugin operator for the dynamic context,
+the function that extracts the address for an $\ExprVar$,
+and the function that looks up the dynamic context bound to a module variable $M$.
+\begin{figure}[htb]
+  \centering
+  \footnotesize
+  \[
+    C_{1}[C_{2}]\triangleq
+    \begin{cases}
+      C_{2}                           & C_{1}=[]                       \\
+      \lambda x^{t}.C'[C_{2}]         & C_{1}=\lambda x^{t}.C'         \\
+      \mathtt{let}\:x^{t}\:C'[C_{2}]  & C_{1}=\mathtt{let}\:x^{t}\:C'  \\
+      \mathtt{let}\:M\:C'\:C''[C_{2}] & C_{1}=\mathtt{let}\:M\:C'\:C''
+    \end{cases}
+  \]
 
-Next, the function that extracts the address for an $\ExprVar$ must be defined.
-\[
-  \addr(C,x)\triangleq
-  \begin{cases}
-    \bot         & (C=[])                                                        \\
-    t            & (C=\lambda x'^{t}.C'\wedge x'= x\wedge \addr(C',x)=\bot)      \\
-    t            & (C=\mathtt{let}\:x'^{t}C'\wedge x'= x\wedge \addr(C',x)=\bot) \\
-    \addr(C',x)  & (C=\lambda x'^{t}.C'\wedge o.w)                               \\
-    \addr(C',x)  & (C=\mathtt{let}\:x'^{t}\:C'\wedge o.w)                        \\
-    \addr(C'',x) & (C=\mathtt{let}\:M\:C'\:C'')
-  \end{cases}
-\]
-Finally, the function that looks up the dynamic context bound to a module variable $M$ must be defined.
-\[
-  \modctx(C,M)\triangleq
-  \begin{cases}
-    \bot           & (C=[])                                                             \\
-    C'             & (C=\mathtt{let}\:M'\:C'\:C''\wedge M'= M\wedge\modctx(C'',M)=\bot) \\
-    \modctx(C'',M) & (C=\mathtt{let}\:M'\:C'\:C''\wedge o.w)                            \\
-    \modctx(C',M)  & (C=\lambda x^{t}.C'\lor C=\Let\:x^{t}\:C')
-  \end{cases}
-\]
+  \[
+    \addr(C,x)\triangleq
+    \begin{cases}
+      \bot         & C=[]                                                                                           \\
+      t            & (C=\lambda x'^{t}.C'\lor C=\mathtt{let}\:x'^{t}C')\wedge (x'= x\wedge \addr(C',x)=\bot)        \\
+      \addr(C',x)  & (C=\lambda x'^{t}.C'\lor C=\mathtt{let}\:x'^{t}\:C') \wedge (x'\neq x\lor \addr(C',x)\neq\bot) \\
+      \addr(C'',x) & C=\mathtt{let}\:M\:C'\:C''
+    \end{cases}
+  \]
+
+  \[
+    \modctx(C,M)\triangleq
+    \begin{cases}
+      \bot           & C=[]                                                                   \\
+      C'             & C=\mathtt{let}\:M'\:C'\:C''\wedge (M'= M\wedge\modctx(C'',M)=\bot)     \\
+      \modctx(C'',M) & C=\mathtt{let}\:M'\:C'\:C''\wedge (M'\neq M\lor\modctx(C'',M)\neq\bot) \\
+      \modctx(C',M)  & C=\lambda x^{t}.C'\lor C=\Let\:x^{t}\:C'
+    \end{cases}
+  \]
+  \caption{Definitions for the plugin, $\addr$, and $\modctx$ operators.}
+\end{figure}
 
 \subsection{The Evaluation Relation}
 
@@ -315,6 +423,7 @@ Note that we constrain whether the evaluation relation returns $v\in\Value{\Time
     \end{prooftree}
   \]
   \caption{The concrete big-step evaluation relation.}
+  \label{fig:conceval}
 \end{figure}
 Note that we do not constrain whether $v$ or $C$ is returned by $e_{2}$ in the linking case.
 That is, linking may return either values or modules.
@@ -324,7 +433,7 @@ The equivalence of the evaluation relation with a reference interpreter is forma
 \section{Collecting Semantics}
 
 To describe what happens when an expression $e$ is excecuted under the context $C$, memory $\mem$ and initial time $t$, we need to collect all \emph{reachable states} starting from $(e,C,\mem,t)$ and all values that are returned by the reachable states.
-The single-step reachability relation $\rightsquigarrow$ is defined in .
+The single-step reachability relation $\rightsquigarrow$ is defined in \ref{fig:concreach}.
 
 \begin{figure}[htb]
   \centering
@@ -404,7 +513,10 @@ The single-step reachability relation $\rightsquigarrow$ is defined in .
       \rightsquigarrow
       (e_{1}, C, \mem, t)
       }
-    \end{prooftree}\qquad
+    \end{prooftree}
+  \]
+
+  \[
     \begin{prooftree}
       \hypo{
         \begin{matrix}
@@ -445,6 +557,7 @@ The single-step reachability relation $\rightsquigarrow$ is defined in .
     \end{prooftree}
   \]
   \caption{The concrete single-step reachability relation.}
+  \label{fig:concreach}
 \end{figure}
 The well-definedness of the reachability relation with respect to a reference interpreter is formalized in Coq.
 
@@ -475,15 +588,15 @@ To justify separate analysis, we decompose the collecting semantics of the linki
 
 \begin{definition}[Auxiliary operators for concrete linking]
   \begin{align*}
-    \EE\:e_1\:s         & \triangleq\sembracket{e_1}(s)(e_1,s)                    & (\text{Exported from }e_1\text{ under }s) \\
-    \LL\:E\:e_2         & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s')         & (\text{Reached under exported context})   \\
-    \LL^{\circ}\:E\:e_2 & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s')(e_2,s') & (\text{Resolved under exported context})
+    \EE\:e_1\:s        & \triangleq\sembracket{e_1}(s)(e_1,s)                    & (\text{Exported under }s)      \\
+    \LL\:E\:e_2        & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s')         & (\text{Reached under }E)       \\
+    \mathsf{F}\:E\:e_2 & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s')(e_2,s') & (\text{Final results under }E)
   \end{align*}
 \end{definition}
 
-\begin{definition}[Linking operator]
+\begin{definition}[Concrete linking operator]
   \begin{align*}
-    \Link\:e_1\:e_2\:s & \triangleq\sembracket{e_1}(s)\cup\LL\:(\EE\:e_1\:s)\:e_2\cup[(\link{e_1}{e_2},s)\mapsto\LL^{\circ}\:(\EE\:e_1\:s)\:e_2]
+    \Link\:e_1\:e_2\:s & \triangleq\sembracket{e_1}(s)\cup\LL\:(\EE\:e_1\:s)\:e_2\cup[(\link{e_1}{e_2},s)\mapsto\mathsf{F}\:(\EE\:e_1\:s)\:e_2]
   \end{align*}
 \end{definition}
 
@@ -501,43 +614,23 @@ The abstract semantics is almost exactly the same as the concrete semantics, exc
 Note we do not need to define the $\A{C}$, $\A{v}$, $\A{V}$ components, as they are \emph{exactly} their concrete counterparts.
 They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
 
-%\begin{bnfgrammar}
-%  $\A{t}$ : $\mathrm{Abstract\:time}$ \in \ATime
-%  ;;
-%  $\A{C}$ : $\mathrm{Context}$ \in \Ctx{\ATime}
-%  ;;
-%  $\A{v}$ : $\mathrm{Result\:of\:expressions}$ \in \Value{\ATime}
-%  ;;
-%  $\A{V}$ : $\mathrm{Result\:of\:expressions/modules}$ \in \Value{\ATime}+\Ctx{\ATime}
-%  ;;
-%  $\A{\mem}$ : $\mathrm{Abstract\:Memory}$ \in \AMem{\ATime} \triangleq \fin{\ATime}{\wp(\Value{\ATime})}
-%  ;;
-%  $\A{s}$ : $\mathrm{Abstract\:Configuration}$ \in \AConfig{\ATime} \triangleq \Ctx{\ATime}\times\AMem{\ATime}\times\ATime
-%  ;;
-%  $\A{r}$ : $\mathrm{Abstract\:Result}$ \in \AResult{\ATime} \triangleq (\Value{\ATime}+\Ctx{\ATime})\times\AMem{\ATime}\times\ATime
-%\end{bnfgrammar}
+\begin{figure}[htb]
+  \centering
+  \footnotesize
+  \begin{tabular}{rccll}
+    Abstract Time                 & $\A{t}$  & $\in$ & $\ATime$                                                                                   \\
+    Context                       & $\A{C}$  & $\in$ & $\Ctx\ATime$                                                                               \\
+    Result of expressions         & $\A{v}$  & $\in$ & $\Value\ATime$                                                                             \\
+    Result of expressions/modules & $\A{V}$  & $\in$ & $\Value{\ATime}+\Ctx{\ATime}$                                                              \\
+    Abstract Memory               & $\A\mem$ & $\in$ & $\AMem{\ATime} \triangleq \fin{\ATime}{\wp(\Value{\ATime})}$                               \\
+    Abstract Configuration        & $\A{s}$  & $\in$ & $\AConfig{\ATime} \triangleq \Ctx{\ATime}\times\Mem{\ATime}\times\ATime$                   \\
+    Abstract Result               & $\A{r}$  & $\in$ & $\AResult{\ATime} \triangleq (\Value{\ATime}+\Ctx{\ATime})\times\AMem{\ATime}\times\ATime$ \\
+  \end{tabular}
+  \caption{Definition of the semantic domains.}
+\end{figure}
 
 \subsection{Big-Step Evaluation}
 
-First the abstract evaluation relation $\A{\Downarrow}$ is defined.
-Note that the update for the memory is now a weak update. That is,
-\begin{definition}[Weak update]
-  Given $\A{\mem}\in\AMem{\ATime}$, $\A{t}\in\ATime$, $\A{v}\in\Value{\ATime}$, we define $\A{\mem}[\A{t}\A{\mapsto}\A{v}]$ as:
-  \[
-    \A{\mem}[\A{t}\A{\mapsto}\A{v}](\A{t'})\triangleq
-    \begin{cases}
-      \A{\mem}(\A{t})\cup\{\A{v}\} & (\A{t'}=\A{t})     \\
-      \A{\mem}(\A{t'})             & (\text{otherwise})
-    \end{cases}
-  \]
-\end{definition}
-
-Also, for the abstract time, we do not enforce the existence of an ordering on the timestamps, but we do need a policy for performing the tick operation.
-Since we want to utilize the information when the binding is performed, the $\A{\tick}$ function takes in more information than simply the previous abstract time.
-\begin{definition}[Abstract time]
-  $(\ATime,\A{\tick})$ is an \emph{abstract time} when $\A{\tick}\in\Ctx{\ATime}\rightarrow\AMem{\ATime}\rightarrow\ATime\rightarrow\ExprVar\rightarrow\Value{\ATime}\rightarrow\ATime$ is the policy for advancing the timestamp.
-\end{definition}
-In our semantics, $\A{\tick}\:\A{C}\:\A{\mem}\:\A{t}\:x\:\A{v}$ is performed when $\A{v}$ is bound to $x$ under configuration $(\A{C},\A{\mem},\A{t})$.
 \begin{figure}[htb]
   \footnotesize
   \[
@@ -660,10 +753,8 @@ In our semantics, $\A{\tick}\:\A{C}\:\A{\mem}\:\A{t}\:x\:\A{v}$ is performed whe
     \end{prooftree}
   \]
   \caption{The abstract big-step evaluation relation.}
+  \label{fig:abseval}
 \end{figure}
-
-\subsection{Big-Step Reachability}
-The abstract single-step reachability relation $\A\rightsquigarrow$ is defined as:
 
 \begin{figure}[htb]
   \centering
@@ -790,7 +881,31 @@ The abstract single-step reachability relation $\A\rightsquigarrow$ is defined a
     \end{prooftree}
   \]
   \caption{The abstract single-step reachability relation.}
+  \label{fig:absreach}
 \end{figure}
+
+First the abstract evaluation relation $\A{\Downarrow}$ is defined.
+Note that the update for the memory is now a weak update. That is,
+\begin{definition}[Weak update]
+  Given $\A{\mem}\in\AMem{\ATime}$, $\A{t}\in\ATime$, $\A{v}\in\Value{\ATime}$, we define $\A{\mem}[\A{t}\A{\mapsto}\A{v}]$ as:
+  \[
+    \A{\mem}[\A{t}\A{\mapsto}\A{v}](\A{t'})\triangleq
+    \begin{cases}
+      \A{\mem}(\A{t})\cup\{\A{v}\} & (\A{t'}=\A{t})     \\
+      \A{\mem}(\A{t'})             & (\text{otherwise})
+    \end{cases}
+  \]
+\end{definition}
+
+Also, for the abstract time, we do not enforce the existence of an ordering on the timestamps, but we do need a policy for performing the tick operation.
+Since we want to utilize the information when the binding is performed, the $\A{\tick}$ function takes in more information than simply the previous abstract time.
+\begin{definition}[Abstract time]
+  $(\ATime,\A{\tick})$ is an \emph{abstract time} when $\A{\tick}\in\Ctx{\ATime}\rightarrow\AMem{\ATime}\rightarrow\ATime\rightarrow\ExprVar\rightarrow\Value{\ATime}\rightarrow\ATime$ is the policy for advancing the timestamp.
+\end{definition}
+In our semantics, $\A{\tick}\:\A{C}\:\A{\mem}\:\A{t}\:x\:\A{v}$ is performed when $\A{v}$ is bound to $x$ under configuration $(\A{C},\A{\mem},\A{t})$.
+
+The abstract big-step evaluation relation is defined in \ref{fig:abseval}, and the single-step reachability relation is defined in \ref{fig:absreach}.
+
 \subsection{Soundness}
 
 From the relations above, we can define the abstract semantics:
@@ -911,10 +1026,10 @@ The notation for injecting $C_{1}$ into $C_{2}$ is $\inject{C_{1}}{C_{2}}$, simi
   \[
     \mapinject(C_{1},C_{2})\triangleq
     \begin{cases}
-      []                                                          & (C_{2}=[])                \\
-      \lambda x^{t}. \mapinject(C_{1},C')                         & (C_{2}=\lambda x^{t}. C') \\
-      \Let\:x^{t}\:\mapinject(C_{1},C')                           & (C_{2}=\Let\:x^{t}\:C')   \\
-      \Let\:M\:C_{1}[\mapinject(C_{1},C')]\:\mapinject(C_{1},C'') & (C_{2}=\Let\:M\:C'\:C'')
+      []                                                          & C_{2}=[]                \\
+      \lambda x^{t}. \mapinject(C_{1},C')                         & C_{2}=\lambda x^{t}. C' \\
+      \Let\:x^{t}\:\mapinject(C_{1},C')                           & C_{2}=\Let\:x^{t}\:C'   \\
+      \Let\:M\:C_{1}[\mapinject(C_{1},C')]\:\mapinject(C_{1},C'') & C_{2}=\Let\:M\:C'\:C''
     \end{cases}
   \]
 
@@ -925,20 +1040,20 @@ The notation for injecting $C_{1}$ into $C_{2}$ is $\inject{C_{1}}{C_{2}}$, simi
   \[
     \deletepre(C_{1},C_{2})\triangleq
     \begin{cases}
-      \deletepre(C_{1}',C_{2}') & ((C_{1},C_{2})=(\lambda x^{t}.C_{1}',\lambda x^{t}.C_{2}')) \\
-      \deletepre(C_{1}',C_{2}') & ((C_{1},C_{2})=(\Let\: x^{t}\:C_{1}',\Let\:x^{t}\:C_{2}'))  \\
-      \deletepre(C_{1}',C_{2}') & ((C_{1},C_{2})=(\Let\:M\:C'\:C_{1}',\Let\:M\:C'\:C_{2}'))   \\
-      C_{2}                     & (\text{otherwise})
+      \deletepre(C_{1}',C_{2}') & (C_{1},C_{2})=(\lambda x^{t}.C_{1}',\lambda x^{t}.C_{2}') \\
+      \deletepre(C_{1}',C_{2}') & (C_{1},C_{2})=(\Let\: x^{t}\:C_{1}',\Let\:x^{t}\:C_{2}')  \\
+      \deletepre(C_{1}',C_{2}') & (C_{1},C_{2})=(\Let\:M\:C'\:C_{1}',\Let\:M\:C'\:C_{2}')   \\
+      C_{2}                     & \text{otherwise}
     \end{cases}
   \]
 
   \[
     \deletemap(C_{1},C_{2})\triangleq
     \begin{cases}
-      []                                                                     & (C_{2}=[])               \\
-      \lambda x^{t}.\deletemap(C_{1},C')                                     & (C_{2}=\lambda x^{t}.C') \\
-      \Let\:x^{t}\:\deletemap(C_{1},C')                                      & (C_{2}=\Let\:x^{t}\:C')  \\
-      \Let\:M\:\deletemap(C_{1},\deletepre(C_{1},C'))\:\deletemap(C_{1},C'') & (C_{2}=\Let\:M\:C'\:C'')
+      []                                                                     & C_{2}=[]               \\
+      \lambda x^{t}.\deletemap(C_{1},C')                                     & C_{2}=\lambda x^{t}.C' \\
+      \Let\:x^{t}\:\deletemap(C_{1},C')                                      & C_{2}=\Let\:x^{t}\:C'  \\
+      \Let\:M\:\deletemap(C_{1},\deletepre(C_{1},C'))\:\deletemap(C_{1},C'') & C_{2}=\Let\:M\:C'\:C''
     \end{cases}
   \]
 
@@ -994,7 +1109,7 @@ Finally, before delving into the definition of the linked time domain, we need t
 
   We extend the $\rhd$ operator to inject $\A{s}$ in an element of $(\Expr\times\AConfig{\ATime})\rightarrow{\wp(\AResult{\ATime})}_{\bot}$:
   \[
-    \A{s}\rhd\A{a}\triangleq\bigsqcup_{\A{s'}\in\mathsf{dom}(\A{a})}[\A{s}\rhd\A{s'}\mapsto\{\A{s}\rhd\A{r}|\A{r}\in\A{a}(\A{s'})\}]
+    \A{s}\rhd\A{a}\triangleq\bigsqcup_{(e,\A{s'})\in\mathsf{dom}(\A{a})}[(e,\A{s}\rhd\A{s'})\mapsto\{\A{s}\rhd\A{r}|\A{r}\in\A{a}(e,\A{s'})\}]
   \]
 \end{definition}
 
@@ -1049,17 +1164,17 @@ Finally, before delving into the definition of the linked time domain, we need t
   \]
 \end{lem}
 
-\begin{definition}[Auxiliary operators for linking]
+\begin{definition}[Auxiliary operators for abstract linking]
   \begin{align*}
-    \A\EE\:\A{a}\:e_1\:\A{s}    & \triangleq\A{a}(e_1,\A{s})                                                                                                          & (\text{Exported by }e_1\text{ under }\A{s}\text{ using }\A{a}) \\
-    \A\LL\:\A{E}\:e_2           & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}([],\varnothing,\A{0}))                                       & (\text{Reached under exported context})                        \\
-    \A{\LL^{\circ}}\:\A{E}\:e_2 & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}([],\varnothing,\A{0}))(e_2,\A{s'}\rhd([],\varnothing,\A{0})) & (\text{Resolved under exported context})
+    \A\EE\:\A{a}\:e_1\:\A{s}   & \triangleq\A{a}(e_1,\A{s})                                                                                                          & (\text{Exported under }\A{s}\text{ using }\A{a}) \\
+    \A\LL\:\A{E}\:e_2          & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}([],\varnothing,\A{0}))                                       & (\text{Reached under }\A{E})                     \\
+    \A{\mathsf{F}}\:\A{E}\:e_2 & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}([],\varnothing,\A{0}))(e_2,\A{s'}\rhd([],\varnothing,\A{0})) & (\text{Final results under }\A{E})
   \end{align*}
 \end{definition}
 
 \begin{definition}[Abstract linking operator]
   \[
-    \A\Link\:\A{a}\:e_1\:e_2\:\A{s}\triangleq\A{a}(\A{s})\cup\A\LL\:(\A\EE\:\A{a}\:e_1\:\A{s})\:e_2\sqcup[(\link{e_1}{e_2},\A{s})\mapsto\A{\LL^{\circ}}\:(\A\EE\:\A{a}\:e_1\:\A{s})\:e_2]
+    \A\Link\:\A{a}\:e_1\:e_2\:\A{s}\triangleq\A{a}\sqcup\A\LL\:(\A\EE\:\A{a}\:e_1\:\A{s})\:e_2\sqcup[(\link{e_1}{e_2},\A{s})\mapsto\A{\mathsf{F}}\:(\A\EE\:\A{a}\:e_1\:\A{s})\:e_2]
   \]
 \end{definition}
 
