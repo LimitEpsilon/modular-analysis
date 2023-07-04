@@ -7,12 +7,21 @@ simple/Abstract.vos simple/Abstract.vok simple/Abstract.required_vos: simple/Abs
 simple/Concrete.vo simple/Concrete.glob simple/Concrete.v.beautified simple/Concrete.required_vo: simple/Concrete.v simple/Syntax.vo
 simple/Concrete.vio: simple/Concrete.v simple/Syntax.vio
 simple/Concrete.vos simple/Concrete.vok simple/Concrete.required_vos: simple/Concrete.v simple/Syntax.vos
+simple/Fixpoint.vo simple/Fixpoint.glob simple/Fixpoint.v.beautified simple/Fixpoint.required_vo: simple/Fixpoint.v 
+simple/Fixpoint.vio: simple/Fixpoint.v 
+simple/Fixpoint.vos simple/Fixpoint.vok simple/Fixpoint.required_vos: simple/Fixpoint.v 
 simple/Sound.vo simple/Sound.glob simple/Sound.v.beautified simple/Sound.required_vo: simple/Sound.v simple/Abstract.vo simple/Concrete.vo
 simple/Sound.vio: simple/Sound.v simple/Abstract.vio simple/Concrete.vio
 simple/Sound.vos simple/Sound.vok simple/Sound.required_vos: simple/Sound.v simple/Abstract.vos simple/Concrete.vos
 simple/Syntax.vo simple/Syntax.glob simple/Syntax.v.beautified simple/Syntax.required_vo: simple/Syntax.v 
 simple/Syntax.vio: simple/Syntax.v 
 simple/Syntax.vos simple/Syntax.vok simple/Syntax.required_vos: simple/Syntax.v 
+signature/Abstract.vo signature/Abstract.glob signature/Abstract.v.beautified signature/Abstract.required_vo: signature/Abstract.v signature/Syntax.vo
+signature/Abstract.vio: signature/Abstract.v signature/Syntax.vio
+signature/Abstract.vos signature/Abstract.vok signature/Abstract.required_vos: signature/Abstract.v signature/Syntax.vos
+signature/Concrete.vo signature/Concrete.glob signature/Concrete.v.beautified signature/Concrete.required_vo: signature/Concrete.v signature/Syntax.vo
+signature/Concrete.vio: signature/Concrete.v signature/Syntax.vio
+signature/Concrete.vos signature/Concrete.vok signature/Concrete.required_vos: signature/Concrete.v signature/Syntax.vos
 signature/Syntax.vo signature/Syntax.glob signature/Syntax.v.beautified signature/Syntax.required_vo: signature/Syntax.v 
 signature/Syntax.vio: signature/Syntax.v 
 signature/Syntax.vos signature/Syntax.vok signature/Syntax.required_vos: signature/Syntax.v 

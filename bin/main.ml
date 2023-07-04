@@ -1,45 +1,31 @@
 open Lambdatools
 open Evaluate
-open Pp
+open Lambda
+
+let x = "x"
+let app_my = Lam (x, App (EVar x, EVar x))
+let test_tm = App (app_my, app_my)
+
+module Mytime : (Time with type t = bool) = struct
+  type t = bool
+  let tick _ t _ _ = not t
+  let print t =
+    match t with
+    | true -> print_string "T"
+    | false -> print_string "F"
+end
+
+module MyAnalyzer = Analyzer(Mytime)
+
+let init_config = (Hole, MyAnalyzer.Dom.Mem.empty, true)
+let init_cache = 
+  MyAnalyzer.Dom.Cache.add 
+    (test_tm, init_config)
+    MyAnalyzer.Dom.ResSet.empty 
+    MyAnalyzer.Dom.Cache.empty
 
 let main () =
-  let step = ref 0 in
-  let finite = ref false in
-  let eager = ref false in
-  let src = ref "" in
-  let _ =
-    Arg.parse
-      [
-        ( "-step",
-          Arg.Int
-            (fun i ->
-              finite := true;
-              step := i),
-          "print the partial program after <n> steps" );
-        ("-weak", Arg.Unit (fun () -> eager := true), "use weak reduction");
-      ]
-      (fun x -> src := x)
-      ("Usage: " ^ Filename.basename Sys.argv.(0) ^ " [-step] [n] [file]")
-  in
-  let lexbuf =
-    Lexing.from_channel (if !src = "" then stdin else open_in !src)
-  in
-  let pgm = Parser.program Lexer.start lexbuf in
-
-  if !finite then Printer.finite_step !step pgm
-  else (
-    print_string "=============\n";
-    print_string "input program\n";
-    print_string "=============\n";
-    Pp.pp pgm;
-    print_string "\n\n\n==============\n";
-    print_string "output program\n";
-    print_string "==============\n";
-    if !eager then (
-      Pp.pp (Evaluator.weak_reduce_lexp pgm);
-      print_newline ())
-    else (
-      Pp.pp (Evaluator.reduce_lexp pgm);
-      print_newline ()))
+  let analyzed = MyAnalyzer.fix init_cache in
+  MyAnalyzer.Dom.print_cache analyzed
 
 let _ = main ()

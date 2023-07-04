@@ -166,8 +166,9 @@
 \newcommand*{\Let}{\mathtt{let}}
 \newcommand*{\doubleplus}{+\kern-1.3ex+\kern0.8ex}
 \newcommand*{\mdoubleplus}{\ensuremath{\mathbin{+\mkern-10mu+}}}
+\newcommand*{\project}{\text{\texttt{:>} }}
 
-\title{A General and Accessible Framework for Modular Analysis}
+\title{A Syntax-Guided Framework for Modular Analysis}
 \author{Joonhyup Lee}
 \begin{document}
 \maketitle
@@ -203,14 +204,14 @@ Also, note that the nonterminals for the modules and expressions are not separat
 The rationale for the exclusion of recursive modules/first-class modules/functors is because we want to enforce static scoping.
 That is, we need to be able to statically determine where variables were bound when using them.
 To enforce static scoping when function applications might return modules, we need to employ signatures to project the dynamically computed modules onto a statically known context.
-Concretely, we need to define signatures $S$ where $\lambda M:>S.e$ statically resolves the context when $M$ is used in the body $e$, and $(e_1\:e_2):>S$ enforces that a dynamic computation is resolved into one static form.
+Concretely, we need to define signatures $S$ where $\lambda M\project S.e$ statically resolves the context when $M$ is used in the body $e$, and $(e_1\:e_2)\project S$ enforces that a dynamic computation is resolved into one static form.
 
 The rationale for not separating modules and expressions in the syntax is because we want to utilize the linking construct to link both modules to expressions and modules to modules.
 That is, we want expressions to be parsed as $(m_1!m_2)!e$.
 $\link{m_1}{m_2}$ links a module with a module, and $(m_1!m_2)!e$ links a module with an expression.
 Why this is convenient will be clear when we explain separate analysis; we want to link modules with modules as well as expressions.
 
-\section{Big-Step Operational Semantics}
+\section{Structural Operational Semantics}
 
 In this section we give the big-step operational semantics for the dynamic execution of the module language.
 The big-step evaluation relation relates the initial configuration(context, memory and time) and expression with the resulting value and state.
@@ -264,8 +265,9 @@ Now we give the conditions that the concrete time domain must satisfy.
 Now for the auxiliary operators that is used when defining the evaluation relation.
 We define the plugin operator for the dynamic context,
 the function that extracts the address for an $\ExprVar$,
-and the function that looks up the dynamic context bound to a module variable $M$.
-\begin{figure}[htb]
+and the function that looks up the dynamic context bound to a $\ModVar$ $M$.
+
+\begin{figure}[h!]
   \centering
   \footnotesize
   \[
@@ -307,7 +309,9 @@ The relation $\Downarrow$ relates $(e,C,\mem,t)\in\Expr\times\Config{\Time}$ wit
 $(V,\mem,t)\in\Result{\Time}$.
 Note that we constrain whether the evaluation relation returns $v\in\Value{\Time}$(when the expression being evaluated is not a module) or $C\in\Ctx{\Time}$ by the definition of the relation.
 
-\begin{figure}[htb]
+\begin{figure}[h!]
+  \begin{flushright}\fbox{$(e,C,\mem,t)\Downarrow(V,\mem',t')$}\end{flushright}
+  \vspace{0pt} % -0.75em}
   \footnotesize
   \[
     \begin{prooftree}
@@ -430,12 +434,28 @@ That is, linking may return either values or modules.
 
 The equivalence of the evaluation relation with a reference interpreter is formalized in Coq.
 
-\section{Collecting Semantics}
+\subsection{Collecting Semantics}
+
+For program analysis, we need to define a collecting semantics that captures the strongest property we want to model.
+In the case of modular analysis, we need to collect \emph{all} pairs of $(e,s)\Downarrow r$ that appear in the proof tree when trying to prove what the initial configuration evaluates to.
+Consider the case when $\link{e_1}{e_2}$ is evaluated under configuration $s$.
+Since $e_2$ has free variables that are exported by $e_1$, separately analyzing $e_2$ will result in an incomplete proof tree.
+What it means to separately analyze, then link two expressions $e_1$ and $e_2$ is to (1) compute what $e_1$ will export to $e_2$ (2) partially compute the proof tree for $e_2$, and (3) inject the exported context into the partial proof to complete the execution of $e_2$.
+
+What should be the \emph{type} of the collecting semantics?
+We want to differentiate between 
+
+\begin{definition}[Collecting Semantics]
+  
+\end{definition}
+
+\section{Fixpoint Semantics}
 
 To describe what happens when an expression $e$ is excecuted under the context $C$, memory $\mem$ and initial time $t$, we need to collect all \emph{reachable states} starting from $(e,C,\mem,t)$ and all values that are returned by the reachable states.
 The single-step reachability relation $\rightsquigarrow$ is defined in \ref{fig:concreach}.
 
 \begin{figure}[htb]
+  \begin{flushright}\fbox{$(e,C,\mem,t)\rightsquigarrow(e',C',\mem',t')$}\end{flushright}
   \centering
   \footnotesize
   \[
@@ -566,6 +586,8 @@ That is, there may be stuck states because the value of free variables are not k
 Since we want to collect the most precise information that describes the execution of the program, we have to collect all reachable states.
 The relation that collects the reachable states $\rightsquigarrow^{*}$ is defined as the reflexive and transitive closure of $\rightsquigarrow$.
 
+% define collecting semantics, computational style
+% Why? \link{e1}{e2} : e2 may have free variables
 \begin{definition}[Collecting semantics]
   The semantics for an expression $e$ under configuration $s\in\Config{\Time}$ is an element in $(\Expr\times\Config{\Time})\rightarrow{\wp(\Result{\Time})}_{\bot}$ defined as:
   \[
@@ -632,6 +654,7 @@ They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
 \subsection{Big-Step Evaluation}
 
 \begin{figure}[htb]
+  \begin{flushright}\fbox{$(e,\A{C},\A\mem,\A{t})\A\Downarrow(\A{V},\A{\mem'},\A{t'})$}\end{flushright}
   \footnotesize
   \[
     \begin{prooftree}
@@ -757,6 +780,7 @@ They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
 \end{figure}
 
 \begin{figure}[htb]
+  \begin{flushright}\fbox{$(e,\A{C},\A\mem,\A{t})\A\rightsquigarrow(e',\A{C'},\A{\mem'},\A{t'})$}\end{flushright}
   \centering
   \footnotesize
   \[
@@ -950,7 +974,7 @@ The usual thing to do now is to connect the collecting semantics $\sembracket{e}
 However, we do not enforce the existence of an explicit abstraction and concretization function.
 Instead, we define a notion of soundness between abstract and concrete results and prove that for any $\A{\tick}$, the abstract semantics overapproximate the collecting semantics if it starts from a sound configuration.
 
-\begin{definition}[$\alpha$-soundness between results]
+\begin{definition}[$\alpha$-soundness between results : $\lesssim$]
   $\:$
 
   \begin{itemize}
@@ -1017,6 +1041,7 @@ Moreover, we can guarantee that $\A{\sembracket{e}}(\A{s})$ can be computed.
   \]
 \end{thm}
 
+\section{Modular Analysis}
 Now for separate analysis, we need to define an abstract time on $\ATime_1+\ATime_2$, when the first time domain exports $\A{s'}$ to the second time domain.
 
 Before elaborating on how to add the time domains, we need to define the injection and deletion operators that inject the exported context into the separately analyzed results.

@@ -24,54 +24,61 @@ Notation "p '!#->' v ';' mem" := (update_m mem p v)
                               (at level 100, v at next level, right associativity).
 
 Inductive EvalR `{time T} (C : @dy_ctx T) (st : @state T)
-    : tm -> dy_value -> state -> Prop :=
-  | Eval_var_e x v mem t addr
+    : tm -> (@dy_value T) -> (@state T) -> Prop :=
+  | Eval_e_var x v mem t addr
              (STATE : ST mem t = st)
              (ADDR : Some addr = addr_x C x)
              (ACCESS : In v (mem addr))
-    : EvalR C st (e_var x) (EVal v) st
-  | Eval_lam x e
-    : EvalR C st (e_lam x e)
-            (EVal (Closure x e C)) st
-  | Eval_app e1 e2 
-             x e C_lam st_lam
-             arg mem t
-             v st_v
-             (FN : EvalR C st e1
-                         (EVal (Closure x e C_lam)) st_lam)
-             (ARG : EvalR C st_lam e2
-                          (EVal arg) (ST mem t))
-             (BODY : EvalR (C_lam [|dy_c_lam x t ([||])|])
-                           (ST (t !#-> arg ; mem) 
-                               (tick C (ST mem t) x arg))
-                           e (EVal v) st_v)
+    : EvalR C st (e_var x) (EVal v) (ST mem t)
+  | Eval_e_lam x e
+    : EvalR C st (e_lam x e) (EVal (Fun x e C)) st
+  | Eval_e_app_fn 
+    e1 e2 x e C_lam st_lam arg mem t v st_v
+    (FN : EvalR C st e1 (EVal (Fun x e C_lam)) st_lam)
+    (ARG : EvalR C st_lam e2 (EVal arg) (ST mem t))
+    (BODY : EvalR (C_lam [|dy_binde x t ([||])|])
+                  (ST (t !#-> arg ; mem) (tick C (ST mem t) x arg))
+                  e (EVal v) st_v)
     : EvalR C st (e_app e1 e2) (EVal v) st_v
-  | Eval_link m e C_m st_m v st_v
-              (MOD : EvalR C st m (MVal C_m) st_m)
-              (LINK : EvalR C_m st_m e v st_v)
+  | Eval_e_app_ft
+    e1 e2 CM M s_lam e C_lam st_lam arg st_arg v st_v
+    (FN : EvalR C st e1 (EVal (Func M s_lam e C_lam)) st_lam)
+    (ARG : EvalR C st_lam e2 (MVal arg) st_arg)
+    (PROJ : Some CM = project arg s_lam)
+    (BODY : EvalR (C_lam [|dy_bindm M CM ([||])|]) st_arg e (EVal v) st_v)
+    : EvalR C st (e_app e1 e2) (EVal v) st_v
+  | Eval_e_link m e C_m st_m v st_v
+               (MOD : EvalR C st m (MVal C_m) st_m)
+               (LINK : EvalR C_m st_m e v st_v)
     : EvalR C st (e_link m e) v st_v
-  | Eval_empty
+  | Eval_m_empty
     : EvalR C st m_empty (MVal C) st
-  | Eval_var_m M C_M (ACCESS : Some C_M = ctx_M C M)
-    : EvalR C st (m_var M) (MVal C_M) st
-  | Eval_lete x e v mem t
-              m C_m st_m
-               (EVALe : EvalR C st e (EVal v) (ST mem t))
-               (EVALm : EvalR (C [|dy_c_lete x t ([||])|])
-                        (ST (t !#-> v ; mem) 
-                            (tick C (ST mem t) x v))
-                        m (MVal C_m) st_m)
-    : EvalR C st (m_lete x e m) (MVal C_m) st_m
-  | Eval_letm M m' C' st'
-              m'' C'' st''
-              (EVALm' : EvalR C st m' (MVal C') st')
-              (EVALm'' : EvalR (C [|dy_c_letm M C' ([||])|]) st'
-                         m'' (MVal C'') st'')
-    : EvalR C st (m_letm M m' m'') (MVal C'') st''
+  | Eval_m_var M C_M (ACCESS : Some C_M = ctx_M C M)
+    : EvalR C st (m_var M) (MVal (C[|C_M|])) st
+  | Eval_m_lam M s e
+    : EvalR C st (m_lam M s e) (EVal (Func M s e C)) st
+  | Eval_m_app_fn 
+    e1 e2 s x e C_lam st_lam arg mem t v st_v proj_v
+    (FN : EvalR C st e1 (EVal (Fun x e C_lam)) st_lam)
+    (ARG : EvalR C st_lam e2 (EVal arg) (ST mem t))
+    (BODY : EvalR (C_lam [|dy_binde x t ([||])|])
+                  (ST (t !#-> arg ; mem) (tick C (ST mem t) x arg))
+                  e (MVal v) st_v)
+    (PROJv : Some proj_v = project v s)
+    : EvalR C st (m_app e1 e2 s) (MVal (C[|proj_v|])) st_v
+  | Eval_m_app_ft
+    e1 e2 s CM M s_lam e C_lam st_lam arg st_arg v st_v proj_v
+    (FN : EvalR C st e1 (EVal (Func M s_lam e C_lam)) st_lam)
+    (ARG : EvalR C st_lam e2 (MVal arg) st_arg)
+    (PROJ : Some CM = project arg s_lam)
+    (BODY : EvalR (C_lam [|dy_bindm M CM ([||])|]) st_arg e (MVal v) st_v)
+    (PROJv : Some proj_v = project v s)
+    : EvalR C st (m_app e1 e2 s) (MVal (C[|proj_v|])) st_v
 .
 
 #[export] Hint Constructors EvalR : core.
 
+(*
 (* Reachability relation *)
 Inductive one_reach `{time T} (C : dy_ctx) (st : state)
     : tm -> (@dy_ctx T) -> (@state T) -> tm -> Prop :=
@@ -585,3 +592,4 @@ Proof.
   destruct (collect_ctx (dy_to_st C) e); simpl.
   intros. rewrite in_app_iff. left; eauto.
 Qed.
+*)
