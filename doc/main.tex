@@ -205,15 +205,20 @@ The rationale for the exclusion of recursive modules/first-class modules/functor
 That is, we need to be able to statically determine where variables were bound when using them.
 To enforce static scoping when function applications might return modules, we need to employ signatures to project the dynamically computed modules onto a statically known context.
 Concretely, we need to define signatures $S$ where $\lambda M\project S.e$ statically resolves the context when $M$ is used in the body $e$, and $(e_1\:e_2)\project S$ enforces that a dynamic computation is resolved into one static form.
+To simplify the presentation, we first consider the case that does not require signatures.
 
 The rationale for not separating modules and expressions in the syntax is because we want to utilize the linking construct to link both modules to expressions and modules to modules.
 That is, we want expressions to be parsed as $(m_1!m_2)!e$.
 $\link{m_1}{m_2}$ links a module with a module, and $(m_1!m_2)!e$ links a module with an expression.
 Why this is convenient will be clear when we explain separate analysis; we want to link modules with modules as well as expressions.
 
-\section{Structural Operational Semantics}
+\section{Concrete Semantics}
 
-In this section we give the big-step operational semantics for the dynamic execution of the module language.
+In this section, we present the dynamics of the simple language presented in the previous section.
+
+\subsection{Structural Operational Semantics}
+
+First, we give the big-step operational semantics for the dynamic execution of the module language.
 The big-step evaluation relation relates the initial configuration(context, memory and time) and expression with the resulting value and state.
 
 This relation is nonstandard in that the \emph{environment} that is often used to define closures in the call-by-value dynamics is not a finite map from variables to values.
@@ -226,7 +231,7 @@ The only thing that is dynamic is \emph{when} the variables are bound, which is 
 
 Now, we start by defining what we mean by \emph{time} and \emph{context}, which is the essence of our model.
 
-\subsection{Time and Context}
+\subsubsection{Time and Context}
 
 We first define sets that are parametrized by our choice of the time domain, mainly the \emph{value}, \emph{memory}, and \emph{context} domains.
 Also, we present the notational conventions used in this paper to represent members of each domain.
@@ -302,7 +307,7 @@ and the function that looks up the dynamic context bound to a $\ModVar$ $M$.
   \caption{Definitions for the plugin, $\addr$, and $\modctx$ operators.}
 \end{figure}
 
-\subsection{The Evaluation Relation}
+\subsubsection{The Evaluation Relation}
 
 Now we are in a position to define the big-step evaluation relation.
 The relation $\Downarrow$ relates $(e,C,\mem,t)\in\Expr\times\Config{\Time}$ with
@@ -434,7 +439,7 @@ That is, linking may return either values or modules.
 
 The equivalence of the evaluation relation with a reference interpreter is formalized in Coq.
 
-\subsection{Collecting Semantics}
+\subsubsection{Collecting Semantics}
 
 For program analysis, we need to define a collecting semantics that captures the strongest property we want to model.
 In the case of modular analysis, we need to collect \emph{all} pairs of $(e,s)\Downarrow r$ that appear in the proof tree when trying to prove what the initial configuration evaluates to.
@@ -449,11 +454,11 @@ Such a situation will occur frequently when separately analyzing an expression t
 Therefore, we interpret the relation as a partial function that maps an element of $\Expr\times\Config\Time$ to a \emph{set} of results.
 An $(e,s)$ that is not in the domain of the collecting semantics means that it is not \emph{reached} by the initial configuration, and a $(e,s)$ that is inside the domain but is mapped to $\varnothing$ means that the configuration is reached but does not return.
 
-\begin{definition}[Collecting Semantics] 
+\begin{definition}[Collecting Semantics]
   The collecting semantics of an expression $e$ under initial configuration $s$ is a partial function $\sembracket{e}(s)\in(\Expr\times\Config\Time)\rightarrow\wp(\Result{\Time})_\bot$ that collects all pairs of reachable configurations with the results they return.
 \end{definition}
 
-\section{Fixpoint Semantics}
+\subsection{Fixpoint Semantics}
 
 The collecting semantics in the previous section was defined in a declarative style and does not provide \emph{how} to actually calculate the semantics.
 To formalize the notion of reachability and to utilize this in proofs, we define the single-step reachability relation $\rightsquigarrow$ in \ref{fig:concreach}.
@@ -625,6 +630,7 @@ We can finally formulate the collecting semantics in fixpoint form.
   \]
 \end{lem}
 
+\section{Concrete linking}
 To justify separate analysis, we decompose the collecting semantics of the linking expression into a composition of the semantics of the left and right expressions.
 
 \begin{definition}[Auxiliary operators for concrete linking]
@@ -635,18 +641,21 @@ To justify separate analysis, we decompose the collecting semantics of the linki
   \end{align*}
 \end{definition}
 
+The intuition is, when linking $e_1$ and $e_2$ under initial configuration $s$, first $e_1$ is computed, then exports($\EE$) its results to $e_2$, which $e_2$ is linked($\LL$) with.
+The final result for the total expression $\link{e_1}{e_2}$ will be the final result($\mathsf{F}$) of $e_2$ under the exported context.
+
 \begin{definition}[Concrete linking operator]
   \begin{align*}
     \Link\:e_1\:e_2\:s & \triangleq\sembracket{e_1}(s)\cup\LL\:(\EE\:e_1\:s)\:e_2\cup[(\link{e_1}{e_2},s)\mapsto\mathsf{F}\:(\EE\:e_1\:s)\:e_2]
   \end{align*}
 \end{definition}
 
+Then the following result follows directly from the \emph{definition} of the collecting semantics.
+
 \begin{thm}[Concrete linking]
   \[
     \sembracket{\link{e_1}{e_2}}(s)=\Link\:e_1\:e_2\:s
   \]
-
-  That is, the semantics of the linked expression is the union of the semantics of the exporting expression and the semantics of the consuming expression under the exported configuration.
 \end{thm}
 
 \section{Abstract Semantics}
@@ -660,9 +669,9 @@ They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
   \footnotesize
   \begin{tabular}{rccll}
     Abstract Time                 & $\A{t}$  & $\in$ & $\ATime$                                                                                   \\
-    Context                       & $\A{C}$  & $\in$ & $\Ctx\ATime$                                                                               \\
-    Result of expressions         & $\A{v}$  & $\in$ & $\Value\ATime$                                                                             \\
-    Result of expressions/modules & $\A{V}$  & $\in$ & $\Value{\ATime}+\Ctx{\ATime}$                                                              \\
+    Context                       & $\A{C}$  & $\in$ & $\Ctx\ATime\text{ under }\ATime$                                                           \\
+    Result of expressions         & $\A{v}$  & $\in$ & $\Value\ATime\text{ under }\ATime$                                                         \\
+    Result of expressions/modules & $\A{V}$  & $\in$ & $\Value{\ATime}+\Ctx{\ATime}\text{ under }\ATime$                                          \\
     Abstract Memory               & $\A\mem$ & $\in$ & $\AMem{\ATime} \triangleq \fin{\ATime}{\wp(\Value{\ATime})}$                               \\
     Abstract Configuration        & $\A{s}$  & $\in$ & $\AConfig{\ATime} \triangleq \Ctx{\ATime}\times\Mem{\ATime}\times\ATime$                   \\
     Abstract Result               & $\A{r}$  & $\in$ & $\AResult{\ATime} \triangleq (\Value{\ATime}+\Ctx{\ATime})\times\AMem{\ATime}\times\ATime$ \\
@@ -949,8 +958,6 @@ In our semantics, $\A{\tick}\:\A{C}\:\A{\mem}\:\A{t}\:x\:\A{v}$ is performed whe
 
 The abstract big-step evaluation relation is defined in \ref{fig:abseval}, and the single-step reachability relation is defined in \ref{fig:absreach}.
 
-\subsection{Soundness}
-
 From the relations above, we can define the abstract semantics:
 \begin{definition}[Abstract semantics]
   The semantics for an expression $e$ under configuration $\A{s}\in\AConfig{\ATime}$ is an element in $(\Expr\times\AConfig{\ATime})\rightarrow{\wp(\AResult{\ATime})}_{\bot}$ defined as:
@@ -959,7 +966,7 @@ From the relations above, we can define the abstract semantics:
   \]
 \end{definition}
 
-We need to present how to compute the abstract semantics by equating the semantics with the least fixed point of some transfer function.
+As in the concrete case, the semantics need to be expressed in fixpoint form.
 
 \begin{definition}[Transfer function]
   Given an element $\A{a}$ of $(\Expr\times\AConfig{\ATime})\rightarrow{\wp(\AResult{\ATime})}_{\bot}$,
@@ -989,6 +996,7 @@ We need to present how to compute the abstract semantics by equating the semanti
   \]
 \end{lem}
 
+\section{Non-modular Analysis}
 The usual thing to do now is to connect the collecting semantics $\sembracket{e}$ with the abstract semantics $\A{\sembracket{e}}$ via a Galois connection.
 However, we do not enforce the existence of an explicit abstraction and concretization function.
 Instead, we define a notion of soundness between abstract and concrete results and prove that for any $\A{\tick}$, the abstract semantics overapproximate the collecting semantics if it starts from a sound configuration.
@@ -1019,7 +1027,7 @@ Instead, we define a notion of soundness between abstract and concrete results a
     \forall e\in\Expr,s\in\Config{\Time},r\in\Result{\Time}:r\in a(e,s)\Rightarrow\exists\alpha,\alpha',\A{s},\A{r}:\alpha(s)\sqsubseteq\A{s}\wedge\alpha'(r)\sqsubseteq\A{r}\in\A{a}(e,\A{s})
   \]
 
-  $\A{a}$ is sound with respect to $a$ iff for every $(e,s), r$ pair in $a$, there exists an $\alpha$-sound pair in $\A{a}$.
+  That is, for every $(e,s), r$ pair in $a$, there exists an $\alpha$-sound pair in $\A{a}$.
 \end{definition}
 
 \begin{lem}[Preservation of soundness, relation version]
