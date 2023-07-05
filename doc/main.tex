@@ -149,7 +149,7 @@
 \newcommand*{\Result}[1]{\text{Result}\vphantom{#1}}
 \newcommand*{\AResult}[1]{\A{\text{Result}}\vphantom{#1}}
 \newcommand*{\link}[2]{{#1}\mathtt{!}{#2}}
-\newcommand*{\EE}{\mathsf{E}}
+\newcommand*{\EE}{\mathsf{Exp}}
 \newcommand*{\LL}{\mathsf{L}}
 \newcommand*{\Link}{\mathsf{Link}}
 \newcommand*{\sembracket}[1]{\lBrack{#1}\rBrack}
@@ -443,16 +443,20 @@ Since $e_2$ has free variables that are exported by $e_1$, separately analyzing 
 What it means to separately analyze, then link two expressions $e_1$ and $e_2$ is to (1) compute what $e_1$ will export to $e_2$ (2) partially compute the proof tree for $e_2$, and (3) inject the exported context into the partial proof to complete the execution of $e_2$.
 
 What should be the \emph{type} of the collecting semantics?
-We want to differentiate between 
+Obviously, given the type of the evaluation relation, $\wp((\Expr\times\Config{\Time})\times\Result{\Time})$ seems to be the natural choice.
+However, by requiring that all collected pairs have a result fails to collect the configurations that are reached but does not return.
+Such a situation will occur frequently when separately analyzing an expression that depends on an external module to resolve its free variables.
+Therefore, we interpret the relation as a partial function that maps an element of $\Expr\times\Config\Time$ to a \emph{set} of results.
+An $(e,s)$ that is not in the domain of the collecting semantics means that it is not \emph{reached} by the initial configuration, and a $(e,s)$ that is inside the domain but is mapped to $\varnothing$ means that the configuration is reached but does not return.
 
-\begin{definition}[Collecting Semantics]
-  
+\begin{definition}[Collecting Semantics] 
+  The collecting semantics of an expression $e$ under initial configuration $s$ is a partial function $\sembracket{e}(s)\in(\Expr\times\Config\Time)\rightarrow\wp(\Result{\Time})_\bot$ that collects all pairs of reachable configurations with the results they return.
 \end{definition}
 
 \section{Fixpoint Semantics}
 
-To describe what happens when an expression $e$ is excecuted under the context $C$, memory $\mem$ and initial time $t$, we need to collect all \emph{reachable states} starting from $(e,C,\mem,t)$ and all values that are returned by the reachable states.
-The single-step reachability relation $\rightsquigarrow$ is defined in \ref{fig:concreach}.
+The collecting semantics in the previous section was defined in a declarative style and does not provide \emph{how} to actually calculate the semantics.
+To formalize the notion of reachability and to utilize this in proofs, we define the single-step reachability relation $\rightsquigarrow$ in \ref{fig:concreach}.
 
 \begin{figure}[htb]
   \begin{flushright}\fbox{$(e,C,\mem,t)\rightsquigarrow(e',C',\mem',t')$}\end{flushright}
@@ -581,30 +585,45 @@ The single-step reachability relation $\rightsquigarrow$ is defined in \ref{fig:
 \end{figure}
 The well-definedness of the reachability relation with respect to a reference interpreter is formalized in Coq.
 
-We want to enable separate analysis without making any assumptions on the free variables.
-That is, there may be stuck states because the value of free variables are not known in the given context.
-Since we want to collect the most precise information that describes the execution of the program, we have to collect all reachable states.
-The relation that collects the reachable states $\rightsquigarrow^{*}$ is defined as the reflexive and transitive closure of $\rightsquigarrow$.
+Using the transitive and reflexive closure $\rightsquigarrow^{*}$ of $\rightsquigarrow$, we can formalize the notion of collecting semantics.
 
-% define collecting semantics, computational style
-% Why? \link{e1}{e2} : e2 may have free variables
-\begin{definition}[Collecting semantics]
-  The semantics for an expression $e$ under configuration $s\in\Config{\Time}$ is an element in $(\Expr\times\Config{\Time})\rightarrow{\wp(\Result{\Time})}_{\bot}$ defined as:
+\begin{lem}[Collecting semantics using $\rightsquigarrow^{*}$]
   \[
-    \sembracket{e}(s)\triangleq\bigcup_{(e,s)\rightsquigarrow^{*}(e',s')}[(e',s')\mapsto\{r|(e',s')\Downarrow r\}]
+    \sembracket{e}(s)=\bigcup_{(e,s)\rightsquigarrow^{*}(e',s')}[(e',s')\mapsto\{r|(e',s')\Downarrow r\}]
   \]
+\end{lem}
 
-  That is, the semantics collect all reachable configurations and all results the configurations might return.
+Now we define a transfer function that takes a cache and returns a cache that takes one step further.
+Using this transfer function, we will express the collecting semantics as a fixpoint, which directly shows how to compute the semantics.
+
+\begin{definition}[Transfer function]
+  Given an element $a$ of $(\Expr\times\Config{\Time})\rightarrow{\wp(\Result{\Time})}_{\bot}$,
+
+  \begin{itemize}
+    \item Define ${\Downarrow}_{a}$ and ${\rightsquigarrow}_{a}$ by replacing all assumptions $(e,s)\Downarrow r$ to $r\in a(e,s)$ in $\Downarrow$ and $\rightsquigarrow$.
+    \item Define the ${\mathsf{step}}$ function that collects all results derivable in one step from $(e,s)$ using $a$.
+          \[
+            \mathsf{step}(a)(e,s)\triangleq
+            [(e,s)\mapsto\{r|(e,s){\Downarrow}_{a}r\}]
+            \cup
+            \bigcup_{(e,s)\rightsquigarrow_{a}(e',s')}[(e',s')\mapsto\varnothing]
+          \]
+  \end{itemize}
+
+  We define the transfer function $F$ by:
+  \[
+    F(a)\triangleq
+    \bigcup_{(e,s)\in\mathsf{dom}(a)}
+    {\mathsf{step}(a)(e,s)}
+  \]
 \end{definition}
 
-\begin{example}
-  The semantics for the non-terminating lambda expression $\Omega=(\lambda x.xx)(\lambda x.xx)$ satisfies:
-  \begin{align*}
-    \sembracket{\Omega}([],\varnothing,0)(\Omega,[],\varnothing,0)=\varnothing \\
-    \sembracket{\Omega}([],\varnothing,0)(\lambda x.x,\_,\_,\_)=\bot
-  \end{align*}
-  since $(\Omega,[],\varnothing,0)$ is reached by $(\Omega,[],\varnothing,0)$ but does not return, and since $\lambda x.x$ cannot be reached.
-\end{example}
+We can finally formulate the collecting semantics in fixpoint form.
+\begin{lem}[Concrete semantics as a fixpoint]
+  \[
+    \sembracket{e}(s)=\mathsf{lfp}(\lambda a.F(a)\cup[(e,s)\mapsto\varnothing])
+  \]
+\end{lem}
 
 To justify separate analysis, we decompose the collecting semantics of the linking expression into a composition of the semantics of the left and right expressions.
 
@@ -946,7 +965,7 @@ We need to present how to compute the abstract semantics by equating the semanti
   Given an element $\A{a}$ of $(\Expr\times\AConfig{\ATime})\rightarrow{\wp(\AResult{\ATime})}_{\bot}$,
 
   \begin{itemize}
-    \item Define $\A{\Downarrow}_{\A{a}}$ and $\A{\rightsquigarrow}_{\A{a}}$ by replacing all assumptions of the form $(e,\A{s})\A\Downarrow\A{r}$ to $\A{r}\in\A{a}(e,\A{s})$ in $\A\Downarrow$ and $\A\rightsquigarrow$.
+    \item Define $\A{\Downarrow}_{\A{a}}$ and $\A{\rightsquigarrow}_{\A{a}}$ by replacing all assumptions $(e,\A{s})\A\Downarrow\A{r}$ to $\A{r}\in\A{a}(e,\A{s})$ in $\A\Downarrow$ and $\A\rightsquigarrow$.
     \item Define the $\A{\mathsf{step}}$ function that collects all results derivable in one step from $(e,\A{s})$ using $\A{a}$.
           \[
             \A{\mathsf{step}}(\A{a})(e,\A{s})\triangleq
@@ -974,7 +993,7 @@ The usual thing to do now is to connect the collecting semantics $\sembracket{e}
 However, we do not enforce the existence of an explicit abstraction and concretization function.
 Instead, we define a notion of soundness between abstract and concrete results and prove that for any $\A{\tick}$, the abstract semantics overapproximate the collecting semantics if it starts from a sound configuration.
 
-\begin{definition}[$\alpha$-soundness between results : $\lesssim$]
+\begin{definition}[$\alpha$-soundness between results]
   $\:$
 
   \begin{itemize}
@@ -988,7 +1007,7 @@ Instead, we define a notion of soundness between abstract and concrete results a
   We say that $(\A{V},\A\mem,\A{t})$ is an \emph{$\alpha$-sound approximation} of $(V,\mem,t)$ when $\alpha(V)=\A{V}$, $\alpha(\mem)\sqsubseteq\A\mem$, and $\alpha(t)=\A{t}$.
 \end{definition}
 
-\begin{definition}[Soundness between semantics]
+\begin{definition}[Soundness between semantics : $\lesssim$]
   $\:$
 
   \begin{itemize}

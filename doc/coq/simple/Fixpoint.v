@@ -104,3 +104,34 @@ Inductive step_multi `{time T} (C : @dy_ctx T) (st : @state T)
             (STEP2 : step_multi C' st' e' C'' st'' e'' step2)
     : step_multi C st e C'' st'' e'' (step1 + step2)
 .
+
+Lemma step_bound `{time T} n :
+  forall (C : @dy_ctx T) st e v st_v 
+    (EVAL : step_eval C st e v st_v (S (S n))),
+    exists p q C' st' e',
+      step_one C st e C' st' e' p /\
+      step_eval C' st' e' v st_v q /\
+      p + q = S n.
+Proof.
+  induction n; intros; inversion EVAL.
+  - exists (3 + step1 + step2). exists step3.
+    exists (C_lam [|dy_c_lam x t ([||])|]).
+    exists (ST (t !#-> arg; mem) (tick C (ST mem t) x arg)).
+    exists e0.
+    split. eapply s_appbody; eauto.
+    split; eauto.
+  - exists (2 + step1). exists step2.
+    exists C_m. exists st_m. exists e0.
+    split. eapply s_linkr; eauto.
+    split; eauto.
+  - exists (2 + step1). exists step2.
+    exists (C [|dy_c_lete x t ([||])|]).
+    exists (ST (t !#-> v0; mem) (tick C (ST mem t) x v0)).
+    exists m.
+    split. eapply s_leter; eauto.
+    split; eauto.
+  - exists (2 + step1). exists step2.
+    exists (C [|dy_c_letm M C' ([||])|]). exists st'. exists m''.
+    split. eapply s_letmr; eauto.
+    split; eauto.
+Qed.
