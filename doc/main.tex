@@ -139,15 +139,15 @@
 \newcommand*{\ModVar}{\text{ModVar}}
 \newcommand*{\Time}{\mathbb{T}}
 \newcommand*{\ATime}{\A{\Time}}
-\newcommand*{\Ctx}[1]{\text{Ctx}\vphantom{#1}}
-\newcommand*{\Value}[1]{\text{Val}\vphantom{#1}}
-\newcommand*{\Mem}[1]{\text{Mem}\vphantom{#1}}
+\newcommand*{\Ctx}[1]{\text{Ctx}({#1})}
+\newcommand*{\Value}[1]{\text{Val}({#1})}
+\newcommand*{\Mem}[1]{\text{Mem}({#1})}
 \newcommand*{\mem}{m}
-\newcommand*{\AMem}[1]{\A{\text{Mem}}\vphantom{#1}}
-\newcommand*{\Config}[1]{\text{Config}\vphantom{#1}}
-\newcommand*{\AConfig}[1]{\A{\text{Config}}\vphantom{#1}}
-\newcommand*{\Result}[1]{\text{Result}\vphantom{#1}}
-\newcommand*{\AResult}[1]{\A{\text{Result}}\vphantom{#1}}
+\newcommand*{\AMem}[1]{\A{\text{Mem}}({#1})}
+\newcommand*{\Config}[1]{\text{State}({#1})}
+\newcommand*{\AConfig}[1]{\A{\text{State}}({#1})}
+\newcommand*{\Result}[1]{\text{Result}({#1})}
+\newcommand*{\AResult}[1]{\A{\text{Result}}({#1})}
 \newcommand*{\link}[2]{{#1}\mathtt{!}{#2}}
 \newcommand*{\EE}{\mathsf{Exp}}
 \newcommand*{\LL}{\mathsf{L}}
@@ -246,7 +246,7 @@ Also, we present the notational conventions used in this paper to represent memb
     Result of expressions         & $v$    & $\in$         & $\Value\Time \triangleq \Expr\times\Ctx\Time$                                                            \\
     Result of expressions/modules & $V$    & $\in$         & $\Value{\Time}+\Ctx{\Time}$                                                                              \\
     Memory                        & $\mem$ & $\in$         & $\Mem{\Time} \triangleq \fin{\Time}{\Value{\Time}}$                                                      \\
-    Configuration                 & $s$    & $\in$         & $\Config{\Time} \triangleq \Ctx{\Time}\times\Mem{\Time}\times\Time$                                      \\
+    State                         & $s$    & $\in$         & $\Config{\Time} \triangleq \Ctx{\Time}\times\Mem{\Time}\times\Time$                                      \\
     Result                        & $r$    & $\in$         & $\Result{\Time} \triangleq (\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time$                      \\
     Context                       & $C$    & $\rightarrow$ & []                                                                                  & empty stack        \\
                                   &        & $\vbar$       & $(x,t)\cons C$                                                                      & expression binding \\
@@ -277,19 +277,17 @@ and the function that looks up the dynamic context bound to a $\ModVar$ $M$.
   \[
     \addr(C,x)\triangleq
     \begin{cases}
-      \bot         & C=[]                                                        \\
-      t            & C=(x', t)\cons C' \wedge (x'= x\wedge \addr(C',x)=\bot)     \\
-      \addr(C',x)  & C=(x', t)\cons C' \wedge (x'\neq x\lor \addr(C',x)\neq\bot) \\
+      \bot         & C=[]                              \\
+      t            & C=(x, t)\cons C'                  \\
+      \addr(C',x)  & C=(x', t)\cons C' \wedge x'\neq x \\
       \addr(C'',x) & C=(M, C')\cons C''
     \end{cases}
-  \]
-
-  \[
+    \quad
     \modctx(C,M)\triangleq
     \begin{cases}
-      \bot           & C=[]                                                          \\
-      C'             & C=(M, C')\cons C''\wedge (M'= M\wedge\modctx(C'',M)=\bot)     \\
-      \modctx(C'',M) & C=(M, C')\cons C''\wedge (M'\neq M\lor\modctx(C'',M)\neq\bot) \\
+      \bot           & C=[]                               \\
+      C'             & C=(M, C')\cons C''                 \\
+      \modctx(C'',M) & C=(M', C')\cons C''\wedge M'\neq M \\
       \modctx(C',M)  & C=(x, t)\cons C'
     \end{cases}
   \]
@@ -440,11 +438,11 @@ What should be the \emph{type} of the collecting semantics?
 Obviously, given the type of the evaluation relation, $\wp((\Expr\times\Config{\Time})\times\Result{\Time})$ seems to be the natural choice.
 However, by requiring that all collected pairs have a result fails to collect the configurations that are reached but does not return.
 Such a situation will occur frequently when separately analyzing an expression that depends on an external module to resolve its free variables.
-Therefore, we interpret the relation as a partial function that maps an element of $\Expr\times\Config\Time$ to a \emph{set} of results.
-An $(e,s)$ that is not in the domain of the collecting semantics means that it is not \emph{reached} by the initial configuration, and a $(e,s)$ that is inside the domain but is mapped to $\varnothing$ means that the configuration is reached but does not return.
+Therefore, we extend the relation to relate an element of $\Expr\times\Config\Time$ to a \emph{set} of results.
+An $(e,s)$ that is not related to any set means that the configuration is not reached, and an $(e,s)$ that is related to an empty set means that the configuration does not return.
 
 \begin{definition}[Collecting Semantics]
-  The collecting semantics of an expression $e$ under initial configuration $s$ is a partial function $\sembracket{e}(s)\in(\Expr\times\Config\Time)\rightarrow\wp(\Result{\Time})_\bot$ that collects all pairs of reachable configurations with the results they return.
+  The collecting semantics of an expression $e$ under initial configuration $s$ is a set $\sembracket{e}(s)\subseteq(\Expr\times\Config\Time)\times\wp(\Result{\Time})$ that collects all pairs of reachable configurations with the set of results they return.
 \end{definition}
 
 \subsection{Fixpoint Semantics}
@@ -583,7 +581,7 @@ Using the transitive and reflexive closure $\rightsquigarrow^{*}$ of $\rightsqui
 
 \begin{lem}[Collecting semantics using $\rightsquigarrow^{*}$]
   \[
-    \sembracket{e}(s)=\bigcup_{(e,s)\rightsquigarrow^{*}(e',s')}[(e',s')\mapsto\{r|(e',s')\Downarrow r\}]
+    \sembracket{e}(s)=\bigcup_{(e,s)\rightsquigarrow^{*}(e',s')}\{((e',s'),\{r|(e',s')\Downarrow r\})\}
   \]
 \end{lem}
 
@@ -591,31 +589,32 @@ Now we define a transfer function that takes a cache and returns a cache that ta
 Using this transfer function, we will express the collecting semantics as a fixpoint, which directly shows how to compute the semantics.
 
 \begin{definition}[Transfer function]
-  Given an element $a$ of $(\Expr\times\Config{\Time})\rightarrow{\wp(\Result{\Time})}_{\bot}$,
+  Given a subset $a$ of $(\Expr\times\Config{\Time})\times{\wp(\Result{\Time})}$,
 
   \begin{itemize}
-    \item Define ${\Downarrow}_{a}$ and ${\rightsquigarrow}_{a}$ by replacing all assumptions $(e,s)\Downarrow r$ to $r\in a(e,s)$ in $\Downarrow$ and $\rightsquigarrow$.
+    \item Define ${\Downarrow}_{a}$ and ${\rightsquigarrow}_{a}$ by replacing all premises $(e,s)\Downarrow r$ by $\exists R:((e,s),R)\in a\wedge r\in R$ in $\Downarrow$ and $\rightsquigarrow$.
     \item Define the ${\mathsf{step}}$ function that collects all results derivable in one step from $(e,s)$ using $a$.
           \[
             \mathsf{step}(a)(e,s)\triangleq
-            [(e,s)\mapsto\{r|(e,s){\Downarrow}_{a}r\}]
+            \{((e,s),\{r|(e,s){\Downarrow}_{a}r\})\}
             \cup
-            \bigcup_{(e,s)\rightsquigarrow_{a}(e',s')}[(e',s')\mapsto\varnothing]
+            \bigcup_{(e,s)\rightsquigarrow_{a}(e',s')}\{((e',s'),\varnothing)\}
           \]
   \end{itemize}
 
-  We define the transfer function $F$ by:
+  We define the transfer function $\mathsf{Step}$ by:
   \[
-    F(a)\triangleq
+    \mathsf{Step}(a)\triangleq
     \bigcup_{(e,s)\in\mathsf{dom}(a)}
     {\mathsf{step}(a)(e,s)}
   \]
+  when the set $\mathsf{dom}(a)\triangleq\{(e,s)|\exists R\subseteq\Result{\Time}:((e,s),R)\in a\}$.
 \end{definition}
 
 We can finally formulate the collecting semantics in fixpoint form.
 \begin{lem}[Concrete semantics as a fixpoint]
   \[
-    \sembracket{e}(s)=\mathsf{lfp}(\lambda a.F(a)\cup[(e,s)\mapsto\varnothing])
+    \sembracket{e}(s)=\mathsf{lfp}(\lambda a.\mathsf{Step}(a)\cup\{((e,s),\varnothing)\}
   \]
 \end{lem}
 
@@ -624,9 +623,9 @@ To justify separate analysis, we decompose the collecting semantics of the linki
 
 \begin{definition}[Auxiliary operators for concrete linking]
   \begin{align*}
-    \EE\:e_1\:s        & \triangleq\sembracket{e_1}(s)(e_1,s)                    & (\text{Exported under }s)      \\
-    \LL\:E\:e_2        & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s')         & (\text{Reached under }E)       \\
-    \mathsf{F}\:E\:e_2 & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s')(e_2,s') & (\text{Final results under }E)
+    \EE\:e_1\:s        & \triangleq\bigcup_{((e_1,s),R)\in\sembracket{e_1}(s)}R                      & (\text{Exported under }s)      \\
+    \LL\:E\:e_2        & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s')                             & (\text{Reached under }E)       \\
+    \mathsf{F}\:E\:e_2 & \triangleq\bigcup_{s'\in E}\bigcup_{((e_2,s'),R)\in\sembracket{e_2}(s')}{R} & (\text{Final results under }E)
   \end{align*}
 \end{definition}
 
@@ -635,7 +634,7 @@ The final result for the total expression $\link{e_1}{e_2}$ will be the final re
 
 \begin{definition}[Concrete linking operator]
   \begin{align*}
-    \Link\:e_1\:e_2\:s & \triangleq\sembracket{e_1}(s)\cup\LL\:(\EE\:e_1\:s)\:e_2\cup[(\link{e_1}{e_2},s)\mapsto\mathsf{F}\:(\EE\:e_1\:s)\:e_2]
+    \Link\:e_1\:e_2\:s & \triangleq\sembracket{e_1}(s)\cup\LL\:(\EE\:e_1\:s)\:e_2\cup\{((\link{e_1}{e_2},s),\mathsf{F}\:(\EE\:e_1\:s)\:e_2)\}
   \end{align*}
 \end{definition}
 
@@ -658,11 +657,11 @@ They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
   \footnotesize
   \begin{tabular}{rccll}
     Abstract Time                 & $\A{t}$  & $\in$ & $\ATime$                                                                                   \\
-    Environment/Context           & $\A{C}$  & $\in$ & $\Ctx\ATime\text{ under }\ATime$                                                           \\
-    Result of expressions         & $\A{v}$  & $\in$ & $\Value\ATime\text{ under }\ATime$                                                         \\
-    Result of expressions/modules & $\A{V}$  & $\in$ & $\Value{\ATime}+\Ctx{\ATime}\text{ under }\ATime$                                          \\
+    Environment/Context           & $\A{C}$  & $\in$ & $\Ctx\ATime$                                                                               \\
+    Result of expressions         & $\A{v}$  & $\in$ & $\Value\ATime$                                                                             \\
+    Result of expressions/modules & $\A{V}$  & $\in$ & $\Value{\ATime}+\Ctx{\ATime}$                                                              \\
     Abstract Memory               & $\A\mem$ & $\in$ & $\AMem{\ATime} \triangleq \fin{\ATime}{\wp(\Value{\ATime})}$                               \\
-    Abstract Configuration        & $\A{s}$  & $\in$ & $\AConfig{\ATime} \triangleq \Ctx{\ATime}\times\Mem{\ATime}\times\ATime$                   \\
+    Abstract State                & $\A{s}$  & $\in$ & $\AConfig{\ATime} \triangleq \Ctx{\ATime}\times\Mem{\ATime}\times\ATime$                   \\
     Abstract Result               & $\A{r}$  & $\in$ & $\AResult{\ATime} \triangleq (\Value{\ATime}+\Ctx{\ATime})\times\AMem{\ATime}\times\ATime$ \\
   \end{tabular}
   \caption{Definition of the semantic domains.}
@@ -949,102 +948,64 @@ The abstract big-step evaluation relation is defined in \ref{fig:abseval}, and t
 
 From the relations above, we can define the abstract semantics:
 \begin{definition}[Abstract semantics]
-  The semantics for an expression $e$ under configuration $\A{s}\in\AConfig{\ATime}$ is an element in $(\Expr\times\AConfig{\ATime})\rightarrow{\wp(\AResult{\ATime})}_{\bot}$ defined as:
+  The semantics for an expression $e$ under configuration $\A{s}\in\AConfig{\ATime}$ is a subset of $(\Expr\times\AConfig{\ATime})\times{\wp(\AResult{\ATime})}$ defined as:
   \[
-    \A{\sembracket{e}}(\A{s})\triangleq\bigsqcup_{(e,\A{s}){\A\rightsquigarrow}^{*}(e',\A{s'})}[(e',\A{s'})\mapsto\{\A{r}|(e',\A{s'})\A\Downarrow \A{r}\}]
+    \A{\sembracket{e}}(\A{s})\triangleq\bigcup_{(e,\A{s}){\A\rightsquigarrow}^{*}(e',\A{s'})}\{((e',\A{s'}),\{\A{r}|(e',\A{s'})\A\Downarrow \A{r}\})\}
   \]
 \end{definition}
 
 As in the concrete case, the semantics need to be expressed in fixpoint form.
 
 \begin{definition}[Transfer function]
-  Given an element $\A{a}$ of $(\Expr\times\AConfig{\ATime})\rightarrow{\wp(\AResult{\ATime})}_{\bot}$,
+  Given a subset $\A{a}$ of $(\Expr\times\AConfig{\ATime})\times{\wp(\AResult{\ATime})}$,
 
   \begin{itemize}
-    \item Define $\A{\Downarrow}_{\A{a}}$ and $\A{\rightsquigarrow}_{\A{a}}$ by replacing all assumptions $(e,\A{s})\A\Downarrow\A{r}$ to $\A{r}\in\A{a}(e,\A{s})$ in $\A\Downarrow$ and $\A\rightsquigarrow$.
+    \item Define $\A{\Downarrow}_{\A{a}}$ and $\A{\rightsquigarrow}_{\A{a}}$ by replacing all premises $(e,\A{s})\A\Downarrow\A{r}$ by $\exists \A{R}:((e,\A{s}),\A{R})\in \A{a}\wedge \A{r}\in \A{R}$ in $\A\Downarrow$ and $\A\rightsquigarrow$.
     \item Define the $\A{\mathsf{step}}$ function that collects all results derivable in one step from $(e,\A{s})$ using $\A{a}$.
           \[
             \A{\mathsf{step}}(\A{a})(e,\A{s})\triangleq
-            [(e,\A{s})\mapsto\{\A{r}|(e,\A{s})\A{\Downarrow}_{\A{a}}\A{r}\}]
-            \sqcup
-            \bigsqcup_{(e,\A{s})\A{\rightsquigarrow}_{\A{a}}(e',\A{s'})}[(e',\A{s'})\mapsto\varnothing]
+            \{((e,\A{s}),\{\A{r}|(e,\A{s})\A{\Downarrow}_{\A{a}}\A{r}\})\}
+            \cup
+            \bigcup_{(e,\A{s})\A{\rightsquigarrow}_{\A{a}}(e',\A{s'})}\{((e',\A{s'}),\varnothing)\}
           \]
   \end{itemize}
 
-  We define the transfer function $\A{F}$ by:
+  We define the transfer function $\A{\mathsf{Step}}$ by:
   \[
-    \A{F}(\A{a})\triangleq
-    \bigsqcup_{(e,\A{s})\in\mathsf{dom}(\A{a})}
+    \A{\mathsf{Step}}(\A{a})\triangleq
+    \bigcup_{(e,\A{s})\in\mathsf{dom}(\A{a})}
     {\A{\mathsf{step}}(\A{a})(e,\A{s})}
   \]
 \end{definition}
 
 \begin{lem}[Abstract semantics as a fixpoint]
   \[
-    \A{\sembracket{e}}(\A{s})=\mathsf{lfp}(\lambda \A{a}.\A{F}(\A{a})\sqcup[(e,\A{s})\mapsto\varnothing])
+    \A{\sembracket{e}}(\A{s})=\mathsf{lfp}(\lambda \A{a}.\A{\mathsf{Step}}(\A{a})\cup\{((e,\A{s}),\varnothing)\})
   \]
 \end{lem}
 
 \section{Non-modular Analysis}
-The usual thing to do now is to connect the collecting semantics $\sembracket{e}$ with the abstract semantics $\A{\sembracket{e}}$ via a Galois connection.
-However, we do not enforce the existence of an explicit abstraction and concretization function.
-Instead, we define a notion of soundness between abstract and concrete results and prove that for any $\A{\tick}$, the abstract semantics overapproximate the collecting semantics if it starts from a sound configuration.
-
-\begin{definition}[$\alpha$-soundness between results]
-  $\:$
-
-  \begin{itemize}
-    \item Let $(V,\mem,t)\in\Result{\Time}$ and $(\A{V},\A\mem,\A{t})\in\AResult{\ATime}$. We do not assume that $\Time$ and $\ATime$ are concrete/abstract times.
-    \item Let $\alpha:\Time\rightarrow\ATime$, and extend $\alpha$ to a function in $\Ctx{\Time}\rightarrow\Ctx{\ATime}$ by mapping $\alpha$ over all timestamps.
-    \item Extend $\alpha$ to a function in $(\Ctx{\Time}+\Value{\Time})\rightarrow(\Ctx{\ATime}+\Value{\ATime})$ accordingly.
-    \item Extend $\alpha$ to a function in $\Mem{\Time}\rightarrow\AMem{\ATime}$ by defining
-          \[\alpha(\mem)\triangleq\bigsqcup_{t\in\mathsf{dom}(\mem)}[\alpha(t)\mapsto\{\alpha(\mem(t))\}]\]
-  \end{itemize}
-
-  We say that $(\A{V},\A\mem,\A{t})$ is an \emph{$\alpha$-sound approximation} of $(V,\mem,t)$ when $\alpha(V)=\A{V}$, $\alpha(\mem)\sqsubseteq\A\mem$, and $\alpha(t)=\A{t}$.
-\end{definition}
-
-\begin{definition}[Soundness between semantics : $\lesssim$]
-  $\:$
-
-  \begin{itemize}
-    \item Let $a\in(\Expr\times\Config{\Time})\rightarrow{\wp(\Result{\Time})}_{\bot}$ and $\A{a}\in(\Expr\times\AConfig{\ATime})\rightarrow{\wp(\AResult{\ATime})}_{\bot}$.
-  \end{itemize}
-
-  We say that $\A{a}$ is a sound approximation of $a$ and write $a\lesssim\A{a}$ if:
+\begin{definition}[Tick-approximating concretization]
+  Given a concrete time $(\Time,\le,\tick)$ and an abstract time $(\ATime, \A\tick)$, a function $\gamma:\ATime\rightarrow\wp(\Time)$ is said to be \emph{tick-approximating} if:
   \[
-    \forall e\in\Expr,s\in\Config{\Time},r\in\Result{\Time}:r\in a(e,s)\Rightarrow\exists\alpha,\alpha',\A{s},\A{r}:\alpha(s)\sqsubseteq\A{s}\wedge\alpha'(r)\sqsubseteq\A{r}\in\A{a}(e,\A{s})
+    \forall t,\A{t},\A{C},\A{\mem},x,\A{v}:t\in\gamma(\A{t})\Rightarrow\tick\:t\in\gamma(\A{\tick}\:\A{C}\:\A\mem\:\A{t}\:x\:\A{v})
   \]
-
-  That is, for every $(e,s), r$ pair in $a$, there exists an $\alpha$-sound pair in $\A{a}$.
 \end{definition}
 
-\begin{lem}[Preservation of soundness, relation version]
-  $\:$
-
-  \begin{itemize}
-    \item Let $s\in\Config{\Time}$ and $\A{s}\in\AConfig{\ATime}$.
-    \item Let all timestamps in the $C$ and $\mem$ component of $s$ be strictly less than the $t$ component.
-    \item Let $\A{s}$ be an $\alpha$-sound approximation of $s$ for some $\alpha$.
-  \end{itemize}
-
-  Then for all $e$,
-  \begin{enumerate}
-    \item If $(e,s)\Downarrow r$, then $\exists\alpha',\A{r}$ such that $(e,\A{s})\A\Downarrow\A{r}$, $\alpha'(s)\sqsubseteq\A{s}$, and $\alpha'(r)\sqsubseteq\A{r}$.
-    \item If $(e,s)\rightsquigarrow (e',s')$, then $\exists\alpha', \A{s'}$ such that $(e,\A{s})\A\rightsquigarrow(e',\A{s'})$, $\alpha'(s)\sqsubseteq\A{s}$, and $\alpha'(s')\sqsubseteq\A{s'}$.
-  \end{enumerate}
-\end{lem}
-
+Then we can prove that:
 \begin{lem}[Preservation of soundness]
   $\:$
 
   \begin{itemize}
     \item Let $s\in\Config{\Time}$ and $\A{s}\in\AConfig{\ATime}$.
     \item Let all timestamps in the $C$ and $\mem$ component of $s$ be strictly less than the $t$ component.
-    \item Let $\A{s}$ be an $\alpha$-sound approximation of $s$ for some $\alpha$.
+    \item Let $\gamma$ be tick-approximating, and define $\alpha(t)\triangleq\{\A{t}|t\in\gamma(\A{t})\}$
   \end{itemize}
 
-  Then for all $e$, $\sembracket{e}(s)\lesssim\A{\sembracket{e}}(\A{s})$.
+  Then for all $e$,
+  \[
+    s\in\gamma(\A{s})\Rightarrow\sembracket{e}(s)\subseteq\gamma\left(\bigcup_{\A{s}\in\alpha(s)}\A{\sembracket{e}}(\A{s})\right)
+  \]
 \end{lem}
 
 What's remarkable is that we did not put any constraint on the $\tick$ and $\A{\tick}$ functions.
@@ -1110,7 +1071,7 @@ We abuse the notation $\inject{C}{v}$ to mean that the context $C$ is injected i
 
 Finally, before delving into the definition of the linked time domain, we need to define a filter function that filters the context and memory by membership in each time domain.
 
-\begin{figure}[htb]
+\begin{figure}[h!]
   \footnotesize
   \[
     \filter(C,\Time)\triangleq
@@ -1146,9 +1107,9 @@ Finally, before delving into the definition of the linked time domain, we need t
 
   Define $\A{s}\rhd\A{r}\triangleq(\A{C_1}\langle\A{V_2}\rangle,\A{C_1}\langle\A{\mem_2}\rangle\sqcup\A{\mem_1},\A{t_2})$ to be a result in $\ATime_1+\ATime_2$.
 
-  We extend the $\rhd$ operator to inject $\A{s}$ in an element of $(\Expr\times\AConfig{\ATime})\rightarrow{\wp(\AResult{\ATime})}_{\bot}$:
+  We extend the $\rhd$ operator to inject $\A{s}$ in an element of $(\Expr\times\AConfig{\ATime})\times{\wp(\AResult{\ATime})}$:
   \[
-    \A{s}\rhd\A{a}\triangleq\bigsqcup_{(e,\A{s'})\in\mathsf{dom}(\A{a})}[(e,\A{s}\rhd\A{s'})\mapsto\{\A{s}\rhd\A{r}|\A{r}\in\A{a}(e,\A{s'})\}]
+    \A{s}\rhd\A{a}\triangleq\bigcup_{(e,\A{s'})\in\mathsf{dom}(\A{a})}\{((e,\A{s}\rhd\A{s'}),\{\A{s}\rhd\A{r}|\A{r}\in\A{a}(e,\A{s'})\})\}
   \]
 \end{definition}
 
@@ -1170,20 +1131,13 @@ Finally, before delving into the definition of the linked time domain, we need t
   Then we call the abstract time $(\ATime_1+\ATime_2,\A\tick_{+}(\A{s_1}))$ the linked time of $(\ATime_2,\A{\tick})$ under exported configuration $\A{s_1}$.
 \end{definition}
 
-\begin{lem}[Injection preserves soundness]
-  $\:$
-
-  Let $s=(C,\mem,t)$ be a configuration in a concrete time $(\Time,\le,\tick)$ with all timestamps in $C,\mem$ strictly less than $t$, and let $\A{s}$ be an $\alpha$-sound approximation of $s$ with timestamps in $\ATime_1$.
-  Then there exists an $\alpha'$ such that $\A{s}\rhd([],\varnothing,\A{0})$ is an $\alpha'$-sound approximation of $s$, when $\A{0}\in\ATime_2$.
-\end{lem}
-
 \begin{lem}[Injection preserves timestamps under added time]
   $\:$
 
   Let $\A{s}$ be a configuration in $\ATime_1$, $\A{\sembracket{e}}(\A{s'})$ be the semantics of $e$ under $(\ATime_2,\A\tick)$, and $\A{\sembracket{e}}(\A{s}\rhd\A{s'})$ be the semantics of $e$ under $(\ATime_1+\ATime_2,\A\tick_{+}(\A{s}))$.
   Then:
   \[
-    \A{s}\rhd\A{\sembracket{e}}(\A{s'})\sqsubseteq\A{\sembracket{e}}(\A{s}\rhd\A{s'})
+    \A{s}\rhd\A{\sembracket{e}}(\A{s'})\subseteq\A{\sembracket{e}}(\A{s}\rhd\A{s'})
   \]
 \end{lem}
 
@@ -1193,7 +1147,7 @@ Finally, before delving into the definition of the linked time domain, we need t
   Let $\A{s_1}$ be a configuration in $\ATime_1$, and let $\A{a_2}=\A{\sembracket{e}}(\A{s'})$ be the semantics of $e$ under $(\ATime_2,\A\tick)$.
   Define the ``addition'' between $\A{s_1}$ and $\A{a_2}$ as:
   \[
-    \A{s_1}\oplus\A{a_2}\triangleq\mathsf{lfp}(\lambda\A{a}.\A{F}(\A{a})\sqcup(\A{s_1}\rhd\A{a_2}))
+    \A{s_1}\oplus\A{a_2}\triangleq\mathsf{lfp}(\lambda\A{a}.\A{\mathsf{Step}}(\A{a})\cup(\A{s_1}\rhd\A{a_2}))
   \]
 \end{definition}
 
@@ -1203,30 +1157,30 @@ Finally, before delving into the definition of the linked time domain, we need t
   \]
 \end{lem}
 
+We introduce a notation for convenience: for any $e$, we denote the semantics of $e$ under an initial configuration with empty context and memory as $\A{\sembracket{e}}_0$.
+
 \begin{definition}[Auxiliary operators for abstract linking]
   \begin{align*}
-    \A\EE\:\A{a}\:e_1\:\A{s}   & \triangleq\A{a}(e_1,\A{s})                                                                                                          & (\text{Exported under }\A{s}\text{ using }\A{a}) \\
-    \A\LL\:\A{E}\:e_2          & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}([],\varnothing,\A{0}))                                       & (\text{Reached under }\A{E})                     \\
-    \A{\mathsf{F}}\:\A{E}\:e_2 & \triangleq\bigsqcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}([],\varnothing,\A{0}))(e_2,\A{s'}\rhd([],\varnothing,\A{0})) & (\text{Final results under }\A{E})
+    \A\EE\:\A{a}\:e_1\:\A{s}   & \triangleq\bigcup_{((e_1,\A{s}),\A{R})\in\A{a}}\A{R}                                                                                & (\text{Exported under }\A{s}\text{ using }\A{a}) \\
+    \A\LL\:\A{E}\:e_2          & \triangleq\bigcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}_0)                                                             & (\text{Reached under }\A{E})                     \\
+    \A{\mathsf{F}}\:\A{E}\:e_2 & \triangleq\bigcup_{\A{s'}\in \A{E}}\bigcup_{((e_2,\A{C'},\A{m'},\A{0}),\A{R})\in(\A{s'}\oplus\A{\sembracket{e_2}}_0)}{\A{R}} & (\text{Final results under }\A{E})
   \end{align*}
 \end{definition}
 
 \begin{definition}[Abstract linking operator]
   \[
-    \A\Link\:\A{a}\:e_1\:e_2\:\A{s}\triangleq\A{a}\sqcup\A\LL\:(\A\EE\:\A{a}\:e_1\:\A{s})\:e_2\sqcup[(\link{e_1}{e_2},\A{s})\mapsto\A{\mathsf{F}}\:(\A\EE\:\A{a}\:e_1\:\A{s})\:e_2]
+    \A\Link\:\A{a}\:e_1\:e_2\:\A{s}\triangleq\A{a}\cup\A\LL\:(\A\EE\:\A{a}\:e_1\:\A{s})\:e_2\cup\{((\link{e_1}{e_2},\A{s}),\A{\mathsf{F}}\:(\A\EE\:\A{a}\:e_1\:\A{s})\:e_2)\}
   \]
 \end{definition}
 
 \begin{thm}[Abstract linking]
   Let $s$ be a concrete configuration.
 
-  Let $\A{s}$ be an $\alpha$-sound approximation of $s$ for some $\alpha$, let $\sembracket{e_1}(s)\lesssim\A{a}$, and let $\sembracket{e_1}(s)(e_1,s)\lesssim\A{a}(e_1,\A{s})$. Then:
+  Let $\A{a}$ satisfy $\sembracket{e_1}(s)\subseteq\gamma_1(\A{a})$, and define $\alpha_1(t)\triangleq\{\A{t}|t\in\gamma_1(\A{t})\}$.
+
+  Let $\gamma_2$ be a tick-approximating concretization between $\Time$ and $\ATime_2$. Then:
   \[
-    \sembracket{\link{e_1}{e_2}}(s)\lesssim\A\Link\:\A{a}\:e_1\:e_2\:\A{s}
-  \]
-  and
-  \[
-    \sembracket{\link{e_1}{e_2}}(s)(\link{e_1}{e_2},s)\lesssim(\A\Link\:\A{a}\:e_1\:e_2\:\A{s})(\link{e_1}{e_2},\A{s})
+    \sembracket{\link{e_1}{e_2}}(s)\subseteq(\gamma_1\cup\gamma_2)\left(\bigcup_{\A{s}\in\alpha_1(s)}{\A\Link\:\A{a}\:e_1\:e_2\:\A{s}}\right)
   \]
 \end{thm}
 
@@ -1239,13 +1193,16 @@ Why did we introduce $\A{a}$, instead of using $\A{\sembracket{e_1}}(\A{s})$ dir
   \[
     l_0\triangleq e_0\qquad l_{i+1}\triangleq\link{l_i}{e_{i+1}}
   \]
-  and define $L_i\triangleq\sembracket{l_i}(s)$. Now, given an $\alpha$-sound approximation $\A{s}$ of $s$, define
+  and define $L_i\triangleq\sembracket{l_i}(s)$.
+
+  Let $\gamma_i$ be a tick-approximating concretization between $\Time$ and $\ATime_i$, and let the union of $\gamma_i$ from $i=0$ to $n$ be $l\gamma_n$.
+  Now, define $\alpha_0(t)\triangleq\{\A{t}|t\in\gamma_0(\A{t})\}$ and
   \[
-    \A{L_0}\triangleq\A{\sembracket{e_0}}(\A{s})\qquad\A{L_{i+1}}\triangleq\A\Link\:\A{L_i}\:l_i\:e_{i+1}\:\A{s}
+    \A{L_0}\triangleq\bigcup_{\A{s}\in\alpha_0(s)}\A{\sembracket{e_0}}(\A{s})\qquad\A{L_{i+1}}\triangleq\bigcup_{\A{s}\in \alpha_0(s)}\A\Link\:\A{L_i}\:l_i\:e_{i+1}\:\A{s}
   \]
   Then we have:
   \[
-    \forall n:L_n\lesssim\A{L_n}
+    \forall n:L_n\subseteq l\gamma_n(\A{L_n})
   \]
 \end{thm}
 
