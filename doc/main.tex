@@ -241,17 +241,17 @@ Also, we present the notational conventions used in this paper to represent memb
   \centering
   \footnotesize
   \begin{tabular}{rccll}
-    Time                          & $t$    & $\in$         & $\Time$                                                                                                  \\
-    Environment/Context           & $C$    & $\in$         & $\Ctx\Time$                                                                                              \\
-    Result of expressions         & $v$    & $\in$         & $\Value\Time \triangleq \Expr\times\Ctx\Time$                                                            \\
-    Result of expressions/modules & $V$    & $\in$         & $\Value{\Time}+\Ctx{\Time}$                                                                              \\
-    Memory                        & $\mem$ & $\in$         & $\Mem{\Time} \triangleq \fin{\Time}{\Value{\Time}}$                                                      \\
-    State                         & $s$    & $\in$         & $\Config{\Time} \triangleq \Ctx{\Time}\times\Mem{\Time}\times\Time$                                      \\
-    Result                        & $r$    & $\in$         & $\Result{\Time} \triangleq (\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time$                      \\
-    Context                       & $C$    & $\rightarrow$ & []                                                                                  & empty stack        \\
-                                  &        & $\vbar$       & $(x,t)\cons C$                                                                      & expression binding \\
-                                  &        & $\vbar$       & $(M,C)\cons C$                                                                      & module binding     \\
-    Result of expressions         & $v$    & $\rightarrow$ & $\langle \lambda x.e, C \rangle$                                                    & closure
+    Time                         & $t$    & $\in$         & $\Time$                                                                                                  \\
+    Environment/Context          & $C$    & $\in$         & $\Ctx\Time$                                                                                              \\
+    Value of expressions         & $v$    & $\in$         & $\Value\Time \triangleq \Expr\times\Ctx\Time$                                                            \\
+    Value of expressions/modules & $V$    & $\in$         & $\Value{\Time}+\Ctx{\Time}$                                                                              \\
+    Memory                       & $\mem$ & $\in$         & $\Mem{\Time} \triangleq \fin{\Time}{\Value{\Time}}$                                                      \\
+    State                        & $s$    & $\in$         & $\Config{\Time} \triangleq \Ctx{\Time}\times\Mem{\Time}\times\Time$                                      \\
+    Result                       & $r$    & $\in$         & $\Result{\Time} \triangleq (\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time$                      \\
+    Context                      & $C$    & $\rightarrow$ & []                                                                                  & empty stack        \\
+                                 &        & $\vbar$       & $(x,t)\cons C$                                                                      & expression binding \\
+                                 &        & $\vbar$       & $(M,C)\cons C$                                                                      & module binding     \\
+    Result of expressions        & $v$    & $\rightarrow$ & $\langle \lambda x.e, C \rangle$                                                    & closure
   \end{tabular}
   \caption{Definition of the semantic domains.}
 \end{figure}
@@ -656,13 +656,13 @@ They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
   \centering
   \footnotesize
   \begin{tabular}{rccll}
-    Abstract Time                 & $\A{t}$  & $\in$ & $\ATime$                                                                                   \\
-    Environment/Context           & $\A{C}$  & $\in$ & $\Ctx\ATime$                                                                               \\
-    Result of expressions         & $\A{v}$  & $\in$ & $\Value\ATime$                                                                             \\
-    Result of expressions/modules & $\A{V}$  & $\in$ & $\Value{\ATime}+\Ctx{\ATime}$                                                              \\
-    Abstract Memory               & $\A\mem$ & $\in$ & $\AMem{\ATime} \triangleq \fin{\ATime}{\wp(\Value{\ATime})}$                               \\
-    Abstract State                & $\A{s}$  & $\in$ & $\AConfig{\ATime} \triangleq \Ctx{\ATime}\times\Mem{\ATime}\times\ATime$                   \\
-    Abstract Result               & $\A{r}$  & $\in$ & $\AResult{\ATime} \triangleq (\Value{\ATime}+\Ctx{\ATime})\times\AMem{\ATime}\times\ATime$ \\
+    Abstract Time                & $\A{t}$  & $\in$ & $\ATime$                                                                                   \\
+    Environment/Context          & $\A{C}$  & $\in$ & $\Ctx\ATime$                                                                               \\
+    Value of expressions         & $\A{v}$  & $\in$ & $\Value\ATime$                                                                             \\
+    Value of expressions/modules & $\A{V}$  & $\in$ & $\Value{\ATime}+\Ctx{\ATime}$                                                              \\
+    Abstract Memory              & $\A\mem$ & $\in$ & $\AMem{\ATime} \triangleq \fin{\ATime}{\wp(\Value{\ATime})}$                               \\
+    Abstract State               & $\A{s}$  & $\in$ & $\AConfig{\ATime} \triangleq \Ctx{\ATime}\times\Mem{\ATime}\times\ATime$                   \\
+    Abstract Result              & $\A{r}$  & $\in$ & $\AResult{\ATime} \triangleq (\Value{\ATime}+\Ctx{\ATime})\times\AMem{\ATime}\times\ATime$ \\
   \end{tabular}
   \caption{Definition of the semantic domains.}
 \end{figure}
@@ -1161,8 +1161,8 @@ We introduce a notation for convenience: for any $e$, we denote the semantics of
 
 \begin{definition}[Auxiliary operators for abstract linking]
   \begin{align*}
-    \A\EE\:\A{a}\:e_1\:\A{s}   & \triangleq\bigcup_{((e_1,\A{s}),\A{R})\in\A{a}}\A{R}                                                                                & (\text{Exported under }\A{s}\text{ using }\A{a}) \\
-    \A\LL\:\A{E}\:e_2          & \triangleq\bigcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}_0)                                                             & (\text{Reached under }\A{E})                     \\
+    \A\EE\:\A{a}\:e_1\:\A{s}   & \triangleq\bigcup_{((e_1,\A{s}),\A{R})\in\A{a}}\A{R}                                                                         & (\text{Exported under }\A{s}\text{ using }\A{a}) \\
+    \A\LL\:\A{E}\:e_2          & \triangleq\bigcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}_0)                                                      & (\text{Reached under }\A{E})                     \\
     \A{\mathsf{F}}\:\A{E}\:e_2 & \triangleq\bigcup_{\A{s'}\in \A{E}}\bigcup_{((e_2,\A{C'},\A{m'},\A{0}),\A{R})\in(\A{s'}\oplus\A{\sembracket{e_2}}_0)}{\A{R}} & (\text{Final results under }\A{E})
   \end{align*}
 \end{definition}
