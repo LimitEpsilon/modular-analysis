@@ -10,6 +10,17 @@ Module Conc := Concrete.
 Generalizable Variables CT.
 Generalizable Variables AT.
 
+Definition concret {CT AT} := AT -> CT -> bool.
+
+Definition preserve_tick `{Conc.time CT} `{Abs.time AT} (γ : concret) :=
+  forall (t : CT) (abs_t : AT) C abs_mem x abs_v
+    (SOUND : γ abs_t t = true),
+    γ (Abs.tick C (Abs.ST abs_mem abs_t) x abs_v) (Conc.tick t) = true
+.
+
+Definition galois {CT AT} (γ : concret) (α : CT -> AT) :=
+  forall (t : CT), γ (α t) t = true.
+
 Fixpoint dy_ctx_bound `{Conc.time CT} C t :=
   match C with
   | [||] => True
@@ -414,18 +425,31 @@ Proof.
   intros. rewrite eqb_eq. eauto.
 Qed.
 
+Lemma galois_tick `{Conc.time CT} `{Abs.time AT} (γ : concret) (PRES : preserve_tick γ) :
+  forall α (GALOIS : galois γ α) (t : CT) abs_C abs_mem abs_t x abs_v (EQ : α t = abs_t),
+  galois γ (fun t' => if eqb t' (tick t) then Abs.tick abs_C (Abs.ST abs_mem abs_t) x abs_v else α t').
+Proof.
+  intros. red. intros.
+  destruct (eqb t0 (tick t)) eqn:EQt.
+  - red in PRES. rewrite eqb_eq in EQt. rewrite EQt. apply PRES.
+    red in GALOIS. rewrite <- EQ. apply GALOIS.
+  - apply GALOIS.
+Qed.
+
 (* Set Printing Implicit. *)
 
-Lemma sound_eval :
-  forall `{Conc.time CT} `{Abs.time AT} C st e v' st'
+Lemma sound_eval `{Conc.time CT} `{Abs.time AT} (γ : concret) (PRES : preserve_tick γ) :
+  forall C st e v' st'
          (EVAL : EvalR C st e v' st')
          (BOUND : time_bound C st)
          abs_C abs_st α
-         (SOUND : sound α C st abs_C abs_st),
+         (SOUND : sound α C st abs_C abs_st)
+         (GALOIS : galois γ α),
     exists abs_C' abs_st' α',
       match st with
       | ST _ t =>
         eq_bound t α α' /\
+        galois γ α' /\
         match v' with
         | EVal (Closure x' e' C') =>
           sound α' C' st' abs_C' abs_st' /\
@@ -445,7 +469,7 @@ Proof.
   intros.
   rename H into ECT. rename H0 into OCT. rename H1 into T1.
   rename H2 into EAT. rename H3 into T2.
-  revert abs_C abs_st α SOUND. induction EVAL; intros; subst.
+  revert abs_C abs_st α SOUND GALOIS. induction EVAL; intros; subst.
   - unfold sound in SOUND. destruct abs_st as [abs_mem abs_t].
     destruct SOUND as [? [? ?]].
     specialize (H1 addr) as HINT. rewrite <- ACCESS in HINT.
@@ -490,13 +514,14 @@ Proof.
     specialize (BOUND''' B2).
     specialize (IHEVAL1 BOUND). specialize (IHEVAL2 B1). specialize (IHEVAL3 B2). 
     specialize (IHEVAL1 abs_C abs_st α SOUND).
-    destruct IHEVAL1 as [abs_C' [abs_st' [α' [EQ' SOUND']]]].
+    destruct IHEVAL1 as [abs_C' [abs_st' [α' [EQ' SOUND']]]]; eauto.
     assert (sound α' C (ST mem1 t1) abs_C abs_st').
-    { destruct abs_st'. simpl. simpl in SOUND'. destruct SOUND' as [[? [? ?]] ?].
+    { destruct abs_st'. simpl. simpl in SOUND'. destruct SOUND' as [G' [[? [? ?]] ?]].
       repeat split; eauto. destruct abs_st. simpl in SOUND. destruct SOUND as [? [RR ?]].
       rewrite <- RR. symmetry. eapply bound_trans_ctx_eq; simpl in BOUND; destruct BOUND; eauto. }
     specialize (IHEVAL2 abs_C abs_st' α' H). clear H.
-    destruct IHEVAL2 as [abs_C'' [abs_st'' [α'' [EQ'' SOUND'']]]]. destruct abs_st'' as [mem'' t''].
+    destruct IHEVAL2 as [abs_C'' [abs_st'' [α'' [EQ'' SOUND'']]]]. apply SOUND'.
+    destruct abs_st'' as [mem'' t''].
     remember (fun t' => if eqb t' (tick t)
                         then Abs.tick abs_C (Abs.ST mem'' t'') x (Closure x0 e0 abs_C'') 
                         else α'' t') as α'''.
@@ -508,8 +533,8 @@ Proof.
             (Abs.ST ((α'' t) !#-> Closure x0 e0 abs_C''; mem'') 
                     (Abs.tick abs_C (Abs.ST mem'' t'') x (Closure x0 e0 abs_C'')))).
     { clear EVAL1 EVAL2 EVAL3 BOUND SOUND IHEVAL3 EQ' time_inc1 C mem0 t0 B1 B2.
-      destruct SOUND' as [SOUND' ?]. clear H.
-      destruct SOUND'' as [SOUND'' ?]. clear H.
+      destruct SOUND' as [? [SOUND' ?]]. clear H H0.
+      destruct SOUND'' as [? [SOUND'' ?]]. clear H H0.
       rewrite Heqα'''. simpl. repeat split.
       - rewrite eqb_refl. eauto.
       - rewrite plugin_trans_ctx; simpl.
@@ -547,9 +572,11 @@ Proof.
                   (Abs.tick abs_C (Abs.ST mem'' t'') x
                   (Closure x0 e0 abs_C''))) α''' H).
     destruct IHEVAL3 as [abs_C''' [abs_st''' [α'''' [EQ'''' SOUND''']]]].
-    destruct SOUND' as [SOUND' EVAL'].
-    destruct SOUND'' as [SOUND'' EVAL''].
-    destruct SOUND''' as [SOUND''' EVAL'''].
+    rewrite Heqα'''. apply galois_tick. apply PRES. apply SOUND''. 
+    destruct SOUND'' as [? [RR ?]]. apply RR.
+    destruct SOUND' as [? [SOUND' EVAL']].
+    destruct SOUND'' as [? [SOUND'' EVAL'']].
+    destruct SOUND''' as [? [SOUND''' EVAL''']].
     exists abs_C'''. exists abs_st'''. exists α''''. repeat split; eauto.
     red. intros. 
     assert (α t' = α' t') as RR. apply EQ'. eauto. rewrite RR; clear RR.
@@ -557,9 +584,9 @@ Proof.
     assert (α'' t' = α''' t') as RR. apply EQ'''. lebt t1. lebt t0. rewrite RR; clear RR.
     apply EQ''''. lebt t. lebt t1. lebt t0.
     eapply Abstract.Eval_app. exact EVAL'. exact EVAL''.
-    destruct abs_st'. simpl in SOUND'. destruct SOUND' as [? [RR ?]].
-    rewrite RR. simpl in SOUND''. destruct SOUND'' as [? [RR' ?]].
-    rewrite RR'. rewrite <- H2. rewrite <- H2 in EVAL'''. exact EVAL'''.
+    destruct abs_st'. simpl in SOUND'. destruct SOUND' as [EQt' [RR ?]].
+    rewrite RR. simpl in SOUND''. destruct SOUND'' as [EQt'' [RR' ?]].
+    rewrite RR'. rewrite <- EQt''. rewrite <- EQt'' in EVAL'''. exact EVAL'''.
   - pose proof (time_bound_e C st m (MVal C_m) st_m EVAL1) as BOUND'.
     pose proof (time_bound_e C_m st_m e v st_v EVAL2) as BOUND''.
     specialize (BOUND' BOUND). simpl in BOUND'. 
@@ -567,11 +594,11 @@ Proof.
     destruct st. destruct st_m. destruct st_v.
     apply time_increase_e in EVAL1 as time_inc1.
     apply time_increase_e in EVAL2 as time_inc2.
-    specialize (IHEVAL1 BOUND abs_C abs_st α SOUND).
-    destruct IHEVAL1 as [abs_C' [abs_st' [α' [EQ' SOUND']]]].
+    specialize (IHEVAL1 BOUND abs_C abs_st α SOUND GALOIS).
+    destruct IHEVAL1 as [abs_C' [abs_st' [α' [EQ' [GALOIS' SOUND']]]]].
     destruct SOUND' as [SOUND' EVAL']. 
-    specialize (IHEVAL2 BOUND' abs_C' abs_st' α' SOUND').
-    destruct IHEVAL2 as [abs_C'' [abs_st'' [α'' [EQ'' SOUND'']]]].
+    specialize (IHEVAL2 BOUND' abs_C' abs_st' α' SOUND' GALOIS').
+    destruct IHEVAL2 as [abs_C'' [abs_st'' [α'' [EQ'' [GALOIS'' SOUND'']]]]].
     destruct v; try destruct ev;
     destruct SOUND'' as [SOUND'' EVAL''];
     exists abs_C''; exists abs_st''; exists α''; repeat split; eauto;
@@ -607,8 +634,8 @@ Proof.
       apply time_bound_tick. repeat split; eauto. }
     specialize (BOUND'' B1).
     specialize (IHEVAL1 BOUND). specialize (IHEVAL2 B1).
-    specialize (IHEVAL1 abs_C abs_st α SOUND).
-    destruct IHEVAL1 as [abs_C' [abs_st' [α' [EQ' SOUND']]]].
+    specialize (IHEVAL1 abs_C abs_st α SOUND GALOIS).
+    destruct IHEVAL1 as [abs_C' [abs_st' [α' [EQ' [GALOIS' SOUND']]]]].
     remember (fun t' => if eqb t' (tick t)
                         then Abs.tick abs_C abs_st'
                                         x (Closure x0 e0 abs_C') 
@@ -659,8 +686,9 @@ Proof.
                   (Abs.tick abs_C (Abs.ST mem'' t'') x
                   (Closure x0 e0 abs_C'))) α'' H). clear H.
     destruct IHEVAL2 as [abs_C'' [abs_st'' [α''' [EQ''' SOUND''']]]].
+    rewrite Heqα''. apply galois_tick. apply PRES. eauto. apply SOUND'. 
     destruct SOUND' as [SOUND' EVAL'].
-    destruct SOUND''' as [SOUND''' EVAL'''].
+    destruct SOUND''' as [GALOIS''' [SOUND''' EVAL''']].
     exists abs_C''. exists abs_st''. exists α'''. repeat split; eauto.
     red. intros. 
     assert (α t'0 = α' t'0) as RR. apply EQ'. eauto. rewrite RR; clear RR.
@@ -686,8 +714,8 @@ Proof.
       eapply relax_ctx_bound. eauto. eauto. simpl. split; eauto. split; eauto. }
     specialize (BOUND'' B1).
     specialize (IHEVAL1 BOUND). specialize (IHEVAL2 B1).
-    specialize (IHEVAL1 abs_C abs_st α SOUND).
-    destruct IHEVAL1 as [abs_C' [abs_st' [α' [EQ' SOUND']]]].
+    specialize (IHEVAL1 abs_C abs_st α SOUND GALOIS).
+    destruct IHEVAL1 as [abs_C' [abs_st' [α' [EQ' [GALOIS' SOUND']]]]].
     assert (sound α' (C [|dy_c_letm M C' ([||])|]) (ST mem0 t0)
             (abs_C [|dy_c_letm M abs_C' ([||]) |]) abs_st').
     { unfold sound in *. destruct abs_st'. destruct abs_st.
@@ -706,8 +734,8 @@ Proof.
     assert (eq_bound t α' α') as EQ''.
     { red. intros; eauto. }
     specialize (IHEVAL2 (abs_C [|dy_c_letm M abs_C' ([||])|])
-                        abs_st' α' H).
-    destruct IHEVAL2 as [abs_C'' [abs_st'' [α'' [EQ''' SOUND''']]]].
+                        abs_st' α' H GALOIS').
+    destruct IHEVAL2 as [abs_C'' [abs_st'' [α'' [EQ''' [GALOIS'' SOUND''']]]]].
     destruct SOUND' as [SOUND' EVAL'].
     destruct SOUND''' as [SOUND''' EVAL'''].
     exists abs_C''. exists abs_st''. exists α''. repeat split; eauto.
@@ -720,16 +748,18 @@ Proof.
     rewrite RR in *. rewrite RR' in *. eauto.
 Qed.
 
-Lemma sound_reach :
-  forall `{Conc.time CT} `{Abs.time AT} C st e C' st' e'
+Lemma sound_reach `{Conc.time CT} `{Abs.time AT} (γ : concret) (PRES : preserve_tick γ) :
+  forall C st e C' st' e'
          (REACH : one_reach C st e C' st' e')
          (BOUND : time_bound C st)
          abs_C abs_st α
-         (SOUND : sound α C st abs_C abs_st),
+         (SOUND : sound α C st abs_C abs_st)
+         (GALOIS : galois γ α),
     exists abs_C' abs_st' α',
       match st with
       | ST _ t =>
         eq_bound t α α' /\
+        galois γ α' /\
         sound α' C' st' abs_C' abs_st' /\
         Abs.one_reach abs_C abs_st e abs_C' abs_st' e'
       end.
@@ -742,7 +772,7 @@ Proof.
   - exists abs_C. exists abs_st. exists α.
     repeat split; eauto. apply Abs.one_appl.
   - eapply sound_eval in FN; eauto.
-    destruct FN as [abs_C' [abs_st' [α' [EQ [SOUND' EVAL']]]]].
+    destruct FN as [abs_C' [abs_st' [α' [EQ [GALOIS' [SOUND' EVAL']]]]]].
     exists abs_C. exists abs_st'. exists α'.
     repeat split; eauto.
     destruct abs_st'; simpl in *. destruct st_lam.
@@ -756,7 +786,7 @@ Proof.
     rewrite eq_bound_comm. eauto.
     eapply Abs.one_appr; eauto.
   - eapply sound_eval in FN as SOUND'; eauto.
-    destruct SOUND' as [abs_C' [abs_st' [α' [EQ [SOUND' EVAL']]]]].
+    destruct SOUND' as [abs_C' [abs_st' [α' [EQ [GALOIS' [SOUND' EVAL']]]]]].
     apply time_bound_e in FN as BOUND'; eauto.
     destruct st_lam; simpl in BOUND'. simpl in BOUND.
     destruct BOUND as [BOUND [NONE SOME]].
@@ -771,7 +801,7 @@ Proof.
       apply bound_trans_ctx_eq with (t := t); eauto.
       rewrite eq_bound_comm. eauto. }
     eapply sound_eval in ARG as SOUND''; repeat split; eauto.
-    destruct arg. destruct SOUND'' as [abs_C'' [abs_st'' [α'' [EQ'' [SOUND'' EVAL'']]]]].
+    destruct arg. destruct SOUND'' as [abs_C'' [abs_st'' [α'' [EQ'' [GALOIS'' [SOUND'' EVAL'']]]]]].
     apply time_bound_e in ARG as BOUND''; repeat split; eauto. clear H H0.
     apply time_increase_e in ARG as INC''; eauto.
     destruct abs_st' as [mem' t']. destruct abs_st'' as [mem'' t''].
@@ -831,14 +861,16 @@ Proof.
     apply EQ'''. lebt t. lebt t1.
     symmetry. apply EQ''. lebt t.
     symmetry. apply EQ. eauto.
+    split. rewrite Heqα'''. apply galois_tick; eauto. apply SOUND''.
     split. exact H.
     eapply Abs.one_appbody; eauto.
   - exists abs_C. exists abs_st. exists α.
     split. red; intros; eauto.
+    split. eauto.
     split. apply SOUND.
     eapply Abs.one_linkl; eauto.
   - eapply sound_eval in MOD; eauto.
-    destruct MOD as [abs_C' [abs_st' [α' [EQ [SOUND' EVAL']]]]].
+    destruct MOD as [abs_C' [abs_st' [α' [EQ [GALOIS' [SOUND' EVAL']]]]]].
     exists (trans_ctx α' C_m). exists abs_st'. exists α'.
     repeat split; eauto.
     destruct abs_st'; simpl in *. destruct st_m.
@@ -847,10 +879,11 @@ Proof.
     eapply Abs.one_linkr; eauto.
   - exists abs_C. exists abs_st. exists α.
     split. red; intros; eauto.
+    split. eauto.
     split. apply SOUND.
     eapply Abs.one_letel.
   - eapply sound_eval in EVALx as SOUND'; eauto. destruct v.
-    destruct SOUND' as [abs_C' [abs_st' [α' [EQ [SOUND' EVAL']]]]].
+    destruct SOUND' as [abs_C' [abs_st' [α' [EQ [GALOIS' [SOUND' EVAL']]]]]].
     eapply time_increase_e in EVALx as INC'; eauto.
     eapply time_bound_e in EVALx as BOUND'; eauto.
     destruct abs_st as [mem' t']. destruct abs_st' as [mem'' t''].
@@ -908,14 +941,16 @@ Proof.
     replace (α t'0) with (α' t'0).
     apply EQ''. lebt t. 
     symmetry. apply EQ. eauto.
+    split. rewrite Heqα''. apply galois_tick; eauto. apply SOUND'.
     split. exact H.
     eapply Abs.one_leter; eauto.
   - exists abs_C. exists abs_st. exists α.
     split. red; intros; eauto.
     split. assumption.
+    split. assumption.
     apply Abs.one_letml.
   - eapply sound_eval in EVALM as SOUND'; eauto.
-    destruct SOUND' as [abs_C' [abs_st' [α' [EQ [SOUND' EVAL']]]]].
+    destruct SOUND' as [abs_C' [abs_st' [α' [EQ [GALOIS' [SOUND' EVAL']]]]]].
     eapply time_increase_e in EVALM as INC'; eauto.
     eapply time_bound_e in EVALM as BOUND'; eauto. destruct st_M.
     destruct abs_st as [mem' t']. destruct abs_st' as [mem'' t''].
@@ -939,6 +974,7 @@ Proof.
     exists (Abs.ST mem'' t'').
     exists α'.
     split. red; intros; eauto.
+    split. eauto.
     split. exact H.
     eapply Abs.one_letmr. eauto.
 Qed.

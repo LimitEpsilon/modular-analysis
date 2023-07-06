@@ -82,6 +82,43 @@ Inductive tm :=
   | m_letm (M : mod_id) (m1 : tm) (m2 : tm)
 .
 
+Fixpoint eq_tm e e' :=
+  match e, e' with
+  | e_var x, e_var x' => eq_eid x x'
+  | e_lam x e, e_lam x' e' => eq_eid x x' && eq_tm e e'
+  | e_app e1 e2, e_app e1' e2' => eq_tm e1 e1' && eq_tm e2 e2'
+  | e_link m e, e_link m' e' => eq_tm m m' && eq_tm e e'
+  | m_empty, m_empty => true
+  | m_var M, m_var M' => eq_mid M M'
+  | m_lete x e m, m_lete x' e' m' => eq_eid x x' && eq_tm e e' && eq_tm m m'
+  | m_letm M m1 m2, m_letm M' m1' m2' => eq_mid M M' && eq_tm m1 m1' && eq_tm m2 m2'
+  | _, _ => false
+  end.
+
+Lemma eq_tm_eq : forall e e', eq_tm e e' = true <-> e = e'.
+Proof.
+  induction e; intros; split; intros EQ; simpl in *;
+  destruct e'; try (inversion EQ; fail);
+  try destruct (eq_eid x x0) eqn:EIDEQ;
+  try destruct (eq_mid M M0) eqn:MIDEQ;
+  try destruct (eq_tm e e') eqn:TMEQ;
+  try destruct (eq_tm e1 e'1) eqn:TMEQ1;
+  try destruct (eq_tm e2 e'2) eqn:TMEQ2;
+  inversion EQ;
+  try rewrite IHe in TMEQ;
+  try rewrite IHe1 in TMEQ1;
+  try rewrite IHe2 in TMEQ2;
+  try rewrite eq_eid_eq in *;
+  try rewrite eq_mid_eq in *;
+  subst; simpl;
+  try reflexivity;
+  try (rewrite <- EIDEQ; rewrite eq_eid_eq; reflexivity);
+  try (rewrite <- MIDEQ; rewrite eq_mid_eq; reflexivity);
+  try (rewrite <- TMEQ; rewrite IHe; reflexivity);
+  try (rewrite <- TMEQ1; rewrite IHe1; reflexivity);
+  try (rewrite <- TMEQ2; rewrite IHe2; reflexivity).
+Qed.
+
 Inductive value : tm -> Prop :=
   | v_fn x e : value (e_lam x e)
 .

@@ -16,6 +16,9 @@ simple/Sound.vos simple/Sound.vok simple/Sound.required_vos: simple/Sound.v simp
 simple/Syntax.vo simple/Syntax.glob simple/Syntax.v.beautified simple/Syntax.required_vo: simple/Syntax.v 
 simple/Syntax.vio: simple/Syntax.v 
 simple/Syntax.vos simple/Syntax.vok simple/Syntax.required_vos: simple/Syntax.v 
+signature/ALinking.vo signature/ALinking.glob signature/ALinking.v.beautified signature/ALinking.required_vo: signature/ALinking.v signature/Abstract.vo
+signature/ALinking.vio: signature/ALinking.v signature/Abstract.vio
+signature/ALinking.vos signature/ALinking.vok signature/ALinking.required_vos: signature/ALinking.v signature/Abstract.vos
 signature/Abstract.vo signature/Abstract.glob signature/Abstract.v.beautified signature/Abstract.required_vo: signature/Abstract.v signature/Syntax.vo
 signature/Abstract.vio: signature/Abstract.v signature/Syntax.vio
 signature/Abstract.vos signature/Abstract.vok signature/Abstract.required_vos: signature/Abstract.v signature/Syntax.vos

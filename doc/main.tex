@@ -159,7 +159,7 @@
 \newcommand*{\modctx}{\mathsf{ctx}}
 \newcommand*{\mapinject}{\mathsf{map\_inject}}
 \newcommand*{\inject}[2]{{#1}\langle{#2}\rangle}
-\newcommand*{\deletepre}{\mathsf{delete\_prefix}}
+\newcommand*{\deletepre}{\mathsf{delete\_app}}
 \newcommand*{\deletemap}{\mathsf{delete\_map}}
 \newcommand*{\delete}{\mathsf{delete}}
 \newcommand*{\filter}{\mathsf{filter}}
@@ -221,10 +221,11 @@ In this section, we present the dynamics of the simple language presented in the
 First, we give the big-step operational semantics for the dynamic execution of the module language.
 The big-step evaluation relation relates the initial configuration(context, memory and time) and expression with the resulting value and state.
 
-This relation is nonstandard in that the \emph{environment} that is often used to define closures in the call-by-value dynamics is not a finite map from variables to values.
-Rather, the surrounding \emph{syntactic} context annotated with the \emph{binding times} for the variables serve as the environment.
-To access the value of the variable $x$ from the context $C$, one has to read off the closest binding time from the context and look up the value bound at that time from the memory.
-To access the exported context from the variable $M$, one has to look up the exported context from $C$, not from the memory.
+Note that the representation of the \emph{environment} that is often used to define closures in the call-by-value dynamics is not simply a finite map from variables to addresses.
+Rather, the environment is a stack that records variables \emph{in the order} they were bound.
+In the spirit of de Bruijn, to access the value of the variable $x$ from the environment(or the \emph{binding context}) $C$, one has to read off the closest binding time.
+Then, the value bound at that time from the memory is read.
+Likewise, to access the exported context from the variable $M$, one has to look up the exported context from $C$, not from the memory.
 
 This separation between where we store modules and where we store the evaluated values from expressions emphasizes the fact that \emph{where} the variables are bound is guided by syntax.
 The only thing that is dynamic is \emph{when} the variables are bound, which is represented by the time component.
@@ -240,17 +241,16 @@ Also, we present the notational conventions used in this paper to represent memb
   \centering
   \footnotesize
   \begin{tabular}{rccll}
-    Time                          & $t$    & $\in$         & $\Time$                                                                                                          \\
-    Context                       & $C$    & $\in$         & $\Ctx\Time$                                                                                                      \\
-    Result of expressions         & $v$    & $\in$         & $\Value\Time \triangleq \Expr\times\Ctx\Time$                                                                    \\
-    Result of expressions/modules & $V$    & $\in$         & $\Value{\Time}+\Ctx{\Time}$                                                                                      \\
-    Memory                        & $\mem$ & $\in$         & $\Mem{\Time} \triangleq \fin{\Time}{\Value{\Time}}$                                                              \\
-    Configuration                 & $s$    & $\in$         & $\Config{\Time} \triangleq \Ctx{\Time}\times\Mem{\Time}\times\Time$                                              \\
-    Result                        & $r$    & $\in$         & $\Result{\Time} \triangleq (\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time$                              \\
-    Context                       & $C$    & $\rightarrow$ & []                                                                                  & hole                       \\
-                                  &        & $\vbar$       & $\lambda x^{t}.C$                                                                   & function parameter binding \\
-                                  &        & $\vbar$       & $\Let$ $x^{t}$ $C$                                                                  & let expression binding     \\
-                                  &        & $\vbar$       & $\Let$ $M$ $C$ $C$                                                                  & let module binding         \\
+    Time                          & $t$    & $\in$         & $\Time$                                                                                                  \\
+    Environment/Context           & $C$    & $\in$         & $\Ctx\Time$                                                                                              \\
+    Result of expressions         & $v$    & $\in$         & $\Value\Time \triangleq \Expr\times\Ctx\Time$                                                            \\
+    Result of expressions/modules & $V$    & $\in$         & $\Value{\Time}+\Ctx{\Time}$                                                                              \\
+    Memory                        & $\mem$ & $\in$         & $\Mem{\Time} \triangleq \fin{\Time}{\Value{\Time}}$                                                      \\
+    Configuration                 & $s$    & $\in$         & $\Config{\Time} \triangleq \Ctx{\Time}\times\Mem{\Time}\times\Time$                                      \\
+    Result                        & $r$    & $\in$         & $\Result{\Time} \triangleq (\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time$                      \\
+    Context                       & $C$    & $\rightarrow$ & []                                                                                  & empty stack        \\
+                                  &        & $\vbar$       & $(x,t)\cons C$                                                                      & expression binding \\
+                                  &        & $\vbar$       & $(M,C)\cons C$                                                                      & module binding     \\
     Result of expressions         & $v$    & $\rightarrow$ & $\langle \lambda x.e, C \rangle$                                                    & closure
   \end{tabular}
   \caption{Definition of the semantic domains.}
@@ -268,43 +268,32 @@ Now we give the conditions that the concrete time domain must satisfy.
 \end{definition}
 
 Now for the auxiliary operators that is used when defining the evaluation relation.
-We define the plugin operator for the dynamic context,
-the function that extracts the address for an $\ExprVar$,
+We define the the function that extracts the address for an $\ExprVar$,
 and the function that looks up the dynamic context bound to a $\ModVar$ $M$.
 
 \begin{figure}[h!]
   \centering
   \footnotesize
   \[
-    C_{1}[C_{2}]\triangleq
-    \begin{cases}
-      C_{2}                           & C_{1}=[]                       \\
-      \lambda x^{t}.C'[C_{2}]         & C_{1}=\lambda x^{t}.C'         \\
-      \mathtt{let}\:x^{t}\:C'[C_{2}]  & C_{1}=\mathtt{let}\:x^{t}\:C'  \\
-      \mathtt{let}\:M\:C'\:C''[C_{2}] & C_{1}=\mathtt{let}\:M\:C'\:C''
-    \end{cases}
-  \]
-
-  \[
     \addr(C,x)\triangleq
     \begin{cases}
-      \bot         & C=[]                                                                                           \\
-      t            & (C=\lambda x'^{t}.C'\lor C=\mathtt{let}\:x'^{t}C')\wedge (x'= x\wedge \addr(C',x)=\bot)        \\
-      \addr(C',x)  & (C=\lambda x'^{t}.C'\lor C=\mathtt{let}\:x'^{t}\:C') \wedge (x'\neq x\lor \addr(C',x)\neq\bot) \\
-      \addr(C'',x) & C=\mathtt{let}\:M\:C'\:C''
+      \bot         & C=[]                                                        \\
+      t            & C=(x', t)\cons C' \wedge (x'= x\wedge \addr(C',x)=\bot)     \\
+      \addr(C',x)  & C=(x', t)\cons C' \wedge (x'\neq x\lor \addr(C',x)\neq\bot) \\
+      \addr(C'',x) & C=(M, C')\cons C''
     \end{cases}
   \]
 
   \[
     \modctx(C,M)\triangleq
     \begin{cases}
-      \bot           & C=[]                                                                   \\
-      C'             & C=\mathtt{let}\:M'\:C'\:C''\wedge (M'= M\wedge\modctx(C'',M)=\bot)     \\
-      \modctx(C'',M) & C=\mathtt{let}\:M'\:C'\:C''\wedge (M'\neq M\lor\modctx(C'',M)\neq\bot) \\
-      \modctx(C',M)  & C=\lambda x^{t}.C'\lor C=\Let\:x^{t}\:C'
+      \bot           & C=[]                                                          \\
+      C'             & C=(M, C')\cons C''\wedge (M'= M\wedge\modctx(C'',M)=\bot)     \\
+      \modctx(C'',M) & C=(M, C')\cons C''\wedge (M'\neq M\lor\modctx(C'',M)\neq\bot) \\
+      \modctx(C',M)  & C=(x, t)\cons C'
     \end{cases}
   \]
-  \caption{Definitions for the plugin, $\addr$, and $\modctx$ operators.}
+  \caption{Definitions for the $\addr$ and $\modctx$ operators.}
 \end{figure}
 
 \subsubsection{The Evaluation Relation}
@@ -347,7 +336,7 @@ Note that we constrain whether the evaluation relation returns $v\in\Value{\Time
           (e_{2}, C, \mem_{\lambda}, t_{\lambda})
           \Downarrow
           (v, \mem_{a}, t_{a})                                                            \\
-          (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \mem_{a}[t_{a}\mapsto v], \tick\:t_{a})
+          (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick\:t_{a})
           \Downarrow
           (v', \mem',t')
         \end{matrix}
@@ -402,7 +391,7 @@ Note that we constrain whether the evaluation relation returns $v\in\Value{\Time
           (e_{1}, C, \mem, t)
           \Downarrow
           (v, \mem', t') \\
-          (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \mem'[t'\mapsto v], \tick\:t')
+          (e_{2}, (x, t')\cons C, \mem'[t'\mapsto v], \tick\:t')
           \Downarrow
           (C', \mem'', t'')
         \end{matrix}
@@ -419,7 +408,7 @@ Note that we constrain whether the evaluation relation returns $v\in\Value{\Time
           (e_{1}, C, \mem, t)
           \Downarrow
           (C', \mem', t') \\
-          (e_{2}, C[\mathtt{let}\:M\:C'\:[]], \mem', t')
+          (e_{2}, (M, C')\cons C, \mem', t')
           \Downarrow
           (C'', \mem'', t'')
         \end{matrix}
@@ -506,7 +495,7 @@ To formalize the notion of reachability and to utilize this in proofs, we define
       \infer[left label={AppBody}]1{
       (e_{1}\:e_{2}, C, \mem, t)
       \rightsquigarrow
-      (e_{\lambda}, C_{\lambda}[\lambda x^{t_{a}}.[]], \mem_{a}[t_{a}\mapsto v], \tick\:t_{a})
+      (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick\:t_{a})
       }
     \end{prooftree}
   \]
@@ -557,7 +546,7 @@ To formalize the notion of reachability and to utilize this in proofs, we define
       \infer[left label=LetER]1{
       (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
       \rightsquigarrow
-      (e_{2}, C[\mathtt{let}\:x^{t'}\:[]], \mem'[t'\mapsto v], \tick\:t')
+      (e_{2}, (x, t')\cons C, \mem'[t'\mapsto v], \tick\:t')
       }
     \end{prooftree}
   \]
@@ -581,7 +570,7 @@ To formalize the notion of reachability and to utilize this in proofs, we define
       \infer[left label=LetMR]1{
       (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \mem, t)
       \rightsquigarrow
-      (e_{2}, C[\mathtt{let}\:M\:C'\:[]], \mem', t')
+      (e_{2}, (M, C')\cons C, \mem', t')
       }
     \end{prooftree}
   \]
@@ -669,7 +658,7 @@ They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
   \footnotesize
   \begin{tabular}{rccll}
     Abstract Time                 & $\A{t}$  & $\in$ & $\ATime$                                                                                   \\
-    Context                       & $\A{C}$  & $\in$ & $\Ctx\ATime\text{ under }\ATime$                                                           \\
+    Environment/Context           & $\A{C}$  & $\in$ & $\Ctx\ATime\text{ under }\ATime$                                                           \\
     Result of expressions         & $\A{v}$  & $\in$ & $\Value\ATime\text{ under }\ATime$                                                         \\
     Result of expressions/modules & $\A{V}$  & $\in$ & $\Value{\ATime}+\Ctx{\ATime}\text{ under }\ATime$                                          \\
     Abstract Memory               & $\A\mem$ & $\in$ & $\AMem{\ATime} \triangleq \fin{\ATime}{\wp(\Value{\ATime})}$                               \\
@@ -713,7 +702,7 @@ They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
           (e_{2}, \A{C}, \A{\mem_{\lambda}}, \A{t_{\lambda}})
           \A{\Downarrow}
           (\A{v}, \A{\mem_{a}}, \A{t_{a}})                                                            \\
-          (e_{\lambda}, \A{C_{\lambda}}[\lambda x^{\A{t_{a}}}.[]], \A{\mem_{a}}[\A{t_{a}}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem_a}\:\A{t_{a}}\:x\:\A{v})
+          (e_{\lambda}, (x, \A{t_a})\cons \A{C_{\lambda}}, \A{\mem_{a}}[\A{t_{a}}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem_a}\:\A{t_{a}}\:x\:\A{v})
           \A{\Downarrow}
           (\A{v'}, \A{\mem'},\A{t'})
         \end{matrix}
@@ -771,7 +760,7 @@ They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
           (e_{1}, \A{C}, \A{\mem}, \A{t})
           \A\Downarrow
           (\A{v}, \A{\mem'}, \A{t'}) \\
-          (e_{2}, \A{C}[\mathtt{let}\:x^{\A{t'}}\:[]], \A{\mem'}[\A{t'}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem'}\:\A{t'}\:x\:\A{v})
+          (e_{2}, (x, \A{t'})\cons \A{C}, \A{\mem'}[\A{t'}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem'}\:\A{t'}\:x\:\A{v})
           \A\Downarrow
           (\A{C'}, \A{\mem''}, \A{t''})
         \end{matrix}
@@ -791,7 +780,7 @@ They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
           (e_{1}, \A{C}, \A{\mem}, \A{t})
           \A\Downarrow
           (\A{C'}, \A{\mem'}, \A{t'}) \\
-          (e_{2}, \A{C}[\mathtt{let}\:M\:\A{C'}\:[]], \A{\mem'}, \A{t'})
+          (e_{2}, (M, \A{C'})\cons\A{C}, \A{\mem'}, \A{t'})
           \A\Downarrow
           (\A{C''}, \A{\mem''}, \A{t''})
         \end{matrix}
@@ -850,7 +839,7 @@ They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
       \infer[left label={AppBody}]1{
       (e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
       \A\rightsquigarrow
-      (e_{\lambda}, \A{C_{\lambda}}[\lambda x^{\A{t_{a}}}.[]], \A{\mem_{a}}[\A{t_{a}}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem_a}\:\A{t_{a}}\:x\:\A{v})
+      (e_{\lambda}, (x, \A{t_a})\cons \A{C_{\lambda}}, \A{\mem_{a}}[\A{t_{a}}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem_a}\:\A{t_{a}}\:x\:\A{v})
       }
     \end{prooftree}
   \]
@@ -901,7 +890,7 @@ They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
       \infer[left label=LetER]1{
       (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A{\mem}, \A{t})
       \A\rightsquigarrow
-      (e_{2}, \A{C}[\mathtt{let}\:x^{\A{t'}}\:[]], \A{\mem'}[\A{t'}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem'}\:\A{t'}\:x\:\A{v})
+      (e_{2}, (x, \A{t'})\cons\A{C}, \A{\mem'}[\A{t'}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem'}\:\A{t'}\:x\:\A{v})
       }
     \end{prooftree}
   \]
@@ -928,7 +917,7 @@ They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
       \infer[left label=LetMR]1{
       (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
       \A\rightsquigarrow
-      (e_{2}, \A{C}[\mathtt{let}\:M\:\A{C'}\:[]], \A{\mem'}, \A{t'})
+      (e_{2}, (M,\A{C'})\cons\A{C}, \A{\mem'}, \A{t'})
       }
     \end{prooftree}
   \]
@@ -1069,32 +1058,35 @@ Moreover, we can guarantee that $\A{\sembracket{e}}(\A{s})$ can be computed.
 \end{thm}
 
 \section{Modular Analysis}
-Now for separate analysis, we need to define an abstract time on $\ATime_1+\ATime_2$, when the first time domain exports $\A{s'}$ to the second time domain.
+For separate analysis, we analyze the two components $e_1$ and $e_2$ separately to eventually get a sound overapproximation of $\link{e_1}{e_2}$.
+This means that we have to define an abstract time on $\ATime_1+\ATime_2$, when the first time domain exports $\A{s'}$ to the second time domain.
 
-Before elaborating on how to add the time domains, we need to define the injection and deletion operators that inject the exported context into the separately analyzed results.
+Before elaborating on how to add the time domains, we need to define the injection operator that inject the exported context into the separately analyzed results.
 The notation for injecting $C_{1}$ into $C_{2}$ is $\inject{C_{1}}{C_{2}}$, similar to the plugin operator defined above.
+
+Also, we need to define the deletion operator satisfying $\delete(C,\inject{C}{C'})=C'$ as to recover the separately analyzed context from the injected context.
+This operation is essential in defining the $\A\tick$ function in the added time domain that conserves the timestamps created before injection.
+
 \begin{figure}[htb]
   \footnotesize
   \[
     \mapinject(C_{1},C_{2})\triangleq
     \begin{cases}
-      []                                                          & C_{2}=[]                \\
-      \lambda x^{t}. \mapinject(C_{1},C')                         & C_{2}=\lambda x^{t}. C' \\
-      \Let\:x^{t}\:\mapinject(C_{1},C')                           & C_{2}=\Let\:x^{t}\:C'   \\
-      \Let\:M\:C_{1}[\mapinject(C_{1},C')]\:\mapinject(C_{1},C'') & C_{2}=\Let\:M\:C'\:C''
+      []                                                                   & C_{2}=[]              \\
+      (x, t)\cons\mapinject(C_{1},C')                                      & C_{2}=(x,t)\cons C'   \\
+      (M, \mapinject(C_{1},C')\doubleplus C_{1})\cons\mapinject(C_{1},C'') & C_{2}=(M,C')\cons C''
     \end{cases}
   \]
 
   \[
-    \inject{C_{1}}{C_{2}}\triangleq C_{1}[\mapinject(C_{1},C_{2})]
+    \inject{C_{1}}{C_{2}}\triangleq \mapinject(C_{1},C_{2})\doubleplus C_{1}
   \]
 
   \[
     \deletepre(C_{1},C_{2})\triangleq
     \begin{cases}
-      \deletepre(C_{1}',C_{2}') & (C_{1},C_{2})=(\lambda x^{t}.C_{1}',\lambda x^{t}.C_{2}') \\
-      \deletepre(C_{1}',C_{2}') & (C_{1},C_{2})=(\Let\: x^{t}\:C_{1}',\Let\:x^{t}\:C_{2}')  \\
-      \deletepre(C_{1}',C_{2}') & (C_{1},C_{2})=(\Let\:M\:C'\:C_{1}',\Let\:M\:C'\:C_{2}')   \\
+      \deletepre(C_{1}',C_{2}') & (C_{1},C_{2})=(C_{1}'\doubleplus[(x,t)],C_{2}'\doubleplus[(x,t)]) \\
+      \deletepre(C_{1}',C_{2}') & (C_{1},C_{2})=(C_{1}'\doubleplus[(M,C)],C_{2}'\doubleplus[(M,C)]) \\
       C_{2}                     & \text{otherwise}
     \end{cases}
   \]
@@ -1102,10 +1094,9 @@ The notation for injecting $C_{1}$ into $C_{2}$ is $\inject{C_{1}}{C_{2}}$, simi
   \[
     \deletemap(C_{1},C_{2})\triangleq
     \begin{cases}
-      []                                                                     & C_{2}=[]               \\
-      \lambda x^{t}.\deletemap(C_{1},C')                                     & C_{2}=\lambda x^{t}.C' \\
-      \Let\:x^{t}\:\deletemap(C_{1},C')                                      & C_{2}=\Let\:x^{t}\:C'  \\
-      \Let\:M\:\deletemap(C_{1},\deletepre(C_{1},C'))\:\deletemap(C_{1},C'') & C_{2}=\Let\:M\:C'\:C''
+      []                                                                    & C_{2}=[]               \\
+      (x,t)\cons\deletemap(C_{1},C')                                        & C_{2}=(x,t):: C'       \\
+      (M, \deletemap(C_{1},\deletepre(C_{1},C')))\cons\deletemap(C_{1},C'') & C_{2}=(M, C')\cons C''
     \end{cases}
   \]
 
@@ -1115,9 +1106,7 @@ The notation for injecting $C_{1}$ into $C_{2}$ is $\inject{C_{1}}{C_{2}}$, simi
   \caption{Definitions for the injection and deletion operators.}
 \end{figure}
 
-We extend the injection operator to map over all closures in a memory so that $\inject{C}{\A\mem}$ can be defined naturally.
-
-The deletion operation has the expected property that $\delete(C,\inject{C}{C'})=C'$.
+We abuse the notation $\inject{C}{v}$ to mean that the context $C$ is injected in the context part of the closure $v$, and we mean by $\inject{C}{\A\mem}$ the memory where injection is mapped over all values.
 
 Finally, before delving into the definition of the linked time domain, we need to define a filter function that filters the context and memory by membership in each time domain.
 
@@ -1126,12 +1115,10 @@ Finally, before delving into the definition of the linked time domain, we need t
   \[
     \filter(C,\Time)\triangleq
     \begin{cases}
-      []                                             & (C=[])                                   \\
-      \lambda x^{t}.\filter(C',\Time)                & (C=\lambda x^{t}.C'\wedge t\in\Time)     \\
-      \Let\:x^{t}\:\filter(C',\Time)                 & (C=\Let\:x^{t}\:C'\wedge t\in\Time)      \\
-      \Let\:M\:\filter(C',\Time)\:\filter(C'',\Time) & (C=\Let\:M\:C'\:C'')                     \\
-      \filter(C',\Time)                              & (C=\lambda x^{t}.C'\wedge t\not\in\Time) \\
-      \filter(C',\Time)                              & (C=\Let\:x^{t}\:C'\wedge t\not\in\Time)
+      []                                           & C=[]                                \\
+      (x,t)\cons\filter(C',\Time)                  & C=(x,t)\cons C'\wedge t\in\Time     \\
+      \filter(C',\Time)                            & C=(x,t)\cons C'\wedge t\not\in\Time \\
+      (M,\filter(C',\Time))\cons\filter(C'',\Time) & C=(M, C')\cons C''
     \end{cases}
   \]
 
