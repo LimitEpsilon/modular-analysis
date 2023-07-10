@@ -1,4 +1,4 @@
-From Simple Require Export Concrete.
+From Simple Require Export Sound.
 Require Export Coq.Logic.FunctionalExtensionality.
 
 Generalizable Variables T BT AT.
@@ -164,70 +164,66 @@ Qed.
   }.
 
 Fixpoint filter_ctx_bf
-  `{EB : Eq BT} `{EA : Eq AT}
-  (C : @dy_ctx (@link BT EB AT EA)) :=
+  `{OrderT BT} `{EA : Eq AT} (final : BT)
+  (C : @dy_ctx (@link BT _ AT EA)) :=
   match C with
   | ([||]) => ([||])
-  | dy_c_lam x t C' =>
-    match t with
-    | L bf af => dy_c_lam x bf (filter_ctx_bf C')
-    end
-  | dy_c_lete x t C' =>
-    match t with
-    | L bf af => dy_c_lete x bf (filter_ctx_bf C')
-    end
+  | dy_c_lam x (L bf af) C' =>
+    let filtered := filter_ctx_bf final C' in
+    if leb final bf then filtered else dy_c_lam x bf filtered
+  | dy_c_lete x (L bf af) C' =>
+    let filtered := filter_ctx_bf final C' in
+    if leb final bf then filtered else dy_c_lete x bf filtered
   | dy_c_letm M C' C'' =>
-    dy_c_letm M (filter_ctx_bf C') (filter_ctx_bf C'')
+    dy_c_letm M (filter_ctx_bf final C') (filter_ctx_bf final C'')
   end.
 
 Fixpoint filter_ctx_af
-  `{EB : Eq BT} `{EA : Eq AT}
-  (C : @dy_ctx (@link BT EB AT EA)) :=
+  `{OrderT BT} `{EA : Eq AT} (final : BT)
+  (C : @dy_ctx (@link BT _ AT EA)) :=
   match C with
   | ([||]) => ([||])
-  | dy_c_lam x t C' =>
-    match t with
-    | L bf af => dy_c_lam x af (filter_ctx_af C')
-    end
-  | dy_c_lete x t C' =>
-    match t with
-    | L bf af => dy_c_lete x af (filter_ctx_af C')
-    end
+  | dy_c_lam x (L bf af) C' =>
+    let filtered := filter_ctx_af final C' in
+    if leb final bf then dy_c_lam x af filtered else filtered
+  | dy_c_lete x (L bf af) C' =>
+    let filtered := filter_ctx_af final C' in
+    if leb final bf then dy_c_lete x af filtered else filtered
   | dy_c_letm M C' C'' =>
-    dy_c_letm M (filter_ctx_af C') (filter_ctx_af C'')
+    dy_c_letm M (filter_ctx_af final C') (filter_ctx_af final C'')
+  end.
+
+Definition filter_v_bf 
+  `{OrderT BT} `{EA : Eq AT} (final : BT)
+  (v : @expr_value (@link BT _ AT EA)) :=
+  match v with
+  | Closure x e C => Closure x e (filter_ctx_bf final C)
+  end.
+
+Definition filter_v_af
+  `{OrderT BT} `{EA : Eq AT} (final : BT)
+  (v : @expr_value (@link BT _ AT EA)) :=
+  match v with
+  | Closure x e C => Closure x e (filter_ctx_af final C)
   end.
 
 Definition filter_mem_bf
-  `{EB : Eq BT} `{EA : Eq AT} (init : AT)
-  (mem : (@link BT EB AT EA) -> option (@expr_value (@link BT EB AT EA))) :=
+  `{OrderT BT} `{EA : Eq AT} (final : BT) (init : AT)
+  (mem : (@link BT _ AT EA) -> option (@expr_value (@link BT _ AT EA))) :=
   fun t =>
     match mem (L t init) with
-    | Some (Closure x e C) => Some (Closure x e (filter_ctx_bf C))
+    | Some v => Some (filter_v_bf final v)
     | None => None
     end.
 
 Definition filter_mem_af
-  `{EB : Eq BT} `{EA : Eq AT} (final : BT)
-  (mem : (@link BT EB AT EA) -> option (@expr_value (@link BT EB AT EA))) :=
+  `{OrderT BT} `{EA : Eq AT} (final : BT)
+  (mem : (@link BT _ AT EA) -> option (@expr_value (@link BT _ AT EA))) :=
   fun t =>
     match mem (L final t) with
-    | Some (Closure x e C) => Some (Closure x e (filter_ctx_af C))
+    | Some v => Some (filter_v_af final v)
     | None => None
     end.
-
-Definition filter_v_bf 
-  `{EB : Eq BT} `{EA : Eq AT}
-  (v : @expr_value (@link BT EB AT EA)) :=
-  match v with
-  | Closure x e C => Closure x e (filter_ctx_bf C)
-  end.
-
-Definition filter_v_af
-  `{EB : Eq BT} `{EA : Eq AT}
-  (v : @expr_value (@link BT EB AT EA)) :=
-  match v with
-  | Closure x e C => Closure x e (filter_ctx_af C)
-  end.
 
 Fixpoint lift_ctx_bf `{EB : Eq BT} `{EA : Eq AT} (init : AT) (C : @dy_ctx BT)
   : @dy_ctx (@link BT EB AT EA) :=
@@ -247,103 +243,147 @@ Fixpoint lift_ctx_af `{EB : Eq BT} `{EA : Eq AT} (final : BT) (C : @dy_ctx AT)
   | dy_c_letm M C' C'' => dy_c_letm M (lift_ctx_af final C') (lift_ctx_af final C'')
   end.
 
-(*
+Definition lift_v_af `{EB : Eq BT} `{EA : Eq AT} (final : BT) (v : @expr_value AT)
+  : @expr_value (@link BT EB AT EA) :=
+  match v with
+  | Closure x e C => Closure x e (lift_ctx_af final C)
+  end.
+
 Definition link_tick `{time BT} `{time AT} (final : BT) (init : AT) (Cout : @dy_ctx BT)
   C st x v :=
   match st with
-  | ST mem t =>
-    match t with
-    | L bt t =>
-      if leb final bt then
-        L bt (tick )
-      else if 
-
-        let Cout := lift_ctx_bf Cout in
-        AF
-        (tick (filter_ctx_af (delete_ctx Cout C))
-                (ST (filter_mem_af (delete_ctx_mem Cout mem)) t)
-                x (filter_v_af (delete_ctx_v Cout v)))
-      end
+  | ST mem (L bf af) =>
+    if leb final bf then
+      let Cout := lift_ctx_bf init Cout in
+      L bf
+        (tick (filter_ctx_af final (delete_ctx Cout C))
+              (ST (filter_mem_af final (delete_ctx_mem Cout mem)) af)
+              x (filter_v_af final (delete_ctx_v Cout v)))
+    else
+      L (tick (filter_ctx_bf final C)
+              (ST (filter_mem_bf final init mem) bf)
+              x (filter_v_bf final v)) af
   end.
 
-#[export] Instance link_time `{Eq BT} `{time AT} (Cout : @dy_ctx BT) : (@time (@link BT AT) (@link_eq BT _ AT _)) :=
+Lemma link_tick_lt `{time BT} `{time AT} (final : BT) (init : AT) (Cout : @dy_ctx BT):
+  forall C mem t x v, t < link_tick final init Cout C (ST mem t) x v.
+Proof.
+  destruct t; unfold "<"; simpl.
+  intro_refl.
+  destruct (leb final bf) eqn:LE; simpl;
+  try rewrite leb_refl; try rewrite t_refl; simpl.
+  - intros. split; try apply tick_lt.
+  - intros. 
+    replace (leb bf
+    (tick (filter_ctx_bf final C) (ST (filter_mem_bf final init mem) bf)
+       x (filter_v_bf final v))) with true; try (symmetry; apply tick_lt).
+    replace (eqb bf
+    (tick (filter_ctx_bf final C) (ST (filter_mem_bf final init mem) bf)
+       x (filter_v_bf final v))) with false; try (symmetry; apply tick_lt).
+    eauto.
+Qed.
+
+#[export] Instance link_time `{time BT} `{time AT} (final : BT) (init : AT) (Cout : @dy_ctx BT) : (@time (@link BT _ AT _) _ _) :=
   {
-    tick := link_tick Cout
+    tick := link_tick final init Cout;
+    tick_lt := link_tick_lt final init Cout
   }.
 
-Definition link_mem `{Eq BT} `{Eq AT}
-  (bmem : BT -> list (@expr_value BT)) (Cout : @dy_ctx BT)
-  (amem : AT -> list (@expr_value AT)) : (@link BT AT) -> list (@expr_value (@link BT AT)):=
+Definition link_mem `{OrderT BT} `{Eq AT}
+  (bmem : BT -> option (@expr_value BT)) (final : BT) (init : AT) (Cout : @dy_ctx BT)
+  (amem : AT -> option (@expr_value AT)) : (@link BT _ AT _) -> option expr_value :=
   fun t =>
     match t with
-    | BF t => map lift_v_bf (bmem t)
-    | AF t => map (inject_ctx_v (lift_ctx_bf Cout)) (map (lift_v_af) (amem t))
+    | L bf af =>
+      if eqb final bf then
+        let Cout := lift_ctx_bf init Cout in
+        match amem af with
+        | Some (Closure x e C) => Some (Closure x e (Cout<|lift_ctx_af final C|>))
+        | None => None
+        end
+      else if leb bf final then
+        match bmem bf with
+        | Some (Closure x e C) => Some (Closure x e (lift_ctx_bf init C))
+        | None => None
+        end
+      else None
     end.
 
-Lemma filter_lift_eq_af {BT AT} :
+Lemma filter_lift_eq_af `{time BT} `{time AT} (final : BT):
   forall (C : @dy_ctx AT),
-    filter_ctx_af (@lift_ctx_af BT AT C) = C.
+    filter_ctx_af final (lift_ctx_af final C) = C.
 Proof.
-  induction C; simpl; try rewrite IHC; eauto.
+  induction C; simpl; try rewrite IHC; try rewrite leb_refl; eauto.
   rewrite IHC2. rewrite IHC1. eauto.
 Qed.
 
-Lemma filter_lift_eq_bf {BT AT} :
-  forall (C : @dy_ctx BT),
-    filter_ctx_bf (@lift_ctx_bf BT AT C) = C.
+Lemma filter_lift_eq_bf `{time BT} `{time AT} (final : BT) (init : AT) :
+  forall (C : @dy_ctx BT) (BOUND : dy_ctx_bound C final),
+    filter_ctx_bf final (lift_ctx_bf init C) = C.
 Proof.
-  induction C; simpl; try rewrite IHC; eauto.
-  rewrite IHC2. rewrite IHC1. eauto.
+  induction C; intros; simpl in *;
+  try rewrite IHC; try apply BOUND; 
+  try replace (leb final tx) with false; eauto;
+  try destruct BOUND as [[LE NEQ] BOUND];
+  try (symmetry; refl_bool; intros contra;
+      assert (final = tx); try apply leb_sym; try apply contra; try apply LE;
+      subst; intro_refl; rewrite t_refl in NEQ; inversion NEQ).
+  rewrite IHC2; try rewrite IHC1; eauto; apply BOUND.
 Qed.
 
-Lemma filter_delete_eq `{Eq BT} `{time AT} (Cout : @dy_ctx BT):
+Lemma filter_delete_eq `{time BT} `{time AT} (final : BT) (init : AT) (Cout : @dy_ctx BT):
   forall bmem amem,
-  filter_mem_af
-    (delete_ctx_mem (lift_ctx_bf Cout)
-    (link_mem bmem Cout amem)) = amem.
+  filter_mem_af final
+    (delete_ctx_mem (lift_ctx_bf init Cout)
+    (link_mem bmem final init Cout amem)) = amem.
 Proof.
   intros. apply functional_extensionality.
   intros. unfold filter_mem_af.
-  unfold delete_ctx_mem. simpl.
-  remember (lift_ctx_bf Cout) as vout eqn:E. clear E.
-  remember (amem x) as l eqn:E. clear E.
-  induction l; simpl; eauto.
-  rewrite IHl. destruct a. simpl.
+  unfold delete_ctx_mem. simpl. intro_refl. rewrite t_refl.
+  remember (lift_ctx_bf init Cout) as vout eqn:E. clear E.
+  remember (amem x) as o eqn:E. clear E.
+  destruct o; eauto. destruct e. simpl.
   rewrite delete_inject_eq. rewrite filter_lift_eq_af. eauto.
 Qed.
 
-Lemma link_tick_eq `{Eq BT} `{time AT} (Cout : @dy_ctx BT) :
+Lemma link_tick_eq `{time BT} `{time AT} (final : BT) (init : AT) (Cout : @dy_ctx BT) :
   forall bmem C amem t x v,
-    link_tick Cout ((lift_ctx_bf Cout)<|(lift_ctx_af C)|>)
-                (ST (link_mem bmem Cout amem) (AF t)) x 
-                (inject_ctx_v (lift_ctx_bf Cout) (lift_v_af v)) =
-    AF (tick C (ST amem t) x v).
+    link_tick final init Cout ((lift_ctx_bf init Cout)<|(lift_ctx_af final C)|>)
+                (ST (link_mem bmem final init Cout amem) (L final t)) x 
+                (inject_ctx_v (lift_ctx_bf init Cout) (lift_v_af final v)) =
+    L final (tick C (ST amem t) x v).
 Proof.
   intros. destruct v. unfold inject_ctx_v. simpl.
   rewrite delete_inject_eq.
   rewrite delete_inject_eq.
   rewrite filter_delete_eq.
   rewrite filter_lift_eq_af. rewrite filter_lift_eq_af.
+  rewrite leb_refl.
   reflexivity.
 Qed.
 
-Lemma link_update_m_eq `{Eq BT} `{time AT} (Cout : @dy_ctx BT):
-  forall bmem amem t v,
-  (AF t !#-> inject_ctx_v (lift_ctx_bf Cout) (lift_v_af v);
-    (link_mem bmem Cout amem)) =
-    link_mem bmem Cout (t !#-> v; amem).
+Lemma link_update_m_eq `{time BT} `{time AT} (final : BT) (init : AT) (Cout : @dy_ctx BT):
+  forall bmem amem t v (BOUND : time_bound Cout (ST bmem final)),
+  (L final t !-> inject_ctx_v (lift_ctx_bf init Cout) (lift_v_af final v);
+    (link_mem bmem final init Cout amem)) =
+    link_mem bmem final init Cout (t !-> v; amem).
 Proof.
   intros. apply functional_extensionality.
   intros. unfold update_m. destruct v. simpl.
   destruct x; simpl; eauto.
-  destruct (eqb t0 t); eauto.
+  destruct (eqb bf final) eqn:EQb; destruct (eqb af t) eqn:EQa; simpl; eauto.
+  rewrite eqb_eq in EQb. rewrite eqb_eq in EQa.
+  subst. intro_refl. rewrite t_refl. eauto.
+  destruct (eqb final bf) eqn:EQb'; eauto.
+  rewrite eqb_eq in EQb'. subst.
+  rewrite eqb_neq in EQb. contradict.
 Qed.
 
-Lemma lift_addr_x {BT AT} :
+Lemma lift_addr_x `{time BT} `{time AT} (final : BT) :
   forall (C : @dy_ctx AT) x,
-    addr_x (lift_ctx_af C : @dy_ctx (@link BT AT)) x =
+    addr_x (lift_ctx_af final C) x =
       match addr_x C x with
-      | Some addr => Some (AF addr)
+      | Some addr => Some (L final addr)
       | None => None
       end.
 Proof.
@@ -353,11 +393,11 @@ Proof.
   destruct (addr_x C x0); eauto.
 Qed.
 
-Lemma lift_ctx_M {BT AT} :
+Lemma lift_ctx_M `{time BT} `{time AT} (final : BT) :
   forall (C : @dy_ctx AT) M,
-    ctx_M (lift_ctx_af C : @dy_ctx (@link BT AT)) M =
+    ctx_M (lift_ctx_af final C) M =
       match ctx_M C M with
-      | Some CM => Some (lift_ctx_af CM)
+      | Some CM => Some (lift_ctx_af final CM)
       | None => None
       end.
 Proof.
@@ -367,32 +407,33 @@ Proof.
   destruct (ctx_M C2 M0); eauto.
 Qed.
 
-Lemma lift_plugin_af {BT AT} :
+Lemma lift_plugin_af `{time BT} `{time AT} (final : BT) :
   forall (C C' : @dy_ctx AT),
-    @lift_ctx_af BT AT (C[|C'|]) = (lift_ctx_af C [|lift_ctx_af C'|]).
+    lift_ctx_af final (C[|C'|]) = (lift_ctx_af final C [|lift_ctx_af final C'|]).
 Proof.
   induction C; simpl; intros; try rewrite IHC; eauto.
   rewrite IHC2. eauto.
 Qed.
 
-Lemma link_eval_eq `{Eq BT} `{time AT} (Cout : @dy_ctx BT) :
-  forall bmem C st e v st'
-         (EVAL : @EvalR AT _ _ C st e v st'),
-    let inject_C := (lift_ctx_bf Cout) <|(lift_ctx_af C)|> in
+Lemma link_eval_eq `{time BT} `{time AT} (final : BT) (init : AT) (Cout : @dy_ctx BT) :
+  forall bmem (BOUND : time_bound Cout (ST bmem final))
+         C st e v st'
+         (EVAL : @EvalR AT _ _ _ C st e v st'),
+    let inject_C := (lift_ctx_bf init Cout) <|(lift_ctx_af final C)|> in
     let inject_v :=
       match v with
-      | EVal ev => EVal (inject_ctx_v (lift_ctx_bf Cout) (lift_v_af ev))
-      | MVal C_v => MVal ((lift_ctx_bf Cout)<|(lift_ctx_af C_v)|>)
+      | EVal ev => EVal (inject_ctx_v (lift_ctx_bf init Cout) (lift_v_af final ev))
+      | MVal C_v => MVal ((lift_ctx_bf init Cout)<|(lift_ctx_af final C_v)|>)
       end in
     let inject_st :=
       match st with
-      | ST amem t => ST (link_mem bmem Cout amem) (AF t)
+      | ST amem t => ST (link_mem bmem final init Cout amem) (L final t)
       end in
     let inject_st' :=
       match st' with
-      | ST amem' t' => ST (link_mem bmem Cout amem') (AF t')
+      | ST amem' t' => ST (link_mem bmem final init Cout amem') (L final t')
       end in
-    @EvalR (@link BT AT) _ (link_time Cout)
+    @EvalR (@link BT _ AT _) _ _ (link_time final init Cout)
       inject_C inject_st e inject_v inject_st'.
 Proof.
   intros. induction EVAL;
@@ -402,109 +443,104 @@ Proof.
   try (destruct inject_st' eqn:INJst'; inversion INJst'; subst); eauto.
   - inversion STATE; subst.
     eapply Eval_var_e; eauto.
-    pose proof (inject_ctx_addr_x x (lift_ctx_bf Cout) (lift_ctx_af C)) as RR.
+    pose proof (inject_ctx_addr_x x (lift_ctx_bf init Cout) (lift_ctx_af final C)) as RR.
     rewrite lift_addr_x in RR.
     rewrite <- ADDR in RR. symmetry. apply RR.
-    unfold link_mem. 
-    remember (mem0 addr) as l.
-    clear Heql inject_C C mem0 x addr t0 inject_st' INJst' STATE inject_st INJst ADDR inject_v INJv.
-    revert Cout x0 e C0 ACCESS. induction l; simpl; intros; eauto.
-    destruct ACCESS as [L | R].
-    left. rewrite L. simpl. eauto.
-    right. apply IHl. eauto.
+    unfold link_mem. intro_refl. rewrite t_refl.
+    rewrite <- ACCESS. eauto.
   - destruct st_v. destruct arg.
     eapply Eval_app. apply IHEVAL1. apply IHEVAL2.
-    pose proof (link_tick_eq Cout bmem C mem t x (Closure x1 e3 C1)) as RR.
+    pose proof (link_tick_eq final init Cout bmem C mem t x (Closure x1 e3 C1)) as RR.
     simpl in *. subst inject_C.
     rewrite RR. clear RR.
-    pose proof (link_update_m_eq Cout bmem mem t (Closure x1 e3 C1)) as RR. simpl in RR.
+    pose proof (link_update_m_eq final init Cout bmem mem t (Closure x1 e3 C1) BOUND) as RR. simpl in RR.
     rewrite RR. clear RR.
-    replace (dy_c_lam x (AF t) ([||])) with (map_inject (lift_ctx_bf Cout) (dy_c_lam x (AF t) ([||]))) by reflexivity.
+    replace (dy_c_lam x (L final t) ([||])) with (map_inject (lift_ctx_bf init Cout) (dy_c_lam x (L final t) ([||]))) by reflexivity.
     rewrite plugin_inject_assoc. rewrite lift_plugin_af in IHEVAL3. eauto.
-  - pose proof (inject_ctx_ctx_M M (lift_ctx_bf Cout) (lift_ctx_af C)) as RR.
+  - pose proof (inject_ctx_ctx_M M (lift_ctx_bf init Cout) (lift_ctx_af final C)) as RR.
     rewrite lift_ctx_M in RR.
     rewrite <- ACCESS in RR.
     eapply Eval_var_m; eauto.
   - eapply Eval_lete; eauto.
-    pose proof (link_tick_eq Cout bmem C mem t x (Closure x0 e0 C0)) as RR.
-    simpl in *. replace inject_C with (lift_ctx_bf Cout <| lift_ctx_af C |>) by reflexivity.
+    pose proof (link_tick_eq final init Cout bmem C mem t x (Closure x0 e0 C0)) as RR.
+    simpl in *. subst inject_C.
     rewrite RR. clear RR.
-    pose proof (link_update_m_eq Cout bmem mem t (Closure x0 e0 C0)) as RR. simpl in RR.
+    pose proof (link_update_m_eq final init Cout bmem mem t (Closure x0 e0 C0) BOUND) as RR. simpl in RR.
     rewrite RR. clear RR.
-    replace (dy_c_lete x (AF t) ([||])) with (map_inject (lift_ctx_bf Cout) (dy_c_lete x (AF t) ([||]))) by reflexivity.
+    replace (dy_c_lete x (L final t) ([||])) with (map_inject (lift_ctx_bf init Cout) (dy_c_lete x (L final t) ([||]))) by reflexivity.
     rewrite plugin_inject_assoc. rewrite lift_plugin_af in IHEVAL2. eauto.
   - eapply Eval_letm; eauto.
-    assert (inject_C [|dy_c_letm M (lift_ctx_bf Cout <| lift_ctx_af C' |>) ([||])|] =
-            (lift_ctx_bf Cout <| lift_ctx_af (C [|dy_c_letm M C' ([||])|]) |>)) as RR. 
+    assert (inject_C [|dy_c_letm M (lift_ctx_bf init Cout <| lift_ctx_af final C' |>) ([||])|] =
+            (lift_ctx_bf init Cout <| lift_ctx_af final (C [|dy_c_letm M C' ([||])|]) |>)) as RR. 
     { subst inject_C. rewrite lift_plugin_af.
       rewrite <- plugin_inject_assoc. simpl. eauto. } 
     rewrite RR. clear RR. simpl in *. exact IHEVAL2.
 Qed.
 
-Lemma link_reach_eq `{Eq BT} `{time AT} (Cout : @dy_ctx BT) :
-  forall bmem C st e C' st' e'
-         (REACH : @one_reach AT _ _ C st e C' st' e'),
-    let inject_C := (lift_ctx_bf Cout) <|(lift_ctx_af C)|> in
-    let inject_C' := (lift_ctx_bf Cout) <|(lift_ctx_af C')|> in
+Lemma link_reach_eq `{time BT} `{time AT} (final : BT) (init : AT) (Cout : @dy_ctx BT) :
+  forall bmem (BOUND : time_bound Cout (ST bmem final))
+         C st e C' st' e'
+         (REACH : @one_reach AT _ _ _ C st e C' st' e'),
+    let inject_C := (lift_ctx_bf init Cout) <|(lift_ctx_af final C)|> in
+    let inject_C' := (lift_ctx_bf init Cout) <|(lift_ctx_af final C')|> in
     let inject_st :=
       match st with
-      | ST amem t => ST (link_mem bmem Cout amem) (AF t)
+      | ST amem t => ST (link_mem bmem final init Cout amem) (L final t)
       end in
     let inject_st' :=
       match st' with
-      | ST amem' t' => ST (link_mem bmem Cout amem') (AF t')
+      | ST amem' t' => ST (link_mem bmem final init Cout amem') (L final t')
       end in
-    @one_reach (@link BT AT) _ (link_time Cout)
+    @one_reach (@link BT _ AT _) _ _ (link_time final init Cout)
       inject_C inject_st e inject_C' inject_st' e'.
 Proof.
   intros. destruct REACH; try destruct st.
   - apply one_appl.
   - destruct st_lam.
-    apply link_eval_eq with (Cout := Cout) (bmem := bmem) in FN.
+    eapply link_eval_eq with (Cout := Cout) (bmem := bmem) in FN; eauto.
     eapply one_appr; simpl in *; eauto.
-  - apply link_eval_eq with (Cout := Cout) (bmem := bmem) in FN.
-    apply link_eval_eq with (Cout := Cout) (bmem := bmem) in ARG.
+  - eapply link_eval_eq with (Cout := Cout) (bmem := bmem) in FN; eauto.
+    eapply link_eval_eq with (Cout := Cout) (bmem := bmem) in ARG; eauto.
     destruct st_lam. subst inject_C inject_st inject_C' inject_st'.
-    rewrite <- link_update_m_eq. rewrite lift_plugin_af. rewrite <- plugin_inject_assoc.
+    rewrite <- link_update_m_eq; eauto. rewrite lift_plugin_af. rewrite <- plugin_inject_assoc.
     simpl in *.
-    replace (AF (tick C (ST mem t) x arg)) with 
-      (link_tick Cout (lift_ctx_bf Cout <| lift_ctx_af C |>)
-        (ST (link_mem bmem Cout mem) (AF t)) x (inject_ctx_v (lift_ctx_bf Cout) (lift_v_af arg))).
-    apply (@one_appbody (@link BT AT) _ (link_time Cout) 
-                        (lift_ctx_bf Cout <| lift_ctx_af C |>)
-                        (ST (link_mem bmem Cout mem0) (AF t0))
-                        e1 e2 x e (lift_ctx_bf Cout <| lift_ctx_af C_lam |>)
-                        (ST (link_mem bmem Cout mem1) (AF t1))
-                        (inject_ctx_v (lift_ctx_bf Cout) (lift_v_af arg))
-                        (link_mem bmem Cout mem) (AF t)). eauto. eauto.
-    destruct arg. simpl.
+    replace (L final (tick C (ST mem t) x arg)) with 
+      (link_tick final init Cout (lift_ctx_bf init Cout <| lift_ctx_af final C |>)
+        (ST (link_mem bmem final init Cout mem) (L final t)) x (inject_ctx_v (lift_ctx_bf init Cout) (lift_v_af final arg))).
+    apply (@one_appbody (@link BT _ AT _) _ _ (link_time final init Cout) 
+                        (lift_ctx_bf init Cout <| lift_ctx_af final C |>)
+                        (ST (link_mem bmem final init Cout mem0) (L final t0))
+                        e1 e2 x e (lift_ctx_bf init Cout <| lift_ctx_af final C_lam |>)
+                        (ST (link_mem bmem final init Cout mem1) (L final t1))
+                        (inject_ctx_v (lift_ctx_bf init Cout) (lift_v_af final arg))
+                        (link_mem bmem final init Cout mem) (L final t)). eauto. eauto.
+    destruct arg. simpl. rewrite leb_refl.
     repeat rewrite delete_inject_eq. repeat rewrite filter_delete_eq. repeat rewrite filter_lift_eq_af. eauto.
   - apply one_linkl.
   - destruct st_m.
-    apply link_eval_eq with (Cout := Cout) (bmem := bmem) in MOD.
+    eapply link_eval_eq with (Cout := Cout) (bmem := bmem) in MOD; eauto.
     eapply one_linkr; simpl in *; eauto.
   - apply one_letel.
-  - apply link_eval_eq with (Cout := Cout) (bmem := bmem) in EVALx.
+  - eapply link_eval_eq with (Cout := Cout) (bmem := bmem) in EVALx; eauto.
     subst inject_C inject_st inject_C' inject_st'.
-    rewrite <- link_update_m_eq. rewrite lift_plugin_af. rewrite <- plugin_inject_assoc.
+    rewrite <- link_update_m_eq; eauto. rewrite lift_plugin_af. rewrite <- plugin_inject_assoc.
     simpl in *.
-    replace (AF (tick C (ST mem t) x v)) with 
-      (link_tick Cout (lift_ctx_bf Cout <| lift_ctx_af C |>)
-        (ST (link_mem bmem Cout mem) (AF t)) x (inject_ctx_v (lift_ctx_bf Cout) (lift_v_af v))).
-    apply (@one_leter (@link BT AT) _ (link_time Cout) 
-                      (lift_ctx_bf Cout <| lift_ctx_af C |>)
-                      (ST (link_mem bmem Cout mem0) (AF t0))
+    replace (L final (tick C (ST mem t) x v)) with 
+      (link_tick final init Cout (lift_ctx_bf init Cout <| lift_ctx_af final C |>)
+        (ST (link_mem bmem final init Cout mem) (L final t)) x (inject_ctx_v (lift_ctx_bf init Cout) (lift_v_af final v))).
+    apply (@one_leter (@link BT _ AT _) _ _ (link_time final init Cout) 
+                      (lift_ctx_bf init Cout <| lift_ctx_af final C |>)
+                      (ST (link_mem bmem final init Cout mem0) (L final t0))
                       x e m 
-                      (inject_ctx_v (lift_ctx_bf Cout) (lift_v_af v))
-                      (link_mem bmem Cout mem) (AF t)). eauto.
-    destruct v. simpl.
+                      (inject_ctx_v (lift_ctx_bf init Cout) (lift_v_af final v))
+                      (link_mem bmem final init Cout mem) (L final t)). eauto.
+    destruct v. simpl. rewrite leb_refl.
     repeat rewrite delete_inject_eq. repeat rewrite filter_delete_eq. repeat rewrite filter_lift_eq_af. eauto.
   - apply one_letml.
   - destruct st_M.
-    apply link_eval_eq with (Cout := Cout) (bmem := bmem) in EVALM.
+    eapply link_eval_eq with (Cout := Cout) (bmem := bmem) in EVALM; eauto.
     subst inject_C inject_st inject_C' inject_st'.
     rewrite lift_plugin_af. rewrite <- plugin_inject_assoc.
     simpl in *.
     eapply one_letmr; simpl in *; eauto.
 Qed.
-*)

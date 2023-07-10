@@ -1343,22 +1343,22 @@ Instead, we define a function $\alpha_+$ that projects the time $(f_1,0_2)$ to b
 
   \begin{itemize}
     \item Let $s_1=(C_1,\mem_1,f_1)$ be the exported state from $\Time_1$ to $\Time_2$.
-    \item Define the abstractions $\alpha^{<}_{+},\alpha^{>}_{+}:\Time_1\times\Time_2\rightarrow\ATime_1+\ATime_2$ as:
+    \item Define the abstractions $\alpha^{<}_{+},\alpha^{\le}_{+}:\Time_1\times\Time_2\rightarrow\ATime_1+\ATime_2$ as:
           \[
             \alpha^{<}_{+}\triangleq
             \begin{cases}
-              \alpha_1(\pi_1(t)) & \pi_1(t)<f_1    \\
-              \alpha_2(\pi_2(t)) & \pi_1(t)\ge f_1
+              \alpha_1(\pi_1(t)) & t<(f_1,0_2)      \\
+              \alpha_2(\pi_2(t)) & \text{otherwise}
             \end{cases}
             \qquad
-            \alpha^{>}_{+}\triangleq
+            \alpha^{\le}_{+}\triangleq
             \begin{cases}
-              \alpha_1(\pi_1(t)) & \pi_1(t)\le f_1 \\
-              \alpha_2(\pi_2(t)) & \pi_1(t)>f_1
+              \alpha_1(\pi_1(t)) & t\le(f_1,0_2)    \\
+              \alpha_2(\pi_2(t)) & \text{otherwise}
             \end{cases}
           \]
   \end{itemize}
-  We define the linked abstraction function $\alpha_+(R)\triangleq\alpha^{<}_+(R)\cup\alpha^{>}_+(R)$.
+  We define the linked abstraction function $\alpha_+(R)\triangleq\alpha^{<}_+(R)\cup\alpha^{\le}_+(R)$.
 \end{definition}
 
 Then the added concretization function $\gamma_{+}$ that maps a subset of $\AResult{\ATime_1+\ATime_2}$ to a subset of $\Result{\Time_1\times\Time_2}$ can be defined,
@@ -1375,7 +1375,7 @@ Now we can finally state the theorem for abstract linking:
   and define $L_n\triangleq\sembracket{l_n}(s)$ under the linked time $\prod_{i=0}^{n}\Time_i$.
 
   Given a sequence of tick-approximating abstractions $\alpha_i$, define $\alpha^{n}_+$ that maps a subset of $\Result{\prod_{i=0}^{n}{\Time_i}}$ to a subset of $\AResult{\sum_{i=0}^{n}{\ATime_i}}$ by projecting each exported time into the left or right abstract times.
-  
+
   Now, if we let
   \[
     \A{L_0}\triangleq\A{\sembracket{e_0}}(\alpha_0(s))\qquad\A{L_{i+1}}\triangleq\A\Link\:\A{L_i}\:l_i\:e_{i+1}\:\alpha_0(s)
