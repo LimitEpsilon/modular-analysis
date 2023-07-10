@@ -10,6 +10,9 @@ simple/Concrete.vos simple/Concrete.vok simple/Concrete.required_vos: simple/Con
 simple/Fixpoint.vo simple/Fixpoint.glob simple/Fixpoint.v.beautified simple/Fixpoint.required_vo: simple/Fixpoint.v simple/Abstract.vo
 simple/Fixpoint.vio: simple/Fixpoint.v simple/Abstract.vio
 simple/Fixpoint.vos simple/Fixpoint.vok simple/Fixpoint.required_vos: simple/Fixpoint.v simple/Abstract.vos
+simple/Linking.vo simple/Linking.glob simple/Linking.v.beautified simple/Linking.required_vo: simple/Linking.v simple/Concrete.vo
+simple/Linking.vio: simple/Linking.v simple/Concrete.vio
+simple/Linking.vos simple/Linking.vok simple/Linking.required_vos: simple/Linking.v simple/Concrete.vos
 simple/Sound.vo simple/Sound.glob simple/Sound.v.beautified simple/Sound.required_vo: simple/Sound.v simple/Abstract.vo simple/Concrete.vo
 simple/Sound.vio: simple/Sound.v simple/Abstract.vio simple/Concrete.vio
 simple/Sound.vos simple/Sound.vok simple/Sound.required_vos: simple/Sound.v simple/Abstract.vos simple/Concrete.vos
