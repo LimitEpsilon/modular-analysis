@@ -1336,37 +1336,53 @@ and $\A\Link\:(\A{\sembracket{e_1}}(\A{s}))\:e_1\:e_2\:\A{s}$.
 
 The tricky part is in the time $(f_1,0_2)$.
 It is represented by \emph{both} $\alpha_1(f_1)\in\ATime_1$ and $\alpha_2(0_2)\in\ATime_2$, when $\alpha_1:\Time_1\rightarrow\ATime_1$ and $\alpha_2:\Time_2\rightarrow\ATime_2$ are tick-approximating.
-
-\begin{thm}[Abstract linking]
-  Let $s$ be a concrete configuration.
-
-  Let $\A{a}$ satisfy $\sembracket{e_1}(s)\subseteq\gamma_1(\A{a})$, and define $\alpha_1(t)\triangleq\{\A{t}|t\in\gamma_1(\A{t})\}$.
-
-  Let $\gamma_2$ be a tick-approximating concretization between $\Time$ and $\ATime_2$. Then:
-  \[
-    \sembracket{\link{e_1}{e_2}}(s)\subseteq(\gamma_1\cup\gamma_2)\left(\bigcup_{\A{s}\in\alpha_1(s)}{\A\Link\:\A{a}\:e_1\:e_2\:\A{s}}\right)
-  \]
-\end{thm}
-
-Why did we introduce $\A{a}$, instead of using $\A{\sembracket{e_1}}(\A{s})$ directly for the overapproximation of $\sembracket{e_1}(s)$?
-
-\begin{thm}[Compositionality of abstract linking]
+Therefore, we cannot make a tick-approximating function between $\Time_1\times\Time_2$ and $\ATime_1+\ATime_2$.
+Instead, we define a function $\alpha_+$ that projects the time $(f_1,0_2)$ to both $\A{f_1}$ and $\A{0_2}$ between $\Result{\Time_1\times\Time_2}$ and $\AResult{\ATime_1+\ATime_2}$.
+\begin{definition}[Linking of abstraction]
   $\:$
 
-  Let $\{e_i\}_{i\ge 0}$ be a sequence of expressions and let $s$ be a concrete configuration. Define $\{l_i\}_{i\ge 0}$ as:
-  \[
-    l_0\triangleq e_0\qquad l_{i+1}\triangleq\link{l_i}{e_{i+1}}
-  \]
-  and define $L_i\triangleq\sembracket{l_i}(s)$.
+  \begin{itemize}
+    \item Let $s_1=(C_1,\mem_1,f_1)$ be the exported state from $\Time_1$ to $\Time_2$.
+    \item Define the abstractions $\alpha^{<}_{+},\alpha^{>}_{+}:\Time_1\times\Time_2\rightarrow\ATime_1+\ATime_2$ as:
+          \[
+            \alpha^{<}_{+}\triangleq
+            \begin{cases}
+              \alpha_1(\pi_1(t)) & \pi_1(t)<f_1    \\
+              \alpha_2(\pi_2(t)) & \pi_1(t)\ge f_1
+            \end{cases}
+            \qquad
+            \alpha^{>}_{+}\triangleq
+            \begin{cases}
+              \alpha_1(\pi_1(t)) & \pi_1(t)\le f_1 \\
+              \alpha_2(\pi_2(t)) & \pi_1(t)>f_1
+            \end{cases}
+          \]
+  \end{itemize}
+  We define the linked abstraction function $\alpha_+(R)\triangleq\alpha^{<}_+(R)\cup\alpha^{>}_+(R)$.
+\end{definition}
 
-  Let $\gamma_i$ be a tick-approximating concretization between $\Time$ and $\ATime_i$, and let the union of $\gamma_i$ from $i=0$ to $n$ be $l\gamma_n$.
-  Now, define $\alpha_0(t)\triangleq\{\A{t}|t\in\gamma_0(\A{t})\}$ and
+Then the added concretization function $\gamma_{+}$ that maps a subset of $\AResult{\ATime_1+\ATime_2}$ to a subset of $\Result{\Time_1\times\Time_2}$ can be defined,
+and the function can be extended between caches.
+
+Now we can finally state the theorem for abstract linking:
+\begin{thm}[Abstract linking]
+  $\:$
+
+  Let $\{e_n\}_{n\ge 0}$ be a sequence of expressions and let $s$ be a concrete configuration. Define $\{l_n\}_{n\ge 0}$ as:
   \[
-    \A{L_0}\triangleq\bigcup_{\A{s}\in\alpha_0(s)}\A{\sembracket{e_0}}(\A{s})\qquad\A{L_{i+1}}\triangleq\bigcup_{\A{s}\in \alpha_0(s)}\A\Link\:\A{L_i}\:l_i\:e_{i+1}\:\A{s}
+    l_0\triangleq e_0\qquad l_{n+1}\triangleq\link{l_n}{e_{n+1}}
   \]
-  Then we have:
+  and define $L_n\triangleq\sembracket{l_n}(s)$ under the linked time $\prod_{i=0}^{n}\Time_i$.
+
+  Given a sequence of tick-approximating abstractions $\alpha_i$, define $\alpha^{n}_+$ that maps a subset of $\Result{\prod_{i=0}^{n}{\Time_i}}$ to a subset of $\AResult{\sum_{i=0}^{n}{\ATime_i}}$ by projecting each exported time into the left or right abstract times.
+  
+  Now, if we let
   \[
-    \forall n:L_n\subseteq l\gamma_n(\A{L_n})
+    \A{L_0}\triangleq\A{\sembracket{e_0}}(\alpha_0(s))\qquad\A{L_{i+1}}\triangleq\A\Link\:\A{L_i}\:l_i\:e_{i+1}\:\alpha_0(s)
+  \]
+  we have:
+  \[
+    \forall n:L_n\subseteq \gamma^{n}_+(\A{L_n})
   \]
 \end{thm}
 \bibliographystyle{ACM-Reference-Format}
