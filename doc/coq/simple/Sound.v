@@ -10,31 +10,6 @@ Module Conc := Concrete.
 Generalizable Variables CT.
 Generalizable Variables AT.
 
-Fixpoint trans_ctx {CT AT} (α : CT -> AT) (C : @dy_ctx CT) :=
-  match C with
-  | [||] => [||]
-  | dy_c_lam x t C' => dy_c_lam x (α t) (trans_ctx α C')
-  | dy_c_lete x t C' => dy_c_lete x (α t) (trans_ctx α C')
-  | dy_c_letm M CM C' => dy_c_letm M (trans_ctx α CM) (trans_ctx α C')
-  end.
-
-Definition trans_v {CT AT} (α : CT -> AT) (v : @expr_value CT) :=
-  match v with
-  | Closure x e C => Closure x e (trans_ctx α C)
-  end.
-
-Definition trans_V {CT AT} (α : CT -> AT) (V : @dy_value CT) :=
-  match V with
-  | EVal v => EVal (trans_v α v)
-  | MVal C => MVal (trans_ctx α C)
-  end.
-
-Definition trans_mem {CT AT} (α : CT -> AT) (mem : CT -> option (@expr_value CT)) (abs_mem : AT -> list (@expr_value AT)) :=
-  forall abs_t abs_v,
-    (In abs_v (abs_mem abs_t) <->
-      exists t v, trans_v α v = abs_v /\ α t = abs_t /\ mem t = Some v)
-.
-
 Definition sound_cf {CT AT} (α : CT -> AT) C st abs_C abs_st :=
   match st, abs_st with
   | ST mem t, Abs.ST abs_mem abs_t =>
@@ -46,83 +21,6 @@ Definition sound_res {CT AT} (α : CT -> AT) V st abs_V abs_st :=
   | ST mem t, Abs.ST abs_mem abs_t =>
     trans_V α V = abs_V /\ trans_mem α mem abs_mem /\ α t = abs_t
   end.
-
-Lemma trans_ctx_addr :
-  forall {CT AT} (α : CT -> AT) C x,
-    addr_x (trans_ctx α C) x = 
-      match (addr_x C x) with 
-      | None => None 
-      | Some addr => Some (α addr) 
-      end.
-Proof.
-  induction C; eauto.
-  - intros. specialize (IHC x0).
-    simpl. rewrite IHC.
-    destruct (addr_x C x0); simpl; eauto.
-    destruct (eq_eid x0 x); eauto.
-  - intros. specialize (IHC x0).
-    simpl. rewrite IHC.
-    destruct (addr_x C x0); simpl; eauto.
-    destruct (eq_eid x0 x); eauto.
-Qed.
-
-Lemma trans_ctx_ctx_M :
-  forall {CT AT} C (α : CT -> AT) abs_C M C_M
-        (ACCESS : ctx_M C M = Some C_M)
-        (TRANS : trans_ctx α C = abs_C),
-    ctx_M abs_C M = Some (trans_ctx α C_M).
-Proof.
-  assert (forall {CT AT} C (α : CT -> AT) M,
-    match ctx_M (trans_ctx α C) M with
-    | Some _ => 
-      match ctx_M C M with
-      | Some _ => True
-      | None => False
-      end
-    | None =>
-      match ctx_M C M with
-      | Some _ => False
-      | None => True
-      end
-    end) as A.
-  {
-    induction C; intros; simpl; eauto; try apply IHC.
-    destruct (eq_mid M0 M); 
-    remember (ctx_M (trans_ctx α C2) M0) as ctx';
-    destruct ctx';
-    specialize (IHC2 α M0);
-    rewrite <- Heqctx' in IHC2;
-    destruct (ctx_M C2 M0);
-    try inversion IHC2; eauto.
-  }
-  intros. revert C α abs_C M C_M ACCESS TRANS. 
-  induction C; intros; simpl in *; eauto.
-  - inversion ACCESS.
-  - rewrite <- TRANS. simpl. apply IHC; eauto.
-  - rewrite <- TRANS. simpl. apply IHC; eauto. 
-  - rewrite <- TRANS. simpl.
-    remember (ctx_M (trans_ctx α C2) M0) as ctx1.
-    destruct ctx1; try (inversion ACCESS; fail).
-    + specialize (A CT AT C2 α M0).
-      rewrite <- Heqctx1 in A.
-      remember (ctx_M C2 M0) as ctx2; destruct ctx2;
-      inversion A; inversion ACCESS; subst.
-      rewrite Heqctx1. apply IHC2; eauto.
-    + specialize (A CT AT C2 α M0).
-      rewrite <- Heqctx1 in A.
-      remember (ctx_M C2 M0) as ctx2; destruct ctx2;
-      inversion A; destruct (eq_mid M0 M);
-      inversion ACCESS; subst; eauto.
-Qed.
-
-Lemma plugin_trans_ctx :
-  forall {CT AT} Cout Cin (α : CT -> AT),
-    trans_ctx α (Cout[|Cin|]) = (trans_ctx α Cout [|trans_ctx α Cin|]).
-Proof.
-  induction Cout; intros; simpl; 
-  try rewrite IHCout; try rewrite IHCout1; try rewrite IHCout2;
-  eauto.
-Qed.
 
 Definition preserve_tick `{Conc.time CT} `{Abs.time AT} (α : CT -> AT) :=
   forall x C st abs_C abs_st v abs_v
@@ -404,7 +302,7 @@ Proof.
     destruct IN as [EQv | IN].
     exists t. exists arg.
     split. rewrite <- EQv; eauto.
-    split. eauto. intro_refl. rewrite t_refl. eauto.
+    split. eauto. rewrite t_refl. eauto.
     red in SOUNDm. rewrite SOUNDm in IN.
     destruct IN as [p [v HINT]].
     exists p. exists v. rewrite EQ.
@@ -436,7 +334,7 @@ Proof.
     red in SOUNDm. rewrite SOUNDm.
     destruct (eqb p t) eqn:EQ'.
     rewrite eqb_eq in EQ'. subst.
-    intro_refl. rewrite t_refl in EQ. inversion EQ.
+    rewrite t_refl in EQ. inversion EQ.
     exists p. exists v. eauto.
 Qed.
 

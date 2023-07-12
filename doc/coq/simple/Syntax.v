@@ -423,6 +423,108 @@ Proof.
       exists dC1. eauto. inversion H.
 Qed.
 
+Fixpoint trans_ctx {CT AT} (α : CT -> AT) (C : @dy_ctx CT) :=
+  match C with
+  | [||] => [||]
+  | dy_c_lam x t C' => dy_c_lam x (α t) (trans_ctx α C')
+  | dy_c_lete x t C' => dy_c_lete x (α t) (trans_ctx α C')
+  | dy_c_letm M CM C' => dy_c_letm M (trans_ctx α CM) (trans_ctx α C')
+  end.
+
+Definition trans_v {CT AT} (α : CT -> AT) (v : @expr_value CT) :=
+  match v with
+  | Closure x e C => Closure x e (trans_ctx α C)
+  end.
+
+Definition trans_V {CT AT} (α : CT -> AT) (V : @dy_value CT) :=
+  match V with
+  | EVal v => EVal (trans_v α v)
+  | MVal C => MVal (trans_ctx α C)
+  end.
+
+Definition trans_mem {CT AT} (α : CT -> AT) (mem : CT -> option (@expr_value CT)) (abs_mem : AT -> list (@expr_value AT)) :=
+  forall abs_t abs_v,
+    (In abs_v (abs_mem abs_t) <->
+      exists t v, trans_v α v = abs_v /\ α t = abs_t /\ mem t = Some v)
+.
+
+Lemma trans_ctx_addr :
+  forall {CT AT} (α : CT -> AT) C x,
+    addr_x (trans_ctx α C) x = 
+      match (addr_x C x) with 
+      | None => None 
+      | Some addr => Some (α addr) 
+      end.
+Proof.
+  induction C; eauto.
+  - intros. specialize (IHC x0).
+    simpl. rewrite IHC.
+    destruct (addr_x C x0); simpl; eauto.
+    destruct (eq_eid x0 x); eauto.
+  - intros. specialize (IHC x0).
+    simpl. rewrite IHC.
+    destruct (addr_x C x0); simpl; eauto.
+    destruct (eq_eid x0 x); eauto.
+Qed.
+
+Lemma trans_ctx_ctx_M :
+  forall {CT AT} C (α : CT -> AT) abs_C M C_M
+        (ACCESS : ctx_M C M = Some C_M)
+        (TRANS : trans_ctx α C = abs_C),
+    ctx_M abs_C M = Some (trans_ctx α C_M).
+Proof.
+  assert (forall {CT AT} C (α : CT -> AT) M,
+    match ctx_M (trans_ctx α C) M with
+    | Some _ => 
+      match ctx_M C M with
+      | Some _ => True
+      | None => False
+      end
+    | None =>
+      match ctx_M C M with
+      | Some _ => False
+      | None => True
+      end
+    end) as A.
+  {
+    induction C; intros; simpl; eauto; try apply IHC.
+    destruct (eq_mid M0 M); 
+    remember (ctx_M (trans_ctx α C2) M0) as ctx';
+    destruct ctx';
+    specialize (IHC2 α M0);
+    rewrite <- Heqctx' in IHC2;
+    destruct (ctx_M C2 M0);
+    try inversion IHC2; eauto.
+  }
+  intros. revert C α abs_C M C_M ACCESS TRANS. 
+  induction C; intros; simpl in *; eauto.
+  - inversion ACCESS.
+  - rewrite <- TRANS. simpl. apply IHC; eauto.
+  - rewrite <- TRANS. simpl. apply IHC; eauto. 
+  - rewrite <- TRANS. simpl.
+    remember (ctx_M (trans_ctx α C2) M0) as ctx1.
+    destruct ctx1; try (inversion ACCESS; fail).
+    + specialize (A CT AT C2 α M0).
+      rewrite <- Heqctx1 in A.
+      remember (ctx_M C2 M0) as ctx2; destruct ctx2;
+      inversion A; inversion ACCESS; subst.
+      rewrite Heqctx1. apply IHC2; eauto.
+    + specialize (A CT AT C2 α M0).
+      rewrite <- Heqctx1 in A.
+      remember (ctx_M C2 M0) as ctx2; destruct ctx2;
+      inversion A; destruct (eq_mid M0 M);
+      inversion ACCESS; subst; eauto.
+Qed.
+
+Lemma plugin_trans_ctx :
+  forall {CT AT} Cout Cin (α : CT -> AT),
+    trans_ctx α (Cout[|Cin|]) = (trans_ctx α Cout [|trans_ctx α Cin|]).
+Proof.
+  induction Cout; intros; simpl; 
+  try rewrite IHCout; try rewrite IHCout1; try rewrite IHCout2;
+  eauto.
+Qed.
+
 Class Eq T : Type :=
 {
   eqb : T -> T -> bool;
@@ -430,65 +532,32 @@ Class Eq T : Type :=
   eqb_neq : forall (t t' : T), eqb t t' = false <-> t <> t'
 }.
 
-Fixpoint eq_ctx {T} `{Eq T} (C1 : @dy_ctx T) (C2 : @dy_ctx T) :=
+Fixpoint eq_ctx {T} eqb (C1 : @dy_ctx T) (C2 : @dy_ctx T) :=
   match C1, C2 with
   | [||], [||] => true
   | dy_c_lam x1 t1 C1', dy_c_lam x2 t2 C2'
   | dy_c_lete x1 t1 C1', dy_c_lete x2 t2 C2' =>
-    eq_eid x1 x2 && eqb t1 t2 && eq_ctx C1' C2'
+    eq_eid x1 x2 && eqb t1 t2 && eq_ctx eqb C1' C2'
   | dy_c_letm M1 C1' C1'', dy_c_letm M2 C2' C2'' =>
-    eq_mid M1 M2 && eq_ctx C1' C2' && eq_ctx C1'' C2''
+    eq_mid M1 M2 && eq_ctx eqb C1' C2' && eq_ctx eqb C1'' C2''
   | _, _ => false
   end.
 
-Lemma eq_ctx_eq : forall {T} `{Eq T} (C C' : dy_ctx),
-  eq_ctx C C' = true <-> C = C'.
-Proof.
-  intros. rename H into ET. revert C'.
-  induction C; destruct C'; split; intros H; inversion H; try reflexivity;
-  try (assert (x = x0);
-    [rewrite <- eq_eid_eq | idtac];
-    destruct (eq_eid x x0); inversion H1; eauto;
-    assert (tx = tx0);
-    [rewrite <- eqb_eq | idtac];
-    destruct (eqb tx tx0); inversion H1; eauto;
-    assert (C = C');
-    [rewrite <- IHC | idtac]; eauto; subst; reflexivity);
-  try (subst; simpl;
-    assert (eq_eid x0 x0 = true);
-    [rewrite eq_eid_eq; reflexivity | idtac];
-    assert (eqb tx0 tx0 = true);
-    [rewrite eqb_eq; reflexivity | idtac];
-    assert (eq_ctx C' C' = true);
-    [rewrite IHC; reflexivity | idtac];
-    rewrite H0; rewrite H1; rewrite H2; eauto).
-  assert (M = M0);
-  [rewrite <- eq_mid_eq; destruct (eq_mid M M0); inversion H1; eauto | idtac];
-  assert (C1 = C'1);
-  [rewrite <- IHC1; destruct (eq_mid M M0);
-   destruct (eq_ctx C1 C'1); inversion H1; eauto | idtac].
-  assert (C2 = C'2);
-  [rewrite <- IHC2; destruct (eq_mid M M0);
-   destruct (eq_ctx C1 C'1); destruct (eq_ctx C2 C'2); inversion H1; eauto | idtac];
-  subst; eauto.
-  subst; simpl.
-  assert (eq_mid M0 M0 = true);
-  [rewrite eq_mid_eq; reflexivity | idtac];
-  assert (eq_ctx C'1 C'1 = true);
-  [rewrite IHC1; reflexivity | idtac];
-  assert (eq_ctx C'2 C'2 = true);
-  [rewrite IHC2; reflexivity | idtac];
-  rewrite H0; rewrite H1; rewrite H2; eauto.
-Qed.
+Lemma eid_refl : forall x, eq_eid x x = true.
+Proof. intros; apply eq_eid_eq; eauto. Qed.
 
-Lemma eq_ctx_neq : forall {T} `{Eq T} (C C' : dy_ctx),
-  eq_ctx C C' = false <-> C <> C'.
+Lemma mid_refl : forall M, eq_mid M M = true.
+Proof. intros; apply eq_mid_eq; eauto. Qed.
+
+Lemma t_refl {T} `{Eq T} : forall t, eqb t t = true.
+Proof. intros; apply eqb_eq; eauto. Qed.
+
+Lemma ctx_refl {T} eqb (t_refl : forall t, eqb t t = true) : 
+  forall (C : @dy_ctx T),
+    eq_ctx eqb C C = true.
 Proof.
-  intros; split; intros.
-  - red; intros contra. rewrite <- eq_ctx_eq in contra.
-    rewrite contra in H0. inversion H0.
-  - destruct (eq_ctx C C') eqn:EQ; try reflexivity.
-    rewrite eq_ctx_eq in EQ. apply H0 in EQ. inversion EQ.
+  induction C; simpl; try rewrite eid_refl; try rewrite mid_refl;
+  try rewrite t_refl; try rewrite IHC; try rewrite IHC1; try rewrite IHC2; eauto.
 Qed.
 
 (* injection, deletion *)
@@ -507,45 +576,40 @@ Fixpoint map_inject {T} (Cout : @dy_ctx T) (Cin : @dy_ctx T) :=
 Definition inject_ctx {T} (Cout : @dy_ctx T) (Cin : @dy_ctx T) :=
   Cout[|map_inject Cout Cin|].
 
-Fixpoint delete_prefix {T} `{Eq T} (Cout : @dy_ctx T) (Cin : @dy_ctx T) :=
+Fixpoint delete_prefix {T} eqb 
+  (Cout : @dy_ctx T) (Cin : @dy_ctx T) :=
   match Cout, Cin with
   | [||], Cin => Cin
   | dy_c_lam x t Cout', dy_c_lam x' t' Cin'
   | dy_c_lete x t Cout', dy_c_lete x' t' Cin' =>
     if eq_eid x x' && eqb t t' then
-      delete_prefix Cout' Cin'
+      delete_prefix eqb Cout' Cin'
     else Cin
   | dy_c_letm M Cout' Cout'', dy_c_letm M' Cin' Cin'' =>
-    if eq_mid M M' && eq_ctx Cout' Cin' then
-      delete_prefix Cout'' Cin''
+    if eq_mid M M' && eq_ctx eqb Cout' Cin' then
+      delete_prefix eqb Cout'' Cin''
     else Cin
   | _, _ => Cin
   end.
 
-Ltac intro_refl :=
-  assert (forall x, eq_eid x x = true) as eid_refl; [intros; apply eq_eid_eq; eauto|idtac];
-  assert (forall M, eq_mid M M = true) as mid_refl; [intros; apply eq_mid_eq; eauto|idtac];
-  assert (forall {T} `{Eq T} t, eqb t t = true) as t_refl; [intros; apply eqb_eq; eauto|idtac];
-  assert (forall {T} `{Eq T} C, eq_ctx C C = true) as ctx_refl; [intros; apply eq_ctx_eq; eauto|idtac].
-
-Lemma delete_prefix_eq :
-  forall {T} `{Eq T} (Cout Cin : dy_ctx),
-    delete_prefix Cout (Cout[|Cin|]) = Cin.
+Lemma delete_prefix_eq {T} eqb (t_refl : forall t, eqb t t = true) :
+  forall (Cout Cin : @dy_ctx T),
+    delete_prefix eqb Cout (Cout[|Cin|]) = Cin.
 Proof.
-  intro_refl. intros. rename H into ET. revert Cin.
+  intros. revert Cin.
   induction Cout; simpl; eauto;    
     try rewrite eid_refl; try rewrite mid_refl; try rewrite t_refl; try rewrite ctx_refl;
     simpl; eauto.
 Qed.
 
-Lemma delete_prefix_dec :
-  forall {T} `{Eq T} (Cout Cin : @dy_ctx T),
-    dy_level (delete_prefix Cout Cin) <= dy_level Cin.
+Lemma delete_prefix_dec {T} eqb :
+  forall (Cout Cin : @dy_ctx T),
+    dy_level (delete_prefix eqb Cout Cin) <= dy_level Cin.
 Proof.
   intros. revert Cout. 
   induction Cin; intros; destruct Cout; simpl; eauto;
   try destruct (eq_eid x0 x); try destruct (eqb tx0 tx);
-  try destruct (eq_mid M0 M); try destruct (eq_ctx Cout1 Cin1);
+  try destruct (eq_mid M0 M); try destruct (eq_ctx eqb Cout1 Cin1);
   simpl; try nia.
   etransitivity; try apply IHCin; eauto.
   etransitivity; try apply IHCin; eauto.
@@ -554,35 +618,35 @@ Qed.
 
 Require Import Program.
 
-Program Fixpoint delete_map 
-  {T} `{Eq T} (Cout Cin : dy_ctx) {measure (dy_level Cin)} :=
+Program Fixpoint delete_map {T} eqb
+  (Cout Cin : @dy_ctx T) {measure (dy_level Cin)} :=
   match Cin with
   | [||] => [||]
   | dy_c_lam x t C' =>
-    dy_c_lam x t (delete_map Cout C')
+    dy_c_lam x t (delete_map eqb Cout C')
   | dy_c_lete x t C' =>
-    dy_c_lete x t (delete_map Cout C')
+    dy_c_lete x t (delete_map eqb Cout C')
   | dy_c_letm M C' C'' =>
-    dy_c_letm M (delete_map Cout (delete_prefix Cout C'))
-                (delete_map Cout C'')
+    dy_c_letm M (delete_map eqb Cout (delete_prefix eqb Cout C'))
+                (delete_map eqb Cout C'')
   end.
 
 Next Obligation.
   simpl.
-  pose proof (delete_prefix_dec Cout C').
+  pose proof (delete_prefix_dec eqb0 Cout C').
   nia.
 Defined.
 Next Obligation.
   simpl.
-  pose proof (delete_prefix_dec Cout C'').
+  pose proof (delete_prefix_dec eqb0 Cout C'').
   nia.
 Defined.
 
 (* reduction lemmas *)
-Lemma delete_map_red_lam :
-  forall {T} `{Eq T} Cout x t C',
-    delete_map Cout (dy_c_lam x t C') =
-      dy_c_lam x t (delete_map Cout C').
+Lemma delete_map_red_lam {T} (eqb : T -> T -> bool) :
+  forall Cout x t C',
+    delete_map eqb Cout (dy_c_lam x t C') =
+      dy_c_lam x t (delete_map eqb Cout C').
 Proof.
   intros. unfold delete_map. unfold delete_map_func.
   rewrite fix_sub_eq; simpl; try reflexivity.
@@ -591,10 +655,10 @@ Proof.
   intros RR. rewrite RR. reflexivity.
 Qed.
 
-Lemma delete_map_red_lete :
-  forall {T} `{Eq T} Cout x t C',
-    delete_map Cout (dy_c_lete x t C') =
-      dy_c_lete x t (delete_map Cout C').
+Lemma delete_map_red_lete {T} (eqb : T -> T -> bool) :
+  forall Cout x t C',
+    delete_map eqb Cout (dy_c_lete x t C') =
+      dy_c_lete x t (delete_map eqb Cout C').
 Proof.
   intros. unfold delete_map. unfold delete_map_func.
   rewrite fix_sub_eq; simpl; try reflexivity.
@@ -603,11 +667,11 @@ Proof.
   intros RR. rewrite RR. reflexivity.
 Qed.
 
-Lemma delete_map_red_letm :
-  forall {T} `{Eq T} Cout M C' C'',
-    delete_map Cout (dy_c_letm M C' C'') =
-      dy_c_letm M (delete_map Cout (delete_prefix Cout C'))
-                  (delete_map Cout C'').
+Lemma delete_map_red_letm {T} (eqb : T -> T -> bool) :
+  forall Cout M C' C'',
+    delete_map eqb Cout (dy_c_letm M C' C'') =
+      dy_c_letm M (delete_map eqb Cout (delete_prefix eqb Cout C'))
+                  (delete_map eqb Cout C'').
 Proof.
   intros. unfold delete_map. unfold delete_map_func.
   rewrite fix_sub_eq; simpl; try reflexivity.
@@ -622,27 +686,27 @@ Ltac simpl_delete :=
   try rewrite delete_map_red_lete;
   try rewrite delete_map_red_letm.
 
-Lemma delete_map_eq :
-  forall {T} `{Eq T} (Cout Cin : dy_ctx),
-    delete_map Cout (map_inject Cout Cin) = Cin.
+Lemma delete_map_eq {T} eqb (t_refl : forall t, eqb t t = true) :
+  forall (Cout Cin : @dy_ctx T),
+    delete_map eqb Cout (map_inject Cout Cin) = Cin.
 Proof.
-  intros. rename H into ET. revert Cout.
+  intros. revert Cout.
   induction Cin; intros; simpl_delete; 
   try rewrite IHCin; eauto.
   rewrite delete_prefix_eq. 
-  rewrite IHCin1. rewrite IHCin2. eauto.
+  rewrite IHCin1. rewrite IHCin2. eauto. eauto.
 Qed.
 
-Definition delete_ctx {T} `{Eq T} (Cout Cin : dy_ctx) :=
-  delete_map Cout (delete_prefix Cout Cin).
+Definition delete_ctx {T} eqb (Cout Cin : @dy_ctx T) :=
+  delete_map eqb Cout (delete_prefix eqb Cout Cin).
 
-Lemma delete_inject_eq :
-  forall {T} `{Eq T} (Cout Cin : dy_ctx),
-    delete_ctx Cout (inject_ctx Cout Cin) = Cin.
+Lemma delete_inject_eq {T} eqb (t_refl : forall t, eqb t t = true) :
+  forall (Cout Cin : @dy_ctx T),
+    delete_ctx eqb Cout (inject_ctx Cout Cin) = Cin.
 Proof.
   intros. unfold delete_ctx. unfold inject_ctx.
-  rewrite delete_prefix_eq.
-  rewrite delete_map_eq. eauto.
+  rewrite delete_prefix_eq; eauto.
+  rewrite delete_map_eq; eauto.
 Qed.
   
 Notation "Cout '<|' Cin '|>'" := (inject_ctx Cout Cin)
@@ -653,9 +717,9 @@ Definition inject_ctx_v {T} `{Eq T} (Cout : @dy_ctx T) (v : @expr_value T) :=
   | Closure x t C => Closure x t (Cout <|C|>)
   end.
 
-Definition delete_ctx_v {T} `{Eq T} (Cout : @dy_ctx T) (v : @expr_value T) :=
+Definition delete_ctx_v {T} eqb (Cout : @dy_ctx T) (v : @expr_value T) :=
   match v with
-  | Closure x t C => Closure x t (delete_ctx Cout C)
+  | Closure x t C => Closure x t (delete_ctx eqb Cout C)
   end.
 
 Lemma plugin_map_assoc :
@@ -755,6 +819,168 @@ Proof.
   rewrite CTX in H0.
   pose proof (plugin_ctx_ctx_M M Cout (map_inject Cout Cin)).
   rewrite H0 in H1. eauto.
+Qed.
+
+Lemma trans_ctx_id_eq {T} :
+  forall (C : @dy_ctx T), trans_ctx id C = C.
+Proof.
+  induction C; simpl; try rewrite IHC; eauto.
+  rewrite IHC1. rewrite IHC2. reflexivity.
+Qed.
+
+Lemma eq_ctx_eq {T} `{Eq T} :
+  forall (C C' : @dy_ctx T),
+  eq_ctx eqb C C' = true <-> C = C'.
+Proof.
+  induction C; destruct C'; simpl;
+  try (split; intros contra; inversion contra; eauto; fail).
+  - split; intros EQ.
+    + destruct (eq_eid x x0) eqn:EQid; try (inversion EQ; fail);
+      destruct (eqb tx tx0) eqn:EQt; try (inversion EQ; fail).
+      simpl in EQ.
+      rewrite IHC in EQ. rewrite eq_eid_eq in EQid. rewrite eqb_eq in EQt.
+      subst; eauto.
+    + inversion EQ. subst. rewrite eid_refl. rewrite t_refl. simpl.
+      apply IHC. eauto.
+  - split; intros EQ.
+    + destruct (eq_eid x x0) eqn:EQid; try (inversion EQ; fail);
+      destruct (eqb tx tx0) eqn:EQt; try (inversion EQ; fail).
+      simpl in EQ.
+      rewrite IHC in EQ. rewrite eq_eid_eq in EQid. rewrite eqb_eq in EQt.
+      subst; eauto.
+    + inversion EQ. subst. rewrite eid_refl. rewrite t_refl. simpl.
+      apply IHC. eauto.
+  - split; intros EQ.
+    + destruct (eq_mid M M0) eqn:EQid; try (inversion EQ; fail);
+      destruct (eq_ctx eqb C1 C'1) eqn:EQC1; try (inversion EQ; fail).
+      simpl in EQ.
+      rewrite IHC2 in EQ. rewrite eq_mid_eq in EQid. rewrite IHC1 in EQC1.
+      subst; eauto.
+    + inversion EQ. subst. rewrite mid_refl. simpl.
+      replace (eq_ctx eqb C'1 C'1) with true. simpl.
+      apply IHC2. eauto. symmetry. apply IHC1. eauto.
+Qed.
+
+Lemma trans_ctx_eq_ctx {CT AT} `{ECT : Eq CT} `{EAT : Eq AT} (α : CT -> AT) :
+  forall C C',
+    let eqb' t t' := eqb (α t) (α t') in
+    eq_ctx eqb' C C' = true <->
+    trans_ctx α C = trans_ctx α C'.
+Proof.
+  induction C; induction C'; simpl; try (split; intros contra; inversion contra; eauto; fail).
+  - split; intros EQ.
+    + destruct (eq_eid x x0) eqn:EQid;
+      try (inversion EQ; fail).
+      destruct (eqb (α tx) (α tx0)) eqn:EQt;
+      try (inversion EQ; fail).
+      destruct (eq_ctx (fun t t' : CT => eqb (α t) (α t')) C C') eqn:EQC;
+      try (inversion EQ; fail).
+      rewrite eq_eid_eq in EQid. rewrite eqb_eq in EQt.
+      specialize (IHC C').
+      rewrite EQid. rewrite EQt. 
+      replace (trans_ctx α C') with (trans_ctx α C). reflexivity. 
+      apply IHC. eauto.
+    + inversion EQ; subst. rewrite eid_refl. simpl.
+      rewrite t_refl. simpl.
+      rewrite IHC. eauto.
+  - split; intros EQ.
+    + destruct (eq_eid x x0) eqn:EQid;
+      try (inversion EQ; fail).
+      destruct (eqb (α tx) (α tx0)) eqn:EQt;
+      try (inversion EQ; fail).
+      destruct (eq_ctx (fun t t' : CT => eqb (α t) (α t')) C C') eqn:EQC;
+      try (inversion EQ; fail).
+      rewrite eq_eid_eq in EQid. rewrite eqb_eq in EQt.
+      specialize (IHC C').
+      rewrite EQid. rewrite EQt. 
+      replace (trans_ctx α C') with (trans_ctx α C). reflexivity. 
+      apply IHC. eauto.
+    + inversion EQ; subst. rewrite eid_refl. simpl.
+      rewrite t_refl. simpl.
+      rewrite IHC. eauto.
+  - split; intros EQ.
+    + destruct (eq_mid M M0) eqn:EQid;
+      try (inversion EQ; fail).
+      destruct (eq_ctx (fun t t' : CT => eqb (α t) (α t')) C1 C'1) eqn:EQC1;
+      try (inversion EQ; fail).
+      destruct (eq_ctx (fun t t' : CT => eqb (α t) (α t')) C2 C'2) eqn:EQC2;
+      try (inversion EQ; fail).
+      rewrite eq_mid_eq in EQid.
+      specialize (IHC1 C'1). specialize (IHC2 C'2).
+      rewrite EQid.
+      replace (trans_ctx α C'1) with (trans_ctx α C1).
+      replace (trans_ctx α C'2) with (trans_ctx α C2). reflexivity.
+      rewrite <- IHC2. eauto. rewrite <- IHC1. eauto.
+    + inversion EQ; subst. rewrite mid_refl. simpl.
+      replace (eq_ctx (fun t t' : CT => eqb (α t) (α t')) C1 C'1) with true. simpl.
+      rewrite IHC2. eauto. symmetry. rewrite IHC1. eauto.
+Qed.
+
+Lemma trans_ctx_prefix {CT AT} `{ECT : Eq CT} `{EAT : Eq AT} (α : CT -> AT) :
+  forall Cout C,
+    let eqb' t t' := eqb (α t) (α t') in
+    trans_ctx α (delete_prefix eqb' Cout C) = 
+    delete_prefix eqb (trans_ctx α Cout) (trans_ctx α C).
+Proof.
+  induction Cout; intros; eauto.
+  - simpl. destruct C; eauto.
+    simpl in IHCout. subst eqb'. simpl.
+    destruct (eq_eid x x0) eqn:EQid; destruct (eqb (α tx) (α tx0)) eqn:EQt;
+    simpl; eauto.
+  - simpl. destruct C; eauto.
+    simpl in IHCout. subst eqb'. simpl.
+    destruct (eq_eid x x0) eqn:EQid; destruct (eqb (α tx) (α tx0)) eqn:EQt;
+    simpl; eauto.
+  - simpl. destruct C; eauto.
+    destruct (eq_mid M M0) eqn:EQid; destruct (eq_ctx eqb' Cout1 C1) eqn:EQC;
+    simpl; rewrite EQid; simpl; eauto.
+    apply trans_ctx_eq_ctx in EQC. rewrite EQC.
+    rewrite ctx_refl. eauto. intros. rewrite eqb_eq. eauto.
+    replace (eq_ctx eqb (trans_ctx α Cout1) (trans_ctx α C1)) with false.
+    reflexivity.
+    symmetry. subst eqb'.
+    destruct (eq_ctx eqb (trans_ctx α Cout1) (trans_ctx α C1)) eqn:EQctx; try reflexivity.
+    rewrite trans_ctx_eq_ctx in EQctx. repeat rewrite trans_ctx_id_eq in EQctx.
+    rewrite <- trans_ctx_eq_ctx in EQctx. rewrite EQctx in EQC. inversion EQC.
+Qed.
+
+Lemma trans_ctx_map_aux {CT AT} `{ECT : Eq CT} `{EAT : Eq AT} (α : CT -> AT) :
+  forall n C Cout (LE : dy_level C <= n),
+    let eqb' t t' := eqb (α t) (α t') in
+    trans_ctx α (delete_map eqb' Cout C) = delete_map eqb (trans_ctx α Cout) (trans_ctx α C).
+Proof.
+  induction n; intros; induction C; try reflexivity; try (inversion LE; fail).
+  - rewrite delete_map_red_lam. simpl. rewrite IHn.
+    rewrite delete_map_red_lam. reflexivity. simpl in LE. nia.
+  - rewrite delete_map_red_lete. simpl. rewrite IHn.
+    rewrite delete_map_red_lete. reflexivity. simpl in LE. nia.
+  - rewrite delete_map_red_letm. simpl. rewrite IHn.
+    rewrite delete_map_red_letm. rewrite IHC2. 
+    subst eqb'. rewrite trans_ctx_prefix. reflexivity.
+    simpl in LE. nia.
+    etransitivity. apply delete_prefix_dec.
+    simpl in LE. nia.
+Qed.
+
+Lemma trans_ctx_map {CT AT} `{ECT : Eq CT} `{EAT : Eq AT} (α : CT -> AT) :
+  forall Cout C,
+    let eqb' t t' := eqb (α t) (α t') in
+    trans_ctx α (delete_map eqb' Cout C) = delete_map eqb (trans_ctx α Cout) (trans_ctx α C).
+Proof.
+  intros.
+  apply trans_ctx_map_aux with (n := dy_level C).
+  eauto.
+Qed.
+
+Lemma trans_ctx_delete {CT AT} `{ECT : Eq CT} `{EAT : Eq AT} (α : CT -> AT) :
+  forall Cout C,
+    let eqb' t t' := eqb (α t) (α t') in
+    trans_ctx α (delete_ctx eqb' Cout C) = delete_ctx eqb (trans_ctx α Cout) (trans_ctx α C).
+Proof.
+  intros.
+  unfold delete_ctx. subst eqb'.
+  rewrite trans_ctx_map. rewrite trans_ctx_prefix.
+  reflexivity.
 Qed.
 
 (* Typeclass for concrete times *)

@@ -7,7 +7,7 @@ Definition inject_ctx_mem `{Eq T} (Cout : @dy_ctx T) (mem : T -> list expr_value
   fun t => map (inject_ctx_v Cout) (mem t).
 
 Definition delete_ctx_mem `{Eq T} (Cout : @dy_ctx T) (mem : T -> list expr_value) :=
-  fun t => map (delete_ctx_v Cout) (mem t).
+  fun t => map (delete_ctx_v eqb Cout) (mem t).
 
 Lemma delete_ctx_mem_eq :
   forall `{Eq T} (Cout : @dy_ctx T) (mem : T -> list expr_value),
@@ -19,7 +19,7 @@ Proof.
   induction l; try reflexivity. intros.
   destruct a; simpl.
   rewrite delete_inject_eq.
-  rewrite IHl. reflexivity.
+  rewrite IHl. reflexivity. apply t_refl.
 Qed.
 
 Inductive link {BT AT} :=
@@ -146,9 +146,9 @@ Definition link_tick `{time BT} `{time AT} (Cout : @dy_ctx BT) :=
       | AF t =>
         let Cout := lift_ctx_bf Cout in
         AF
-        (tick (filter_ctx_af (delete_ctx Cout C))
+        (tick (filter_ctx_af (delete_ctx eqb Cout C))
                 (ST (filter_mem_af (delete_ctx_mem Cout mem)) t)
-                x (filter_v_af (delete_ctx_v Cout v)))
+                x (filter_v_af (delete_ctx_v eqb Cout v)))
       end
     end.
 
@@ -195,7 +195,8 @@ Proof.
   remember (amem x) as l eqn:E. clear E.
   induction l; simpl; eauto.
   rewrite IHl. destruct a. simpl.
-  rewrite delete_inject_eq. rewrite filter_lift_eq_af. eauto.
+  rewrite delete_inject_eq. rewrite filter_lift_eq_af. eauto. 
+  intros. rewrite link_eqb_eq. eauto.
 Qed.
 
 Lemma link_tick_eq `{time BT} `{time AT} (Cout : @dy_ctx BT) :
@@ -206,8 +207,8 @@ Lemma link_tick_eq `{time BT} `{time AT} (Cout : @dy_ctx BT) :
     AF (tick C (ST amem t) x v).
 Proof.
   intros. destruct v. unfold inject_ctx_v. simpl.
-  rewrite delete_inject_eq.
-  rewrite delete_inject_eq.
+  rewrite delete_inject_eq; try (intros; rewrite link_eqb_eq; eauto).
+  rewrite delete_inject_eq; try (intros; rewrite link_eqb_eq; eauto).
   rewrite filter_delete_eq.
   rewrite filter_lift_eq_af. rewrite filter_lift_eq_af.
   reflexivity.
@@ -365,6 +366,7 @@ Proof.
                         (link_mem bmem Cout mem) (AF t)). eauto. eauto.
     destruct arg. simpl.
     repeat rewrite delete_inject_eq. repeat rewrite filter_delete_eq. repeat rewrite filter_lift_eq_af. eauto.
+    intros. rewrite link_eqb_eq; eauto. intros. rewrite link_eqb_eq; eauto.
   - apply one_linkl.
   - destruct st_m.
     apply link_eval_eq with (Cout := Cout) (bmem := bmem) in MOD.
@@ -385,6 +387,7 @@ Proof.
                       (link_mem bmem Cout mem) (AF t)). eauto.
     destruct v. simpl.
     repeat rewrite delete_inject_eq. repeat rewrite filter_delete_eq. repeat rewrite filter_lift_eq_af. eauto.
+    intros. rewrite link_eqb_eq. eauto. intros. rewrite link_eqb_eq. eauto.
   - apply one_letml.
   - destruct st_M.
     apply link_eval_eq with (Cout := Cout) (bmem := bmem) in EVALM.
