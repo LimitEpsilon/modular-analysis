@@ -114,6 +114,37 @@ Proof.
   symmetry. apply eqb_eq. eauto.
 Qed.
 
+Lemma link_leb_or :
+  forall 
+    `{EB : Eq BT} `{EA : Eq AT}
+    `{OB : @OrderT BT EB} `{OA : @OrderT AT EA} t t',
+  let le1 := @link_leb BT EB OB AT EA OA t t' in
+  let le2 := @link_leb BT EB OB AT EA OA t' t in
+  le1 || le2 = true.
+Proof.
+  intros.
+  destruct t as [bf af]; destruct t' as [bf' af'].
+  simpl in *.
+  destruct (leb bf bf') eqn:LEbf;
+  destruct (leb bf' bf) eqn:LEbf';
+  subst le1 le2.
+  - replace bf with bf'; try (apply leb_sym; eauto).
+    intro_refl. rewrite t_refl. apply leb_or.
+  - assert (eqb bf bf' = false) as RR.
+    { refl_bool. intros contra.
+      rewrite eqb_eq in contra. subst.
+      rewrite leb_refl in LEbf'. inversion LEbf'. }
+    rewrite RR. eauto.
+  - assert (eqb bf' bf = false) as RR.
+    { refl_bool. intros contra.
+      rewrite eqb_eq in contra. subst.
+      rewrite leb_refl in LEbf. inversion LEbf. }
+    rewrite RR. eauto.
+  - assert (leb bf bf' || leb bf' bf = true) as contra.
+    apply leb_or. rewrite LEbf in contra. rewrite LEbf' in contra.
+    inversion contra.
+Qed.
+
 Lemma link_eqb_eq :
   forall `{EB : Eq BT} `{EA : Eq AT} t t',
   @link_eqb BT EB AT EA t t' = true <-> t = t'.
@@ -160,7 +191,8 @@ Qed.
     leb := link_leb;
     leb_refl := link_leb_refl;
     leb_trans := link_leb_trans;
-    leb_sym := link_leb_sym
+    leb_sym := link_leb_sym;
+    leb_or := link_leb_or
   }.
 
 Fixpoint filter_ctx_bf
@@ -260,9 +292,11 @@ Definition link_tick `{time BT} `{time AT} (final : BT) (init : AT) (Cout : @dy_
               (ST (filter_mem_af final (delete_ctx_mem Cout mem)) af)
               x (filter_v_af final (delete_ctx_v Cout v)))
     else
-      L (tick (filter_ctx_bf final C)
-              (ST (filter_mem_bf final init mem) bf)
-              x (filter_v_bf final v)) af
+      let bf' := tick (filter_ctx_bf final C)
+                      (ST (filter_mem_bf final init mem) bf)
+                      x (filter_v_bf final v)
+      in 
+      if leb bf' final then L bf' af else L final af
   end.
 
 Lemma link_tick_lt `{time BT} `{time AT} (final : BT) (init : AT) (Cout : @dy_ctx BT):
@@ -273,14 +307,28 @@ Proof.
   destruct (leb final bf) eqn:LE; simpl;
   try rewrite leb_refl; try rewrite t_refl; simpl.
   - intros. split; try apply tick_lt.
-  - intros. 
-    replace (leb bf
-    (tick (filter_ctx_bf final C) (ST (filter_mem_bf final init mem) bf)
-       x (filter_v_bf final v))) with true; try (symmetry; apply tick_lt).
-    replace (eqb bf
-    (tick (filter_ctx_bf final C) (ST (filter_mem_bf final init mem) bf)
-       x (filter_v_bf final v))) with false; try (symmetry; apply tick_lt).
-    eauto.
+  - intros.
+    destruct (leb
+      (tick (filter_ctx_bf final C)
+         (ST (filter_mem_bf final init mem) bf) x 
+         (filter_v_bf final v)) final) eqn:LT; simpl.
+    + replace (leb bf
+      (tick (filter_ctx_bf final C) (ST (filter_mem_bf final init mem) bf)
+        x (filter_v_bf final v))) with true; try (symmetry; apply tick_lt).
+      replace (eqb bf
+      (tick (filter_ctx_bf final C) (ST (filter_mem_bf final init mem) bf)
+        x (filter_v_bf final v))) with false; try (symmetry; apply tick_lt).
+      eauto.
+    + assert (eqb bf final = false) as RR.
+      { refl_bool. intros contra. rewrite eqb_eq in contra.
+        subst. rewrite leb_refl in LE. inversion LE. }
+      rewrite RR. split; try reflexivity.
+      assert (leb bf final = true) as RR'.
+      { destruct (leb bf final) eqn:contra; try reflexivity.
+        exfalso.
+        assert (leb final bf || leb bf final = true) as contra'.
+        apply leb_or. rewrite contra in contra'. rewrite LE in contra'. inversion contra'. }
+      rewrite RR'. eauto.
 Qed.
 
 #[export] Instance link_time `{time BT} `{time AT} (final : BT) (init : AT) (Cout : @dy_ctx BT) : (@time (@link BT _ AT _) _ _) :=
@@ -301,7 +349,7 @@ Definition link_mem `{OrderT BT} `{Eq AT}
         | Some (Closure x e C) => Some (Closure x e (Cout<|lift_ctx_af final C|>))
         | None => None
         end
-      else if leb bf final then
+      else if leb bf final && eqb af init then
         match bmem bf with
         | Some (Closure x e C) => Some (Closure x e (lift_ctx_bf init C))
         | None => None

@@ -763,7 +763,8 @@ Class OrderT (T : Type) `{Eq T} : Type :=
   leb : T -> T -> bool;
   leb_refl : forall t, leb t t = true;
   leb_trans : forall t t' t'' (LE : leb t t' = true) (LE' : leb t' t'' = true), leb t t'' = true;
-  leb_sym : forall t t' (LE : leb t t' = true) (LE' : leb t' t = true), t = t'
+  leb_sym : forall t t' (LE : leb t t' = true) (LE' : leb t' t = true), t = t';
+  leb_or : forall t t', leb t t' || leb t' t = true
 }.
 
 Definition lt {T} `{OrderT T} (t1 t2 : T) :=
