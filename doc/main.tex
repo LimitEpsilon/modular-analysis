@@ -717,15 +717,14 @@ The deletion operators satisfy $\deletepre{C_1}{(C_2\doubleplus C_1)}=C_2$, $\de
 
 Now only the filter operation has to be defined for the total definition of the $\tick_+$ function.
 The filter operation is defined in \ref{fig:concfilter}.
-Note that the function $\pi_1:A\times B\rightarrow A$ projects a tuple to its first component, and $\pi_2:A\times B\rightarrow B$ projects to the second component.
 \begin{figure}[h!]
   \footnotesize
   \[
     \filter_1(C)\triangleq
     \begin{cases}
-      []                                   & C=[]                                  \\
-      (x,\pi_1(t))\cons\filter_1(C')       & C=(x,t)\cons C'\wedge \pi_1(t)<f_1    \\
-      \filter_1(C')                        & C=(x,t)\cons C'\wedge \pi_1(t)\ge f_1 \\
+      []                                   & C=[]                              \\
+      (x,t.1)\cons\filter_1(C')            & C=(x,t)\cons C'\wedge t.1\neq f_1 \\
+      \filter_1(C')                        & C=(x,t)\cons C'\wedge t.1=f_1     \\
       (M,\filter_1(C'))\cons\filter_1(C'') & C=(M, C')\cons C''
     \end{cases}
   \]
@@ -733,9 +732,9 @@ Note that the function $\pi_1:A\times B\rightarrow A$ projects a tuple to its fi
   \[
     \filter_2(C)\triangleq
     \begin{cases}
-      []                                   & C=[]                                  \\
-      (x,\pi_2(t))\cons\filter_2(C')       & C=(x,t)\cons C'\wedge \pi_1(t)\ge f_1 \\
-      \filter_2(C')                        & C=(x,t)\cons C'\wedge \pi_1(t)< f_1   \\
+      []                                   & C=[]                              \\
+      (x,t.2)\cons\filter_2(C')            & C=(x,t)\cons C'\wedge t.1=f_1     \\
+      \filter_2(C')                        & C=(x,t)\cons C'\wedge t.1\neq f_1 \\
       (M,\filter_2(C'))\cons\filter_2(C'') & C=(M, C')\cons C''
     \end{cases}
   \]
@@ -743,10 +742,10 @@ Note that the function $\pi_1:A\times B\rightarrow A$ projects a tuple to its fi
   \label{fig:concfilter}
 \end{figure}
 
-Note that the linked time domain only uses timestamps of the form $(t_1,0_2)$ when $t_1<f_1$ and $(f_1,t_2)$ when $t_2\ge 0_2$.
+Note that the linked time domain only uses timestamps of the form $(t_1,0_2)$ and $(f_1,t_2)$.
 Therefore, we are actually considering a linked time on a \emph{subset} of $\Time_1\times\Time_2$.
 For notational convenience, we write this subset as
-\[\Time_1\otimes\Time_2\triangleq\{t_1\in\Time_1|t_1<f_1\}\times\{0_2\}\cup\{f_1\}\times\Time_2\]
+\[\Time_1\otimes\Time_2\triangleq\Time_1\times\{0_2\}\cup\{f_1\}\times\Time_2\]
 Now the definition of the $\tick_+$ can be given:
 \begin{definition}[Concrete linking of time domains]
   Given $(\Time_1,\le_1,\tick_1)$ and $(\Time_2,\le_2,\tick_2)$,
@@ -758,7 +757,7 @@ Now the definition of the $\tick_+$ can be given:
           \[
             \tick_{+}({s_1})({C},\mem,{t},x,{v})\triangleq
             \begin{cases}
-              (\max(f_1,\tick_1\:\filter_1(C,\mem,t,x,v)), 0_2)                 & (\pi_1(t)<f_1) \\
+              (\tick_1\:\filter_1(C,\mem,t,x,v), 0_2)                           & (\pi_1(t)\neq f_1) \\
               (f_1,\tick_2\:\filter_2(\delete{{(C_1,0_2)}}{C,\mem, {t},x,{v}})) & (\pi_1(t)=f_1)
             \end{cases}
           \]
@@ -777,10 +776,10 @@ To formulate this intuition, we need to extend the injection operator to an oper
   define $s\rhd m_2$ and $s\rhd r$ as:
   \[
     s\rhd m_2\triangleq
-    \lambda t.
+    \lambda (t_1,t_2).
     \begin{cases}
-      m_1(\pi_1(t))               & \pi_1(t)\in\mathsf{dom}(m_1)\wedge\pi_2(t)=0_2 \\
-      \inject{C_1}{m_2}(\pi_2(t)) & \pi_1(t)=f_1\wedge\pi_2(t)\in\mathsf{dom}(m_2)
+      m_1(t_1)               & t_1\in\mathsf{dom}(m_1)\wedge t_2=0_2 \\
+      \inject{C_1}{m_2}(t_2) & t_1=f_1\wedge t_2\in\mathsf{dom}(m_2)
     \end{cases}
     \qquad
     s\rhd r\triangleq
@@ -817,16 +816,15 @@ The final result for the total expression $\link{e_1}{e_2}$ will be the final re
 
 \begin{definition}[Concrete linking operator]
   \begin{align*}
-    \Link\:e_1\:e_2\:s & \triangleq\sembracket{e_1}(s)\cup\LL\:(\EE\:e_1\:s)\:e_2\cup[(\link{e_1}{e_2},s)\mapsto\mathsf{F}\:(\EE\:e_1\:s)\:e_2]
+    \Link\:e_1\:e_2\:s & \triangleq(\sembracket{e_1}(s),0_2)\cup\LL\:(\EE\:e_1\:s)\:e_2\cup[(\link{e_1}{e_2},(s,0_2))\mapsto\mathsf{F}\:(\EE\:e_1\:s)\:e_2]
   \end{align*}
-  when the timestamps $t$ in $\sembracket{e_1}(s)$ are lifted to $(t,0_2)$.
 \end{definition}
 
 Then the following result follows directly from the \emph{definition} of the collecting semantics.
 
 \begin{thm}[Concrete linking]
   \[
-    \sembracket{\link{e_1}{e_2}}(s)=\Link\:e_1\:e_2\:s
+    \sembracket{\link{e_1}{e_2}}(s,0_2)=\Link\:e_1\:e_2\:s
   \]
 \end{thm}
 
@@ -1333,13 +1331,13 @@ Fortunately, such an $\alpha_+$ is easy to find.
   Let $s_1=(C_1,\mem_1,f_1)\in\State{\Time_1}$, and let $\alpha_1:\Time_1\rightarrow\ATime_1$. Also,
 
   \begin{itemize}
-    \item Let all timestamps in $C_1,\mem_1$ is less than $f_1$.
+    \item Let all timestamps in $C_1,\mem_1$ be less than $f_1$.
     \item Let $\alpha_2:\Time_2\rightarrow\ATime_2$ be a tick-approximating abstraction.
     \item Define $\alpha_+:\Time_1\otimes\Time_2\rightarrow\ATime_1+\ATime_2$ as:
           \[
             \alpha_+(t_1,t_2)\triangleq
             \begin{cases}
-              \alpha_1(t_1) & (t_1<f_1) \\
+              \alpha_1(t_1) & (t_1\neq f_1) \\
               \alpha_2(t_2) & (t_1=f_1)
             \end{cases}
           \]
@@ -1386,7 +1384,7 @@ Now we can finally state the theorem for abstract linking:
             \qquad
             \alpha^{n+1}_+(t_1,t_2)\triangleq
             \begin{cases}
-              \alpha^n_+(t_1)   & (t_1<f_n) \\
+              \alpha^n_+(t_1)   & (t_1\neq f_n) \\
               \alpha_{n+1}(t_2) & (t_1=f_n)
             \end{cases}
           \]
@@ -1394,7 +1392,7 @@ Now we can finally state the theorem for abstract linking:
     \item Define $\A\EE_n$ and $\A\LL_n$ as:
           \begin{align*}
             \A\LL_0\triangleq\A{\sembracket{e_0}}(\alpha_0(s))    &  & \A\EE_0\triangleq\A\LL_0(e_0,\alpha_0(s))                                             \\
-            \A\EE_{n+1}\triangleq\A{\mathsf{F}}\:\A\EE_n\:e_{n+1} &  & \A\LL_{n+1}\triangleq\A\LL\:\A\EE_n\:e_{n+1}\cup[\alpha^{n+1}_+(s)\mapsto\A\EE_{n+1}]
+            \A\EE_{n+1}\triangleq\A{\mathsf{F}}\:\A\EE_n\:e_{n+1} &  & \A\LL_{n+1}\triangleq\A\LL\:\A\EE_n\:e_{n+1}\cup[\alpha_0(s)\mapsto\A\EE_{n+1}]
           \end{align*}
   \end{itemize}
 
@@ -1403,6 +1401,9 @@ Now we can finally state the theorem for abstract linking:
     \sembracket{l_n}(s)\sqsubseteq\bigcup_{i=0}^{n}{\gamma^i_+(\A\LL_i)}
   \]
 \end{thm}
+
+What the above theorem means is that there exists a concrete $\tick$ function that can be covered separately by analyzing each component based only on the approximation of the exported context.
+The fact that the analysis $\A\LL_n$ can be computed without actually computing the final times $f_n$ is why this analysis can be called separate.
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{citations}
 \end{document}
