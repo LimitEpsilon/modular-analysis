@@ -1,6 +1,5 @@
 From Simple Require Export Sound.
 Require Export Coq.Logic.FunctionalExtensionality.
-Require Export Coq.Logic.ProofIrrelevance.
 
 Generalizable Variables T BT AT.
 
@@ -311,7 +310,8 @@ Proof.
       eauto.
 Qed.
 
-#[export] Instance link_time `{time BT} `{time AT} (final : BT) (init : AT) (Cout : @dy_ctx BT) `{Eq T} (α : link final init -> T) : (@time (link final init) _ _) :=
+#[export] Instance link_time `{time BT} `{time AT} `{Eq T}
+  (final : BT) (init : AT) (Cout : @dy_ctx BT) (α : link final init -> T) : (@time (link final init) _ _) :=
   {
     tick := link_tick final init Cout α;
     tick_lt := link_tick_lt final init Cout α
@@ -356,7 +356,7 @@ Proof.
   rewrite IHC2; try rewrite IHC1; eauto; apply BOUND.
 Qed.
 
-Lemma filter_delete_eq `{time BT} `{time AT} (final : BT) (init : AT) (Cout : @dy_ctx BT) `{Eq T} (α : link final init -> T) :
+Lemma filter_delete_eq `{time BT} `{time AT} `{Eq T} (final : BT) (init : AT) (Cout : @dy_ctx BT) (α : link final init -> T) :
   forall bmem amem,
   filter_mem_af final init
     (delete_ctx_mem α (lift_ctx_bf final init Cout)
@@ -372,7 +372,7 @@ Proof.
   intros. rewrite eqb_eq. eauto.
 Qed.
 
-Lemma link_tick_eq `{time BT} `{time AT} (final : BT) (init : AT) (Cout : @dy_ctx BT) `{Eq T} (α : link final init -> T) :
+Lemma link_tick_eq `{time BT} `{time AT} `{Eq T} (final : BT) (init : AT) (Cout : @dy_ctx BT) (α : link final init -> T) :
   forall bmem C amem t x v,
     link_tick final init Cout α ((lift_ctx_bf final init Cout)<|(lift_ctx_af final init C)|>)
               (ST (link_mem bmem final init Cout amem) (L final init final t)) x 
@@ -440,7 +440,8 @@ Proof.
   rewrite IHC2. eauto.
 Qed.
 
-Lemma link_eval_eq `{time BT} `{time AT} (final : BT) (init : AT) (Cout : @dy_ctx BT) `{Eq T} (α : link final init -> T) :
+Lemma link_eval_eq `{time BT} `{time AT} `{Eq T}
+  (final : BT) (init : AT) (Cout : @dy_ctx BT) (α : link final init -> T) :
   forall bmem (BOUND : time_bound Cout (ST bmem final))
          C st e v st'
          (EVAL : @EvalR AT _ _ _ C st e v st'),
@@ -504,7 +505,8 @@ Proof.
     rewrite RR. clear RR. simpl in *. exact IHEVAL2.
 Qed.
 
-Lemma link_reach_eq `{time BT} `{time AT} `{Eq T} (final : BT) (init : AT) (Cout : @dy_ctx BT) (α : link final init -> T) :
+Lemma link_reach_eq `{time BT} `{time AT} `{Eq T}
+  (final : BT) (init : AT) (Cout : @dy_ctx BT) (α : link final init -> T) :
   forall bmem (BOUND : time_bound Cout (ST bmem final))
          C st e C' st' e'
          (REACH : @one_reach AT _ _ _ C st e C' st' e'),
