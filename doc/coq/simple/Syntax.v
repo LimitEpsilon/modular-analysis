@@ -763,6 +763,7 @@ Proof.
   rewrite H0 in H1. eauto.
 Qed.
 
+(* lemmas for trans_ctx *)
 Lemma trans_ctx_id_eq {T} :
   forall (C : @dy_ctx T), trans_ctx id C = C.
 Proof.
