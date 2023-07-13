@@ -10,7 +10,7 @@ Definition link_abs `{Conc.time BCT} `{Abs.time BAT} `{Conc.time ACT} `{Abs.time
   (final : BCT) (init : ACT) (αbf : BCT -> BAT) (αaf : ACT -> AAT) :=
   fun t : link final init =>
   match t with
-  | L _ _ bf af _ =>
+  | L _ _ bf af =>
     if eqb final bf then AF (αaf af) else BF (αbf bf)
   end.
 
@@ -105,8 +105,7 @@ Proof.
     destruct t. simpl in TRANSt.
     destruct (eqb final bf) eqn:EQt; try (inversion TRANSt; fail).
     rewrite eqb_eq in EQt. subst.
-    exists af. replace (CL.LINK_pf_af bf init af) with LINK; try apply proof_irrelevance.
-    rewrite ACCESS.
+    exists af. rewrite ACCESS.
     exists (CL.filter_v_af bf init
        (delete_ctx_v
           (fun t t' : link bf init =>
@@ -125,7 +124,7 @@ Proof.
     { symmetry. apply (@trans_ctx_delete _ (@AL.link BAT AAT) _ AL.link_eq). }
     rewrite RR. rewrite trans_ctx_filter with (init := init) (αbf := αbf). eauto.
   - destruct IN as [af [v [TRANSv [TRANSt SOME]]]].
-    destruct (mem (CL.L _ _ _ af _)) eqn:ACCESS; try (inversion SOME; fail).
+    destruct (mem (CL.L _ _ _ af)) eqn:ACCESS; try (inversion SOME; fail).
     subst. red in EQ.
     destruct e. simpl in *.
     inversion SOME. subst.
@@ -147,7 +146,7 @@ Proof.
     exists (Closure x e (trans_ctx (link_abs final _ αbf αaf) C)).
     split. eauto.
     rewrite EQ.
-    exists (CL.L _ _ final af (CL.LINK_pf_af final init af)).
+    exists (CL.L _ _ final af).
     exists (Closure x e C).
     split; eauto. split; eauto. simpl. rewrite t_refl. eauto.
 Qed.
@@ -158,7 +157,7 @@ Theorem link_abs_pres `{Conc.time BCT} `{Abs.time BAT} `{Conc.time ACT} `{Abs.ti
   forall (af : ACT) C mem x v abs_mem
     (EQ : trans_mem (link_abs final init αbf αaf) mem abs_mem),
   let αlink := (link_abs final init αbf αaf) in
-  αlink (CL.link_tick final init Cout αlink C (ST mem (L _ _ final af (LINK_pf_af _ _ af))) x v) =
+  αlink (CL.link_tick final init Cout αlink C (ST mem (L _ _ final af)) x v) =
   AL.link_tick (trans_ctx αbf Cout) (trans_ctx αlink C) (Abs.ST abs_mem (AF (αaf af))) x (trans_v αlink v).
 Proof.
   intros. simpl. rewrite t_refl. simpl. rewrite t_refl.
