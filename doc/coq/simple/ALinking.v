@@ -64,33 +64,23 @@ Qed.
 Fixpoint filter_ctx_bf {BT AT} (C : @dy_ctx (@link BT AT)) :=
   match C with
   | [||] => [||]
-  | dy_c_lam x t C' =>
+  | dy_binde x t C' =>
     match t with
-    | BF t => dy_c_lam x t (filter_ctx_bf C')
+    | BF t => dy_binde x t (filter_ctx_bf C')
     | AF t => filter_ctx_bf C'
     end
-  | dy_c_lete x t C' =>
-    match t with
-    | BF t => dy_c_lete x t (filter_ctx_bf C')
-    | AF t => filter_ctx_bf C'
-    end
-  | dy_c_letm M C' C'' => dy_c_letm M (filter_ctx_bf C') (filter_ctx_bf C'')
+  | dy_bindm M C' C'' => dy_bindm M (filter_ctx_bf C') (filter_ctx_bf C'')
   end.
 
 Fixpoint filter_ctx_af {BT AT} (C : @dy_ctx (@link BT AT)) :=
   match C with
   | [||] => [||]
-  | dy_c_lam x t C' =>
+  | dy_binde x t C' =>
     match t with
-    | AF t => dy_c_lam x t (filter_ctx_af C')
+    | AF t => dy_binde x t (filter_ctx_af C')
     | BF t => filter_ctx_af C'
     end
-  | dy_c_lete x t C' =>
-    match t with
-    | AF t => dy_c_lete x t (filter_ctx_af C')
-    | BF t => filter_ctx_af C'
-    end
-  | dy_c_letm M C' C'' => dy_c_letm M (filter_ctx_af C') (filter_ctx_af C'')
+  | dy_bindm M C' C'' => dy_bindm M (filter_ctx_af C') (filter_ctx_af C'')
   end.
 
 Definition filter_v_bf {BT AT} (v : @expr_value (@link BT AT)) :=
@@ -114,9 +104,8 @@ Definition filter_mem_af {BT AT} (mem : (@link BT AT) -> list (@expr_value (@lin
 Fixpoint lift_ctx_bf {BT AT} C : @dy_ctx (@link BT AT) :=
   match C with
   | [||] => [||]
-  | dy_c_lam x t C' => dy_c_lam x (BF t) (lift_ctx_bf C')
-  | dy_c_lete x t C' => dy_c_lete x (BF t) (lift_ctx_bf C')
-  | dy_c_letm M C' C'' => dy_c_letm M (lift_ctx_bf C') (lift_ctx_bf C'')
+  | dy_binde x t C' => dy_binde x (BF t) (lift_ctx_bf C')
+  | dy_bindm M C' C'' => dy_bindm M (lift_ctx_bf C') (lift_ctx_bf C'')
   end.
 
 Definition lift_v_bf {BT AT} v : @expr_value (@link BT AT) :=
@@ -127,9 +116,8 @@ Definition lift_v_bf {BT AT} v : @expr_value (@link BT AT) :=
 Fixpoint lift_ctx_af {BT AT} C : @dy_ctx (@link BT AT) :=
   match C with
   | [||] => [||]
-  | dy_c_lam x t C' => dy_c_lam x (AF t) (lift_ctx_af C')
-  | dy_c_lete x t C' => dy_c_lete x (AF t) (lift_ctx_af C')
-  | dy_c_letm M C' C'' => dy_c_letm M (lift_ctx_af C') (lift_ctx_af C'')
+  | dy_binde x t C' => dy_binde x (AF t) (lift_ctx_af C')
+  | dy_bindm M C' C'' => dy_bindm M (lift_ctx_af C') (lift_ctx_af C'')
   end.
 
 Definition lift_v_af {BT AT} v : @expr_value (@link BT AT) :=
@@ -306,7 +294,7 @@ Proof.
     rewrite RR. clear RR.
     pose proof (link_update_m_eq Cout bmem mem t (Closure x1 e3 C1)) as RR. simpl in RR.
     rewrite RR. clear RR.
-    replace (dy_c_lam x (AF t) ([||])) with (map_inject (lift_ctx_bf Cout) (dy_c_lam x (AF t) ([||]))) by reflexivity.
+    replace (dy_binde x (AF t) ([||])) with (map_inject (lift_ctx_bf Cout) (dy_binde x (AF t) ([||]))) by reflexivity.
     rewrite plugin_inject_assoc. rewrite lift_plugin_af in IHEVAL3. eauto.
   - pose proof (inject_ctx_ctx_M M (lift_ctx_bf Cout) (lift_ctx_af C)) as RR.
     rewrite lift_ctx_M in RR.
@@ -318,11 +306,11 @@ Proof.
     rewrite RR. clear RR.
     pose proof (link_update_m_eq Cout bmem mem t (Closure x0 e0 C0)) as RR. simpl in RR.
     rewrite RR. clear RR.
-    replace (dy_c_lete x (AF t) ([||])) with (map_inject (lift_ctx_bf Cout) (dy_c_lete x (AF t) ([||]))) by reflexivity.
+    replace (dy_binde x (AF t) ([||])) with (map_inject (lift_ctx_bf Cout) (dy_binde x (AF t) ([||]))) by reflexivity.
     rewrite plugin_inject_assoc. rewrite lift_plugin_af in IHEVAL2. eauto.
   - eapply Eval_letm; eauto.
-    assert (inject_C [|dy_c_letm M (lift_ctx_bf Cout <| lift_ctx_af C' |>) ([||])|] =
-            (lift_ctx_bf Cout <| lift_ctx_af (C [|dy_c_letm M C' ([||])|]) |>)) as RR. 
+    assert (inject_C [|dy_bindm M (lift_ctx_bf Cout <| lift_ctx_af C' |>) ([||])|] =
+            (lift_ctx_bf Cout <| lift_ctx_af (C [|dy_bindm M C' ([||])|]) |>)) as RR. 
     { subst inject_C. rewrite lift_plugin_af.
       rewrite <- plugin_inject_assoc. simpl. eauto. } 
     rewrite RR. clear RR. simpl in *. exact IHEVAL2.

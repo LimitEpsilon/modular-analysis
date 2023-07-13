@@ -41,7 +41,7 @@ Inductive EvalR `{time T} (C : @dy_ctx T) (st : @state T)
                          (EVal (Closure x e C_lam)) st_lam)
              (ARG : EvalR C st_lam e2
                           (EVal arg) (ST mem t))
-             (BODY : EvalR (C_lam [|dy_c_lam x t ([||])|])
+             (BODY : EvalR (C_lam [|dy_binde x t ([||])|])
                            (ST (t !#-> arg ; mem) 
                                (tick C (ST mem t) x arg))
                            e (EVal v) st_v)
@@ -57,7 +57,7 @@ Inductive EvalR `{time T} (C : @dy_ctx T) (st : @state T)
   | Eval_lete x e v mem t
               m C_m st_m
                (EVALe : EvalR C st e (EVal v) (ST mem t))
-               (EVALm : EvalR (C [|dy_c_lete x t ([||])|])
+               (EVALm : EvalR (C [|dy_binde x t ([||])|])
                         (ST (t !#-> v ; mem) 
                             (tick C (ST mem t) x v))
                         m (MVal C_m) st_m)
@@ -65,7 +65,7 @@ Inductive EvalR `{time T} (C : @dy_ctx T) (st : @state T)
   | Eval_letm M m' C' st'
               m'' C'' st''
               (EVALm' : EvalR C st m' (MVal C') st')
-              (EVALm'' : EvalR (C [|dy_c_letm M C' ([||])|]) st'
+              (EVALm'' : EvalR (C [|dy_bindm M C' ([||])|]) st'
                          m'' (MVal C'') st'')
     : EvalR C st (m_letm M m' m'') (MVal C'') st''
 .
@@ -90,7 +90,7 @@ Inductive one_reach `{time T} (C : dy_ctx) (st : state)
                 (ARG : EvalR C st_lam e2
                              (EVal arg) (ST mem t))
     : one_reach C st (e_app e1 e2)
-                (C_lam[|dy_c_lam x t ([||])|]) 
+                (C_lam[|dy_binde x t ([||])|]) 
                 (ST (t !#-> arg ; mem) (tick C (ST mem t) x arg)) e
   | one_linkl m e
     : one_reach C st (e_link m e)
@@ -105,7 +105,7 @@ Inductive one_reach `{time T} (C : dy_ctx) (st : state)
   | one_leter x e m v mem t
               (EVALx : EvalR C st e (EVal v) (ST mem t))
     : one_reach C st (m_lete x e m)
-                (C[|dy_c_lete x t ([||])|])
+                (C[|dy_binde x t ([||])|])
                 (ST (t !#-> v ; mem) (tick C (ST mem t) x v)) m
   | one_letml M m1 m2
     : one_reach C st (m_letm M m1 m2)
@@ -113,7 +113,7 @@ Inductive one_reach `{time T} (C : dy_ctx) (st : state)
   | one_letmr M m1 m2 C_M st_M
               (EVALM : EvalR C st m1 (MVal C_M) st_M)
     : one_reach C st (m_letm M m1 m2)
-                (C[|dy_c_letm M C_M ([||])|]) st_M m2
+                (C[|dy_bindm M C_M ([||])|]) st_M m2
 .
 
 Inductive multi_reach `{time T} (C : dy_ctx) (st : state)
@@ -149,7 +149,7 @@ Inductive ReachR `{time T} (C : dy_ctx) (st : state)
                             (EVal (Closure x e C_lam)) st_lam)
                 (ARG : EvalR C st_lam e2
                              (EVal arg) (ST mem t))
-                (REACHb : ReachR (C_lam[|dy_c_lam x t ([||])|]) 
+                (REACHb : ReachR (C_lam[|dy_binde x t ([||])|]) 
                                  (ST (t !#-> arg ; mem) 
                                      (tick C (ST mem t) x arg)) e
                                  C' st' e')
@@ -174,7 +174,7 @@ Inductive ReachR `{time T} (C : dy_ctx) (st : state)
   | r_lete_m x e m v mem t
              C' st' e'
              (EVALx : EvalR C st e (EVal v) (ST mem t))
-             (REACHm : ReachR (C[|dy_c_lete x t ([||])|])
+             (REACHm : ReachR (C[|dy_binde x t ([||])|])
                               (ST (t !#-> v ; mem) 
                                   (tick C (ST mem t) x v)) m
                               C' st' e')
@@ -188,7 +188,7 @@ Inductive ReachR `{time T} (C : dy_ctx) (st : state)
   | r_letm_m2 M m1 m2 C_M st_M
               C' st' e'
               (EVALM : EvalR C st m1 (MVal C_M) st_M)
-              (REACHm : ReachR (C[|dy_c_letm M C_M ([||])|]) st_M m2
+              (REACHm : ReachR (C[|dy_bindm M C_M ([||])|]) st_M m2
                                C' st' e')
     : ReachR C st (m_letm M m1 m2)
              C' st' e'
@@ -271,13 +271,13 @@ Proof.
     rewrite A. eauto.
   - rewrite dy_to_st_plugin in IHEVAL2.
     simpl in IHEVAL2.
-    remember (collect_ctx (dy_to_st C [[|st_c_lete x ([[||]])|]]) m) as ol.
+    remember (collect_ctx (dy_to_st C [[|st_binde x ([[||]])|]]) m) as ol.
     destruct ol. apply IHEVAL2; eauto.
   - rewrite dy_to_st_plugin in IHEVAL2. simpl in IHEVAL2.
     specialize (IHEVAL1 C' eq_refl). specialize (IHEVAL2 C_m eq_refl).
     destruct (collect_ctx (dy_to_st C) m'). destruct o; try apply IHEVAL1.
     rewrite <- IHEVAL1 in IHEVAL2.
-    destruct (collect_ctx (dy_to_st C [[|st_c_letm M s ([[||]])|]]) m'').
+    destruct (collect_ctx (dy_to_st C [[|st_bindm M s ([[||]])|]]) m'').
     apply IHEVAL2.
 Qed.
 
@@ -330,7 +330,7 @@ Proof.
     specialize (IHEVAL2 H0). clear H H0.
     simpl in B'. split; 
     try (rewrite dy_to_st_plugin; simpl;
-         (destruct (collect_ctx (dy_to_st C_lam [[|st_c_lam x ([[||]])|]]) e));
+         (destruct (collect_ctx (dy_to_st C_lam [[|st_binde x ([[||]])|]]) e));
          simpl in B'; intros; apply B'; eauto).
     simpl. unfold update_m. intros.
     destruct arg as [x'' e'' C_lam''].
@@ -357,7 +357,7 @@ Proof.
   - apply IHEVAL2. clear IHEVAL2.
     simpl in B. 
     assert (forall sC : st_ctx, In sC (snd (collect_ctx (dy_to_st C) e)) -> In sC ub).
-    { intros. destruct (collect_ctx (dy_to_st C [[|st_c_lete x ([[||]])|]]) m).
+    { intros. destruct (collect_ctx (dy_to_st C [[|st_binde x ([[||]])|]]) m).
       destruct o; apply B; rewrite in_app_iff; left; eauto. }
     assert (ctx_bound_tm ub C st e). 
     { split; eauto. destruct (collect_ctx (dy_to_st C) e); eauto. }
@@ -365,7 +365,7 @@ Proof.
     destruct IHEVAL1 as [A' B'].
     split;
     try (rewrite dy_to_st_plugin; simpl;
-         (destruct (collect_ctx (dy_to_st C [[|st_c_lete x ([[||]])|]]) m));
+         (destruct (collect_ctx (dy_to_st C [[|st_binde x ([[||]])|]]) m));
          destruct o; intros; apply B; rewrite in_app_iff; right; eauto).
     simpl. unfold update_m. intros.
     destruct (eqb addr t); eauto.
@@ -376,7 +376,7 @@ Proof.
     simpl in B. 
     assert (forall sC : st_ctx, In sC (snd (collect_ctx (dy_to_st C) m')) -> In sC ub).
     { intros. destruct (collect_ctx (dy_to_st C) m'). 
-      destruct o; eauto. destruct (collect_ctx (dy_to_st C [[|st_c_letm M s ([[||]])|]]) m'').
+      destruct o; eauto. destruct (collect_ctx (dy_to_st C [[|st_bindm M s ([[||]])|]]) m'').
       destruct o; apply B; rewrite in_app_iff; left; eauto. }
     assert (ctx_bound_tm ub C st m'). 
     { split; eauto. destruct (collect_ctx (dy_to_st C) m'); eauto. }
@@ -386,7 +386,7 @@ Proof.
     eapply Meval_then_collect in EVAL1; eauto.
     destruct (collect_ctx (dy_to_st C) m'). 
     destruct o; try inversion EVAL1. clear H. rewrite <- EVAL1.
-    destruct (collect_ctx (dy_to_st C [[|st_c_letm M s ([[||]])|]]) m'').
+    destruct (collect_ctx (dy_to_st C [[|st_bindm M s ([[||]])|]]) m'').
     intros. destruct o; apply B; rewrite in_app_iff; right; eauto.
 Qed.
 
@@ -421,7 +421,7 @@ Proof.
     simpl in A''. specialize (A'' t x0 e0 C_v H). eauto.
     simpl in A''. specialize (A'' addr x0 e0 C_v INvl). eauto.
     rewrite dy_to_st_plugin. simpl. simpl in B'.
-    destruct (collect_ctx (dy_to_st C_lam [[|st_c_lam x ([[||]])|]]) e).
+    destruct (collect_ctx (dy_to_st C_lam [[|st_binde x ([[||]])|]]) e).
     simpl in B'. intros; apply B'. right; eauto.
     destruct FN as [A' B'].
     split; eauto. simpl in B.
@@ -447,7 +447,7 @@ Proof.
     rewrite in_app_iff. left; eauto.
   - split; eauto. simpl in B.
     destruct (collect_ctx (dy_to_st C) e).
-    destruct (collect_ctx (dy_to_st C [[|st_c_lete x ([[||]])|]]) m). 
+    destruct (collect_ctx (dy_to_st C [[|st_binde x ([[||]])|]]) m). 
     destruct o0; intros; apply B; simpl; rewrite in_app_iff; left; eauto.
   - apply eval_ctx_bound with (ub := ub) in EVALx. destruct v as [x'' e'' C_lam''].
     destruct EVALx as [A' B'].
@@ -458,42 +458,29 @@ Proof.
     simpl in A'. specialize (A' t x0 e0 C_v H). eauto.
     simpl in A'. specialize (A' addr x0 e0 C_v INvl). eauto.
     simpl in B. rewrite dy_to_st_plugin. simpl.
-    destruct (collect_ctx (dy_to_st C [[|st_c_lete x ([[||]])|]]) m).
+    destruct (collect_ctx (dy_to_st C [[|st_binde x ([[||]])|]]) m).
     destruct o; intros; apply B; rewrite in_app_iff; right; eauto.
     (* copy of the goal before *)
     split; eauto. simpl in B.
     destruct (collect_ctx (dy_to_st C) e).
-    destruct (collect_ctx (dy_to_st C [[|st_c_lete x ([[||]])|]]) m). 
+    destruct (collect_ctx (dy_to_st C [[|st_binde x ([[||]])|]]) m). 
     destruct o0; intros; apply B; simpl; rewrite in_app_iff; left; eauto.
   - split; eauto. simpl in B.
     destruct (collect_ctx (dy_to_st C) m1). destruct o; eauto.
-    destruct (collect_ctx (dy_to_st C [[|st_c_letm M s ([[||]])|]]) m2). 
+    destruct (collect_ctx (dy_to_st C [[|st_bindm M s ([[||]])|]]) m2). 
     destruct o; intros; apply B; simpl; rewrite in_app_iff; left; eauto.
   - eapply Meval_then_collect in EVALM as EVALM'; eauto.
     apply eval_ctx_bound with (ub := ub) in EVALM.
     split; eauto. simpl in B.
     destruct (collect_ctx (dy_to_st C) m1). destruct o; inversion EVALM'.
     clear H. rewrite dy_to_st_plugin; simpl. rewrite <- EVALM'.
-    destruct (collect_ctx (dy_to_st C [[|st_c_letm M s ([[||]])|]]) m2).
+    destruct (collect_ctx (dy_to_st C [[|st_bindm M s ([[||]])|]]) m2).
     destruct o; intros; apply B; rewrite in_app_iff; right; eauto.
     (* copy of the goal before *)
     split; eauto. simpl in B.
     destruct (collect_ctx (dy_to_st C) m1). destruct o; eauto.
-    destruct (collect_ctx (dy_to_st C [[|st_c_letm M s ([[||]])|]]) m2). 
+    destruct (collect_ctx (dy_to_st C [[|st_bindm M s ([[||]])|]]) m2). 
     destruct o; intros; apply B; simpl; rewrite in_app_iff; left; eauto.
-Qed.
-
-Lemma in_l_or_not `{Eq T} :
-  forall (t : T) l, In t l \/ ~(In t l).
-Proof.
-  intros t. induction l; eauto.
-  destruct IHl as [IHl | IHl]; simpl; eauto.
-  assert (eqb a t = true \/ eqb a t = false) as CASES.
-  { destruct (eqb a t); eauto. }
-  destruct CASES as [EQ | NEQ];
-  try (rewrite eqb_eq in EQ); try (rewrite eqb_neq in NEQ).
-  left; eauto.
-  right. red; intros contra. destruct contra; eauto.
 Qed.
 
 Definition collect_ctx_val `{time T} (v : @expr_value T) :=

@@ -20,7 +20,7 @@ Inductive step_eval `{time T} (C : @dy_ctx T) (st : @state T)
     v st_v step3
     (FN : step_eval C st e1 (EVal (Closure x e C_lam)) st_lam step1)
     (ARG : step_eval C st_lam e2 (EVal arg) (ST mem t) step2)
-    (BODY : step_eval (C_lam [|dy_c_lam x t ([||])|])
+    (BODY : step_eval (C_lam [|dy_binde x t ([||])|])
                       (ST (t !#-> arg ; mem) (tick C (ST mem t) x arg))
                       e (EVal v) st_v step3)
     : step_eval C st (e_app e1 e2) (EVal v) st_v (4 + step1 + step2 + step3)
@@ -38,7 +38,7 @@ Inductive step_eval `{time T} (C : @dy_ctx T) (st : @state T)
     x e v mem t step1
     m C_m st_m step2
     (EVALe : step_eval C st e (EVal v) (ST mem t) step1)
-    (EVALm : step_eval (C [|dy_c_lete x t ([||])|])
+    (EVALm : step_eval (C [|dy_binde x t ([||])|])
                        (ST (t !#-> v ; mem) (tick C (ST mem t) x v))
                        m (MVal C_m) st_m step2)
     : step_eval C st (m_lete x e m) (MVal C_m) st_m (3 + step1 + step2)
@@ -46,7 +46,7 @@ Inductive step_eval `{time T} (C : @dy_ctx T) (st : @state T)
     M m' C' st' step1
     m'' C'' st'' step2
     (EVALm' : step_eval C st m' (MVal C') st' step1)
-    (EVALm'' : step_eval (C [|dy_c_letm M C' ([||])|]) st'
+    (EVALm'' : step_eval (C [|dy_bindm M C' ([||])|]) st'
                          m'' (MVal C'') st'' step2)
     : step_eval C st (m_letm M m' m'') (MVal C'') st'' (3 + step1 + step2)
 .
@@ -66,7 +66,7 @@ Inductive step_one `{time T} (C : @dy_ctx T) (st : @state T)
     (FN : step_eval C st e1 (EVal (Closure x e C_lam)) st_lam step1)
     (ARG : step_eval C st_lam e2 (EVal arg) (ST mem t) step2)
     : step_one C st (e_app e1 e2) 
-               (C_lam [|dy_c_lam x t ([||])|])
+               (C_lam [|dy_binde x t ([||])|])
                (ST (t !#-> arg ; mem) (tick C (ST mem t) x arg))
                e (3 + step1 + step2)
   | s_linkl
@@ -83,7 +83,7 @@ Inductive step_one `{time T} (C : @dy_ctx T) (st : @state T)
     x e m v mem t step1
     (EVALe : step_eval C st e (EVal v) (ST mem t) step1)
     : step_one C st (m_lete x e m)
-               (C [|dy_c_lete x t ([||])|])
+               (C [|dy_binde x t ([||])|])
                (ST (t !#-> v ; mem) (tick C (ST mem t) x v))
                m (2 + step1)
   | s_letml
@@ -93,7 +93,7 @@ Inductive step_one `{time T} (C : @dy_ctx T) (st : @state T)
     M m' m'' C' st' step1
     (EVALm' : step_eval C st m' (MVal C') st' step1)
     : step_one C st (m_letm M m' m'') 
-               (C [|dy_c_letm M C' ([||])|]) st' m'' (2 + step1)
+               (C [|dy_bindm M C' ([||])|]) st' m'' (2 + step1)
 .
 
 Inductive step_multi `{time T} (C : @dy_ctx T) (st : @state T)
@@ -115,7 +115,7 @@ Lemma step_bound `{time T} n :
 Proof.
   induction n; intros; inversion EVAL.
   - exists (3 + step1 + step2). exists step3.
-    exists (C_lam [|dy_c_lam x t ([||])|]).
+    exists (C_lam [|dy_binde x t ([||])|]).
     exists (ST (t !#-> arg; mem) (tick C (ST mem t) x arg)).
     exists e0.
     split. eapply s_appbody; eauto.
@@ -125,13 +125,13 @@ Proof.
     split. eapply s_linkr; eauto.
     split; eauto.
   - exists (2 + step1). exists step2.
-    exists (C [|dy_c_lete x t ([||])|]).
+    exists (C [|dy_binde x t ([||])|]).
     exists (ST (t !#-> v0; mem) (tick C (ST mem t) x v0)).
     exists m.
     split. eapply s_leter; eauto.
     split; eauto.
   - exists (2 + step1). exists step2.
-    exists (C [|dy_c_letm M C' ([||])|]). exists st'. exists m''.
+    exists (C [|dy_bindm M C' ([||])|]). exists st'. exists m''.
     split. eapply s_letmr; eauto.
     split; eauto.
 Qed.

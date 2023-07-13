@@ -20,9 +20,8 @@ Fixpoint In_linked_ctx `{Conc.time BCT} `{Conc.time ACT}
   (final : BCT) (init : ACT) (C : @dy_ctx (@link BCT _ ACT _)) :=
   match C with
   | [||] => True
-  | dy_c_lam _ t C'
-  | dy_c_lete _ t C' => In_linked_t final init t /\ In_linked_ctx final init C'
-  | dy_c_letm _ C' C'' => In_linked_ctx final init C' /\ In_linked_ctx final init C''
+  | dy_binde _ t C' => In_linked_t final init t /\ In_linked_ctx final init C'
+  | dy_bindm _ C' C'' => In_linked_ctx final init C' /\ In_linked_ctx final init C''
   end.
 
 Definition In_linked_v `{Conc.time BCT} `{Conc.time ACT}
@@ -44,12 +43,6 @@ Lemma bound_then_lift_in `{Conc.time BCT} `{Conc.time ACT}
   In_linked_ctx final init (lift_ctx_bf init C).
 Proof.
   induction C; eauto; destruct BOUND as [BOUND1 BOUND2].
-  - simpl. replace (leb final tx) with false.
-    split; try rewrite eqb_eq; eauto.
-    symmetry. refl_bool. intros contra.
-    assert (final = tx) as RR.
-    apply leb_sym. assumption. apply BOUND1. subst.
-    destruct BOUND1 as [? absurd]. rewrite t_refl in *. inversion absurd.
   - simpl. replace (leb final tx) with false.
     split; try rewrite eqb_eq; eauto.
     symmetry. refl_bool. intros contra.
@@ -79,10 +72,6 @@ Proof.
     symmetry. destruct BOUND1 as [LE NEQ].
     refl_bool. intros contra. assert (tx = final). apply leb_sym; eauto. subst.
     rewrite t_refl in NEQ. inversion NEQ.
-  - replace (leb final tx) with false. rewrite IHC; eauto.
-    symmetry. destruct BOUND1 as [LE NEQ].
-    refl_bool. intros contra. assert (tx = final). apply leb_sym; eauto. subst.
-    rewrite t_refl in NEQ. inversion NEQ.
   - rewrite IHC1; eauto. rewrite IHC2; eauto.
 Qed.
 
@@ -94,9 +83,6 @@ Lemma trans_ctx_filter `{Conc.time BCT} `{Abs.time BAT} `{Conc.time ACT} `{Abs.t
   trans_ctx αaf (CL.filter_ctx_af final C) = AL.filter_ctx_af (trans_ctx αlink C).
 Proof.
   induction C; simpl; eauto; intros [IN1 IN2].
-  - destruct tx. simpl in *.
-    destruct (leb final bf); simpl; eauto.
-    rewrite IHC; eauto.
   - destruct tx. simpl in *.
     destruct (leb final bf); simpl; eauto.
     rewrite IHC; eauto.
@@ -115,10 +101,6 @@ Proof.
     destruct (eqb tx tx0) eqn:EQt; eauto.
     simpl in *. apply IHCout; apply INC.
   - destruct C; eauto. simpl.
-    destruct (eq_eid x x0) eqn:EQid;
-    destruct (eqb tx tx0) eqn:EQt; eauto.
-    simpl in *. apply IHCout; apply INC.
-  - destruct C; eauto. simpl.
     destruct (eq_mid M M0) eqn:EQid;
     destruct (eq_ctx eqb Cout1 C1) eqn:EQC; eauto.
     simpl in *. apply IHCout2; apply INC.
@@ -131,13 +113,10 @@ Lemma In_linked_ctx_map_aux `{Conc.time BCT} `{Conc.time ACT} eqb
   In_linked_ctx final init (delete_map eqb Cout C).
 Proof.
   induction n; intros; induction C; try reflexivity; try (inversion LE; fail).
-  - rewrite delete_map_red_lam. simpl. simpl in INC.
+  - rewrite delete_map_red_binde. simpl. simpl in INC.
     split; try apply INC. apply IHC; try apply INC.
     simpl in LE. nia.
-  - rewrite delete_map_red_lete. simpl. simpl in INC.
-    split; try apply INC. apply IHC; try apply INC.
-    simpl in LE. nia.
-  - rewrite delete_map_red_letm. simpl. simpl in INC.
+  - rewrite delete_map_red_bindm. simpl. simpl in INC.
     split. apply IHn. simpl in *.
     etransitivity. apply delete_prefix_dec. nia.
     apply In_linked_ctx_prefix. apply INC.

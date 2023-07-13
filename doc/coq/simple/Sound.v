@@ -31,9 +31,8 @@ Definition preserve_tick `{Conc.time CT} `{Abs.time AT} (α : CT -> AT) :=
 Fixpoint dy_ctx_bound `{Conc.time CT} C t :=
   match C with
   | [||] => True
-  | dy_c_lam _ t' C'
-  | dy_c_lete _ t' C' => t' < t /\ dy_ctx_bound C' t
-  | dy_c_letm _ CM C' => dy_ctx_bound CM t /\ dy_ctx_bound C' t
+  | dy_binde _ t' C' => t' < t /\ dy_ctx_bound C' t
+  | dy_bindm _ CM C' => dy_ctx_bound CM t /\ dy_ctx_bound C' t
   end.
 
 Definition time_bound `{Conc.time CT} C st :=
@@ -99,7 +98,6 @@ Proof.
   try eapply IHC; try eapply IHC1; try eapply IHC2; eauto;
   try destruct H; try lebt t1; eauto.
   rewrite eqb_neq in *. red. intros; subst. apply H1. apply leb_sym; eauto.
-  rewrite eqb_neq in *. red. intros; subst. apply H1. apply leb_sym; eauto.
 Qed.
 
 Lemma relax_p_bound :
@@ -133,9 +131,6 @@ Proof.
   - specialize (IHC x0 t H0).
     destruct (addr_x C x0); eauto. 
     destruct (eq_eid x0 x); simpl; eauto.
-  - specialize (IHC x0 t H0).
-    destruct (addr_x C x0); eauto. 
-    destruct (eq_eid x0 x); simpl; eauto.
   - apply IHC2; eauto.
 Qed.
 
@@ -151,7 +146,6 @@ Proof.
   revert C M t CM ACCESS BOUND.
   induction C; intros; simpl in *.
   - inversion ACCESS.
-  - eapply IHC; eauto. destruct BOUND; eauto.
   - eapply IHC; eauto. destruct BOUND; eauto.
   - remember (ctx_M C2 M0) as oCM.
     destruct oCM.
@@ -369,7 +363,7 @@ Proof.
     apply Abs.Eval_lam.
   - pose proof (time_bound_e C st e1 (EVal (Closure x e C_lam)) st_lam EVAL1) as BOUND1.
     pose proof (time_bound_e C st_lam e2 (EVal arg) (ST mem t) EVAL2) as BOUND2.
-    pose proof (time_bound_e (C_lam [|dy_c_lam x t ([||])|])
+    pose proof (time_bound_e (C_lam [|dy_binde x t ([||])|])
                              (ST (t !-> arg; mem) (tick C (ST mem t) x arg))
                              e (EVal v) st_v EVAL3) as BOUND3.
     specialize (BOUND1 BOUND). simpl in BOUND1.
@@ -384,7 +378,7 @@ Proof.
       split; eauto. }
     specialize (BOUND2 B1).
     destruct arg. destruct v.
-    assert (time_bound (C_lam [|dy_c_lam x t ([||])|])
+    assert (time_bound (C_lam [|dy_binde x t ([||])|])
              (ST (t !-> Closure x0 e0 C0; mem) (tick C (ST mem t) x (Closure x0 e0 C0)))) as B2.
     { simpl. simpl in BOUND. destruct BOUND as [BB1 [BB2 BB3]].
              simpl in BOUND1. destruct BOUND1 as [BB1' [BB2' BB3']].
@@ -407,9 +401,9 @@ Proof.
     try (inversion SOUNDV1; fail).
     destruct SOUND2 as [SOUNDV2 [SOUNDm2 SOUNDt2]].
     destruct abs_V'' as [arg' | ?]; try (inversion SOUNDV2; fail).
-    assert (sound_cf α (C_lam [|dy_c_lam x t ([||])|])
+    assert (sound_cf α (C_lam [|dy_binde x t ([||])|])
             (ST (t !-> Closure x0 e0 C0; mem) (tick C (ST mem t) x (Closure x0 e0 C0)))
-            (C_lam'[| dy_c_lam x (α t) ([||]) |])
+            (C_lam'[| dy_binde x (α t) ([||]) |])
             (Abs.ST ((α t) !#-> arg'; mem') 
                     (Abs.tick abs_C (Abs.ST mem' t') x arg'))) as HINT.
     { split. rewrite plugin_trans_ctx; inversion SOUNDV1; eauto.
@@ -418,7 +412,7 @@ Proof.
       split. destruct abs_st; apply SOUND.
       split; eauto.
       inversion SOUNDV2; eauto. }
-    specialize (IHEVAL3 (C_lam' [|dy_c_lam x (α t) ([||])|])
+    specialize (IHEVAL3 (C_lam' [|dy_binde x (α t) ([||])|])
                 (Abs.ST ((α t) !#-> arg'; mem') 
                     (Abs.tick abs_C (Abs.ST mem' t') x arg')) HINT B2). clear HINT.
     destruct IHEVAL3 as [abs_V [abs_stV [SOUND3 EVAL3']]].
@@ -455,14 +449,14 @@ Proof.
     split. split; eauto.
     eapply Abstract.Eval_var_m. erewrite trans_ctx_ctx_M; eauto.
   - pose proof (time_bound_e C st e (EVal v) (ST mem t) EVAL1) as BOUND1.
-    pose proof (time_bound_e (C [|dy_c_lete x t ([||])|]) 
+    pose proof (time_bound_e (C [|dy_binde x t ([||])|]) 
                              (ST (t !-> v; mem) (tick C (ST mem t) x v)) m
                              (MVal C_m) st_m EVAL2) as BOUND2.
     specialize (BOUND1 BOUND). simpl in BOUND1.
     destruct st as [memi ti]. destruct st_m as [memm tm]. destruct v.
     apply time_increase_e in EVAL1 as time_inc1.
     apply time_increase_e in EVAL2 as time_inc2.
-    assert (time_bound (C [|dy_c_lete x t ([||])|])
+    assert (time_bound (C [|dy_binde x t ([||])|])
             (ST (t !-> (Closure x0 e0 C0); mem) (tick C (ST mem t) x (Closure x0 e0 C0)))) as B1.
     { simpl. simpl in BOUND. destruct BOUND as [BB1 [BB2 BB3]].
              simpl in BOUND1. destruct BOUND1 as [BB1' [BB2' BB3']].
@@ -474,9 +468,9 @@ Proof.
     specialize (IHEVAL1 abs_C abs_st SOUND BOUND).
     destruct IHEVAL1 as [[v' | ?] [[mem' t'] [[SOUNDV1 [SOUNDm1 SOUNDt1]] EVAL1']]];
     try (inversion SOUNDV1; fail).
-    assert (sound_cf α (C [|dy_c_lete x t ([||])|])
+    assert (sound_cf α (C [|dy_binde x t ([||])|])
             (ST (t !-> Closure x0 e0 C0; mem) (tick C (ST mem t) x (Closure x0 e0 C0)))
-            (abs_C [| dy_c_lete x (α t) ([||]) |])
+            (abs_C [| dy_binde x (α t) ([||]) |])
             (Abs.ST ((α t) !#-> v'; mem')
                     (Abs.tick abs_C (Abs.ST mem' t') x v'))) as HINT.
     { split. rewrite plugin_trans_ctx; destruct abs_st; destruct SOUND as [RR [? ?]]; rewrite RR; eauto.
@@ -485,7 +479,7 @@ Proof.
       split. destruct abs_st; apply SOUND.
       split; eauto.
       inversion SOUNDV1; eauto. }
-    specialize (IHEVAL2 (abs_C [|dy_c_lete x (α t) ([||])|])
+    specialize (IHEVAL2 (abs_C [|dy_binde x (α t) ([||])|])
                 (Abs.ST
                   (α t !#-> v'; mem')
                   (Abs.tick abs_C (Abs.ST mem' t') x v')) HINT B1). clear HINT.
@@ -495,13 +489,13 @@ Proof.
     destruct abs_stV; destruct SOUND2 as [contra [? ?]]; try (inversion contra; fail).
     eapply Abs.Eval_lete; eauto. rewrite <- SOUNDt1 in *. eauto.
   - pose proof (time_bound_e C st m' (MVal C') st' EVAL1) as BOUND1.
-    pose proof (time_bound_e (C [|dy_c_letm M C' ([||])|]) st' m''
+    pose proof (time_bound_e (C [|dy_bindm M C' ([||])|]) st' m''
                              (MVal C'') st'' EVAL2) as BOUND2.
     specialize (BOUND1 BOUND). simpl in BOUND1.
     destruct st as [memi ti]. destruct st' as [memM tM]. destruct st'' as [memV tV].
     apply time_increase_e in EVAL1 as time_inc1.
     apply time_increase_e in EVAL2 as time_inc2.
-    assert (time_bound (C [|dy_c_letm M C' ([||])|]) (ST memM tM)) as B1.
+    assert (time_bound (C [|dy_bindm M C' ([||])|]) (ST memM tM)) as B1.
     { simpl. simpl in BOUND. destruct BOUND as [BB1 [BB2 BB3]].
              simpl in BOUND1. destruct BOUND1 as [BB1' [BB2' BB3']].
       split. rewrite plugin_ctx_bound. split.
@@ -510,13 +504,13 @@ Proof.
     specialize (IHEVAL1 abs_C abs_st SOUND BOUND).
     destruct IHEVAL1 as [abs_C' [[memM' tM'] [[SOUNDV1 [SOUNDm1 SOUNDt1]] EVAL1']]].
     destruct abs_C' as [? | abs_C']; try (inversion SOUNDV1; fail).
-    assert (sound_cf α (C [|dy_c_letm M C' ([||])|]) (ST memM tM)
-            (abs_C [|dy_c_letm M abs_C' ([||]) |]) (Abs.ST memM' tM')) as HINT.
+    assert (sound_cf α (C [|dy_bindm M C' ([||])|]) (ST memM tM)
+            (abs_C [|dy_bindm M abs_C' ([||]) |]) (Abs.ST memM' tM')) as HINT.
     { split. rewrite plugin_trans_ctx. simpl.
       destruct abs_st; destruct SOUND as [RR [? ?]].
       rewrite RR; inversion SOUNDV1; subst; eauto.
       split; eauto. }
-    specialize (IHEVAL2 (abs_C [|dy_c_letm M abs_C' ([||])|])
+    specialize (IHEVAL2 (abs_C [|dy_bindm M abs_C' ([||])|])
                         (Abs.ST memM' tM') HINT B1).
     destruct IHEVAL2 as [abs_V [[memV' tV'] [[SOUNDV2 [SOUNDm2 SOUNDt2]] EVAL2']]].
     exists abs_V. exists (Abs.ST memV' tV').
@@ -569,7 +563,7 @@ Proof.
     apply time_increase_e in ARG as INC2; eauto.
     destruct SOUND2 as [SOUNDV2 [SOUNDm2 SOUNDt2]].
     destruct arg' as [arg' | ?]; try (inversion SOUNDV2; fail).
-    exists (C_lam' [| dy_c_lam x (α t) ([||]) |]).
+    exists (C_lam' [| dy_binde x (α t) ([||]) |]).
     exists (Abs.ST (α t !#-> arg'; mem') (Abs.tick abs_C (Abs.ST mem' t') x arg')).
     split. split.
     rewrite plugin_trans_ctx; inversion SOUNDV1; eauto.
@@ -599,7 +593,7 @@ Proof.
     destruct SOUND1 as [SOUNDV1 [SOUNDm1 SOUNDt1]].
     destruct abs_V as [v' | ?]; try (inversion SOUNDV1; fail).
     apply time_bound_e in EVALx; eauto.
-    exists (abs_C [| dy_c_lete x (α t) ([||]) |]).
+    exists (abs_C [| dy_binde x (α t) ([||]) |]).
     exists (Abs.ST (α t !#-> v'; mem') (Abs.tick abs_C (Abs.ST mem' t') x v')).
     split. split.
     rewrite plugin_trans_ctx. destruct abs_st; destruct SOUND as [RR [? ?]]; rewrite RR. eauto.
@@ -618,7 +612,7 @@ Proof.
     destruct C_M' as [? | C_M']; try (inversion SOUNDV1; fail).
     eapply time_increase_e in EVALM as INC1; eauto.
     eapply time_bound_e in EVALM as BOUND1; eauto.
-    exists (abs_C [|dy_c_letm M C_M' ([||])|]).
+    exists (abs_C [|dy_bindm M C_M' ([||])|]).
     exists (Abs.ST memM' tM').
     split. split. rewrite plugin_trans_ctx.
     destruct abs_st; destruct SOUND as [RR [? ?]]; rewrite RR; inversion SOUNDV1; eauto.
