@@ -643,21 +643,21 @@ If a single abstract time and concrete time domain is used, it means that the an
 This is against the idea of separate analysis; we want to analyze the behavior of $e_2$ without running $e_1$ beforehand.
 Therefore, we need to define a way to link the concrete time domains that allows the analysis of $e_1$ and $e_2$ to approximate the concrete execution without looking at the final time of $e_1$.
 
-Now assume that we have computed $\sembracket{e_1}(C_1,\mem_1,0_1)$ and $\sembracket{e_2}([],\varnothing,0_2)$, when the context and memory part of $0_2$ are empty and therefore is ready for injection from the final memory and context of $\sembracket{e_1}(\_,\_,0_1)$.
+Now assume that we have computed $\sembracket{e_1}(C_1,\mem_1,0_1)$ and $\sembracket{e_2}([],\varnothing,0_2)$.
 What we want to define is a $\tick_+$ function on $\Time_1\times\Time_2$ that:
 \begin{enumerate}
-  \item Increments $(0_1,0_2)$ up to $(f_1,0_2)$, when $f_1\in\Time_1$ is the final timestamp of $\sembracket{e_1}(\_,\_,0_1)$.
-  \item Increments $(f_1,0_2)$ up to $(f_1,f_2)$, when $f_2\in\Time_2$ is the largest timestamp that can be computed \emph{without} knowing about what $e_1$ exports to $e_2$.
+  \item Increments $(0_1,0_2)$ up to $(t_1,0_2)$, when $t_1\in\Time_1$ is the final timestamp of $\sembracket{e_1}(\_,\_,0_1)$.
+  \item Increments $(t_1,0_2)$ up to $(t_1,t_2)$, when $t_2\in\Time_2$ is the largest timestamp that can be computed \emph{without} knowing about what $e_1$ exports to $e_2$.
 \end{enumerate}
 
-To satisfy the above constraints, the $\tick_+$ function has to use the $\tick_1$ function to increment the first timestamp when the first timestamp is less than $f_1$.
-Also, in the case that the first timestamp is greater or equal to $f_1$, the second timestamp is incremented by $\tick_2$ under the context and memory that is \emph{removed} of the exported context.
+To satisfy the above constraints, the $\tick_+$ function has to use the $\tick_1$ function to increment the first timestamp when the first timestamp is less than $t_1$.
+Also, in the case that the first timestamp is greater or equal to $t_1$, the second timestamp is incremented by $\tick_2$ under the context and memory that is \emph{removed} of the exported context.
 
 What does it mean that the exported context should be \emph{removed}?
 The second timestamp is assumed to be incremented separately, using $\tick_2$, under the empty context.
-However, under the linked time $\Time_1\times\Time_2$, first $(e_1,C_1,\mem_1,(0_1,0_2))\Downarrow(C_2,\mem_2,(f_1,0_2))$ is computed, and only then is $0_2$ incremented under $C_2,\mem_2$.
+However, under the linked time $\Time_1\times\Time_2$, first $(e_1,C_1,\mem_1,(0_1,0_2))\Downarrow(C_2,\mem_2,(t_1,0_2))$ is computed, and only then is $0_2$ incremented under $C_2,\mem_2$.
 For $\tick_+$ to produce the same timestamps produced by $\tick_2$ under the empty initial conditions, $C_2$ has to be dug out from the bottom of the stack and $\mem_2$ must be filtered out.
-Filtering out $\mem_2$ is easy to do; just ignore addresses with a timestamp less than $f_1$ in the first time component.
+Filtering out $\mem_2$ is easy to do; just ignore addresses with a timestamp different from $t_1$ in the first time component.
 Digging out $C_2$ from the stack needs more consideration.
 
 To determine what parts of the stack should be deleted, we need to be able to describe what $C$ will look like if it started from $C_2$, not from $[]$.
@@ -723,8 +723,8 @@ The filter operation is defined in \ref{fig:concfilter}.
     \filter_1(C)\triangleq
     \begin{cases}
       []                                   & C=[]                              \\
-      (x,t.1)\cons\filter_1(C')            & C=(x,t)\cons C'\wedge t.1\neq f_1 \\
-      \filter_1(C')                        & C=(x,t)\cons C'\wedge t.1=f_1     \\
+      (x,t.1)\cons\filter_1(C')            & C=(x,t)\cons C'\wedge t.1\neq t_1 \\
+      \filter_1(C')                        & C=(x,t)\cons C'\wedge t.1=t_1     \\
       (M,\filter_1(C'))\cons\filter_1(C'') & C=(M, C')\cons C''
     \end{cases}
   \]
@@ -733,8 +733,8 @@ The filter operation is defined in \ref{fig:concfilter}.
     \filter_2(C)\triangleq
     \begin{cases}
       []                                   & C=[]                              \\
-      (x,t.2)\cons\filter_2(C')            & C=(x,t)\cons C'\wedge t.1=f_1     \\
-      \filter_2(C')                        & C=(x,t)\cons C'\wedge t.1\neq f_1 \\
+      (x,t.2)\cons\filter_2(C')            & C=(x,t)\cons C'\wedge t.1=t_1     \\
+      \filter_2(C')                        & C=(x,t)\cons C'\wedge t.1\neq t_1 \\
       (M,\filter_2(C'))\cons\filter_2(C'') & C=(M, C')\cons C''
     \end{cases}
   \]
@@ -742,23 +742,23 @@ The filter operation is defined in \ref{fig:concfilter}.
   \label{fig:concfilter}
 \end{figure}
 
-Note that the linked time domain only uses timestamps of the form $(t_1,0_2)$ and $(f_1,t_2)$.
+Note that the linked time domain only uses timestamps of the form $(t_1,0_2)$ and $(t_1,t_2)$.
 Therefore, we are actually considering a linked time on a \emph{subset} of $\Time_1\times\Time_2$.
 For notational convenience, we write this subset as
-\[\Time_1\otimes\Time_2\triangleq\Time_1\times\{0_2\}\cup\{f_1\}\times\Time_2\]
+\[\Time_1\otimes\Time_2\triangleq\Time_1\times\{0_2\}\cup\{t_1\}\times\Time_2\]
 Now the definition of the $\tick_+$ can be given:
 \begin{definition}[Concrete linking of time domains]
   Given $(\Time_1,\le_1,\tick_1)$ and $(\Time_2,\le_2,\tick_2)$,
 
   \begin{itemize}
-    \item Let ${s_1}=({C_1},{\mem_1},{f_1})$ be a state in $\Time_1$ with all timestamps in $C_1$ and $m_1$ less than $f_1$.
+    \item Let ${s_1}=({C_1},{\mem_1},{t_1})$ be a state in $\Time_1$ with all timestamps in $C_1$ and $m_1$ less than $t_1$.
     \item Define $\le_+$ as the lexicographic order on $\Time_1\times\Time_2$.
     \item Define the ${\tick_{+}}({s_1})$ function as:
           \[
             \tick_{+}({s_1})({C},\mem,{t},x,{v})\triangleq
             \begin{cases}
-              (\tick_1\:\filter_1(C,\mem,t,x,v), 0_2)                           & (\pi_1(t)\neq f_1) \\
-              (f_1,\tick_2\:\filter_2(\delete{{(C_1,0_2)}}{C,\mem, {t},x,{v}})) & (\pi_1(t)=f_1)
+              (\tick_1\:\filter_1(C,\mem,t,x,v), 0_2)                           & (t.1\neq t_1) \\
+              (t_1,\tick_2\:\filter_2(\delete{{(C_1,0_2)}}{C,\mem, {t},x,{v}})) & (t.1=t_1)
             \end{cases}
           \]
           when $(C_1,0_2)$ is $C_1$ with all timestamps lifted to $\Time_1\otimes\Time_2$.
@@ -772,20 +772,20 @@ To formulate this intuition, we need to extend the injection operator to an oper
 \begin{definition}[Injection of a configuration : $\rhd$]
   $\:$
 
-  Given ${s}=({C_1},{\mem_1},{f_1})\in\State{\Time_1}$ and ${r}=({V_2},{\mem_2},t_2)\in\Result{\Time_2}$,
+  Given ${s}=({C_1},{\mem_1},{t_1})\in\State{\Time_1}$ and ${r}=({V_2},{\mem_2},t_2)\in\Result{\Time_2}$,
   define $s\rhd m_2$ and $s\rhd r$ as:
   \[
     s\rhd m_2\triangleq
-    \lambda (t_1,t_2).
+    \lambda t.
     \begin{cases}
-      m_1(t_1)               & t_1\in\mathsf{dom}(m_1)\wedge t_2=0_2 \\
-      \inject{C_1}{m_2}(t_2) & t_1=f_1\wedge t_2\in\mathsf{dom}(m_2)
+      m_1(t.1)               & t.1\in\mathsf{dom}(m_1)\wedge t.2=0_2 \\
+      \inject{C_1}{m_2}(t.2) & t.1=t_1\wedge t.2\in\mathsf{dom}(m_2)
     \end{cases}
     \qquad
     s\rhd r\triangleq
     (\inject{C_1}{V_2},s\rhd m_2,t_2)
   \]
-  assuming that all timestamps $t\in\Time_1$ is lifted to $(t,0_2)$ and all timestamps $t\in\Time_2$ is lifted to $(f_1,t)$.
+  assuming that all timestamps $t\in\Time_1$ is lifted to $(t,0_2)$ and all timestamps $t\in\Time_2$ is lifted to $(t_1,t)$.
 
   We extend the $\rhd$ operator to inject ${s}$ in a cache $a\in(\Expr\times\State{\Time_2})\rightarrow{\wp(\Result{\Time_2})}$:
   \[
@@ -816,8 +816,10 @@ The final result for the total expression $\link{e_1}{e_2}$ will be the final re
 
 \begin{definition}[Concrete linking operator]
   \begin{align*}
-    \Link\:e_1\:e_2\:s & \triangleq(\sembracket{e_1}(s),0_2)\cup\LL\:(\EE\:e_1\:s)\:e_2\cup[(\link{e_1}{e_2},(s,0_2))\mapsto\mathsf{F}\:(\EE\:e_1\:s)\:e_2]
+    \Link\:e_1\:e_2\:s & \triangleq\sembracket{e_1}(s)\cup\LL\:(\EE\:e_1\:s)\:e_2\cup[(\link{e_1}{e_2},s)\mapsto\mathsf{F}\:(\EE\:e_1\:s)\:e_2]
   \end{align*}
+
+  When all timestamps $t\in\Time_1$ are lifted to $(t,0_2)$.
 \end{definition}
 
 Then the following result follows directly from the \emph{definition} of the collecting semantics.
@@ -1206,8 +1208,8 @@ Now we can prove that:
   \]
 \end{lem}
 
-What's truly remarkable is that if the abstract time domain is finite, the analysis is guaranteed to terminate.
-Given the recursive nature of the stack $C$, it is not obvious that the state space given a finite $\ATime$ is finite.
+What's not obvious is that if the abstract time domain is finite, the analysis is guaranteed to terminate.
+Since bindings for modules also exist in the stack $C$, showing that the state space given a finite $\ATime$ is finite is nontrivial.
 However, since the \emph{syntax} of the program constrains how $C$ looks like, we can prove that:
 
 \begin{thm}[Finiteness of time implies finiteness of abstraction]
@@ -1234,7 +1236,7 @@ Then the filtering operation for the context can naturally be defined as in \ref
     \A\filter(\A{C},\ATime)\triangleq
     \begin{cases}
       []                                                         & \A{C}=[]                                             \\
-      (x,t)\cons\A\filter(\A{C'},\ATime)                         & \A{C}=(x,\A{t})\cons \A{C'}\wedge \A{t}\in\ATime     \\
+      (x,\A{t})\cons\A\filter(\A{C'},\ATime)                     & \A{C}=(x,\A{t})\cons \A{C'}\wedge \A{t}\in\ATime     \\
       \A\filter(\A{C'},\ATime)                                   & \A{C}=(x,\A{t})\cons \A{C'}\wedge \A{t}\not\in\ATime \\
       (M,\A\filter(\A{C'},\ATime))\cons\A\filter(\A{C''},\ATime) & \A{C}=(M, \A{C'})\cons \A{C''}
     \end{cases}
@@ -1317,32 +1319,32 @@ Then because of the previous lemma, it is obvious that:
 \subsection{Separating soundness}
 The only thing that remains is the formulation of soundness between $\sembracket{\link{e_1}{e_2}}(s)$ under the linked time $(\Time_1\otimes\Time_2,\le_+,\tick_{+}(s_1))$, when $s_1$ is the exported context, and the abstract semantics.
 
-The tricky part is in the time $(f_1,0_2)$.
-It is represented by \emph{both} $\alpha_1(f_1)\in\ATime_1$ and $\alpha_2(0_2)\in\ATime_2$, when $\alpha_1:\Time_1\rightarrow\ATime_1$ and $\alpha_2:\Time_2\rightarrow\ATime_2$ are tick-approximating.
+The tricky part is in the time $(t_1,0_2)$.
+It is represented by \emph{both} $\alpha_1(t_1)\in\ATime_1$ and $\alpha_2(0_2)\in\ATime_2$, when $\alpha_1:\Time_1\rightarrow\ATime_1$ and $\alpha_2:\Time_2\rightarrow\ATime_2$ are tick-approximating.
 Therefore, we cannot make a tick-approximating function between $\Time_1\otimes\Time_2$ and $\ATime_1+\ATime_2$.
-Instead, we define a function $\alpha_+:\Time_1\otimes\Time_2\rightarrow\ATime_1+\ATime_2$ by using $\alpha_1$ and $\alpha_2$ which is not tick-approximating on the whole domain but is sound for all timestamps $t=(f_1,\_)$.
+Instead, we define a function $\alpha_+:\Time_1\otimes\Time_2\rightarrow\ATime_1+\ATime_2$ by using $\alpha_1$ and $\alpha_2$ which is not tick-approximating on the whole domain but is sound for all timestamps $t=(t_1,\_)$.
 That is, we will define $\alpha_+$ so that the following holds:
 \[
-  \forall t_2\in\Time_2,C,\mem,x,v:\alpha_+(\tick_+\:C\:\mem\:(f_1,t_2)\:x\:v)=\A\tick_+\:\alpha_+(C)\:\alpha_+(\mem)\:\alpha_+(f_1,t_2)\:x\:\alpha_+(v)
+  \forall t\in\Time_2,C,\mem,x,v:\alpha_+(\tick_+\:C\:\mem\:(t_1,t)\:x\:v)=\A\tick_+\:\alpha_+(C)\:\alpha_+(\mem)\:\alpha_+(t_1,t)\:x\:\alpha_+(v)
 \]
 
 Fortunately, such an $\alpha_+$ is easy to find.
 \begin{lem}[Linked abstraction]
-  Let $s_1=(C_1,\mem_1,f_1)\in\State{\Time_1}$, and let $\alpha_1:\Time_1\rightarrow\ATime_1$. Also,
+  Let $s_1=(C_1,\mem_1,t_1)\in\State{\Time_1}$, and let $\alpha_1:\Time_1\rightarrow\ATime_1$. Also,
 
   \begin{itemize}
-    \item Let all timestamps in $C_1,\mem_1$ be less than $f_1$.
+    \item Let all timestamps in $C_1,\mem_1$ be less than $t_1$.
     \item Let $\alpha_2:\Time_2\rightarrow\ATime_2$ be a tick-approximating abstraction.
     \item Define $\alpha_+:\Time_1\otimes\Time_2\rightarrow\ATime_1+\ATime_2$ as:
           \[
-            \alpha_+(t_1,t_2)\triangleq
+            \alpha_+(t)\triangleq
             \begin{cases}
-              \alpha_1(t_1) & (t_1\neq f_1) \\
-              \alpha_2(t_2) & (t_1=f_1)
+              \alpha_1(t.1) & (t.1\neq t_1) \\
+              \alpha_2(t.2) & (t.1=t_1)
             \end{cases}
           \]
   \end{itemize}
-  Then $\alpha_+$ is tick-approximating on $t=(f_1,\_)$ for $(\Time_1\otimes\Time_2,\le_+,\tick_+(s_1))$ and $(\ATime_1+\ATime_2,\A\tick_+(\alpha_1(s_1)))$.
+  Then $\alpha_+$ is tick-approximating on $t=(t_1,\_)$ for $(\Time_1\otimes\Time_2,\le_+,\tick_+(s_1))$ and $(\ATime_1+\ATime_2,\A\tick_+(\alpha_1(s_1)))$.
 \end{lem}
 
 Since we gave up tick-approximation for the times before linking, we need to \emph{separate} the problem of finding a sound approximation of $\sembracket{e_1}(s)$ and finding a sound approximation of $\LL\:E\:e_2$.
@@ -1354,6 +1356,7 @@ Since $\alpha_1(s)\in\A{E}$ for all $s\in E$, if we merge $\A{s'}\oplus\A{\sembr
 That is, if we define:
 \begin{definition}[Auxiliary operators for abstract linking]
   \begin{align*}
+    \A\EE\:e_1\:\A{s}          & \triangleq\A{\sembracket{e_1}}(\A{s})(e_1,\A{s})                                                    & (\text{Exported under }\A{s})      \\
     \A\LL\:\A{E}\:e_2          & \triangleq\bigcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}(\A{0}_2))                      & (\text{Reached under }\A{E})       \\
     \A{\mathsf{F}}\:\A{E}\:e_2 & \triangleq\bigcup_{\A{s'}\in \A{E}}(\A{s'}\oplus\A{\sembracket{e_2}}(\A{0}_2))(\A{s'}\A\rhd\A{0}_2) & (\text{Final results under }\A{E})
   \end{align*}
@@ -1371,27 +1374,50 @@ Then we have that:
 \end{lem}
 
 \subsection{Soundness of separate analysis}
-Now we can finally state the theorem for abstract linking:
+Now, we may define the abstract linking operator that soundly approximates the concrete linking operator.
+\begin{definition}[Abstract linking operator]
+  \[\A\Link\:e_1\:e_2\:\A{s}\triangleq\A{\sembracket{e_1}}(\A{s})\cup\A\LL\:(\A\EE\:e_1\:\A{s})\:e_2\cup[(\link{e_1}{e_2},\A{s})\mapsto\A{\mathsf{F}}\:(\A\EE\:e_1\:\A{s})\:e_2]\]
+\end{definition}
+We want to show that the abstract linking operation is a sound approximation of concrete linking.
+However, as emphasized in the previous subsection, the statement of soundness cannot be achieved through just a single concretization function.
+Since abstract linking approximates its concrete counterpart \emph{separately}, we need to concretize the part \emph{before} linking and \emph{after} linking separately.
+
 \begin{thm}[Abstract linking]
+  Let $\Time_i(i=1,2)$ be two concrete times, and let $\ATime_i(i=1,2)$ be two abstract times.
+  Let $\alpha_i:\Time_i\rightarrow\ATime_i(i=1,2)$ be tick-approximating, and let $\A{s}=\alpha_1(s)$ approximate the initial state.
+  Then, $\A\Link\:e_1\:e_2\:\A{s}$ is a sound approximation of $\Link\:e_1\:e_2\:s$.
+  That is:
+  \[\Link\:e_1\:e_2\:s\sqsubseteq\gamma_1(\A{\sembracket{e_1}}(\A{s}))\cup\gamma_+(\A\LL\:(\A\EE\:e_1\:\A{s})\:e_2\cup[(\link{e_1}{e_2},\A{s})\mapsto\A{\mathsf{F}}\:(\A\EE\:e_1\:\A{s})\:e_2])\]
+  when the Galois pairs of $\alpha_1$ and $\alpha_+$, $\gamma_1$ and $\gamma_+$, are defined as in section 5.
+\end{thm}
+
+All is fine for linking two expressions.
+The approximation for the exporting expression comes directly from the abstract semantics, and the approximation for the importing expression comes from linking the exporting set with the separately analyzed results.
+However, the above theorem is not strong enough for linking more than two expressions.
+This is because $\A\Link\:e_1\:e_2\:\A{s}$ does \emph{not} equal $\A{\sembracket{\link{e_1}{e_2}}}(\A{s})$, as $\A\tick_+$ cannot leap between $\ATime_1$ and $\ATime_2$.
+Thus, $\A\Link\:\link{e_1}{e_2}\:e_3\:\A{s}$ does not mean that the semantics for the exporting expression is computed separately.
+Also, $\A\Link\:e_1\:\link{e_2}{e_3}\:\A{s}$ does not help much, since computing $\A{\sembracket{\link{e_2}{e_3}}}(\A{0})$ will be stuck before even reaching $e_3$.
+To clarify on how to link an \emph{arbitrary} number of modules, we state the following theorem:
+\begin{thm}[Compositionality]
   Given a sequence $\{e_n\}_{n\ge 0}$ and initial condition $s\in\State{\Time_0}$,
 
   \begin{itemize}
     \item Let $\ATime_n$ be abstract times connected with the concrete times by tick-approximating $\alpha_n$.
-    \item Let the linked expressions $l_n$ be $l_0\triangleq e_0$, $l_{n+1}\triangleq\link{l_n}{e_{n+1}}$, and let $f_n$ be the final time of $\sembracket{l_n}(s)$.
+    \item Let the linked expressions $l_n$ be $l_0\triangleq e_0$, $l_{n+1}\triangleq\link{l_n}{e_{n+1}}$, and let $t_n$ be the final time of $\sembracket{l_n}(s)$.
     \item Define the linked abstraction functions $\alpha^{n}_+$ as:
           \[
             \alpha^0_+\triangleq\alpha_0
             \qquad
-            \alpha^{n+1}_+(t_1,t_2)\triangleq
+            \alpha^{n+1}_+(t)\triangleq
             \begin{cases}
-              \alpha^n_+(t_1)   & (t_1\neq f_n) \\
-              \alpha_{n+1}(t_2) & (t_1=f_n)
+              \alpha^n_+(t.1)   & (t.1\neq t_n) \\
+              \alpha_{n+1}(t.2) & (t.1=t_n)
             \end{cases}
           \]
           and define $\gamma^{n}_+(\A{R})\triangleq\{r|\alpha^{n}_+(r)\in\A{R}\}$ as in the previous section.
     \item Define $\A\EE_n$ and $\A\LL_n$ as:
           \begin{align*}
-            \A\LL_0\triangleq\A{\sembracket{e_0}}(\alpha_0(s))    &  & \A\EE_0\triangleq\A\LL_0(e_0,\alpha_0(s))                                             \\
+            \A\LL_0\triangleq\A{\sembracket{e_0}}(\alpha_0(s))    &  & \A\EE_0\triangleq\A\LL_0(e_0,\alpha_0(s))                                       \\
             \A\EE_{n+1}\triangleq\A{\mathsf{F}}\:\A\EE_n\:e_{n+1} &  & \A\LL_{n+1}\triangleq\A\LL\:\A\EE_n\:e_{n+1}\cup[\alpha_0(s)\mapsto\A\EE_{n+1}]
           \end{align*}
   \end{itemize}
@@ -1403,7 +1429,7 @@ Now we can finally state the theorem for abstract linking:
 \end{thm}
 
 What the above theorem means is that there exists a concrete $\tick$ function that can be covered separately by analyzing each component based only on the approximation of the exported context.
-The fact that the analysis $\A\LL_n$ can be computed without actually computing the final times $f_n$ is why this analysis can be called separate.
+The fact that the analysis $\A\LL_n$ can be computed without actually computing the final times $t_n$ is why this analysis can be called separate.
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{citations}
 \end{document}
