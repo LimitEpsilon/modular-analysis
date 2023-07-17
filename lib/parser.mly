@@ -1,3 +1,6 @@
+%{
+open Syntax
+%}
 %token LAMBDA DOT
 %token <string> ID
 %token IN
@@ -8,21 +11,21 @@
 %right LP ID LAMBDA LET
 
 %start program
-%type <Lambda.tm> program
+%type <tm> program
 
 %%
 
 program: exp EOF { $1 }
 
 exp :
-    | exp atom { Lambda.App ($1, $2) }
+    | exp atom { App ($1, $2) }
     | atom { $1 }
     ;
 
 atom :
-    | ID { Lambda.EVar ($1) }
+    | ID { EVar ($1) }
     | LP exp RP { $2 }
-    | LAMBDA ID DOT exp %prec LP{ Lambda.Lam ($2, $4) }
-    | LET ID EQUAL exp IN exp %prec LP{ Lambda.App (Lambda.Lam ($2, $6), $4) }
+    | LAMBDA ID DOT exp %prec LP{ Lam ($2, $4) }
+    | LET ID EQUAL exp IN exp %prec LP{ App (Lam ($2, $6), $4) }
     ;
 %%

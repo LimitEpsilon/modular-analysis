@@ -1,28 +1,22 @@
-open Lambdatools
-open Evaluate
-open Lambda
+open Modular
+open Analyze
+open Syntax
 
-(*let x = "x"
-let app_my = Lam (x, App (EVar x, EVar x))
-let test_tm = App (app_my, app_my)*)
+type time = string * stx * stx * int
 
-module Mytime : (Time with type t = int) = struct
-  type t = int
-  let tick _ t _ _ = t + 1
-  let print t = print_int t (*
+module Mytime : (Time with type t = time) = struct
+  type t = time
+  let tick c (_, _, _, t) x v = 
+    match v with
+    | Closure (_, _, c') -> (x, dy_to_st c, dy_to_st c', (t + 1) mod 20)
+  let string_of_time t =
     match t with
-    | true -> print_string "T"
-    | false -> print_string "F"*)
+    | (x, _, _, _) -> x
 end
 
 module MyAnalyzer = Analyzer(Mytime)
 
-let init_config = (Hole, MyAnalyzer.Dom.Mem.empty, 0)
-(*let init_cache = 
-  MyAnalyzer.Dom.Cache.add 
-    (test_tm, init_config)
-    MyAnalyzer.Dom.ResSet.empty 
-    MyAnalyzer.Dom.Cache.empty*)
+let init_config = (Chole, ("$", Shole, Shole, 0))
 
 let main () =
   let src = ref "" in
@@ -36,12 +30,13 @@ let main () =
     Lexing.from_channel (if !src = "" then stdin else open_in !src)
   in
   let pgm = Parser.program Lexer.start lexbuf in
-  let init_cache = 
+  let init_cache =
     MyAnalyzer.Dom.Cache.add 
       (pgm, init_config)
       MyAnalyzer.Dom.ResSet.empty
       MyAnalyzer.Dom.Cache.empty in
-  let analyzed = MyAnalyzer.fix init_cache in
+  let init_mem = MyAnalyzer.Dom.Mem.empty in
+  let analyzed, _ = MyAnalyzer.fix 0 init_cache init_mem in
   MyAnalyzer.Dom.print_cache analyzed
 
 let _ = main ()

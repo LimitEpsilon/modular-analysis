@@ -1,5 +1,5 @@
 let input = \s.\z.s(s(s(s(s(s(s(s z))))))) in
-let one = \s.s in
+let one = \x.x in
 let mul = \m.\n.\f.(m (n f)) in
 let prec = \n.\f.\x. n (\g.\h. h (g f)) (\u.x) (\u.u) in
 let T = \x.\y.x in

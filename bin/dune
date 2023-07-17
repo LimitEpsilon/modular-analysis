@@ -1,4 +1,4 @@
 (executable
- (public_name lambda-interpreter)
+ (public_name modular-analysis)
  (name main)
- (libraries lambdatools))
+ (libraries modular))

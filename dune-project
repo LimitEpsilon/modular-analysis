@@ -2,7 +2,7 @@
 
 (using menhir 2.1)
 
-(name lambda-interpreter)
+(name modular-analysis)
 
 (generate_opam_files true)
 
