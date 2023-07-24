@@ -2,16 +2,17 @@ open Syntax
 
 let pp e = print_string (string_of_tm e)
 
-module type Time = sig
+module type Time_ = sig
   type t
-  val tick : t ctx -> t -> string -> t expr_value -> t
   val string_of_time : t -> string
 end
 
-module Dom (T : sig 
-  type t 
-  val string_of_time : t -> string
-end) = struct
+module type Time = sig
+  include Time_
+  val tick : t ctx -> t -> string -> t expr_value -> t
+end
+
+module Dom (T : Time_) = struct
   module Mem = Map.Make(struct
     type t = T.t
     let compare = compare
@@ -174,6 +175,13 @@ module Analyzer (T : Time) = struct
             ResSet.fold (fun res (acc, m) ->
             match res with
             | (EVal v, t'') -> (
+              (*
+              let to_print = "{\nBound under c: " ^ string_of_ctx c ^
+                             "\nAt t: " ^ T.string_of_time t'' ^
+                             "\nTo x: " ^ x ^
+                             "\nv: " ^ string_of_ev v ^ "}\n" in
+              let () = print_string to_print in
+              *)
               let t''' = T.tick c t'' x v in
               let m, changed' = update_mem t'' (ValSet.singleton v) m in
               let () = changed := !changed || changed' in
@@ -181,7 +189,6 @@ module Analyzer (T : Time) = struct
               let s''' = (c''', t''') in
               match Cache.find_opt (e_lam, s''') a with
               | None -> 
-                let () = print_string (string_of_ctx c); print_newline () in
                 let updated, changed' = update_cache (e_lam, s''') ResSet.empty acc in
                 changed := !changed || changed';
                 (updated, m)
@@ -283,3 +290,9 @@ module Analyzer (T : Time) = struct
       init (init, mem) in
     if not !changed then (init, mem) else fix (count + 1) updated updated_mem
 end
+
+(*
+let analyze_link (type t1 t2) (module T1 : Time_ with type t = t1) (module T2 : Time with type t = t2)
+  (r : Dom(T1).result) (e : tm) =
+  let (c, m) = match r with | (MVal c, )
+*)
