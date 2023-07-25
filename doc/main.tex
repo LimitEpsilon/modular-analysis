@@ -283,7 +283,7 @@ For program analysis, the analysis designer must think of an \emph{abstract} tic
 If the concrete tick function is not able to take into account the environment that the time is incremented, the abstraction of the tick function will not be able to hold much information about the execution of the program.
 
 Now for the auxiliary operators that is used when defining the evaluation relation.
-We define the the function that extracts the address for an $\ExprVar$,
+We define the function that extracts the address for an $\ExprVar$,
 and the function that looks up the dynamic context bound to a $\ModVar$ $M$.
 
 \begin{figure}[h!]
@@ -1095,7 +1095,7 @@ From this relation, we can define the abstract semantics in the same way as the 
 
 \section{Whole-program Analysis}
 This section clarifies what we mean by that the abstract semantics is a \emph{sound approximation} of the concrete semantics.
-Since the only values in our language are closures that pair code with a context, we can make a Galois connection between $\wp(L\cup(L\times R))$ and $\wp(\A{L}\cup(\A{L}\times\A{R}))$ given a function $\alpha:\Time\rightarrow\ATime$.
+Since the only values in our language are closures that pair code with a context, we can make a Galois connection between $\wp((L\times R)\cup R)$ and $\wp((\A{L}\times\A{R})\cup\A{R})$ given a function $\alpha:\Time\rightarrow\ATime$.
 
 \begin{definition}[Extensions of abstraction]
   Given a function $\alpha:\Time\rightarrow\ATime$,
@@ -1113,8 +1113,8 @@ Then it is obvious that:
 \begin{lem}[Galois connection]
   Given a function $\alpha:\Time\rightarrow\ATime$,
   \begin{itemize}
-    \item Extend $\alpha$ by ${\alpha}(A)\triangleq\{\alpha(\ell)|\ell\in A\}\cup\{\alpha(\ell)\A\rightsquigarrow\alpha(\rho)|\ell\rightsquigarrow\rho\in A\}$.
-    \item Define ${\gamma}$ by ${\gamma}(\A{A})\triangleq\{\ell|\alpha(\ell)\in\A{A}\}\cup\{\ell\rightsquigarrow\rho|\alpha(\ell)\A\rightsquigarrow\alpha(\rho)\in\A{A}\}$.
+    \item Extend $\alpha$ by ${\alpha}(A)\triangleq\{\alpha(\rho)|\rho\in A\}\cup\{\alpha(\ell)\A\rightsquigarrow\alpha(\rho)|\ell\rightsquigarrow\rho\in A\}$.
+    \item Define ${\gamma}$ by ${\gamma}(\A{A})\triangleq\{\rho|\alpha(\rho)\in\A{A}\}\cup\{\ell\rightsquigarrow\rho|\alpha(\ell)\A\rightsquigarrow\alpha(\rho)\in\A{A}\}$.
   \end{itemize}
   Then $\forall A\subseteq(L\times R)\cup R,\A{A}\subseteq(\A{L}\times\A{R})\cup\A{R}:{\alpha}(A)\subseteq\A{A}\Leftrightarrow A\subseteq{\gamma}(\A{A})$.
 \end{lem}
@@ -1161,7 +1161,7 @@ In the abstract semantics, such an approach is impossible, since the abstract ti
 Thus, in the abstract semantics, the linked timestamp must live in $\ATime_1+\ATime_2$.
 The intuition is that the timestamps before linking and after linking is determined by their membership in each time domain.
 
-Then the filtering operation for the context can naturally be defined as in \ref{fig:absfilter}, and the definition for the added time domain can be given.
+Then the filtering operation for the context can naturally be defined as in Fig. \ref{fig:absfilter}, and the definition for the added time domain can be given.
 \begin{figure}[h!]
   \footnotesize
   \[
