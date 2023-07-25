@@ -1,3 +1,6 @@
+(** Polymorphic Sets *)
+
+(* The type 'e must be a type that can be compared well by the polymorphic compare function *)
 type 'e t
 
 val empty : 'e t

@@ -50,6 +50,12 @@ let rec dy_to_st (c : 't ctx) =
   | Cbinde (x, _, c) -> Sbinde (x, dy_to_st c)
   | Cbindm (m, cm, c) -> Sbindm (m, dy_to_st cm, dy_to_st c)
 
+let rec label_ctx (c : ('t * int) ctx) =
+  match c with
+  | Chole -> Chole
+  | Cbinde (x, (_, t), c) -> Cbinde (x, t, label_ctx c)
+  | Cbindm (m, cm, c) -> Cbindm (m, label_ctx cm, label_ctx c)
+
 let rec string_of_stx (s : stx) =
   match s with
   | Shole -> "[]"

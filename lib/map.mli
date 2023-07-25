@@ -1,3 +1,7 @@
+(** Polymorphic Maps *)
+
+(* The type 'k must be a type that can be compared well by the polymorphic compare function *)
+
 type ('k, 'a) t
 
 val empty : ('k, 'a) t

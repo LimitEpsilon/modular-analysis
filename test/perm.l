@@ -1,7 +1,7 @@
 let false=\a.\b.b in
 let true=\a.\b.a in
 let cons=\a.\b.\x.x a b in
-let Y=\f.(\x.x x)(\x.f (x x)) in
+let Y=\f.(\x.f (\v. x x v))(\x.f (\v. x x v)) in
 let foldr=\f.\init.Y(\self.\list.list (\lhs.\rhs.\init.f lhs (self rhs)) init) in
 let concat=\a.\b.foldr cons b a in
 let rcons=\a.\b.concat a (cons b false) in

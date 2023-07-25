@@ -55,7 +55,7 @@ let is_empty = function Empty -> true | _ -> false
 let rec add x data = function
   | Empty -> Node {l = Empty; v = x; d = data; r = Empty; h = 1}
   | Node {l; v; d; r; h} as m ->
-    let c = compare x v in
+    let c = Stdlib.compare x v in
     if c = 0 then if d == data then m else Node {l; v = x; d = data; r; h}
     else if c < 0 then
       let ll = add x data l in
@@ -67,7 +67,7 @@ let rec add x data = function
 let rec find x = function
   | Empty -> raise Not_found
   | Node {l; v; d; r} ->
-    let c = compare x v in
+    let c = Stdlib.compare x v in
     if c = 0 then d else find x (if c < 0 then l else r)
 
 let rec find_first_aux v0 d0 f = function
@@ -111,13 +111,13 @@ let rec find_last_opt f = function
 let rec find_opt x = function
   | Empty -> None
   | Node {l; v; d; r} ->
-    let c = compare x v in
+    let c = Stdlib.compare x v in
     if c = 0 then Some d else find_opt x (if c < 0 then l else r)
 
 let rec mem x = function
   | Empty -> false
   | Node {l; v; r} ->
-    let c = compare x v in
+    let c = Stdlib.compare x v in
     c = 0 || mem x (if c < 0 then l else r)
 
 let rec min_binding = function
@@ -156,7 +156,7 @@ let merge t1 t2 =
 let rec remove x = function
   | Empty -> Empty
   | Node {l; v; d; r} as m ->
-    let c = compare x v in
+    let c = Stdlib.compare x v in
     if c = 0 then merge l r
     else if c < 0 then
       let ll = remove x l in
@@ -171,7 +171,7 @@ let rec update x f = function
     | None -> Empty
     | Some data -> Node {l = Empty; v = x; d = data; r = Empty; h = 1})
   | Node {l; v; d; r; h} as m ->
-    let c = compare x v in
+    let c = Stdlib.compare x v in
     if c = 0 then
       match f (Some d) with
       | None -> merge l r
@@ -270,7 +270,7 @@ let concat_or_join t1 v d t2 =
 let rec split x = function
   | Empty -> (Empty, None, Empty)
   | Node {l; v; d; r} ->
-    let c = compare x v in
+    let c = Stdlib.compare x v in
     if c = 0 then (l, Some d, r)
     else if c < 0 then
       let ll, pres, rl = split x l in
@@ -353,7 +353,7 @@ let compare cmp m1 m2 =
     | End, _ -> -1
     | _, End -> 1
     | More (v1, d1, r1, e1), More (v2, d2, r2, e2) ->
-      let c = compare v1 v2 in
+      let c = Stdlib.compare v1 v2 in
       if c <> 0 then c
       else
         let c = cmp d1 d2 in

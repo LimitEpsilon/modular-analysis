@@ -2,20 +2,28 @@ open Modular
 open Analyze
 open Syntax
 
-type time = string * stx * stx * int
+type time_without_label = string * int ctx * int ctx
+type time = time_without_label * int
 
 let precision = ref 20
 
-let tick c (_, _, _, t) x v =
+let tick c (_, t) x v =
   match v with
-  | Closure (_, _, c') -> (x, dy_to_st c, dy_to_st c', (t + 1) mod !precision)
+  | Closure (_, _, c') ->
+    let without_label = (x, label_ctx c, label_ctx c') in
+    (without_label, (t + 1) mod !precision)
 
 let string_of_time t =
   match t with
-  | x, s1, s2, _ ->
-    "(" ^ x ^ ", " ^ string_of_stx s1 ^ ", " ^ string_of_stx s2 ^ ")"
+  | (x, c1, c2), _ ->
+    "(" ^ x ^ ", "
+    ^ string_of_ctx string_of_int c1
+    ^ ", "
+    ^ string_of_ctx string_of_int c2
+    ^ ")"
 
-let init_config = (Chole, ("$", Shole, Shole, 0))
+let init_time = ("$", Chole, Chole)
+let init_config = (Chole, (init_time, 0))
 
 let main () =
   let src = ref "" in
@@ -25,11 +33,14 @@ let main () =
         ( "-precision",
           Arg.Int (fun n -> precision := n),
           "Increase accuracy of analysis" );
+        ( "-print_iter",
+          Arg.Unit (fun () -> print_iter := true),
+          "Print number of iterations" );
       ]
       (fun x -> src := x)
       ("Usage: "
       ^ Filename.basename Sys.argv.(0)
-      ^ " -precision [precision] [file]")
+      ^ " [-precision precision] [-print_iter] <file>")
   in
   let () = if !precision < 1 then failwith "Precision must be above 0!" in
   let lexbuf =
