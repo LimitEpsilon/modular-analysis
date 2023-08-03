@@ -157,6 +157,7 @@
 \newcommand*{\Result}{\text{Result}}
 \newcommand*{\AResult}{\A{\text{Result}}}
 \newcommand*{\Tick}{\text{Tick}}
+\newcommand*{\semarrow}{\rightsquigarrow}
 \newcommand*{\semlink}{\mathbin{\rotatebox[origin=c]{180}{$\propto$}}}
 \newcommand*{\link}[2]{{#1}\semlink{#2}}
 \newcommand*{\mt}{\mathsf{empty}}
@@ -229,7 +230,7 @@ In this section, we present the dynamics of the simple language presented in the
 \subsection{Structural Operational Semantics}
 
 First, we give the operational semantics for the dynamic execution of the module language.
-The one-step transition relation $\rightsquigarrow$ will relate a configuration(expression and state) either to (1) another configuration of which its results are used for the evaluation of the first configuration, or to (2) the final result.
+The one-step transition relation $\semarrow$ will relate a configuration(expression and state) either to (1) another configuration of which its results are used for the evaluation of the first configuration, or to (2) the final result.
 
 Prior to defining this relation, the semantic domains must be set up.
 As is common in defining dynamics for call-by-value lambda calculus, one must define \emph{environments} to record what values were bound to variables.
@@ -311,15 +312,15 @@ and the function that looks up the dynamic context bound to a module id $M$.
 
 \subsubsection{The Relation}
 Now we define the one-step transition relation.
-The relation $\rightsquigarrow_\tick$ relates $(e,C,\mem,t)\in\Expr\times\State(\Time)$ with either
+The relation $\semarrow_\tick$ relates $(e,C,\mem,t)\in\Expr\times\State(\Time)$ with either
 $(V,\mem,t)\in\Result(\Time)$ or the next expression and state, when $\tick$ is used to increment the time.
-Note that we constrain whether an expression returns $v$ or $C$ by the definition of $\rightsquigarrow_\tick$.
+Note that we constrain whether an expression returns $v$ or $C$ by the definition of $\semarrow_\tick$.
 The complete definition for the relation is given in Fig. \ref{fig:concreach}.
 Also, the equivalence of the relation with a reference interpreter is formalized in Coq.
 
 \begin{figure}[h!]
   \begin{flushright}
-    \fbox{$(e,C,\mem,t)\rightsquigarrow_\tick(V,\mem',t')\text{ or }(e',C',\mem',t')$}
+    \fbox{$(e,C,\mem,t)\semarrow_\tick(V,\mem',t')\text{ or }(e',C',\mem',t')$}
   \end{flushright}
   \vspace{0pt} % -0.75em}
   \footnotesize
@@ -329,14 +330,14 @@ Also, the equivalence of the relation with a reference interpreter is formalized
       \hypo{v=\mem(t_{x})}
       \infer[left label=ExprID]2{
       (x, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (v, \mem, t)
       }
     \end{prooftree}\qquad
     \begin{prooftree}
       \infer[left label=Fn]0{
       (\lambda x.e, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (\langle\lambda x.e, C\rangle, \mem, t)
       }
     \end{prooftree}
@@ -346,7 +347,7 @@ Also, the equivalence of the relation with a reference interpreter is formalized
     \begin{prooftree}
       \infer[left label={AppL}]0{
       (e_{1}\:e_{2}, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (e_{1},C, \mem,t)
       }
     \end{prooftree}\qquad
@@ -354,13 +355,13 @@ Also, the equivalence of the relation with a reference interpreter is formalized
       \hypo{
         \begin{matrix}
           (e_{1}, C, \mem, t)
-          \rightsquigarrow
+          \semarrow
           (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda})
         \end{matrix}
       }
       \infer[left label={AppR}]1{
       (e_{1}\:e_{2}, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (e_{2}, C, \mem_{\lambda}, t_{\lambda})
       }
     \end{prooftree}
@@ -371,16 +372,16 @@ Also, the equivalence of the relation with a reference interpreter is formalized
       \hypo{
         \begin{matrix}
           (e_{1}, C, \mem, t)
-          \rightsquigarrow
+          \semarrow
           (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
           (e_{2}, C, \mem_{\lambda}, t_{\lambda})
-          \rightsquigarrow
+          \semarrow
           (v, \mem_{a}, t_{a})
         \end{matrix}
       }
       \infer[left label={AppBody}]1{
       (e_{1}\:e_{2}, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick((C,\mem_{a},t_{a}),x,v))
       }
     \end{prooftree}
@@ -391,19 +392,19 @@ Also, the equivalence of the relation with a reference interpreter is formalized
       \hypo{
         \begin{matrix}
           (e_{1}, C, \mem, t)
-          \rightsquigarrow
+          \semarrow
           (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
           (e_{2}, C, \mem_{\lambda}, t_{\lambda})
-          \rightsquigarrow
+          \semarrow
           (v, \mem_{a}, t_{a})                                                            \\
           (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick((C,\mem_{a},t_{a}),x,v))
-          \rightsquigarrow
+          \semarrow
           (v', \mem',t')
         \end{matrix}
       }
       \infer[left label={App}]1{
       (e_{1}\:e_{2}, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (v', \mem',t')
       }
     \end{prooftree}
@@ -413,7 +414,7 @@ Also, the equivalence of the relation with a reference interpreter is formalized
     \begin{prooftree}
       \infer[left label=LinkL]0{
       (\link{e_{1}}{e_{2}}, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (e_{1}, C, \mem, t)
       }
     \end{prooftree}\qquad
@@ -421,13 +422,13 @@ Also, the equivalence of the relation with a reference interpreter is formalized
       \hypo{
         \begin{matrix}
           (e_{1}, C, \mem, t)
-          \rightsquigarrow
+          \semarrow
           (C', \mem', t')
         \end{matrix}
       }
       \infer[left label=LinkR]1{
       (\link{e_{1}}{e_{2}}, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (e_{2}, C', \mem', t')
       }
     \end{prooftree}
@@ -438,23 +439,23 @@ Also, the equivalence of the relation with a reference interpreter is formalized
       \hypo{
         \begin{matrix}
           (e_{1}, C, \mem, t)
-          \rightsquigarrow
+          \semarrow
           (C', \mem', t') \\
           (e_{2}, C', \mem', t')
-          \rightsquigarrow
+          \semarrow
           (V, \mem'', t'')
         \end{matrix}
       }
       \infer[left label=Link]1{
       (\link{e_{1}}{e_{2}}, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (V, \mem'', t'')
       }
     \end{prooftree}\qquad
     \begin{prooftree}
       \infer[left label=Empty]0{
       (\varepsilon, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (C, \mem, t)
       }
     \end{prooftree}\qquad
@@ -462,7 +463,7 @@ Also, the equivalence of the relation with a reference interpreter is formalized
       \hypo{C'=\modctx(C,M)}
       \infer[left label=ModID]1{
       (M, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (C', \mem, t)
       }
     \end{prooftree}
@@ -472,7 +473,7 @@ Also, the equivalence of the relation with a reference interpreter is formalized
     \begin{prooftree}
       \infer[left label=LetEL]0{
       (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (e_{1}, C, \mem, t)
       }
     \end{prooftree}
@@ -483,13 +484,13 @@ Also, the equivalence of the relation with a reference interpreter is formalized
       \hypo{
         \begin{matrix}
           (e_{1}, C, \mem, t)
-          \rightsquigarrow
+          \semarrow
           (v, \mem', t')
         \end{matrix}
       }
       \infer[left label=LetER]1{
       (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (e_{2}, (x, t')\cons C, \mem'[t'\mapsto v], \tick((C,\mem',t'),x,v))
       }
     \end{prooftree}
@@ -499,7 +500,7 @@ Also, the equivalence of the relation with a reference interpreter is formalized
     \begin{prooftree}
       \infer[left label=LetML]0{
       (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (e_{1}, C, \mem, t)
       }
     \end{prooftree}\qquad
@@ -507,13 +508,13 @@ Also, the equivalence of the relation with a reference interpreter is formalized
       \hypo{
         \begin{matrix}
           (e_{1}, C, \mem, t)
-          \rightsquigarrow
+          \semarrow
           (C', \mem', t')
         \end{matrix}
       }
       \infer[left label=LetMR]1{
       (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (e_{2}, (M, C')\cons C, \mem', t')
       }
     \end{prooftree}
@@ -524,16 +525,16 @@ Also, the equivalence of the relation with a reference interpreter is formalized
       \hypo{
         \begin{matrix}
           (e_{1}, C, \mem, t)
-          \rightsquigarrow
+          \semarrow
           (v, \mem', t') \\
           (e_{2}, (x, t')\cons C, \mem'[t'\mapsto v], \tick((C,\mem',t'),x,v))
-          \rightsquigarrow
+          \semarrow
           (C', \mem'', t'')
         \end{matrix}
       }
       \infer[left label=LetE]1{
       (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (C', \mem'', t'')
       }
     \end{prooftree}\quad
@@ -541,16 +542,16 @@ Also, the equivalence of the relation with a reference interpreter is formalized
       \hypo{
         \begin{matrix}
           (e_{1}, C, \mem, t)
-          \rightsquigarrow
+          \semarrow
           (C', \mem', t') \\
           (e_{2}, (M, C')\cons C, \mem', t')
-          \rightsquigarrow
+          \semarrow
           (C'', \mem'', t'')
         \end{matrix}
       }
       \infer[left label=LetM]1{
       (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \mem, t)
-      \rightsquigarrow
+      \semarrow
       (C'', \mem'', t'')
       }
     \end{prooftree}
@@ -559,7 +560,7 @@ Also, the equivalence of the relation with a reference interpreter is formalized
   \label{fig:concreach}
 \end{figure}
 
-Our definition of $\rightsquigarrow_\tick$ is parametrized by the choice of $\Time$, and the choice of $\tick$.
+Our definition of $\semarrow_\tick$ is parametrized by the choice of $\Time$, and the choice of $\tick$.
 Note that without putting some constraints on the behavior of $\tick$, the semantics might not agree with what is conventionally accepted as an operational semantics for the lambda calculus, such as the CESK machine.
 That is, the $\tick$ function must produce \emph{fresh} timestamps.
 To ensure that $\tick$ is well-behaved, we always assume that: (1) $\tick$ produces a strictly larger timestamp, and (2) all reachable addresses are bound by the current time.
@@ -596,9 +597,9 @@ and the second guarantee is formalized by:
 \end{definition}
 
 The above two definitions ensure that $\tick$ allocates fresh timestamps.
-That is, it does not matter what $\tick$ you choose to instantiate $\rightsquigarrow$ as long as it satisfies our simple requirement.
+That is, it does not matter what $\tick$ you choose to instantiate $\semarrow$ as long as it satisfies our simple requirement.
 Still, how do we formalize this notion, that the choice of $\tick$ is ``irrelevent'' in formulating the semantics?
-We first define what it means for two results(and states) to be isomorphic, and prove that for equivalent initial states, all reachable configurations are isomorphic, \emph{no matter what} $\tick$ is used.
+We first define what it means for two results(and states) to be isomorphic, and prove that for isomorphic initial states, all reachable configurations are isomorphic, \emph{no matter what} $\tick$ is used.
 
 \begin{definition}[Isomorphic results]
   Let $r=(V,\mem,t)\in\Result(\Time)$ and $r'=(V',\mem',t')\in\Result(\Time')$.
@@ -608,7 +609,7 @@ We first define what it means for two results(and states) to be isomorphic, and 
 \end{definition}
 
 $f$ and $g$ in the above definition serves to translate timestamps from one time domain to another, and since the results have the same structure, the translations must be the same.
-Naturally, this definition can be extended between $\ell\in\Left\triangleq\Expr\times\State(\Time)$, which is the \textbf{l}eft-hand-side of $\rightsquigarrow$, and $\rho\in\Right\triangleq\Left\cup\Result(\Time)$, which is the \textbf{r}ight-hand-side.
+Naturally, this definition can be extended between $\ell\in\Left\triangleq\Expr\times\State(\Time)$, which is the \textbf{l}eft-hand-side of $\semarrow$, and $\rho\in\Right\triangleq\Left\cup\Result(\Time)$, which is the \textbf{r}ight-hand-side.
 That is, we say that $\ell\cong\ell'$ when the expression parts are equal and the state parts are isomorphic, and
 $\rho\cong\rho'$ follows directly, since $\rho\in\Left$ or $\rho\in\Result(\Time)$.
 Now we state what it means for the $\tick$ function to be irrelevent.
@@ -616,10 +617,10 @@ Now we state what it means for the $\tick$ function to be irrelevent.
 \begin{thm}[Irrelevence of $\tick$]
   Let $s\in\State(\Time)$ and $s'\in\State(\Time')$.
   If $s\cong s'$, then:
-  \[\forall\tick,\tick',e,\rho:(e,s)\rightsquigarrow_\tick\rho\Rightarrow\exists\rho':(e,s')\rightsquigarrow_{\tick'}\rho'\wedge\rho\cong\rho'\]
+  \[\forall\tick,\tick',e,\rho:(e,s)\semarrow_\tick\rho\Rightarrow\exists\rho':(e,s')\semarrow_{\tick'}\rho'\wedge\rho\cong\rho'\]
 \end{thm}
 
-The above theorem suggests (1) $\rightsquigarrow_\tick$ is well-defined, and (2) no matter what $\Time$ and $\tick$ we approximate in our analysis, the results will be valid in the sense that it models all concrete executions starting from an isomorphic initial state.
+The above theorem suggests (1) $\semarrow_\tick$ is well-defined, and (2) no matter what $\Time$ and $\tick$ we approximate in our analysis, the results will be valid in the sense that it models all concrete executions starting from an isomorphic initial state.
 For example, in the common case when one would like to analyze an expression evaluated starting from $([],\varnothing,0)$, any instantiation of $\Time$ or $\tick$ will be meaningful.
 Moreover, later on, when we describe concrete linking, we link two states to obtain a state \emph{isomorphic} to what is exported from an external module.
 Theorem 2.1 provides the reason why such a process is acceptable in describing the semantics of a linked expression.
@@ -634,7 +635,7 @@ What it means to separately analyze, then link two expressions $e_1$ and $e_2$ i
 
 What should be the \emph{type} of the collecting semantics?
 The analysis must keep track of all configurations that were reached along with the results computed from the intermediate configurations, thus it must be a set that collects all those elements.
-Concretely, the collecting semantics $\sembracket{e}S$ of an expression $e$ evaluated under initial conditions in $S\subseteq\State(\Time)\times\Tick(\Time)$ must be a subset of $(\Left\times\Tick(\Time)\times\Right )\cup(\Right\times\Tick(\Time))$, when $\Left$ and $\Right$ are the left and right sides of $\rightsquigarrow_\tick$ as defined in the previous subsection, and $\Tick(\Time)$ specifies what $\tick$ is used.
+Concretely, the collecting semantics $\sembracket{e}S$ of an expression $e$ evaluated under initial conditions in $S\subseteq\State(\Time)\times\Tick(\Time)$ must be a subset of $(\Left\times\Tick(\Time)\times\Right )\cup(\Right\times\Tick(\Time))$, when $\Left$ and $\Right$ are the left and right sides of $\semarrow_\tick$ as defined in the previous subsection, and $\Tick(\Time)$ specifies what $\tick$ is used.
 
 To define a semantics that is computable, we must formulate the collecting semantics as a least fixed point of a monotonic function that maps an element of some CPO $D$ to $D$.
 In our case, $D=\wp((\Left\times\Tick(\Time)\times\Right )\cup(\Right\times\Tick(\Time)))$ as defined previously.
@@ -644,9 +645,9 @@ Defining the transfer function is straightforward from the definition of the tra
   Given $A\subseteq(\Left\times\Tick(\Time)\times\Right )\cup(\Right\times\Tick(\Time))$, define
   \[
     \mathsf{Step}(A)\triangleq
-    \left\{\ell\rightsquigarrow_\tick\rho, (\rho,\tick)|
+    \left\{\ell\semarrow_\tick\rho, (\rho,\tick)|
     \begin{prooftree}[center=true]
-      \hypo{A'}\infer1{\ell\rightsquigarrow_\tick\rho}
+      \hypo{A'}\infer1{\ell\semarrow_\tick\rho}
     \end{prooftree}\wedge
     A'\subseteq A\wedge(\ell,\tick)\in A
     \right\}
@@ -660,7 +661,7 @@ Now, because of Tarski's fixpoint theorem, we can formulate the collecting seman
     \sembracket{e}S\triangleq\mathsf{lfp}(\lambda X.\mathsf{Step}(X)\cup\{((e,s),\tick)|(s,\tick)\in S\})
   \]
 \end{definition}
-We extend $\cong$ to a relation between two caches $A\subseteq(\Left\times\Tick(\Time)\times\Right )\cup(\Right\times\Tick(\Time))$ and $A'\subseteq(\Left\times\Tick(\Time')\times\Right )\cup(\Right\times\Tick(\Time'))$ to mean that: (1) $\forall(\rho,\_)\in A:\exists(\rho',\_)\in A':\rho\cong\rho'$ and vice versa, and (2) $\forall\ell\rightsquigarrow\rho\in A:\exists\ell'\rightsquigarrow\rho'\in A':\ell\cong\ell'\wedge\rho\cong\rho'$ and vice versa.
+We extend $\cong$ to a relation between two caches $A\subseteq(\Left\times\Tick(\Time)\times\Right )\cup(\Right\times\Tick(\Time))$ and $A'\subseteq(\Left\times\Tick(\Time')\times\Right )\cup(\Right\times\Tick(\Time'))$ to mean that: (1) $\forall(\rho,\_)\in A:\exists(\rho',\_)\in A':\rho\cong\rho'$ and vice versa, and (2) $\forall\ell\semarrow\rho\in A:\exists\ell'\semarrow\rho'\in A':\ell\cong\ell'\wedge\rho\cong\rho'$ and vice versa.
 It is clear from Theorem 2.1 that if $S\cong S'$, then $\sembracket{e}S\cong\sembracket{e}S'$.
 
 \section{Concrete Linking}
@@ -687,7 +688,7 @@ Thus our main theorem will be:
 \end{thm}
 
 Now, to formalize the above theorem, we need to define (1) what $|\sembracket{e}S|$ is, (2) what $S_1\rhd S_2$ is, and (3) what $S_1\semlink A_2$ is.
-The first definition is straightforward: $|\sembracket{e}S|\triangleq\{r|(e,\_)\rightsquigarrow r\in\sembracket{e}S\}$, and we understand $|S_1\semlink\sembracket{e}S_2|$ to be $\{r|(e,\_)\rightsquigarrow r\in S_1\semlink\sembracket{e}S_2\}$.
+The first definition is straightforward: $|\sembracket{e}S|\triangleq\{r|(e,\_)\semarrow r\in\sembracket{e}S\}$, and we understand $|S_1\semlink\sembracket{e}S_2|$ to be $\{r|(e,\_)\semarrow r\in S_1\semlink\sembracket{e}S_2\}$.
 The definitions for the injection and (semantic) linking operators need more consideration.
 
 \subsection{Injection and Deletion}
@@ -698,8 +699,8 @@ What properties must $(s_+,\tick_+)=(s_1,\tick_1)\rhd(s_2,\tick_2)$ satisfy?
 Consider the case when we did not assume anything, that is, when $s_2=([],\varnothing,0)$.
 Then first, we expect that $s_+\cong s_1$.
 Second, the $\tick_+$ function under $s_+$ must preserve the transitions made by $\tick_2$ under $s_2$.
-That is, if $(e,s_2)\rightsquigarrow_{\tick_2}^*(e',s_2')$, then $(s_+',\tick_+')=(s_1,\tick_1)\rhd(s_2',\tick_2)$ must satisfy
-$\tick_+=\tick_+'$ and $(e,s_+)\rightsquigarrow_{\tick_+}^*(e',s_+')$, when $R^*$ means the reflexive and transitive closure of a relation $R$.
+That is, if $(e,s_2)\semarrow_{\tick_2}^*(e',s_2')$, then $(s_+',\tick_+')=(s_1,\tick_1)\rhd(s_2',\tick_2)$ must satisfy
+$\tick_+=\tick_+'$ and $(e,s_+)\semarrow_{\tick_+}^*(e',s_+')$, when $R^*$ means the reflexive and transitive closure of a relation $R$.
 This is because we want all transitions after injecting the exported states into the semantics calculated in advance to be valid transitions.
 
 As the first step in defining $\rhd$, we first define the injection operator for contexts, when $\inject{C_1}{C_2}$ ``fills in the blank'' in $C_2$ with $C_1$.
@@ -806,8 +807,8 @@ This is why transitions after injection are valid as transitions under injected 
       (r_+,\tick_+)     & \rho_2=r_2\wedge(r_+,\tick_+)=(s_1,\tick_1)\rhd(r_2,\tick_2)            \\
       ((e,s_+),\tick_+) & \rho_2=\ell_2=(e,s_2)\wedge(s_+,\tick_+)=(s_1,\tick_1)\rhd(s_2,\tick_2)
     \end{cases} \\
-    (s_1,\tick_1)\rhd(\ell_2\rightsquigarrow_{\tick_2}\rho_2) & \triangleq
-    \ell_+\rightsquigarrow_{\tick_+}\rho_+                                                      \\
+    (s_1,\tick_1)\rhd(\ell_2\semarrow_{\tick_2}\rho_2) & \triangleq
+    \ell_+\semarrow_{\tick_+}\rho_+                                                      \\
                                                               & \text{ where }
     (\ell_+,\tick_+)=(s_1,\tick_1)\rhd(\ell_2,\tick_2)\wedge
     (\rho_+,\tick_+)=(s_1,\tick_1)\rhd(\rho_2,\tick_2)
@@ -818,7 +819,7 @@ This is why transitions after injection are valid as transitions under injected 
 Now we need to define the semantic linking operator $\semlink$.
 More specifically, we must define $S_1\semlink A_2$, when $S_1\subseteq\State(\Time_1)\times\Tick(\Time_1)$ and $A_2\subseteq(\Left_2\times\Tick(\Time_2)\times\Right_2)\cup(\Right_2\times\Tick(\Time_2))$.
 Remember that $A_2$ is the separately computed semantics, and $S_1$ is what was missing.
-Thus, we must first inject all $(s_1,\tick_1)\in S_1$ into $(\rho_2,\tick_2),\ell_2\rightsquigarrow_{\tick_2}\rho_2\in A_2$.
+Thus, we must first inject all $(s_1,\tick_1)\in S_1$ into $(\rho_2,\tick_2),\ell_2\semarrow_{\tick_2}\rho_2\in A_2$.
 The definition for elementwise injection into a cache is given in Fig. \ref{fig:extinject}.
 Next, since we have gained new information about the external environment, we must collect more that can be gleaned from $S_1$.
 Thus, the definition of semantic linking is as follows:
@@ -879,7 +880,7 @@ They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
   \caption{Definition of the semantic domains.}
 \end{figure}
 
-First the abstract evaluation relation $\A{\rightsquigarrow}$ is defined.
+First the abstract evaluation relation $\A{\semarrow}$ is defined.
 Note that the update for the memory is now a weak update. That is,
 \begin{definition}[Weak update]
   Given $\A{\mem}\in\AMem(\ATime)$, $\A{t}\in\ATime$, $\A{v}\in\Value(\ATime)$, define $\A{\mem}[\A{t}\A{\mapsto}\A{v}]$ as:
@@ -903,7 +904,7 @@ From this relation, we can define the abstract semantics in the same way as the 
 
 \begin{figure}[h!]
   \begin{flushright}
-    \fbox{$(e,\A{C},\A\mem,\A{t})\A\rightsquigarrow(\A{V},\A{\mem'},\A{t'})/(e',\A{C'},\A{\mem'},\A{t'})$}
+    \fbox{$(e,\A{C},\A\mem,\A{t})\A\semarrow(\A{V},\A{\mem'},\A{t'})/(e',\A{C'},\A{\mem'},\A{t'})$}
   \end{flushright}
   \vspace{0pt} % -0.75em}
   \footnotesize
@@ -913,14 +914,14 @@ From this relation, we can define the abstract semantics in the same way as the 
       \hypo{\A{v}\in\A\mem(\A{t}_{x})}
       \infer[left label=ExprID]2{
       (x, \A{C}, \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (\A{v}, \A\mem, \A{t})
       }
     \end{prooftree}\qquad
     \begin{prooftree}
       \infer[left label=Fn]0{
       (\lambda x.e, \A{C}, \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (\langle\lambda x.e, \A{C}\rangle, \A\mem, \A{t})
       }
     \end{prooftree}
@@ -930,7 +931,7 @@ From this relation, we can define the abstract semantics in the same way as the 
     \begin{prooftree}
       \infer[left label={AppL}]0{
       (e_{1}\:e_{2}, \A{C}, \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (e_{1},\A{C}, \A\mem,\A{t})
       }
     \end{prooftree}\qquad
@@ -938,13 +939,13 @@ From this relation, we can define the abstract semantics in the same way as the 
       \hypo{
         \begin{matrix}
           (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\rightsquigarrow
+          \A\semarrow
           (\langle\lambda x.e_{\lambda}, \A{C}_{\lambda}\rangle, \A\mem_{\lambda}, \A{t}_{\lambda})
         \end{matrix}
       }
       \infer[left label={AppR}]1{
       (e_{1}\:e_{2}, \A{C}, \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (e_{2}, \A{C}, \A\mem_{\lambda}, \A{t}_{\lambda})
       }
     \end{prooftree}
@@ -955,16 +956,16 @@ From this relation, we can define the abstract semantics in the same way as the 
       \hypo{
         \begin{matrix}
           (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\rightsquigarrow
+          \A\semarrow
           (\langle\lambda x.e_{\lambda}, \A{C}_{\lambda}\rangle, \A\mem_{\lambda}, \A{t}_{\lambda}) \\
           (e_{2}, \A{C}, \A\mem_{\lambda}, \A{t}_{\lambda})
-          \A\rightsquigarrow
+          \A\semarrow
           (v, \A\mem_{a}, \A{t}_{a})
         \end{matrix}
       }
       \infer[left label={AppBody}]1{
       (e_{1}\:e_{2}, \A{C,} \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (e_{\lambda}, (x, \A{t}_{a})\cons \A{C}_{\lambda}, \A\mem_{a}[\A{t}_{a}\A\mapsto \A{v}], \A\tick\:\A{C}\:\A\mem_{a}\:\A{t}_{a}\:x\:\A{v})
       }
     \end{prooftree}
@@ -975,19 +976,19 @@ From this relation, we can define the abstract semantics in the same way as the 
       \hypo{
         \begin{matrix}
           (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\rightsquigarrow
+          \A\semarrow
           (\langle\lambda x.e_{\lambda}, \A{C}_{\lambda}\rangle, \A\mem_{\lambda}, \A{t}_{\lambda}) \\
           (e_{2}, \A{C}, \A\mem_{\lambda}, \A{t}_{\lambda})
-          \A\rightsquigarrow
+          \A\semarrow
           (\A{v}, \A\mem_{a}, \A{t}_{a})                                                            \\
           (e_{\lambda}, (x, \A{t}_{a})\cons \A{C}_{\lambda}, \A\mem_{a}[\A{t}_{a}\A\mapsto \A{v}], \A\tick\:\A{C}\:\A\mem_{a}\:\A{t}_{a}\:x\:\A{v})
-          \A\rightsquigarrow
+          \A\semarrow
           (\A{v'}, \A{\mem'},\A{t'})
         \end{matrix}
       }
       \infer[left label={App}]1{
       (e_{1}\:e_{2}, \A{C}, \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (\A{v'}, \A{\mem'},\A{t'})
       }
     \end{prooftree}
@@ -997,7 +998,7 @@ From this relation, we can define the abstract semantics in the same way as the 
     \begin{prooftree}
       \infer[left label=LinkL]0{
       (\link{e_{1}}{e_{2}}, \A{C}, \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (e_{1}, \A{C}, \A\mem, \A{t})
       }
     \end{prooftree}\qquad
@@ -1005,13 +1006,13 @@ From this relation, we can define the abstract semantics in the same way as the 
       \hypo{
         \begin{matrix}
           (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\rightsquigarrow
+          \A\semarrow
           (\A{C'}, \A{\mem'}, \A{t'})
         \end{matrix}
       }
       \infer[left label=LinkR]1{
       (\link{e_{1}}{e_{2}}, \A{C}, \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (e_{2}, \A{C'}, \A{\mem'}, \A{t'})
       }
     \end{prooftree}
@@ -1022,23 +1023,23 @@ From this relation, we can define the abstract semantics in the same way as the 
       \hypo{
         \begin{matrix}
           (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\rightsquigarrow
+          \A\semarrow
           (\A{C'}, \A{\mem'}, \A{t'}) \\
           (e_{2}, \A{C'}, \A{\mem'}, \A{t'})
-          \A\rightsquigarrow
+          \A\semarrow
           (\A{V}, \A{\mem''}, \A{t''})
         \end{matrix}
       }
       \infer[left label=Link]1{
       (\link{e_{1}}{e_{2}}, \A{C}, \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (\A{V}, \A{\mem''}, \A{t''})
       }
     \end{prooftree}\qquad
     \begin{prooftree}
       \infer[left label=Empty]0{
       (\varepsilon, \A{C}, \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (\A{C}, \A\mem, \A{t})
       }
     \end{prooftree}
@@ -1049,14 +1050,14 @@ From this relation, we can define the abstract semantics in the same way as the 
       \hypo{\A{C'}=\modctx(\A{C},M)}
       \infer[left label=ModID]1{
       (M, \A{C}, \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (\A{C'}, \A\mem, \A{t})
       }
     \end{prooftree}\qquad
     \begin{prooftree}
       \infer[left label=LetEL]0{
       (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (e_{1}, \A{C}, \A\mem, \A{t})
       }
     \end{prooftree}
@@ -1067,13 +1068,13 @@ From this relation, we can define the abstract semantics in the same way as the 
       \hypo{
         \begin{matrix}
           (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\rightsquigarrow
+          \A\semarrow
           (\A{v}, \A{\mem'}, \A{t'})
         \end{matrix}
       }
       \infer[left label=LetER]1{
       (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (e_{2}, (x, \A{t'})\cons \A{C}, \A{\mem'}[\A{t'}\A\mapsto \A{v}], \A\tick\:\A{C}\:\A{\mem'}\:\A{t'}\:x\:\A{v})
       }
     \end{prooftree}
@@ -1083,7 +1084,7 @@ From this relation, we can define the abstract semantics in the same way as the 
     \begin{prooftree}
       \infer[left label=LetML]0{
       (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (e_{1}, \A{C}, \A\mem, \A{t})
       }
     \end{prooftree}\quad
@@ -1091,13 +1092,13 @@ From this relation, we can define the abstract semantics in the same way as the 
       \hypo{
         \begin{matrix}
           (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\rightsquigarrow
+          \A\semarrow
           (\A{C'}, \A{\mem'}, \A{t'})
         \end{matrix}
       }
       \infer[left label=LetMR]1{
       (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (e_{2}, (M, \A{C'})\cons \A{C}, \A{\mem'}, \A{t'})
       }
     \end{prooftree}
@@ -1108,16 +1109,16 @@ From this relation, we can define the abstract semantics in the same way as the 
       \hypo{
         \begin{matrix}
           (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\rightsquigarrow
+          \A\semarrow
           (\A{v}, \A{\mem'}, \A{t'}) \\
           (e_{2}, (x, \A{t'})\cons \A{C}, \A{\mem'}[\A{t'}\A\mapsto \A{v}], \A\tick\:\A{C}\:\A{\mem'}\:\A{t'}\:x\:\A{v})
-          \A\rightsquigarrow
+          \A\semarrow
           (\A{C'}, \A{\mem''}, \A{t''})
         \end{matrix}
       }
       \infer[left label=LetE]1{
       (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (\A{C'}, \A{\mem''}, \A{t''})
       }
     \end{prooftree}
@@ -1128,16 +1129,16 @@ From this relation, we can define the abstract semantics in the same way as the 
       \hypo{
         \begin{matrix}
           (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\rightsquigarrow
+          \A\semarrow
           (\A{C'}, \A{\mem'}, \A{t'}) \\
           (e_{2}, (M, \A{C'})\cons \A{C}, \A{\mem'}, \A{t'})
-          \A\rightsquigarrow
+          \A\semarrow
           (\A{C''}, \A{\mem''}, \A{t''})
         \end{matrix}
       }
       \infer[left label=LetM]1{
       (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A\mem, \A{t})
-      \A\rightsquigarrow
+      \A\semarrow
       (\A{C''}, \A{\mem''}, \A{t''})
       }
     \end{prooftree}
@@ -1150,10 +1151,10 @@ From this relation, we can define the abstract semantics in the same way as the 
   Given $\A{A}\subseteq (\A{L}\times \A{R})\cup\A{R}$, define
   \[
     \A{\mathsf{Step}}(\A{A})\triangleq
-    \left\{\A\ell\A\rightsquigarrow\A\rho,\A\rho|
+    \left\{\A\ell\A\semarrow\A\rho,\A\rho|
     \A{A'}\subseteq \A{A}\wedge\A{\ell}\in \A{A}\wedge
     \begin{prooftree}[center=true]
-      \hypo{\A{A'}}\infer1{\A\ell\A\rightsquigarrow\A\rho}
+      \hypo{\A{A'}}\infer1{\A\ell\A\semarrow\A\rho}
     \end{prooftree}\right\}
   \]
 \end{definition}
@@ -1183,14 +1184,14 @@ Then it is obvious that:
 \begin{lem}[Galois connection]
   Given a function $\alpha:\Time\rightarrow\ATime$,
   \begin{itemize}
-    \item Extend $\alpha$ by ${\alpha}(A)\triangleq\{\alpha(\rho)|\rho\in A\}\cup\{\alpha(\ell)\A\rightsquigarrow\alpha(\rho)|\ell\rightsquigarrow\rho\in A\}$.
-    \item Define ${\gamma}$ by ${\gamma}(\A{A})\triangleq\{\rho|\alpha(\rho)\in\A{A}\}\cup\{\ell\rightsquigarrow\rho|\alpha(\ell)\A\rightsquigarrow\alpha(\rho)\in\A{A}\}$.
+    \item Extend $\alpha$ by ${\alpha}(A)\triangleq\{\alpha(\rho)|\rho\in A\}\cup\{\alpha(\ell)\A\semarrow\alpha(\rho)|\ell\semarrow\rho\in A\}$.
+    \item Define ${\gamma}$ by ${\gamma}(\A{A})\triangleq\{\rho|\alpha(\rho)\in\A{A}\}\cup\{\ell\semarrow\rho|\alpha(\ell)\A\semarrow\alpha(\rho)\in\A{A}\}$.
   \end{itemize}
   Then $\forall A\subseteq(L\times R)\cup R,\A{A}\subseteq(\A{L}\times\A{R})\cup\A{R}:{\alpha}(A)\subseteq\A{A}\Leftrightarrow A\subseteq{\gamma}(\A{A})$.
 \end{lem}
 
 The ordering between elements of $\wp((L\times R)\cup R)$ and $\wp((\A{L}\times\A{R})\cup\A{R})$ is the subset order, because currently the only thing we are abstracting is the \emph{time} component, which describes the control flow of the program.
-That is, the abstract semantics can be viewed as a control flow graph of the program, with the notion of ``program points'' described by $\A\rho\in \A{R}$ and the edges described by $\A\rightsquigarrow$.
+That is, the abstract semantics can be viewed as a control flow graph of the program, with the notion of ``program points'' described by $\A\rho\in \A{R}$ and the edges described by $\A\semarrow$.
 Then all we need to show is that the abstract semantics overapproximates the concrete semantics, i.e, that $\sembracket{e}(s)\subseteq\gamma(\A{\sembracket{e}}(\alpha(s)))$.
 However, it is not the case that this holds for arbitrary $\alpha$.
 It must be that, as emphasized constantly in the previous sections, that $\A\tick$ is a sound approximation of $\tick$ with respect to $\alpha$.
@@ -1284,7 +1285,7 @@ First the injection operator that injects the exported state to the next time mu
   Furthermore, when $\A\ell=(e,\A{s'})\in \A{L}_2$, and $\A{A}\subseteq (\A{L}_2\times \A{R}_2)\cup \A{R}_2$, we define:
   \[
     \A{s}\A\rhd\A\ell\triangleq(e,\A{s}\rhd \A{s'})\qquad
-    \A{s}\A\rhd\A{A}\triangleq\{\A{s}\A\rhd\A\rho|\A\rho\in \A{A}\}\cup\{\A{s}\A\rhd\A\ell\A\rightsquigarrow \A{s}\A\rhd\A\rho|\A\ell\A\rightsquigarrow\A\rho\in \A{A}\}
+    \A{s}\A\rhd\A{A}\triangleq\{\A{s}\A\rhd\A\rho|\A\rho\in \A{A}\}\cup\{\A{s}\A\rhd\A\ell\A\semarrow \A{s}\A\rhd\A\rho|\A\ell\A\semarrow\A\rho\in \A{A}\}
   \]
 \end{definition}
 
@@ -1363,7 +1364,7 @@ That is, if we write $\A{\Exp}\oplus\A{A}\triangleq\bigcup_{\A{s}\in\A\Exp}\A{s}
 Now, we may define the abstract linking operator that soundly approximates the concrete linking operator, using the same notation as in concrete linking.
 \begin{definition}[Abstract linking operator]
   Given $e_1$, $e_2$, $\A{s}$, let $\A\Exp=\{\A{s}_1\A\rhd\A{0}_2|\A{s}_1\in\A{\underline{e_1}}(\A{s})\}$. Then:
-  \[\A\Link\:e_1\:e_2\:\A{s}\triangleq\A{\sembracket{e_1}}(\A{s})\cup\A{\sembracket{e_2}}(\A\Exp)\cup(\link{e_1}{e_2},\A{s})\A\rightsquigarrow(\{(e_1,\A{s})\}\cup(e_2,\A\Exp)\cup\A{\underline{e_2}}(\A\Exp))\]
+  \[\A\Link\:e_1\:e_2\:\A{s}\triangleq\A{\sembracket{e_1}}(\A{s})\cup\A{\sembracket{e_2}}(\A\Exp)\cup(\link{e_1}{e_2},\A{s})\A\semarrow(\{(e_1,\A{s})\}\cup(e_2,\A\Exp)\cup\A{\underline{e_2}}(\A\Exp))\]
 \end{definition}
 Note that $\A{\sembracket{e_2}}(\A\Exp)$ can be computed by $\A{\underline{e_1}}(\A{s})\oplus\A{\sembracket{e_2}}(\A{0}_2)$, hence the analysis is separate.
 Now we want to show that the abstract linking operation is a sound approximation of concrete linking.
@@ -1375,7 +1376,7 @@ Since abstract linking approximates its concrete counterpart \emph{separately}, 
   Let $\alpha_i:\Time_i\rightarrow\ATime_i(i=1,2)$ be tick-approximating, and let $\A{s}=\alpha_1(s)$ approximate the initial state.
   Then, $\A\Link\:e_1\:e_2\:\A{s}$ is a sound approximation of $\Link\:e_1\:e_2\:s$.
   That is:
-  \[\Link\:e_1\:e_2\:s\subseteq\gamma_1(\A{\sembracket{e_1}}(\A{s}))\cup\gamma_+(\A{\sembracket{e_2}}(\A\Exp)\cup(\link{e_1}{e_2},\A{s})\A\rightsquigarrow(\{(e_1,\A{s})\}\cup(e_2,\A\Exp)\cup\A{\underline{e_2}}(\A\Exp)))\]
+  \[\Link\:e_1\:e_2\:s\subseteq\gamma_1(\A{\sembracket{e_1}}(\A{s}))\cup\gamma_+(\A{\sembracket{e_2}}(\A\Exp)\cup(\link{e_1}{e_2},\A{s})\A\semarrow(\{(e_1,\A{s})\}\cup(e_2,\A\Exp)\cup\A{\underline{e_2}}(\A\Exp)))\]
   when the Galois pairs of $\alpha_1$ and $\alpha_+$, $\gamma_1$ and $\gamma_+$, are defined as in section 5.
 \end{thm}
 
@@ -1409,7 +1410,7 @@ To clarify on how to link an \emph{arbitrary} number of modules, we state the fo
             \A\Exp_{n}\triangleq\{\A{s}_n\A\rhd\A{0}_{n+1}|\A{s}_{n}\in\A{\underline{e_{n}}}(\A\Exp_{n-1})\}
           \]
           \[
-            \A\Imp_{n+1}\triangleq\A{\sembracket{e_{n+1}}}(\A\Exp_n)\cup(l_{n+1},\A{s})\A\rightsquigarrow(\{(l_n,\A{s})\}\cup(e_{n+1},\A\Exp_n)\cup\A{\underline{e_{n+1}}}(\A\Exp_{n}))
+            \A\Imp_{n+1}\triangleq\A{\sembracket{e_{n+1}}}(\A\Exp_n)\cup(l_{n+1},\A{s})\A\semarrow(\{(l_n,\A{s})\}\cup(e_{n+1},\A\Exp_n)\cup\A{\underline{e_{n+1}}}(\A\Exp_{n}))
           \]
   \end{itemize}
 

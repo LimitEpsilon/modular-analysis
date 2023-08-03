@@ -26,6 +26,7 @@
 %%% PL constructs
 \usepackage{ebproof}
 \ebproofset{left label template=\textsc{[\inserttext]}}
+\ebproofset{center=false}
 
 % For simplebnf
 \newfontfamily{\fallbackfont}{EB Garamond}
@@ -48,40 +49,46 @@
 \newcommand*{\ovbar}[1]{\mkern \ovbarw\overline{\mkern-\ovbarw{\smash{#1}\scalebox{1}[\ovbarh]{\vphantom{i}}}\mkern-\ovbarw}\mkern \ovbarw}
 \newcommand*{\A}[1]{{#1}^{\#}}
 \newcommand*{\Expr}{\text{Expr}}
-\newcommand*{\ExprVar}{\text{ExprVar}}
+\newcommand*{\ExprVar}{\text{Var}}
 \newcommand*{\Module}{\text{Module}}
 \newcommand*{\ModVar}{\text{ModVar}}
 \newcommand*{\Time}{\mathbb{T}}
 \newcommand*{\ATime}{\A{\Time}}
-\newcommand*{\Ctx}[1]{\text{Ctx}({#1})}
-\newcommand*{\Value}[1]{\text{Val}({#1})}
-\newcommand*{\Mem}[1]{\text{Mem}({#1})}
+\newcommand*{\Ctx}{\text{Ctx}}
+\newcommand*{\Value}{\text{Val}}
+\newcommand*{\Mem}{\text{Mem}}
+\newcommand*{\Left}{\text{L}}
+\newcommand*{\Right}{\text{R}}
 \newcommand*{\mem}{m}
-\newcommand*{\AMem}[1]{\A{\text{Mem}}({#1})}
-\newcommand*{\State}[1]{\text{State}({#1})}
-\newcommand*{\AState}[1]{\A{\text{State}}({#1})}
-\newcommand*{\Result}[1]{\text{Result}({#1})}
-\newcommand*{\AResult}[1]{\A{\text{Result}}({#1})}
-\newcommand*{\link}[2]{{#1}\mathtt{!}{#2}}
+\newcommand*{\AMem}{\A{\text{Mem}}}
+\newcommand*{\State}{\text{State}}
+\newcommand*{\AState}{\A{\text{State}}}
+\newcommand*{\Result}{\text{Result}}
+\newcommand*{\AResult}{\A{\text{Result}}}
+\newcommand*{\Tick}{\text{Tick}}
+\newcommand*{\semarrow}{\rightsquigarrow}
+\newcommand*{\semlink}{\mathbin{\rotatebox[origin=c]{180}{$\propto$}}}
+\newcommand*{\link}[2]{{#1}\semlink{#2}}
+\newcommand*{\mt}{\mathsf{empty}}
 
-\newcommand*{\doubleplus}{+\mkern-3mu+}
+\newcommand*{\doubleplus}{\ensuremath{\mathbin{+\mkern-3mu+}}}
 \newcommand*{\project}{\text{\texttt{:>} }}
-\newcommand*{\EE}{\mathsf{Exp}}
-\newcommand*{\LL}{\mathsf{L}}
+\newcommand*{\Exp}{\mathsf{Exp}}
+\newcommand*{\Imp}{\mathsf{Imp}}
+\newcommand*{\Fin}{\mathsf{Fin}}
 \newcommand*{\Link}{\mathsf{Link}}
 \newcommand*{\sembracket}[1]{\lBrack{#1}\rBrack}
 \newcommand*{\fin}[2]{{#1}\xrightarrow{\text{fin}}{#2}}
 \newcommand*{\addr}{\mathsf{addr}}
 \newcommand*{\tick}{\mathsf{tick}}
 \newcommand*{\modctx}{\mathsf{ctx}}
-\newcommand*{\mapinject}[2]{{#1}[{#2}]}
-\newcommand*{\inject}[2]{{#1}\langle{#2}\rangle}
-\newcommand*{\deletepre}[2]{{#2}\overline{+\mkern-3mu+}{#1}}
+\newcommand*{\mapinject}[2]{{#2}[{#1}]}
+\newcommand*{\inject}[2]{{#2}\langle{#1}\rangle}
+\newcommand*{\deletepre}[2]{{#2}\overline{\doubleplus}{#1}}
 \newcommand*{\deletemap}[2]{{#1}\overline{[{#2}]}}
-\newcommand*{\delete}[2]{{#1}\overline{\langle{#2}\rangle}}
-\newcommad*{\filter}{\mathsf{filter}}
+\newcommand*{\delete}[2]{{#2}{\langle{#1}\rangle}^{-1}}
+\newcommand*{\filter}{\mathsf{filter}}
 \newcommand*{\Let}{\mathtt{let}}
-\newcommand*{\semlink}{\mathbin{\rotatebox[origin=c]{180}{$\propto$}}}
 
 %%%%%%%%%%%%%%%%%%%%%
 %  Beamer Settings  %
@@ -128,66 +135,113 @@
   \frametitle{Problem Statement}
   \begin{itemize}
     \item Given two program segments $e_1$ and $e_2$,
-    \item Want to derive a sound approximation of $\sembracket{\link{e_1}{e_2}}$ utilizing information obtained from \emph{separately} analyzing $e_1$ and $e_2$
+    \item Want to derive a sound approximation of what ${\link{e_1}{e_2}}$ evaluates to, by \emph{separately} analyzing $e_1$ and $e_2$.
   \end{itemize}
 \end{frame}
+\begin{frame}{Overview}
+  \tableofcontents
+\end{frame}
+\section{Abstract Syntax}
 \begin{frame}[c]
   \frametitle{Abstract Syntax}
-  \begin{bnfgrammar}
-    $x$ : \in \ExprVar
-    ;;
-    $M$ : \in \ModVar
-    ;;
-    $e$ : \in \Expr
-    ;;
-    $e$ ::= $x$ : identifier, expression
-    | $\lambda x.e$ : function
-    | $e$ $e$ : application
-    | $\link{e}{e}$ : linked expression
-    | $\varepsilon$ : empty module
-    | $M$ : identifier, module
-    | $\Let$ $x$ $e$ $e$ : let-binding, expression
-    | $\Let$ $M$ $e$ $e$ : let-binding, module
-  \end{bnfgrammar}
+  \begin{figure}[h!]
+    \centering
+    \begin{tabular}{rrcll}
+      Identifiers & $x,M$ & $\in$         & $\ExprVar$                              \\
+      Expression  & $e$   & $\rightarrow$ & $x$                & value identifier   \\
+                  &       & $\vbar$       & $\lambda x.e$      & function           \\
+                  &       & $\vbar$       & $e$ $e$            & application        \\
+                  &       & $\vbar$       & $\link{e}{e}$      & linked expression  \\
+                  &       & $\vbar$       & $\varepsilon$      & empty module       \\
+                  &       & $\vbar$       & $M$                & module identifier  \\
+                  &       & $\vbar$       & $\Let$ $x$ $e$ $e$ & binding expression \\
+                  &       & $\vbar$       & $\Let$ $M$ $e$ $e$ & binding module     \\
+    \end{tabular}
+  \end{figure}
 \end{frame}
+\begin{frame}[c,fragile]
+  \frametitle{Example}
+  \begin{tcolorbox}[sidebyside, sidebyside align=top, fontupper=\scriptsize, fontlower=\scriptsize]
+    \begin{lstlisting}[basicstyle=\ttfamily,escapeinside={/*}{*/}]
+(* A.ml *)
+let true x y = x
 
+(* main.ml *)
+open A
+let id x = x
+;;
+id true
+\end{lstlisting}
+    \tcblower
+    \begin{lstlisting}[basicstyle=\ttfamily,escapeinside={/*}{*/}]
+(* In our language *)
+(let A =
+  let true = \x.\y.x in/* $\varepsilon$ */
+in/* $\varepsilon$ */)/* $\semlink$ */
+  (A/* $\semlink$ */
+    ((let id = \x.x
+    in/* $\varepsilon$ */)/* $\semlink$ */
+      (id true)))
+\end{lstlisting}
+  \end{tcolorbox}
+\end{frame}
+\section{Concrete Semantics}
 \begin{frame}[c]
   \frametitle{Semantic Domains}
   \begin{figure}[h!]
     \centering
     \footnotesize
-    \begin{tabular}{rccll}
-      Time                & $t$    & $\in$         & $\Time$                                                                             \\
-      Environment/Context & $C$    & $\in$         & $\Ctx\Time$                                                                         \\
-      Value(Expr)         & $v$    & $\in$         & $\Value\Time \triangleq \Expr\times\Ctx\Time$                                       \\
-      Value(Expr/Mod)     & $V$    & $\in$         & $\Value{\Time}+\Ctx{\Time}$                                                         \\
-      Memory              & $\mem$ & $\in$         & $\Mem{\Time} \triangleq \fin{\Time}{\Value{\Time}}$                                 \\
-      State               & $s$    & $\in$         & $\State{\Time} \triangleq \Ctx{\Time}\times\Mem{\Time}\times\Time$                  \\
-      Result              & $r$    & $\in$         & $\Result{\Time} \triangleq (\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time$ \\
-      Context             & $C$    & $\rightarrow$ & []                                                                                  \\
-                          &        & $\vbar$       & $(x,t)\cons C$                                                                      \\
-                          &        & $\vbar$       & $(M,C)\cons C$                                                                      \\
-      Value(Expr)         & $v$    & $\rightarrow$ & $\langle \lambda x.e, C \rangle$
+    \begin{tabular}{rrcl}
+      Time            & $t$     & $\in$         & $\Time$                                                                                  \\
+      Context         & $C$     & $\in$         & $\Ctx(\Time)$                                                                            \\
+      Value(Expr)     & $v$     & $\in$         & $\Value(\Time) \triangleq \Expr\times\Ctx(\Time)$                                        \\
+      Value(Expr/Mod) & $V$     & $\in$         & $\Value(\Time)\uplus\Ctx(\Time)$                                                         \\
+      Memory          & $\mem$  & $\in$         & $\Mem(\Time) \triangleq \fin{\Time}{\Value(\Time)}$                                      \\
+      State           & $s$     & $\in$         & $\State(\Time) \triangleq \Ctx(\Time)\times\Mem(\Time)\times\Time$                       \\
+      Result          & $r$     & $\in$         & $\Result(\Time) \triangleq (\Value(\Time)\uplus\Ctx(\Time))\times\Mem(\Time)\times\Time$ \\
+      Tick            & $\tick$ & $\in$         & $\Tick(\Time)\triangleq(\State(\Time)\times\ExprVar\times\Value(\Time))\rightarrow\Time$ \\
+      Context         & $C$     & $\rightarrow$ & []                                                                                       \\
+                      &         & $\vbar$       & $(x,t)\cons C$                                                                           \\
+                      &         & $\vbar$       & $(M,C)\cons C$                                                                           \\
+      Value(Expr)     & $v$     & $\rightarrow$ & $\langle \lambda x.e, C \rangle$
     \end{tabular}
   \end{figure}
 \end{frame}
-
 \begin{frame}[c]
-  \frametitle{Time?}
-  \begin{block}{Concrete Time}
-    $(\Time, \le, \tick)$ is a \emph{concrete time} when
-    \begin{enumerate}
-      \item $(\Time, \le)$ is a total order.
-      \item $\tick : \Ctx{\Time}\rightarrow\Mem{\Time}\rightarrow\Time\rightarrow\ExprVar\rightarrow\Value{\Time}\rightarrow\Time$ satisfies:
-            \[\forall t\in\Time: t < \tick\:\_\:\_\:t\:\_\:\_\]
-    \end{enumerate}
-  \end{block}
-\end{frame}
-
-\begin{frame}[c]
-  \frametitle{Big-Step Evaluation Relation(Excerpt)}
+  \frametitle{$\addr$ and $\modctx$}
+  \begin{itemize}
+    \item $\addr(C,x)$ looks up when $x$ was bound in $C$.
+    \item $\modctx(C,M)$ looks up what is bound to $M$ in $C$
+  \end{itemize}
   \begin{figure}[h!]
-    \begin{flushright}\fbox{$(e,C,\mem,t)\Downarrow(V,\mem',t')$}\end{flushright}
+    \centering
+    \footnotesize
+    \[
+      \addr(C,x)\triangleq
+      \begin{cases}
+        \bot         & C=[]                              \\
+        t            & C=(x, t)\cons C'                  \\
+        \addr(C',x)  & C=(x', t)\cons C' \wedge x'\neq x \\
+        \addr(C'',x) & C=(M, C')\cons C''
+      \end{cases}
+    \]
+    \[
+      \modctx(C,M)\triangleq
+      \begin{cases}
+        \bot           & C=[]                               \\
+        C'             & C=(M, C')\cons C''                 \\
+        \modctx(C'',M) & C=(M', C')\cons C''\wedge M'\neq M \\
+        \modctx(C',M)  & C=(x, t)\cons C'
+      \end{cases}
+    \]
+  \end{figure}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Operational Semantics : $\semarrow_{\tick}$}
+  \begin{figure}[h!]
+    \begin{flushright}
+      \fbox{$(e,C,\mem,t)\semarrow_\tick(V,\mem',t')\text{ or }(e',C',\mem',t')$}
+    \end{flushright}
     \vspace{0pt} % -0.75em}
     \footnotesize
     \[
@@ -196,70 +250,16 @@
         \hypo{v=\mem(t_{x})}
         \infer[left label=ExprVar]2{
         (x, C, \mem, t)
-        \Downarrow
+        \semarrow
         (v, \mem, t)
         }
       \end{prooftree}
     \]
-
-    \[
-      \begin{prooftree}
-        \hypo{
-          \begin{matrix}
-            (e_{1}, C, \mem, t)
-            \Downarrow
-            (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
-            (e_{2}, C, \mem_{\lambda}, t_{\lambda})
-            \Downarrow
-            (v, \mem_{a}, t_{a})                                                            \\
-            (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick\:C\:\mem_{a}\:t_{a}\:x\:v)
-            \Downarrow
-            (v', \mem',t')
-          \end{matrix}
-        }
-        \infer[left label={App}]1{
-        (e_{1}\:e_{2}, C, \mem, t)
-        \Downarrow
-        (v', \mem',t')
-        }
-      \end{prooftree}
-    \]
-
-    \[
-      \begin{prooftree}
-        \infer[left label=Empty]0{
-        (\varepsilon, C, \mem, t)
-        \Downarrow
-        (C, \mem, t)
-        }
-      \end{prooftree}
-    \]
-  \end{figure}
-\end{frame}
-
-\begin{frame}[c]
-  \frametitle{Type of the Collecting Semantics: Take 1}
-  \[\sembracket{e}(s)\in ?\]
-  \begin{itemize}
-    \item Collecting semantics of the expression $e$ under initial state $s$.
-    \item Collect \emph{all} configurations in the proof tree starting from $(e,s)$.
-    \item Why? To \emph{inject} the exported context into the incomplete proof tree.
-    \item Need to remember all $(e,s)$ the big-step interpreter \emph{saw}.
-    \item Need to define what these ``reachable configurations'' are.
-  \end{itemize}
-\end{frame}
-
-\begin{frame}[c]
-  \frametitle{Big-Step Reachability Relation(Excerpt)}
-  \begin{figure}[htb]
-    \begin{flushright}\fbox{$(e,C,\mem,t)\rightsquigarrow(e',C',\mem',t')$}\end{flushright}
-    \centering
-    \footnotesize
     \[
       \begin{prooftree}
         \infer[left label={AppL}]0{
         (e_{1}\:e_{2}, C, \mem, t)
-        \rightsquigarrow
+        \semarrow
         (e_{1},C, \mem,t)
         }
       \end{prooftree}\qquad
@@ -267,457 +267,290 @@
         \hypo{
           \begin{matrix}
             (e_{1}, C, \mem, t)
-            \Downarrow
+            \semarrow
             (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda})
           \end{matrix}
         }
         \infer[left label={AppR}]1{
         (e_{1}\:e_{2}, C, \mem, t)
-        \rightsquigarrow
+        \semarrow
         (e_{2}, C, \mem_{\lambda}, t_{\lambda})
         }
       \end{prooftree}
     \]
-
     \[
       \begin{prooftree}
         \hypo{
           \begin{matrix}
             (e_{1}, C, \mem, t)
-            \Downarrow
+            \semarrow
             (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
             (e_{2}, C, \mem_{\lambda}, t_{\lambda})
-            \Downarrow
+            \semarrow
             (v, \mem_{a}, t_{a})
           \end{matrix}
         }
         \infer[left label={AppBody}]1{
         (e_{1}\:e_{2}, C, \mem, t)
-        \rightsquigarrow
-        (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick\:C\:\mem_{a}\:t_{a}\:x\:v)
-        }
-      \end{prooftree}
-    \]
-
-    \[
-      \begin{prooftree}
-        \infer[left label=LinkL]0{
-        (\link{e_{1}}{e_{2}}, C, \mem, t)
-        \rightsquigarrow
-        (e_{1}, C, \mem, t)
-        }
-      \end{prooftree}\qquad
-      \begin{prooftree}
-        \hypo{
-          \begin{matrix}
-            (e_{1}, C, \mem, t)
-            \Downarrow
-            (C', \mem', t')
-          \end{matrix}
-        }
-        \infer[left label=LinkR]1{
-        (\link{e_{1}}{e_{2}}, C, \mem, t)
-        \rightsquigarrow
-        (e_{2}, C', \mem', t')
+        \semarrow
+        (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick((C,\mem_{a},t_{a}),x,v))
         }
       \end{prooftree}
     \]
   \end{figure}
 \end{frame}
+\begin{frame}[c]
+  \frametitle{$\Time$ and $\tick$}
+  Q: So, what $\Time$ and $\tick$ should we use?
 
-\begin{frame}[c]
-  \frametitle{Type of the Collecting Semantics}
-  \[\sembracket{e}(s)\in (\Expr\times\State{\Time})\rightarrow\wp(\Result{\Time})\]
-  \begin{itemize}
-    \item Remember: All configurations $(e',s')$ the interpreter ``saw''
-    \item Remember: All results $r'$ the interpreter returned
-    \item Collecting semantics: A cache recording \emph{reached configurations} with the \emph{results} they return.
-    \item Collecting semantics: ``History'' of the interpreter
-  \end{itemize}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Definition of the Transfer Function: Take 1}
-  \begin{itemize}
-    \item Given a cache $a$, need to simulate one step of the interpreter.
-    \item ``One-step'': Related by $\rightsquigarrow$.
-    \item ``Given a cache'': The interpreter is constrained by its history $a$.
-    \item ``Constrained'': All assumptions in $\rightsquigarrow$ need to be \emph{in} $a$.
-  \end{itemize}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{One $\mathsf{step}$ of Transfer}
-
-  \begin{itemize}
-    \item Define ${\Downarrow}_{a}$ and ${\rightsquigarrow}_{a}$ by replacing all premises $(e,s)\Downarrow r$ by $r\in a(e,s)$ in $\Downarrow$ and $\rightsquigarrow$.
-    \item Define the ${\mathsf{step}}$ function that does what the interpreter will do with input $(e,s)$ under $a$.
-          \[
-            \mathsf{step}(a)(e,s)\triangleq
-            [(e,s)\mapsto\{r|(e,s){\Downarrow}_{a}r\}]
-            \cup
-            \bigcup_{(e,s)\rightsquigarrow_{a}(e',s')}[(e',s')\mapsto\varnothing]
-          \]
-  \end{itemize}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Definition of the Transfer Function \& Collecting Semantics}
-  We define the transfer function $\mathsf{Step}$ by:
-  \[
-    \mathsf{Step}(a)\triangleq
-    \bigcup_{(e,s)\in\mathsf{dom}(a)}
-    {\mathsf{step}(a)(e,s)}
-  \]
-
-  Then:
-  \begin{definition}[Collecting Semantics]
-    \[
-      \sembracket{e}(s)\triangleq\mathsf{lfp}(\lambda a.\mathsf{Step}(a)\cup[(e,s)\mapsto\varnothing])
-    \]
-  \end{definition}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Concrete Linking}
-  \begin{itemize}
-    \item Need to link \emph{separately} computed semantics in $\Time_1$ and $\Time_2$.
-    \item Why? The abstract must approximate the concrete \emph{separately}.
-    \item In other words, construct ``$\tick_+$'' approximated by ``$\A\tick_+$''
-  \end{itemize}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Requirements for $\tick_+$}
-  The $\tick_+$ in the linked time domain must:
-  \begin{enumerate}
-    \item Increment $(0_1,0_2)$ up to $(t_1,0_2)$, when $t_1\in\Time_1$ is the final timestamp of $\sembracket{e_1}(\_,\_,0_1)$.
-    \item Increment $(t_1,0_2)$ up to $(t_1,t_2)$, when $t_2\in\Time_2$ is the largest timestamp that can be computed \emph{without} knowing about what $e_1$ exports to $e_2$.
-  \end{enumerate}
-\end{frame}
-
-\begin{frame}[c]
-  \frametitle{How to Construct $\tick_+$}
-  \begin{itemize}
-    \item The second timestamp starts to tick under $(C_1,\mem_1,(t_1,0_2))$, when $(e_1,s)\Downarrow(C_1,\mem_1,t_1)$.
-    \item The second timestamp was originally ticked under $([],\varnothing,0_2)$.
-    \item Need to \emph{dig out} $C_1$ from the stack and \emph{filter out} $\mem_1$.
-  \end{itemize}
-\end{frame}
-
-\begin{frame}[c]
-  \frametitle{How to Dig Out $C$: Injection}
-  \begin{itemize}
-    \item Need to determine \emph{what part} of the context is exported.
-    \item Since there are no signatures, the exported context is automatically included in module bindings.
-    \item The definition of the injection operator $\inject{C_1}{C_2}$ is mutually recursive with the injection that maps over all module bindings $\mapinject{C_1}{C_2}$.
-    \item Note: $+\mkern-3mu+$ is the list append operator.
-  \end{itemize}
-  \begin{figure}[h!]
-    \footnotesize
-    \[
-      \mapinject{C_{1}}{C_{2}}\triangleq
-      \begin{cases}
-        []                                                 & C_{2}=[]              \\
-        (x, t)\cons\mapinject{C_{1}}{C'}                   & C_{2}=(x,t)\cons C'   \\
-        (M, \inject{C_{1}}{C'})\cons\mapinject{C_{1}}{C''} & C_{2}=(M,C')\cons C''
-      \end{cases}
-      \qquad
-      \inject{C_{1}}{C_{2}}\triangleq \mapinject{C_{1}}{C_{2}}{+\mkern-3mu+} C_{1}
-    \]
-  \end{figure}
-\end{frame}
-
-\begin{frame}[c]
-  \frametitle{How to Dig Out $C$: Deletion}
-  \begin{itemize}
-    \item The deletion operators are defined as inverse operators of $+\mkern-3mu+$, $\mapinject{C_1}{C_2}$, $\inject{C_1}{C_2}$.
-    \item The deletion operators satisfy $\deletepre{C_1}{(C_2{+\mkern-3mu+}C_1)}=C_2$, $\deletemap{C_1}{\mapinject{C_1}{C_2}}=C_2$, and $\delete{C_1}{\inject{C_1}{C_2}}=C_2$.
-  \end{itemize}
-
-  \begin{figure}[h!]
-    \footnotesize
-    \[
-      \deletepre{C_{1}}{C_{2}}\triangleq
-      \begin{cases}
-        \deletepre{C_{1}'}{C_{2}'} & (C_{1},C_{2})=(C_{1}'{+\mkern-3mu+}[(x,t)],C_{2}'[(x,t)])               \\
-        \deletepre{C_{1}'}{C_{2}'} & (C_{1},C_{2})=(C_{1}'{+\mkern-3mu+}[(M,C)],C_{2}'{+\mkern-3mu+}[(M,C)]) \\
-        C_{2}                      & \text{otherwise}
-      \end{cases}
-    \]
-
-    \[
-      \deletemap{C_{1}}{C_{2}}\triangleq
-      \begin{cases}
-        []                                                 & C_{2}=[]               \\
-        (x,t)\cons\deletemap{C_{1}}{C'}                    & C_{2}=(x,t):: C'       \\
-        (M, \delete{C_{1}}{C'})\cons\deletemap{C_{1}}{C''} & C_{2}=(M, C')\cons C''
-      \end{cases}
-      \qquad
-      \delete{C_{1}}{C_{2}}\triangleq \deletemap{C_{1}}{\deletepre{C_{1}}{C_{2}}}
-    \]
-  \end{figure}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{How to Filter Out $\mem$}
-  All timestamps incremented after $(t_1,0_2)$ will have $t.1=t_1$.
-  \begin{figure}[h!]
-    \footnotesize
-    \[
-      \filter_1(C)\triangleq
-      \begin{cases}
-        []                                   & C=[]                              \\
-        (x,t.1)\cons\filter_1(C')            & C=(x,t)\cons C'\wedge t.1\neq t_1 \\
-        \filter_1(C')                        & C=(x,t)\cons C'\wedge t.1=t_1     \\
-        (M,\filter_1(C'))\cons\filter_1(C'') & C=(M, C')\cons C''
-      \end{cases}
-    \]
-
-    \[
-      \filter_2(C)\triangleq
-      \begin{cases}
-        []                                   & C=[]                              \\
-        (x,t.2)\cons\filter_2(C')            & C=(x,t)\cons C'\wedge t.1=t_1     \\
-        \filter_2(C')                        & C=(x,t)\cons C'\wedge t.1\neq t_1 \\
-        (M,\filter_2(C'))\cons\filter_2(C'') & C=(M, C')\cons C''
-      \end{cases}
-    \]
-  \end{figure}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Definition of $\tick_+$}
-  \begin{figure}[h!]
-    \footnotesize
-    \[
-      \tick_{+}({C},\mem,{t},x,{v})\triangleq
-      \begin{cases}
-        (\tick_1\:\filter_1(C,\mem,t,x,v), 0_2)                   & (t.1\neq t_1) \\
-        (t_1,\tick_2\:\filter_2(\delete{C_1}{C,\mem, {t},x,{v}})) & (t.1=t_1)
-      \end{cases}
-    \]
-  \end{figure}
-  \begin{itemize}
-    \item The timestamps that $\tick_+$ increments live in
-          \[\Time_1\otimes\Time_2\triangleq\Time_1\times\{0_2\}\cup\{t_1\}\times\Time_2\]
-    \item From now on, assume that all $(C,\mem,t)\in\State{\Time}$ satisfy the invariant that all timestamps in $C$ and $\mem$ are smaller than $t$.
-    \item Then $(\Time_1\otimes\Time_2,\le_+,\tick_+)$, when $\le_+$ is the lexicographic order, is a concrete time that \emph{preserves timestamps}.
-  \end{itemize}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Preservation of Timestamps}
-  \begin{itemize}
-    \item The separately ticked timestamps must agree with the timestamps ticked with $\tick_+$ under the \emph{injected} context.
-    \item First, define injection of $s\in\State{\Time_1}$ as:
-          \[
-            s\rhd m_2\triangleq
-            \lambda t.
-            \begin{cases}
-              m_1(t.1)               & t.1\in\mathsf{dom}(m_1)\wedge t.2=0_2 \\
-              \inject{C_1}{m_2}(t.2) & t.1=t_1\wedge t.2\in\mathsf{dom}(m_2)
-            \end{cases}
-          \]
-          and
-          \[
-            s\rhd r\triangleq
-            (\inject{C_1}{V_2},s\rhd m_2,t_2)
-          \]
-          and
-          \[
-            {s}\rhd{a}\triangleq\bigcup_{(e,{s'})\in\mathsf{dom}({a})}[(e,{s}\rhd{s'})\mapsto\{{s}\rhd{r}|{r}\in{a}(e,{s'})\}]
-          \]
-  \end{itemize}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Preservation of Timestamps}
-  \begin{lemma}[Injection preserves timestamps under linked time]
-    \[
-      \forall s\in\State{\Time_1},s'\in\State{\Time_2}:{s}\rhd{\sembracket{e}}({s'})\sqsubseteq{\sembracket{e}}({s}\rhd{s'})
-    \]
-  \end{lemma}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Concrete Linking}
-  \begin{definition}[Auxiliary operators for concrete linking]
-    \begin{align*}
-      \EE\:e_1\:s        & \triangleq\sembracket{e_1}(s)(e_1,s)                                    & (\text{Exported under }s)      \\
-      \LL\:E\:e_2        & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s'\rhd 0_2)                 & (\text{Reached under }E)       \\
-      \mathsf{F}\:E\:e_2 & \triangleq\bigcup_{s'\in E}\sembracket{e_2}(s'\rhd 0_2)(e_2,s'\rhd 0_2) & (\text{Final results under }E)
-    \end{align*}
-  \end{definition}
-  \begin{definition}[Concrete linking operator]
-    \begin{align*}
-      \Link\:e_1\:e_2\:s & \triangleq\sembracket{e_1}(s)\cup\LL\:(\EE\:e_1\:s)\:e_2\cup[(\link{e_1}{e_2},s)\mapsto\mathsf{F}\:(\EE\:e_1\:s)\:e_2]
-    \end{align*}
-
-    When all timestamps $t\in\Time_1$ are lifted to $(t,0_2)$.
-  \end{definition}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Abstract Semantics : What Configurations Look Like}
-  \begin{bnfgrammar}
-    $\A{t}$ : \in \ATime
-    ;;
-    $\A{v}$ : \in \Value{\ATime}
-    ;;
-    $\A{C}$ : \in \Ctx{\ATime}
-    ;;
-    $\A{V}$ : \in \Value{\ATime}+\Ctx{\ATime}
-    ;;
-    $\A{\mem}$ : \in \AMem{\ATime} \triangleq \fin{\ATime}{\wp(\Value{\ATime})}
-    ;;
-    $\A{s}$ : \in \AState{\ATime} \triangleq \Ctx{\ATime}\times\AMem{\ATime}\times\ATime
-    ;;
-    $\A{r}$ : \in \AResult{\ATime} \triangleq (\Value{\ATime}+\Ctx{\ATime})\times\AMem{\ATime}\times\ATime
-  \end{bnfgrammar}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Time?}
-  \begin{definition}[Abstract time]
-    $(\ATime,\A{\tick})$ is an \emph{abstract time} when $\A{\tick}\in\Ctx{\ATime}\rightarrow\AMem{\ATime}\rightarrow\ATime\rightarrow\ExprVar\rightarrow\Value{\ATime}\rightarrow\ATime$ is the policy for advancing the timestamp.
-  \end{definition}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Big-Step Evaluation Relation}
-  \[
-    \begin{prooftree}
-      \hypo{\A{t_{x}}=\addr(\A{C},x)}
-      \hypo{\A{v}\in\A{\mem}(\A{t_{x}})}
-      \infer[left label=ExprVar]2{
-      (x, \A{C}, \A{\mem}, \A{t})
-      \A{\Downarrow}
-      (\A{v}, \A{\mem}, \A{t})
-      }
-    \end{prooftree}
-  \]
+  A: Anything! (If it satisfies two requirements)
   \pause
-  \[
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, \A{C}, \A{\mem}, \A{t})
-          \A{\Downarrow}
-          (\langle\lambda x.e_{\lambda}, \A{C_{\lambda}}\rangle, \A{\mem_{\lambda}}, \A{t_{\lambda}}) \\
-          (e_{2}, \A{C}, \A{\mem_{\lambda}}, \A{t_{\lambda}})
-          \A{\Downarrow}
-          (\A{v}, \A{\mem_{a}}, \A{t_{a}})                                                            \\
-          (e_{\lambda}, \A{C_{\lambda}}[\lambda x^{\A{t_{a}}}.[]], \A{\mem_{a}}[\A{t_{a}}\A{\mapsto} \A{v}], \A{\tick}\:\A{C}\:\A{\mem_a}\:\A{t_{a}}\:x\:\A{v})
-          \A{\Downarrow}
-          (\A{v'}, \A{\mem'},\A{t'})
-        \end{matrix}
-      }
-      \infer[left label={App}]1{
-      (e_{1}\:e_{2}, \A{C}, \A{\mem}, \A{t})
-      \A{\Downarrow}
-      (\A{v'}, \A{\mem'},\A{t'})
-      }
-    \end{prooftree}
-  \]
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Abstract Semantics}
-  \begin{block}{Abstract Semantics}
-    The semantics for an expression $e$ under configuration $\A{s}\in\AState{\ATime}$ is an element in $(\Expr\times\AState{\ATime})\rightarrow(\wp(\AResult{\ATime}))_{\bot}$ defined as:
-    \[
-      \A{\sembracket{e}}(\A{s})\triangleq\bigsqcup_{(e,\A{s}){\A\rightsquigarrow}^{*}(e',\A{s'})}[(e',\A{s'})\mapsto\{\A{r}|(e',\A{s'})\A\Downarrow \A{r}\}]
-    \]
-  \end{block}
-
-  \[
-    \A{\sembracket{e}}(\A{s})=\mathsf{lfp}(\lambda \A{f}.\A{F}([(e,\A{s})\mapsto\varnothing]\sqcup\A{f}))
-  \]
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Transfer Function}
-  \begin{definition}[Transfer function]
-    Given an element $\A{f}$ of $(\Expr\times\AState{\ATime})\rightarrow(\wp(\AResult{\ATime}))_{\bot}$,
-
-    \begin{itemize}
-      \item Define $\A{\Downarrow}_{\A{f}}$ and $\A{\rightsquigarrow}_{\A{f}}$ by replacing all assumptions of the form $\A{s}\A\Downarrow\A{r}$ to $\A{r}\in\A{f}(\A{s})$ in $\A\Downarrow$ and $\A\rightsquigarrow$.
-    \end{itemize}
-
-    We define the transfer function $\A{F}$ by:
-    \[
-      \A{F}(\A{f})\triangleq\A{f}\sqcup\bigsqcup_{
-      \scriptsize
-      \begin{array}{c}
-        (e,\A{s})\in\mathsf{dom}(\A{f}) \\
-        (e,\A{s})\A{\rightsquigarrow}_{\A{f}}(e',\A{s'})
-      \end{array}}[(e',\A{s'})\mapsto\{\A{r}|(e',\A{s'})\A{\Downarrow}_{\A{f}}\A{r}\}]
-    \]
-  \end{definition}
-\end{frame}
-
-\begin{frame}[c]
-  \frametitle{Soundness Given $\alpha$}
-  \begin{definition}[$\alpha$-soundness between results]
-    \begin{itemize}
-      \item Let $(V,\mem,t)\in\Result{\Time}$ and $(\A{V},\A\mem,\A{t})\in\AResult{\ATime}$.
-      \item Let $\alpha:\Time\rightarrow\ATime$, and extend $\alpha$ to a function in $\Ctx{\Time}\rightarrow\Ctx{\ATime}$ by mapping $\alpha$ over all timestamps.
-      \item Extend $\alpha$ to a function in $(\Ctx{\Time}+\Value{\Time})\rightarrow(\Ctx{\ATime}+\Value{\ATime})$
-      \item Extend $\alpha$ to a function in $\Mem{\Time}\rightarrow\AMem{\ATime}$ by defining
-            \[\alpha(\mem)\triangleq\bigsqcup_{t\in\mathsf{dom}(\mem)}[\alpha(t)\mapsto\{\alpha(\mem(t))\}]\]
-    \end{itemize}
-
-    We say that $(\A{V},\A\mem,\A{t})$ is an \emph{$\alpha$-sound approximation} of $(V,\mem,t)$ when $\alpha(V)=\A{V}$, $\alpha(\mem)\sqsubseteq\A\mem$, and $\alpha(t)=\A{t}$.
-  \end{definition}
-\end{frame}
-
-\begin{frame}[c]
-  \frametitle{Soundness}
-  \begin{definition}[Soundness between semantics]
-    \begin{itemize}
-      \item Let $f\in(\Expr\times\State{\Time})\rightarrow(\wp(\Result{\Time}))_{\bot}$ and $\A{f}\in(\Expr\times\AState{\ATime})\rightarrow(\wp(\AResult{\ATime}))_{\bot}$.
-    \end{itemize}
-
-    We say that $\A{f}$ is a sound approximation of $f$ if:
-    \begin{align*}
-      \forall e\in\Expr,s\in\State{\Time},r\in\Result{\Time}: \\
-      \:\:r\in f(e,s)\Rightarrow                              \\
-      \exists\alpha,\alpha',\A{s},\A{r}:\alpha(s)\sqsubseteq\A{s}\wedge\alpha'(r)\sqsubseteq\A{r}\in\A{f}(e,\A{s})
-    \end{align*}
-  \end{definition}
-\end{frame}
-\begin{frame}
-  \frametitle{Why?}
-  \begin{block}{Preservation of soundness}
-    \begin{itemize}
-      \item Let $s\in\State{\Time}$ and $\A{s}\in\AState{\ATime}$.
-      \item Let all timestamps in the $C$ and $\mem$ component of $s$ be strictly less than the $t$ component.
-      \item Let $\A{s}$ be an $\alpha$-sound approximation of $s$ for some $\alpha$.
-    \end{itemize}
-
-    Then for all $e$, $\A{\sembracket{e}}(\A{s})$ is a sound approximation of $\sembracket{e}(s)$.
-  \end{block}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Abstract Linking}
-  Define an \emph{injection} operator that, given $\A{s}\in\AState{\ATime},\A{r}\in\AResult{\A{\Time'}}$, gives $\A{s}\rhd\A{r}\in\AResult{(\ATime+\A{\Time'})}$, that satisfies:
   \begin{enumerate}
-    \item $\alpha(s)\sqsubseteq\A{s}\Rightarrow\exists\alpha':\alpha'(s)\sqsubseteq(\A{s}\rhd\varnothing)$.
-    \item $\exists\A{\tick}_{+}$ such that $(\ATime+\A{\Time'},\A{\tick}_{+})$ is an abstract time, and
-          \[
-            \A{s}\rhd\A{\sembracket{e}}(\A{s'})\sqsubseteq\A{\sembracket{e}}(\A{s}\rhd\A{s'})
-          \]
+    \item $\tick$ produces a strictly larger timestamp with respect to some total order on $\Time$.
+          \[\forall t\in\Time:t<\tick((\_,\_,t),\_,\_)\]
+    \item All $(V,\mem,t)\in\Result(\Time)$ satisfies: $V < t\wedge\mem < t$
+          \begin{minipage}{\linewidth}
+            \begin{figure}[h!]
+              \scriptsize
+              \[
+                \begin{array}{cc}
+                  C < t\triangleq
+                  \begin{cases}
+                    \mathsf{True}        & C=[]              \\
+                    t' < t\wedge C' < t  & C=(x,t')\cons C'  \\
+                    C' < t\wedge C'' < t & C=(M,C')\cons C''
+                  \end{cases}
+                   &
+                  \begin{array}{l}
+                    V < t\triangleq
+                    \begin{cases}
+                      C < t & V=\langle\_,C\rangle \\
+                      C < t & V=C
+                    \end{cases} \\
+                    \mem < t\triangleq\forall t'\in\mathsf{dom}(\mem):t'<t\wedge\mem(t') < t
+                  \end{array}
+                \end{array}
+              \]
+            \end{figure}
+          \end{minipage}
   \end{enumerate}
+  Then all $\tick$s will produce \emph{fresh} timestamps.
 \end{frame}
 \begin{frame}[c]
-  \frametitle{Abstract Linking}
-  Recall:
-  \[
-    \sembracket{\link{e_1}{e_2}}(s)=\sembracket{e_1}(s)\sqcup\bigsqcup_{s'\in\sembracket{e_1}(s)(e_1,s)}\left(\sembracket{e_2}(s')\sqcup[(\link{e_1}{e_2},s)\mapsto\sembracket{e_2}(s')(e_2,s')]\right)
-  \]
-  \begin{enumerate}
-    \onslide+<2->\item Given a sound approximation $\A{f}$ of $\sembracket{e_1}(s)$ under $\ATime$, extract a set containing $\alpha$-sound approximations of all exported configurations $s'$.
-          \onslide+<3->\item Inject the exported context onto the separately analyzed results $\A{\sembracket{e_2}}(\varnothing)$, then perform the fixpoint computation starting from there to obtain $\A{\sembracket{e_2}}(\A{s'})$ which is a sound approximation of $\sembracket{e_2}(s')$.
-  \end{enumerate}
+  \frametitle{Irrelevence of $\tick$}
+  Q: How can we consider semantics instantiated with different $\Time$ and $\tick$ to be equivalent?
+
+  A: If they have the same structure!
+  \pause
+  \begin{itemize}
+    \item Let $r=(V,\mem,t)\in\Result(\Time)$, $r'=(V',\mem',t')\in\Result(\Time')$.
+    \item If we can \emph{translate} the timestamps in $r$ into $r'$ and vice versa, $r$ and $r'$ are \emph{isomorphic} ($r\cong r'$).
+
+          \pause
+    \item ``Can translate $r$ to $r'$": $\exists f\in\Time\rightarrow\Time':f(V)=V'\wedge f\circ\mem=\mem'\circ f\wedge f(t)=t'$.
+  \end{itemize}
 \end{frame}
 \begin{frame}[c]
-  \frametitle{Why Can We Compute $\A{\sembracket{e}}$?}
-  \begin{theorem}[Finiteness of time implies finiteness of abstraction]
-    If $\ATime$ is finite,
-    \[
-      \forall e,\A{s}: |\A{\sembracket{e}}(\A{s})|<\infty
-    \]
+  \frametitle{Irrelevence of $\tick$}
+  If we start from isomorphic states, the execution stays isomorphic!
+
+  \pause
+  Notation: $\ell\in\Left\triangleq\Expr\times\State(\Time)$, $\rho\in\Right\triangleq\Left\cup\Result(\Time)$
+  \begin{theorem}[Irrelevence of $\tick$]
+    Let $s\in\State(\Time)$ and $s'\in\State(\Time')$.
+    If $s\cong s'$, then:
+    \[\forall\tick,\tick',e,\rho:(e,s)\semarrow_\tick\rho\Rightarrow\exists\rho':(e,s')\semarrow_{\tick'}\rho'\wedge\rho\cong\rho'\]
   \end{theorem}
 \end{frame}
 \begin{frame}[c]
-  \centering\LARGE
-  감사합니다
+  \frametitle{Collecting Semantics}
+  \[\sembracket{e}S\subseteq(\Right\times\Tick(\Time))\cup(\Left\times\Tick(\Time)\times\Right )\]
+  \begin{itemize}
+    \item Collecting semantics of $e$ under $S\subseteq\State(\Time)\times\Tick(\Time)$.
+    \item Collect \emph{all} configurations in the proof tree starting from $\{((e,s),\tick)|(s,\tick)\in S\}\subseteq\Right\times\Tick(\Time)$.
+  \end{itemize}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Collecting Semantics}
+  \begin{definition}[Transfer Function]
+    \[
+      \mathsf{Step}(A)\triangleq
+      \left\{\ell\semarrow_\tick\rho, (\rho,\tick)|
+      \begin{prooftree}[center=true]
+        \hypo{A'}\infer1{\ell\semarrow_\tick\rho}
+      \end{prooftree}\wedge
+      A'\subseteq A\wedge(\ell,\tick)\in A
+      \right\}
+    \]
+  \end{definition}
+  \begin{definition}[Collecting Semantics]
+    \[
+      \sembracket{e}S\triangleq
+      \mathsf{lfp}(\lambda X.\mathsf{Step}(X)\cup\{((e,s),\tick)|(s,\tick)\in S\})
+    \]
+  \end{definition}
+\end{frame}
+\section{Concrete Linking}
+\begin{frame}[c]
+  \frametitle{Our Goal}
+  What does $\link{e_1}{e_2}$ evaluate to under $S$? : $|\sembracket{\link{e_1}{e_2}}S|$
+  \begin{itemize}
+    \item Normally, first evaluate $e_1$ under $S$ : $|\sembracket{e_1}S|$
+    \item Then evaluate $e_2$ under the exported states : $|\sembracket{e_2}|\sembracket{e_1}S||$
+          \[|\sembracket{\link{e_1}{e_2}}S|=|\sembracket{e_2}|\sembracket{e_1}S||\]
+    \item Instead, collect $e_2$ \emph{in advance} under an \emph{assumed} $S_2$ : $\sembracket{e_2}S_2$
+    \item Later, check if the assumption is guaranteed : $|\sembracket{e_1}S|\cong S_1\rhd S_2$
+    \item Fill in the blanks with $S_1$, then finish : $S_1\semlink\sembracket{e_2}S_2$
+          \[|\sembracket{\link{e_1}{e_2}}S|\cong|S_1\semlink\sembracket{e_2}S_2|\]
+  \end{itemize}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Definitions to Come}
+  \begin{enumerate}
+    \item What is $|\sembracket{e}S|$ and $|S_1\semlink\sembracket{e}S_2|$(final results)?
+          \pause
+          \[
+            |\sembracket{e}S|\triangleq\{r|(e,\_)\semarrow r\in\sembracket{e}S\}\quad
+            |S_1\semlink\sembracket{e}S_2|\triangleq\{r|(e,\_)\semarrow r\in S_1\semlink\sembracket{e}S_2\}
+          \]
+
+          \pause
+    \item What is $\rhd$(injection)?
+    \item What is $\semlink$(semantic linking)?
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}[c]
+  \frametitle{Definition of $\rhd$: Desired Properties}
+  Elementwise injection: $(s_+,\tick_+)=(s_1,\tick_1)\rhd(s_2,\tick_2)$
+
+  \begin{enumerate}
+    \item If $s_2=([],\varnothing,0)$, $s_+\cong s_1$
+    \item If $(e,s_2)\semarrow_{\tick_2}^*(e',s_2')$, then $(s_+',\tick_+')=(s_1,\tick_1)\rhd(s_2',\tick_2)$ must satisfy
+          $\tick_+=\tick_+'$ and $(e,s_+)\semarrow_{\tick_+}^*(e',s_+')$.
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}[c]
+  \frametitle{Definition of $\rhd$, Step 1: Fill in the Blanks}
+  \begin{figure}[h!]
+    \footnotesize
+    \[
+      \inject{C_{1}}{C_{2}}\triangleq
+      \begin{cases}
+        C_1                                             & C_{2}=[]              \\
+        (x, t)\cons\inject{C_{1}}{C'}                   & C_{2}=(x,t)\cons C'   \\
+        (M, \inject{C_{1}}{C'})\cons\inject{C_{1}}{C''} & C_{2}=(M,C')\cons C''
+      \end{cases}
+    \]
+    \[
+      \delete{C_{1}}{C_{2}}\triangleq
+      \begin{cases}
+        []                                              & C_{2}=C_{1}\lor C_{2}=[] \\
+        (x,t)\cons\delete{C_{1}}{C'}                    & C_{2}=(x,t)\cons C'      \\
+        (M, \delete{C_{1}}{C'})\cons\delete{C_{1}}{C''} & C_{2}=(M, C')\cons C''
+      \end{cases}
+    \]\pause
+    \[
+      \begin{array}{cc}
+        \inject{C_1}{V_2}\triangleq
+        \begin{cases}
+          \inject{C_1}{C_2}                           & V_2=C_2                            \\
+          \langle\lambda x.e,\inject{C_1}{C_2}\rangle & V_2=\langle\lambda x.e, C_2\rangle
+        \end{cases} &
+        \begin{array}{l}
+          \inject{C_1}{\mem_2}\triangleq
+          \displaystyle\bigcup_{t\in\mathsf{dom}(\mem_2)}\{t\mapsto\inject{C_1}{\mem_2(t)}\} \\
+          \inject{s_1}{r_2}\triangleq
+          (\inject{C_1}{V_2},\mem_1\cup\inject{C_1}{\mem_2},t_2)
+        \end{array}
+      \end{array}
+    \]
+  \end{figure}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Definition of $\rhd$, Step 2: $\tick_+$}
+  Note $\inject{C_1}{C_2}\in\Ctx(\Time_1+\Time_2)$. What should $\tick_+$ be?
+
+  \begin{figure}[h!]
+    \footnotesize
+    \[
+      \tick_+((C,\mem,t),x,v)\triangleq
+      \begin{cases}
+        \tick_1((C.1,\mem.1,t),x,v.1)                                           & t\in\Time_1 \\
+        \tick_2((\delete{C_1}{C}.2,\delete{C_1}{\mem}.2,t),x,\delete{C_1}{v}.2) & t\in\Time_2
+      \end{cases}
+    \]
+  \end{figure}
+  where
+  \begin{figure}[h!]
+    \footnotesize
+    \[
+      \begin{array}{cc}
+        C.i\triangleq
+        \begin{cases}
+          []                  & C=[]                                    \\
+          (x,t)\cons C'.i     & C=(x,t)\cons C'\wedge t\in{\Time_i}     \\
+          C'.i                & C=(x,t)\cons C'\wedge t\not\in{\Time_i} \\
+          (M,C'.i)\cons C''.i & C=(M, C')\cons C''
+        \end{cases} &
+        \begin{array}{l}
+          V.i\triangleq
+          \begin{cases}
+            C.i                           & V=C                           \\
+            \langle\lambda x.e,C.i\rangle & V=\langle\lambda x.e,C\rangle
+          \end{cases} \\ \\
+          \mem.i\triangleq
+          \displaystyle\bigcup_{t\in\mathsf{dom}(\mem)\cap\Time_i}\{t\mapsto \mem(t).i\}
+        \end{array}
+      \end{array}
+    \]
+  \end{figure}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Definition of $\rhd$}
+  \begin{definition}[Definition of $\rhd$]
+    \[(s_1,\tick_1)\rhd(r_2,\tick_2)\triangleq(\inject{s_1}{r_2},\tick_+)\]
+    \[S_1\rhd S_2\triangleq\{(s_1,\tick_1)\rhd(s_2,\tick_2)|(s_1,\tick_1)\in S_1\wedge(s_2,\tick_2)\in S_2\}\]
+  \end{definition}
+  To inject into a cache,
+  \begin{figure}[h!]
+    \scriptsize
+    \begin{align*}
+      (s_1,\tick_1)\rhd(\rho_2,\tick_2)                  & \triangleq
+      \begin{cases}
+        (r_+,\tick_+)     & \rho_2=r_2\wedge(r_+,\tick_+)=(s_1,\tick_1)\rhd(r_2,\tick_2)            \\
+        ((e,s_+),\tick_+) & \rho_2=\ell_2=(e,s_2)\wedge(s_+,\tick_+)=(s_1,\tick_1)\rhd(s_2,\tick_2)
+      \end{cases} \\
+      (s_1,\tick_1)\rhd(\ell_2\semarrow_{\tick_2}\rho_2) & \triangleq
+      \ell_+\semarrow_{\tick_+}\rho_+
+    \end{align*}
+    \[
+      \text{ where }
+      (\ell_+,\tick_+)=(s_1,\tick_1)\rhd(\ell_2,\tick_2)\wedge
+      (\rho_+,\tick_+)=(s_1,\tick_1)\rhd(\rho_2,\tick_2)
+    \]
+  \end{figure}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Definition of $\semlink$}
+  \begin{definition}[Semantic Linking]
+    Let $S_1\subseteq\State(\Time_1)\times\Tick(\Time_1)$ and $A_2\subseteq(\Left_2\times\Tick(\Time_2)\times\Right_2)\cup(\Right_2\times\Tick(\Time_2))$.
+    Then:
+    \[
+      S_1\semlink A_2\triangleq
+      \mathsf{lfp}(\lambda X.\mathsf{Step}(X)\cup(S_1\rhd A_2))
+    \]
+  \end{definition}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Advance}
+  \begin{lemma}[Advance]
+    Let $S_1\subseteq\State(\Time_1)\times\Tick(\Time_1)$ and $S_2\subseteq\State(\Time_2)\times\Tick(\Time_2)$. Then:
+    \[
+      \sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2
+    \]
+  \end{lemma}
 \end{frame}
 \end{document}
 %%% Local Variables:
