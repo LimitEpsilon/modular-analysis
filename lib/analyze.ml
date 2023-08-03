@@ -135,7 +135,7 @@ let union_cache (a1 : 't cache) (a2 : 't cache) : 't cache =
 
 let changed = ref false
 
-let eval_cache (e : tm) (s : 't state) (a : 't cache) (m : 't memory) tick =
+let eval_cache (e : tm) (s : 't state) (a : 't cache) (m : 't memory) (tick : 't tick) =
   let c, t = s in
   match e with
   | EVar x -> (

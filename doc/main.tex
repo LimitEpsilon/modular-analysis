@@ -120,6 +120,7 @@
 \newtheorem{example}{Example}[section]
 \newtheorem{lem}{Lemma}[section]
 \newtheorem{thm}{Theorem}[section]
+\newtheorem{cor}{Corollary}[section]
 
 %%% PL constructs
 \usepackage{galois}
@@ -139,21 +140,26 @@
 \newcommand*{\ovbar}[1]{\mkern \ovbarw\overline{\mkern-\ovbarw{\smash{#1}\scalebox{1}[\ovbarh]{\vphantom{i}}}\mkern-\ovbarw}\mkern \ovbarw}
 \newcommand*{\A}[1]{{#1}^{\#}}
 \newcommand*{\Expr}{\text{Expr}}
-\newcommand*{\ExprVar}{\text{ExprVar}}
+\newcommand*{\ExprVar}{\text{Var}}
 \newcommand*{\Module}{\text{Module}}
 \newcommand*{\ModVar}{\text{ModVar}}
 \newcommand*{\Time}{\mathbb{T}}
 \newcommand*{\ATime}{\A{\Time}}
-\newcommand*{\Ctx}[1]{\text{Ctx}({#1})}
-\newcommand*{\Value}[1]{\text{Val}({#1})}
-\newcommand*{\Mem}[1]{\text{Mem}({#1})}
+\newcommand*{\Ctx}{\text{Ctx}}
+\newcommand*{\Value}{\text{Val}}
+\newcommand*{\Mem}{\text{Mem}}
+\newcommand*{\Left}{\text{L}}
+\newcommand*{\Right}{\text{R}}
 \newcommand*{\mem}{m}
-\newcommand*{\AMem}[1]{\A{\text{Mem}}({#1})}
-\newcommand*{\State}[1]{\text{State}({#1})}
-\newcommand*{\AState}[1]{\A{\text{State}}({#1})}
-\newcommand*{\Result}[1]{\text{Result}({#1})}
-\newcommand*{\AResult}[1]{\A{\text{Result}}({#1})}
-\newcommand*{\link}[2]{{#1}\mathtt{!}{#2}}
+\newcommand*{\AMem}{\A{\text{Mem}}}
+\newcommand*{\State}{\text{State}}
+\newcommand*{\AState}{\A{\text{State}}}
+\newcommand*{\Result}{\text{Result}}
+\newcommand*{\AResult}{\A{\text{Result}}}
+\newcommand*{\Tick}{\text{Tick}}
+\newcommand*{\semlink}{\mathbin{\rotatebox[origin=c]{180}{$\propto$}}}
+\newcommand*{\link}[2]{{#1}\semlink{#2}}
+\newcommand*{\mt}{\mathsf{empty}}
 
 \newcommand*{\doubleplus}{\ensuremath{\mathbin{+\mkern-3mu+}}}
 \newcommand*{\project}{\text{\texttt{:>} }}
@@ -166,11 +172,11 @@
 \newcommand*{\addr}{\mathsf{addr}}
 \newcommand*{\tick}{\mathsf{tick}}
 \newcommand*{\modctx}{\mathsf{ctx}}
-\newcommand*{\mapinject}[2]{{#1}[{#2}]}
-\newcommand*{\inject}[2]{{#1}\langle{#2}\rangle}
+\newcommand*{\mapinject}[2]{{#2}[{#1}]}
+\newcommand*{\inject}[2]{{#2}\langle{#1}\rangle}
 \newcommand*{\deletepre}[2]{{#2}\overline{\doubleplus}{#1}}
 \newcommand*{\deletemap}[2]{{#1}\overline{[{#2}]}}
-\newcommand*{\delete}[2]{{#1}\overline{\langle{#2}\rangle}}
+\newcommand*{\delete}[2]{{#2}{\langle{#1}\rangle}^{-1}}
 \newcommand*{\filter}{\mathsf{filter}}
 \newcommand*{\Let}{\mathtt{let}}
 
@@ -187,18 +193,16 @@ The language is basically an extension of untyped lambda calculus with modules a
 \begin{figure}[htb]
   \centering
   \footnotesize
-  \begin{tabular}{rccll}
-    Expression Identifier & $x$ & $\in$         & $\ExprVar$                                   \\
-    Module Identifier     & $M$ & $\in$         & $\ModVar$                                    \\
-    Expression            & $e$ & $\in$         & $\Expr$                                      \\
-    Expression            & $e$ & $\rightarrow$ & $x$                & identifier, expression  \\
-                          &     & $\vbar$       & $\lambda x.e$      & function                \\
-                          &     & $\vbar$       & $e$ $e$            & application             \\
-                          &     & $\vbar$       & $\link{e}{e}$      & linked expression       \\
-                          &     & $\vbar$       & $\varepsilon$      & empty module            \\
-                          &     & $\vbar$       & $M$                & identifier, module      \\
-                          &     & $\vbar$       & $\Let$ $x$ $e$ $e$ & let-binding, expression \\
-                          &     & $\vbar$       & $\Let$ $M$ $e$ $e$ & let-binding, module     \\
+  \begin{tabular}{rrcll}
+    Identifiers & $x,M$ & $\in$         & $\ExprVar$                              \\
+    Expression  & $e$   & $\rightarrow$ & $x$                & value identifier   \\
+                &       & $\vbar$       & $\lambda x.e$      & function           \\
+                &       & $\vbar$       & $e$ $e$            & application        \\
+                &       & $\vbar$       & $\link{e}{e}$      & linked expression  \\
+                &       & $\vbar$       & $\varepsilon$      & empty module       \\
+                &       & $\vbar$       & $M$                & module identifier  \\
+                &       & $\vbar$       & $\Let$ $x$ $e$ $e$ & binding expression \\
+                &       & $\vbar$       & $\Let$ $M$ $e$ $e$ & binding module     \\
   \end{tabular}
   \caption{Abstract syntax of the simple module language.}
 \end{figure}
@@ -214,8 +218,8 @@ Concretely, we need to define signatures $S$ where $\lambda M\project S.e$ stati
 To simplify the presentation, we first consider the case that does not require signatures.
 
 The rationale for not separating modules and expressions in the syntax is because we want to utilize the linking construct to link both modules to expressions and modules to modules.
-That is, we want expressions to be parsed as $(m_1!m_2)!e$.
-$\link{m_1}{m_2}$ links a module with a module, and $(m_1!m_2)!e$ links a module with an expression.
+That is, we want expressions to be parsed as $\link{(\link{m_1}{m_2})}{e}$.
+$\link{m_1}{m_2}$ links a module with a module, and $\link{(\link{m_1}{m_2})}{e}$ links a module with an expression.
 Why this is convenient will be clear when we explain separate analysis; we want to link modules with modules as well as expressions.
 
 \section{Concrete Semantics}
@@ -225,7 +229,7 @@ In this section, we present the dynamics of the simple language presented in the
 \subsection{Structural Operational Semantics}
 
 First, we give the operational semantics for the dynamic execution of the module language.
-The one-step reachability relation $\rightsquigarrow$ will relate a configuration(expression and state) either to (1) another configuration of which its results are used for the evaluation of the first configuration, or to (2) the returned result from the configuration.
+The one-step transition relation $\rightsquigarrow$ will relate a configuration(expression and state) either to (1) another configuration of which its results are used for the evaluation of the first configuration, or to (2) the final result.
 
 Prior to defining this relation, the semantic domains must be set up.
 As is common in defining dynamics for call-by-value lambda calculus, one must define \emph{environments} to record what values were bound to variables.
@@ -248,44 +252,40 @@ Also, we present the notational conventions used in this paper to represent memb
 \begin{figure}[htb]
   \centering
   \footnotesize
-  \begin{tabular}{rccll}
-    Time                         & $t$    & $\in$         & $\Time$                                                                                                  \\
-    Environment/Context          & $C$    & $\in$         & $\Ctx\Time$                                                                                              \\
-    Value of expressions         & $v$    & $\in$         & $\Value\Time \triangleq \Expr\times\Ctx\Time$                                                            \\
-    Value of expressions/modules & $V$    & $\in$         & $\Value{\Time}+\Ctx{\Time}$                                                                              \\
-    Memory                       & $\mem$ & $\in$         & $\Mem{\Time} \triangleq \fin{\Time}{\Value{\Time}}$                                                      \\
-    State                        & $s$    & $\in$         & $\State{\Time} \triangleq \Ctx{\Time}\times\Mem{\Time}\times\Time$                                       \\
-    Result                       & $r$    & $\in$         & $\Result{\Time} \triangleq (\Value{\Time}+\Ctx{\Time})\times\Mem{\Time}\times\Time$                      \\
-    Context                      & $C$    & $\rightarrow$ & []                                                                                  & empty stack        \\
-                                 &        & $\vbar$       & $(x,t)\cons C$                                                                      & expression binding \\
-                                 &        & $\vbar$       & $(M,C)\cons C$                                                                      & module binding     \\
-    Value of expressions         & $v$    & $\rightarrow$ & $\langle \lambda x.e, C \rangle$                                                    & closure
+  \begin{tabular}{rrcll}
+    Time                         & $t$     & $\in$         & $\Time$                                                                                                       \\
+    Environment/Context          & $C$     & $\in$         & $\Ctx(\Time)$                                                                                                 \\
+    Value of expressions         & $v$     & $\in$         & $\Value(\Time) \triangleq \Expr\times\Ctx(\Time)$                                                             \\
+    Value of expressions/modules & $V$     & $\in$         & $\Value(\Time)\uplus\Ctx(\Time)$                                                                              \\
+    Memory                       & $\mem$  & $\in$         & $\Mem(\Time) \triangleq \fin{\Time}{\Value(\Time)}$                                                           \\
+    State                        & $s$     & $\in$         & $\State(\Time) \triangleq \Ctx(\Time)\times\Mem(\Time)\times\Time$                                            \\
+    Result                       & $r$     & $\in$         & $\Result(\Time) \triangleq (\Value(\Time)\uplus\Ctx(\Time))\times\Mem(\Time)\times\Time$                      \\
+    Tick                         & $\tick$ & $\in$         & $\Tick(\Time)\triangleq(\State(\Time)\times\ExprVar\times\Value(\Time))\rightarrow\Time$                      \\
+    Context                      & $C$     & $\rightarrow$ & []                                                                                       & empty stack        \\
+                                 &         & $\vbar$       & $(x,t)\cons C$                                                                           & expression binding \\
+                                 &         & $\vbar$       & $(M,C)\cons C$                                                                           & module binding     \\
+    Value of expressions         & $v$     & $\rightarrow$ & $\langle \lambda x.e, C \rangle$                                                         & closure
   \end{tabular}
   \caption{Definition of the semantic domains.}
 \end{figure}
 
-Above, there are no constraints placed upon the set $\Time$.
-Now we give the conditions that the concrete time domain must satisfy.
+Note that $\State(\Time)\subseteq\Result(\Time)$.
+This is because the results from modules are the states that they export.
+Later on, when we define predicates on results, it is to be understood that their definition applies to states as well.
 
-\begin{definition}[Concrete time]
-  $(\Time, \le, \tick)$ is a \emph{concrete time} when
-  \begin{enumerate}
-    \item $(\Time, \le)$ is a total order.
-    \item $\tick : \Ctx{\Time}\rightarrow\Mem{\Time}\rightarrow\Time\rightarrow\ExprVar\rightarrow\Value{\Time}\rightarrow\Time$ satisfies:
-          \[\forall t\in\Time: t < \tick\:\_\:\_\:t\:\_\:\_\]
-  \end{enumerate}
-\end{definition}
-The time $\tick\:C\:\mem\:t\:x\:v$ is the time that is incremented when the value $v$ is bound to a variable $x$ at time $t$ under context $C$ and memory $m$.
+Also, note that we have defined a domain $\Tick(\Time)$ which is comprised of functions that receive a state, a variable, and a value and returns a timestamp.
+As can be inferred from the name of the domain, a $\tick\in\Tick(\Time)$ is the policy that the designer of the analysis chooses to represent the concrete flow of the program.
+The time $\tick(s,x,v)$ is the time that is incremented when the value $v$ is bound to a variable $x$ under state $s$.
+Naturally, our definition of the one-step transition relation is parametrized by the choice of $\tick$.
 
-Why must the $\tick$ function for the concrete time take in $C, m, t, x, v$?
-This is for the purpose of program analysis.
-For program analysis, the analysis designer must think of an \emph{abstract} tick operator that \emph{simulates} its concrete counterpart.
+Why does the $\tick$ function for the concrete time take in $s, x, v$?
+This is a suggestion to the analysis designer.
+For program analysis, the designer must think of an \emph{abstract} tick operator that \emph{simulates} its concrete counterpart.
 If the concrete tick function is not able to take into account the environment that the time is incremented, the abstraction of the tick function will not be able to hold much information about the execution of the program.
 
 Now for the auxiliary operators that is used when defining the evaluation relation.
-We define the function that extracts the address for an $\ExprVar$,
-and the function that looks up the dynamic context bound to a $\ModVar$ $M$.
-
+We define the function that extracts the address for an value id $x$,
+and the function that looks up the dynamic context bound to a module id $M$.
 \begin{figure}[h!]
   \centering
   \footnotesize
@@ -310,15 +310,16 @@ and the function that looks up the dynamic context bound to a $\ModVar$ $M$.
 \end{figure}
 
 \subsubsection{The Relation}
-
-Now we are in a position to define the one-step reachability relation.
-The relation $\rightsquigarrow$ relates $(e,C,\mem,t)\in\Expr\times\State{\Time}$ with either
-$(V,\mem,t)\in\Result{\Time}$ or $(e',C',\mem',t')$.
-Note that we constrain whether an expression returns $v$ or $C$ by the definition of $\rightsquigarrow$.
+Now we define the one-step transition relation.
+The relation $\rightsquigarrow_\tick$ relates $(e,C,\mem,t)\in\Expr\times\State(\Time)$ with either
+$(V,\mem,t)\in\Result(\Time)$ or the next expression and state, when $\tick$ is used to increment the time.
+Note that we constrain whether an expression returns $v$ or $C$ by the definition of $\rightsquigarrow_\tick$.
+The complete definition for the relation is given in Fig. \ref{fig:concreach}.
+Also, the equivalence of the relation with a reference interpreter is formalized in Coq.
 
 \begin{figure}[h!]
   \begin{flushright}
-    \fbox{$(e,C,\mem,t)\rightsquigarrow(V,\mem',t')/(e',C',\mem',t')$}
+    \fbox{$(e,C,\mem,t)\rightsquigarrow_\tick(V,\mem',t')\text{ or }(e',C',\mem',t')$}
   \end{flushright}
   \vspace{0pt} % -0.75em}
   \footnotesize
@@ -380,7 +381,7 @@ Note that we constrain whether an expression returns $v$ or $C$ by the definitio
       \infer[left label={AppBody}]1{
       (e_{1}\:e_{2}, C, \mem, t)
       \rightsquigarrow
-      (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick\:C\:\mem_{a}\:t_{a}\:x\:v)
+      (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick((C,\mem_{a},t_{a}),x,v))
       }
     \end{prooftree}
   \]
@@ -395,7 +396,7 @@ Note that we constrain whether an expression returns $v$ or $C$ by the definitio
           (e_{2}, C, \mem_{\lambda}, t_{\lambda})
           \rightsquigarrow
           (v, \mem_{a}, t_{a})                                                            \\
-          (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick\:C\:\mem_{a}\:t_{a}\:x\:v)
+          (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick((C,\mem_{a},t_{a}),x,v))
           \rightsquigarrow
           (v', \mem',t')
         \end{matrix}
@@ -489,7 +490,7 @@ Note that we constrain whether an expression returns $v$ or $C$ by the definitio
       \infer[left label=LetER]1{
       (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
       \rightsquigarrow
-      (e_{2}, (x, t')\cons C, \mem'[t'\mapsto v], \tick\:C\:\mem'\:t'\:x\:v)
+      (e_{2}, (x, t')\cons C, \mem'[t'\mapsto v], \tick((C,\mem',t'),x,v))
       }
     \end{prooftree}
   \]
@@ -525,7 +526,7 @@ Note that we constrain whether an expression returns $v$ or $C$ by the definitio
           (e_{1}, C, \mem, t)
           \rightsquigarrow
           (v, \mem', t') \\
-          (e_{2}, (x, t')\cons C, \mem'[t'\mapsto v], \tick\:C\:\mem'\:t'\:x\:v)
+          (e_{2}, (x, t')\cons C, \mem'[t'\mapsto v], \tick((C,\mem',t'),x,v))
           \rightsquigarrow
           (C', \mem'', t'')
         \end{matrix}
@@ -554,42 +555,101 @@ Note that we constrain whether an expression returns $v$ or $C$ by the definitio
       }
     \end{prooftree}
   \]
-  \caption{The concrete one-step reachability relation.}
+  \caption{The concrete one-step transition relation. The subscript $\tick$ is omitted for brevity.}
   \label{fig:concreach}
 \end{figure}
 
-The complete definition for the relation is given in Fig. \ref{fig:concreach}.
-Also, the equivalence of the relation with a reference interpreter is formalized in Coq.
+Our definition of $\rightsquigarrow_\tick$ is parametrized by the choice of $\Time$, and the choice of $\tick$.
+Note that without putting some constraints on the behavior of $\tick$, the semantics might not agree with what is conventionally accepted as an operational semantics for the lambda calculus, such as the CESK machine.
+That is, the $\tick$ function must produce \emph{fresh} timestamps.
+To ensure that $\tick$ is well-behaved, we always assume that: (1) $\tick$ produces a strictly larger timestamp, and (2) all reachable addresses are bound by the current time.
+The first guarantee is formalized by:
+\begin{definition}[Concrete time]
+  $(\Time, \le, \tick)$ is a \emph{concrete time} when
+  \begin{enumerate}
+    \item $(\Time, \le)$ is a total order.
+    \item $\tick\in\Tick(\Time)$ satisfies: $\forall t\in\Time:t <\tick((\_,\_,t),\_,\_)$
+  \end{enumerate}
+\end{definition}
+and the second guarantee is formalized by:
+\begin{definition}[Time-boundedness]
+  All $(V,\mem,t)\in\Result(\Time)$ satisfies $V < t$ and $\mem < t$, when:
+  \[
+    \begin{array}{cc}
+      C < t\triangleq
+      \begin{cases}
+        \mathsf{True}        & C=[]              \\
+        t' < t\wedge C' < t  & C=(x,t')\cons C'  \\
+        C' < t\wedge C'' < t & C=(M,C')\cons C''
+      \end{cases}
+       &
+      \begin{array}{l}
+        V < t\triangleq
+        \begin{cases}
+          C < t & V=\langle\_,C\rangle \\
+          C < t & V=C
+        \end{cases} \\
+        \mem < t\triangleq\forall t'\in\mathsf{dom}(\mem):t'<t\wedge\mem(t') < t
+      \end{array}
+    \end{array}
+  \]
+\end{definition}
+
+The above two definitions ensure that $\tick$ allocates fresh timestamps.
+That is, it does not matter what $\tick$ you choose to instantiate $\rightsquigarrow$ as long as it satisfies our simple requirement.
+Still, how do we formalize this notion, that the choice of $\tick$ is ``irrelevent'' in formulating the semantics?
+We first define what it means for two results(and states) to be isomorphic, and prove that for equivalent initial states, all reachable configurations are isomorphic, \emph{no matter what} $\tick$ is used.
+
+\begin{definition}[Isomorphic results]
+  Let $r=(V,\mem,t)\in\Result(\Time)$ and $r'=(V',\mem',t')\in\Result(\Time')$.
+  We say $r$ is \emph{isomorphic} to $r'$ and write $r\cong r'$ when there exists $f:\Time\rightarrow\Time'$ and $g:\Time'\rightarrow\Time$ such that
+  $f(V)=V'\wedge f\circ\mem=\mem'\circ f\wedge f(t)=t'$ and $g(V')=V\wedge g\circ\mem'=\mem\circ g\wedge g(t')=t$.
+  $f(V)$ is defined by mapping $f$ over all timestamps in the context part of $V$.
+\end{definition}
+
+$f$ and $g$ in the above definition serves to translate timestamps from one time domain to another, and since the results have the same structure, the translations must be the same.
+Naturally, this definition can be extended between $\ell\in\Left\triangleq\Expr\times\State(\Time)$, which is the \textbf{l}eft-hand-side of $\rightsquigarrow$, and $\rho\in\Right\triangleq\Left\cup\Result(\Time)$, which is the \textbf{r}ight-hand-side.
+That is, we say that $\ell\cong\ell'$ when the expression parts are equal and the state parts are isomorphic, and
+$\rho\cong\rho'$ follows directly, since $\rho\in\Left$ or $\rho\in\Result(\Time)$.
+Now we state what it means for the $\tick$ function to be irrelevent.
+
+\begin{thm}[Irrelevence of $\tick$]
+  Let $s\in\State(\Time)$ and $s'\in\State(\Time')$.
+  If $s\cong s'$, then:
+  \[\forall\tick,\tick',e,\rho:(e,s)\rightsquigarrow_\tick\rho\Rightarrow\exists\rho':(e,s')\rightsquigarrow_{\tick'}\rho'\wedge\rho\cong\rho'\]
+\end{thm}
+
+The above theorem suggests (1) $\rightsquigarrow_\tick$ is well-defined, and (2) no matter what $\Time$ and $\tick$ we approximate in our analysis, the results will be valid in the sense that it models all concrete executions starting from an isomorphic initial state.
+For example, in the common case when one would like to analyze an expression evaluated starting from $([],\varnothing,0)$, any instantiation of $\Time$ or $\tick$ will be meaningful.
+Moreover, later on, when we describe concrete linking, we link two states to obtain a state \emph{isomorphic} to what is exported from an external module.
+Theorem 2.1 provides the reason why such a process is acceptable in describing the semantics of a linked expression.
 
 \subsection{Collecting Semantics}
 
 For program analysis, we need to define a collecting semantics that captures the strongest property we want to model.
 In the case of modular analysis, we need to collect \emph{all} intermediate nodes in the proof tree when trying to prove what the initial configuration evaluates to.
-Consider the case when $\link{e_1}{e_2}$ is evaluated under state $s$.
+Consider the case when $\link{e_1}{e_2}$ is evaluated from state $s$.
 Since $e_2$ has free variables that are exported by $e_1$, separately analyzing $e_2$ will result in an incomplete proof tree.
-What it means to separately analyze, then link two expressions $e_1$ and $e_2$ is to (1) compute what $e_1$ will export to $e_2$ (2) partially compute the proof tree for $e_2$, and (3) inject the exported context into the partial proof to complete the execution.
+What it means to separately analyze, then link two expressions $e_1$ and $e_2$ is to (1) compute what $e_1$ will export to $e_2$, (2) partially compute the proof tree for $e_2$, and (3) inject the exported context into the partial proof to complete the execution.
 
 What should be the \emph{type} of the collecting semantics?
 The analysis must keep track of all configurations that were reached along with the results computed from the intermediate configurations, thus it must be a set that collects all those elements.
-Concretely, the collecting semantics $\sembracket{e}(s)$ of an expression $e$ evaluated under initial state $s$ must be a \emph{subset} of $(L\times R)\cup R$, when $L=\Expr\times\State{\Time}$ is the \textbf{l}eft-hand-side of $\rightsquigarrow$, and $R=L\cup\Result{\Time}$ is the \textbf{r}ight-hand-side.
-Later on, when we link a context in $\Time_1$ with the semantics in $\Time_2$, we shall write $L_i$ for $\Expr\times\State{\Time_i}$, and $R_i$ for $L_i\cup\Result{\Time_i}$.
-Also, we shall write $\ell$ for an element of $L$, and $\rho$ for an element of $R$.
-
-\subsubsection{Formulating semantics in terms of a fixpoint}
+Concretely, the collecting semantics $\sembracket{e}S$ of an expression $e$ evaluated under initial conditions in $S\subseteq\State(\Time)\times\Tick(\Time)$ must be a subset of $(\Left\times\Tick(\Time)\times\Right )\cup(\Right\times\Tick(\Time))$, when $\Left$ and $\Right$ are the left and right sides of $\rightsquigarrow_\tick$ as defined in the previous subsection, and $\Tick(\Time)$ specifies what $\tick$ is used.
 
 To define a semantics that is computable, we must formulate the collecting semantics as a least fixed point of a monotonic function that maps an element of some CPO $D$ to $D$.
-In our case, $D=\wp((L\times R)\cup R)$ as defined previously.
-Defining the transfer function is straightforward from the definition of the reachability relation.
+In our case, $D=\wp((\Left\times\Tick(\Time)\times\Right )\cup(\Right\times\Tick(\Time)))$ as defined previously.
+Defining the transfer function is straightforward from the definition of the transition relation.
 
 \begin{definition}[Transfer function]
-  Given $A\subseteq (L\times R)\cup R$, define
+  Given $A\subseteq(\Left\times\Tick(\Time)\times\Right )\cup(\Right\times\Tick(\Time))$, define
   \[
     \mathsf{Step}(A)\triangleq
-    \left\{\ell\rightsquigarrow\rho, \rho|
-    A'\subseteq A\wedge\ell\in A\wedge
+    \left\{\ell\rightsquigarrow_\tick\rho, (\rho,\tick)|
     \begin{prooftree}[center=true]
-      \hypo{A'}\infer1{\ell\rightsquigarrow \rho}
-    \end{prooftree}\right\}
+      \hypo{A'}\infer1{\ell\rightsquigarrow_\tick\rho}
+    \end{prooftree}\wedge
+    A'\subseteq A\wedge(\ell,\tick)\in A
+    \right\}
   \]
 \end{definition}
 
@@ -597,197 +657,207 @@ The $\mathsf{Step}$ function is naturally monotonic, as a ``cache'' $A$ that rem
 Now, because of Tarski's fixpoint theorem, we can formulate the collecting semantics in fixpoint form.
 \begin{definition}[Concrete semantics]
   \[
-    \sembracket{e}(s)\triangleq\mathsf{lfp}(\lambda X.\mathsf{Step}(X)\cup\{(e,s)\})
+    \sembracket{e}S\triangleq\mathsf{lfp}(\lambda X.\mathsf{Step}(X)\cup\{((e,s),\tick)|(s,\tick)\in S\})
   \]
 \end{definition}
-For convenience, we shall write $\sembracket{e}(t)$ instead of $\sembracket{e}([],\varnothing,t)$.
-\section{Concrete linking}
+We extend $\cong$ to a relation between two caches $A\subseteq(\Left\times\Tick(\Time)\times\Right )\cup(\Right\times\Tick(\Time))$ and $A'\subseteq(\Left\times\Tick(\Time')\times\Right )\cup(\Right\times\Tick(\Time'))$ to mean that: (1) $\forall(\rho,\_)\in A:\exists(\rho',\_)\in A':\rho\cong\rho'$ and vice versa, and (2) $\forall\ell\rightsquigarrow\rho\in A:\exists\ell'\rightsquigarrow\rho'\in A':\ell\cong\ell'\wedge\rho\cong\rho'$ and vice versa.
+It is clear from Theorem 2.1 that if $S\cong S'$, then $\sembracket{e}S\cong\sembracket{e}S'$.
 
-To prepare for modular analysis, we need to be able to paste together the semantics of $e_1$ and $e_2$ to obtain the semantics of $\link{e_1}{e_2}$.
-Why do we need to define linking on the level of the concrete semantics?
-This is because for separate analysis, $e_1$ and $e_2$ must be analyzed in separate abstract time domains $\ATime_1$ and $\ATime_2$, which are sound approximations of \emph{concrete} $\Time_1$ and $\Time_2$ domains.
-To elaborate, since the abstract tick must be a sound approximation of the concrete tick, for the analysis to be sound the \emph{initial time} must approximate the concrete initial time.
-If a single abstract time and concrete time domain is used, it means that the analysis of $e_2$ must start from an abstract time that approximates the time that $e_1$ exports to $e_2$.
-This is against the idea of separate analysis; we want to analyze the behavior of $e_2$ without running $e_1$ beforehand.
-Therefore, we need to define a way to link the concrete time domains that allows the analysis of $e_1$ and $e_2$ to approximate the concrete execution without looking at the final time of $e_1$.
+\section{Concrete Linking}
 
-Now assume that we have computed $\sembracket{e_1}(0_1)$ and $\sembracket{e_2}(0_2)$, when $0_i$ are the initial times in $\Time_i$.
-What we want to define is a $\tick_+$ function on $\Time_1\times\Time_2$ that:
-\begin{enumerate}
-  \item Increments $(0_1,0_2)$ up to $(t_1,0_2)$, when $t_1\in\Time_1$ is the final timestamp of $\sembracket{e_1}(0_1)$.
-  \item Increments $(t_1,0_2)$ up to $(t_1,t_2)$, when $t_2\in\Time_2$ is the largest timestamp that can be computed \emph{without} knowing about what $e_1$ exports to $e_2$.
-\end{enumerate}
+Before we go into definitions, we would like to make our objectives clear.
+Assume we want to analyze $\link{e_1}{e_2}$ under initial condition $S$.
+Normally, the final results of $\link{e_1}{e_2}$ are calculated by first calculating the results for $e_1$ under $S$, which is exported to $e_2$, then calculating the results for $e_2$ under the exported states.
+That is, if we write $|\sembracket{e}S|$ for the final results of $e$ under $S$, $|\sembracket{\link{e_1}{e_2}}S|=|\sembracket{e_2}|\sembracket{e_1}S||$.
 
-To satisfy the above constraints, the $\tick_+$ function has to use the $\tick_1$ function to increment the first timestamp when the first timestamp is less than $t_1$.
-Also, in the case that the first timestamp is greater or equal to $t_1$, the second timestamp is incremented by $\tick_2$ under the context and memory that is \emph{removed} of the exported context.
+Instead, what we want to do is to calculate a part of $\sembracket{e_2}|\sembracket{e_1}S|$ \emph{in advance}, then fill in the blanks later to obtain $|\sembracket{\link{e_1}{e_2}}S|$.
+Since we do not know what $|\sembracket{e_1}S|$ will be, we must \emph{assume} an initial state $S_2$ for $e_2$, which must be isomorphic to a \emph{fragment} of what $e_1$ will export to $e_2$.
+For example, if we assume that when $e_1$ returns, the identifier \texttt{id} is bound to $\langle\lambda x.x,[]\rangle$, $S_2$ will be something like $\{((\mathtt{id},0)\cons[],\{0\mapsto\langle\lambda x.x,[]\rangle\},1)\}$.
 
-What does it mean that the exported context should be \emph{removed}?
-The second timestamp is assumed to be incremented separately, using $\tick_2$, under the empty context.
-However, under the linked time $\Time_1\times\Time_2$, first $(e_1,[],\varnothing,(0_1,0_2))\rightsquigarrow(C_1,\mem_1,(t_1,0_2))$ is computed, and only then is $0_2$ incremented under $C_1,\mem_1$.
-For $\tick_+$ to produce the same timestamps produced by $\tick_2$ under the empty initial conditions, $C_1$ has to be dug out from the bottom of the stack and $\mem_1$ must be filtered out.
-Filtering out $\mem_2$ is easy to do; just ignore addresses with a timestamp different from $t_1$ in the first time component.
-Digging out $C_2$ from the stack needs more consideration.
+So we first analyze $\sembracket{e_2}S_2$.
+Later on, after we have calculated $|\sembracket{e_1}S|$, we check if our assumption is \emph{guaranteed}.
+That is, we check if $|\sembracket{e_1}S|\cong S_1\rhd S_2$, when $S_1\rhd S_2$ means that $|\sembracket{e_1}S|$ can be {separated} as the {injection}($\rhd$) of some $S_1$ into our assumed $S_2$.
+Then, we {link}($\semlink$) the missing part $S_1$ with the separately analyzed $\sembracket{e_2}S_2$ to obtain the final result for $\link{e_1}{e_2}$.
+Thus our main theorem will be:
+\begin{thm}[Concrete Linking] For $S\subseteq\State(\Time)\times\Tick(\Time)$ and $S_i\subseteq\State(\Time_i)\times\Tick(\Time_i)$,
+  \[
+    |\sembracket{\link{e_1}{e_2}}S|\cong|S_1\semlink\sembracket{e_2}S_2|
+  \]
+  where $|\sembracket{e_1}S|\cong S_1\rhd S_2$.
+\end{thm}
 
-To determine what parts of the stack should be deleted, we need to be able to describe what $C$ will look like if it started from $C_2$, not from $[]$.
-That is, we need to determine the injection operator $\inject{C_1}{C}$ that satisfies:
-if $(e_2,0_2)\rightsquigarrow^*(e,C,\mem,t)$, then $(e_2,C_1,\varnothing,0_2)\rightsquigarrow^*(e,\inject{C_1}{C},\inject{C_1}{\mem},t)$ with $\tick_+$, when $\rightsquigarrow^*$ is the reflexive and transitive closure of $\rightsquigarrow$.
-The notation $\inject{C_1}{\mem}$ means that the context $C_1$ is injected into all closures in $\mem$.
+Now, to formalize the above theorem, we need to define (1) what $|\sembracket{e}S|$ is, (2) what $S_1\rhd S_2$ is, and (3) what $S_1\semlink A_2$ is.
+The first definition is straightforward: $|\sembracket{e}S|\triangleq\{r|(e,\_)\rightsquigarrow r\in\sembracket{e}S\}$, and we understand $|S_1\semlink\sembracket{e}S_2|$ to be $\{r|(e,\_)\rightsquigarrow r\in S_1\semlink\sembracket{e}S_2\}$.
+The definitions for the injection and (semantic) linking operators need more consideration.
 
+\subsection{Injection and Deletion}
+We want to define what it means to \emph{inject} an external $S_1\subseteq\State(\Time_1)\times\Tick(\Time_1)$ into an assumed $S_2\subseteq\State(\Time_2)\times\Tick(\Time_2)$.
+Naturally, we must first define elementwise injection $\rhd$ between $(s_1,\tick_1)\in S_1$ and $(s_2,\tick_2)\in S_2$ and map this over all pairs in $S_1\times S_2$.
+What properties must $(s_+,\tick_+)=(s_1,\tick_1)\rhd(s_2,\tick_2)$ satisfy?
+
+Consider the case when we did not assume anything, that is, when $s_2=([],\varnothing,0)$.
+Then first, we expect that $s_+\cong s_1$.
+Second, the $\tick_+$ function under $s_+$ must preserve the transitions made by $\tick_2$ under $s_2$.
+That is, if $(e,s_2)\rightsquigarrow_{\tick_2}^*(e',s_2')$, then $(s_+',\tick_+')=(s_1,\tick_1)\rhd(s_2',\tick_2)$ must satisfy
+$\tick_+=\tick_+'$ and $(e,s_+)\rightsquigarrow_{\tick_+}^*(e',s_+')$, when $R^*$ means the reflexive and transitive closure of a relation $R$.
+This is because we want all transitions after injecting the exported states into the semantics calculated in advance to be valid transitions.
+
+As the first step in defining $\rhd$, we first define the injection operator for contexts, when $\inject{C_1}{C_2}$ ``fills in the blank'' in $C_2$ with $C_1$.
+The deletion operator $\delete{C_1}{C_2}$, which ``digs out'' $C_1$ from $C_2$, is also defined.
+Why it is defined might not so be obvious here, but it is necessary to guarantee the second property we expect of $\rhd$.
 \begin{figure}[h!]
   \footnotesize
   \[
-    \mapinject{C_{1}}{C_{2}}\triangleq
+    \inject{C_{1}}{C_{2}}\triangleq
     \begin{cases}
-      []                                                 & C_{2}=[]              \\
-      (x, t)\cons\mapinject{C_{1}}{C'}                   & C_{2}=(x,t)\cons C'   \\
-      (M, \inject{C_{1}}{C'})\cons\mapinject{C_{1}}{C''} & C_{2}=(M,C')\cons C''
+      C_1                                             & C_{2}=[]              \\
+      (x, t)\cons\inject{C_{1}}{C'}                   & C_{2}=(x,t)\cons C'   \\
+      (M, \inject{C_{1}}{C'})\cons\inject{C_{1}}{C''} & C_{2}=(M,C')\cons C''
     \end{cases}
-    \qquad
-    \inject{C_{1}}{C_{2}}\triangleq \mapinject{C_{1}}{C_{2}}\doubleplus C_{1}
+    \delete{C_{1}}{C_{2}}\triangleq
+    \begin{cases}
+      []                                              & C_{2}=C_{1}\lor C_{2}=[] \\
+      (x,t)\cons\delete{C_{1}}{C'}                    & C_{2}=(x,t)\cons C'      \\
+      (M, \delete{C_{1}}{C'})\cons\delete{C_{1}}{C''} & C_{2}=(M, C')\cons C''
+    \end{cases}
   \]
-  \caption{Definition of the injection operator $\inject{C_1}{C_2}$.}
+  \caption{Definition of the injection operator $\inject{C_1}{C_2}$ and the deletion operator $\delete{C_1}{C_2}$.}
   \label{fig:concinject}
 \end{figure}
 
-The definition for the injection operator in our simple language is more complicated than expected.
-This is because when modules are bound to module identifiers under some imported context, the context that is bound \emph{automatically} includes that imported context.
-This is a consequence of the design choice to exclude signatures.
-In a language where signatures designate what variable bindings should be exported, the definition of the injection operator would be simply the list append operator $\doubleplus$.
-However, in our language when the injection has to \emph{map} over all module bindings, the injection operator is defined in a mutually recursive manner; one that maps the injection over all bindings($\mapinject{C_1}{C_2}$) and one that actually appends the stacks together($\inject{C_1}{C_2}$).
+Note that if we inject $C_1\in\Ctx(\Time_1)$ into $C_2\in\Ctx(\Time_2)$, we obtain $\inject{C_1}{C_2}\in\Ctx(\Time_1+\Time_2)$.
+Why the linked time is the separate sum of the two time domains is because we want to separate what came from outside and what was assumed.
+Then naturally, we expect $\tick_+$ to increment timestamps in $\Time_1+\Time_2$ by using $\tick_1$ for timestamps in $\Time_1$, and by using $\tick_2$ for timestamps in $\Time_2$.
+However, the context and memory will contain timestamps both in $\Time_1$ and $\Time_2$.
+Therefore, we need to define the filter operations $C.1$ and $C.2$ which selects only timestamps from the time domain of interest.
 
-Now, the definition for the deletion operator that \emph{digs out} the exported context can be naturally defined as the inverse operations of injection.
 \begin{figure}[h!]
   \footnotesize
   \[
-    \deletepre{C_{1}}{C_{2}}\triangleq
-    \begin{cases}
-      \deletepre{C_{1}'}{C_{2}'} & (C_{1},C_{2})=(C_{1}'\doubleplus[(x,t)],C_{2}'\doubleplus[(x,t)]) \\
-      \deletepre{C_{1}'}{C_{2}'} & (C_{1},C_{2})=(C_{1}'\doubleplus[(M,C)],C_{2}'\doubleplus[(M,C)]) \\
-      C_{2}                      & \text{otherwise}
-    \end{cases}
-  \]
-
-  \[
-    \deletemap{C_{1}}{C_{2}}\triangleq
-    \begin{cases}
-      []                                                 & C_{2}=[]               \\
-      (x,t)\cons\deletemap{C_{1}}{C'}                    & C_{2}=(x,t):: C'       \\
-      (M, \delete{C_{1}}{C'})\cons\deletemap{C_{1}}{C''} & C_{2}=(M, C')\cons C''
-    \end{cases}
-    \qquad
-    \delete{C_{1}}{C_{2}}\triangleq \deletemap{C_{1}}{\deletepre{C_{1}}{C_{2}}}
-  \]
-  \caption{Definition of the deletion operators.}
-  \label{fig:concdelete}
-\end{figure}
-
-The deletion operators satisfy $\deletepre{C_1}{(C_2\doubleplus C_1)}=C_2$, $\deletemap{C_1}{\mapinject{C_1}{C_2}}=C_2$, and $\delete{C_1}{\inject{C_1}{C_2}}=C_2$.
-
-Now only the filter operation has to be defined for the total definition of the $\tick_+$ function.
-Note that the linked time domain only uses timestamps of the form $(t,0_2)$ and $(t_1,t)$.
-Therefore, we are actually considering a linked time on a \emph{subset} of $\Time_1\times\Time_2$.
-For notational convenience, we write this subset as $\underline{\Time_1}\uplus\underline{\Time_2}$, when $\underline{\Time_1}\triangleq(\Time_1-\{t_1\})\times\{0_2\}$ and $\underline{\Time_2}\triangleq\{t_1\}\times\Time_2$.
-The filter operation in $\underline{\Time_1}\uplus\underline{\Time_2}$ must determine whether a timestamp is a member of $\underline{\Time_1}$ or $\underline{\Time_2}$, and project the timestamps onto the corresponding domains.
-\begin{figure}[h!]
-  \footnotesize
-  \[
-    \filter_i(C)\triangleq
-    \begin{cases}
-      []                                   & C=[]                                              \\
-      (x,t.i)\cons\filter_i(C')            & C=(x,t)\cons C'\wedge t\in\underline{\Time_i}     \\
-      \filter_i(C')                        & C=(x,t)\cons C'\wedge t\not\in\underline{\Time_i} \\
-      (M,\filter_i(C'))\cons\filter_i(C'') & C=(M, C')\cons C''
-    \end{cases}
+    \begin{array}{cc}
+      C.i\triangleq
+      \begin{cases}
+        []                  & C=[]                                    \\
+        (x,t)\cons C'.i     & C=(x,t)\cons C'\wedge t\in{\Time_i}     \\
+        C'.i                & C=(x,t)\cons C'\wedge t\not\in{\Time_i} \\
+        (M,C'.i)\cons C''.i & C=(M, C')\cons C''
+      \end{cases} &
+      \begin{array}{l}
+        V.i\triangleq
+        \begin{cases}
+          C.i                           & V=C                           \\
+          \langle\lambda x.e,C.i\rangle & V=\langle\lambda x.e,C\rangle
+        \end{cases} \\ \\
+        \mem.i\triangleq
+        \displaystyle\bigcup_{t\in\mathsf{dom}(\mem)\cap\Time_i}\{t\mapsto \mem(t).i\}
+      \end{array}
+    \end{array}
   \]
   \caption{Definition for the filter operations ($i=1,2$).}
   \label{fig:concfilter}
 \end{figure}
 
-From now on, we assume that all $(C,\mem,t)\in\State{\Time}$ satisfy the property that timestamps in $C$ and $\mem$ are strictly less than $t$.
-Now we can give the definition of the linked $\tick$ function:
-\begin{definition}[Concrete linking of time domains]
-  Given $(\Time_1,\le_1,\tick_1)$ and $(\Time_2,\le_2,\tick_2)$,
-
-  \begin{itemize}
-    \item Define $\le_+$ as the lexicographic order on $\Time_1\times\Time_2$.
-    \item Given $s_1=(C_1,\mem_1,t_2)\in\State{\Time_1}$, define the ${\tick_{+}}({s_1})$ function as:
-          \[
-            \tick_{+}({s_1})({C},\mem,{t},x,{v})\triangleq
-            \begin{cases}
-              (\tick_1\:\filter_1(C,\mem,t,x,v), 0_2)                     & t\in\underline{\Time_1} \\
-              (t_1,\tick_2\:\filter_2(\delete{{C_1}}{C,\mem, {t},x,{v}})) & t\in\underline{\Time_2}
-            \end{cases}
-          \]
-          when all timestamps in $C_1$ are lifted to $\underline{\Time_1}\uplus\underline{\Time_2}$.
-  \end{itemize}
-
-  Then we call the concrete time $(\underline{\Time_1}\uplus\underline{\Time_2},\le_+,\tick_{+}({s_1}))$ the linked time when $s_1$ is exported.
+Now we give the definition for $\rhd$.
+\begin{definition}[Filling in the Blanks]
+  Let $s_1=(C_1,\mem_1,t_1)\in\State(\Time_1)$ and $r_2=(V_2,\mem_2,t_2)\in\Result(\Time_2)$. Then we define:
+  \[
+    \begin{array}{cc}
+      \inject{C_1}{V_2}\triangleq
+      \begin{cases}
+        \inject{C_1}{C_2}                           & V_2=C_2                            \\
+        \langle\lambda x.e,\inject{C_1}{C_2}\rangle & V_2=\langle\lambda x.e, C_2\rangle
+      \end{cases} &
+      \begin{array}{l}
+        \inject{C_1}{\mem_2}\triangleq
+        \displaystyle\bigcup_{t\in\mathsf{dom}(\mem_2)}\{t\mapsto\inject{C_1}{\mem_2(t)}\} \\
+        \inject{s_1}{r_2}\triangleq
+        (\inject{C_1}{V_2},\mem_1\cup\inject{C_1}{\mem_2},t_2)
+      \end{array}
+    \end{array}
+  \]
 \end{definition}
 
-We must prove that $\tick_+(s_1)$ indeed satisfies the properties described in the start of this section.
-To formulate this intuition, we need to extend the injection operator to an operator $\rhd$ that injects a configuration from $\Time_1$ to a result in $\Time_2$.
-\begin{definition}[Injection of a configuration : $\rhd$]
-  $\:$
+Note that $\inject{s_1}{r_2}\in\Result(\Time_1+\Time_2)$ is time-bounded if we define the order relation on $\Time_1+\Time_2$ as $t_1<t_2$ for all $t_1\in\Time_1$ and $t_2\in\Time_2$.
+Also, we define $\delete{C_1}{V_2}$ and $\delete{C_1}{\mem_2}$ analogously to injection.
+Now we only have to define $\tick_+$ which preserves the separate transitions even after injection.
 
-  Given ${s}=({C_1},{\mem_1},{t_1})\in\State{\Time_1}$ and ${r}=({V_2},{\mem_2},t_2)\in\Result{\Time_2}$,
-  define $s\rhd m_2$ and $s\rhd r$ as:
+\begin{definition}[Injection]
+  Let $(s_1,\tick_1)\in\State(\Time_1)\times\Tick(\Time_1)$ and $(r_2,\tick_2)\in\Result(\Time_2)\times\Tick(\Time_2)$.
+  We define $(s_1,\tick_1)\rhd(r_2,\tick_2)\triangleq(\inject{s_1}{r_2},\tick_+)\in\Result(\Time_1+\Time_2)\times\Tick(\Time_1+\Time_2)$, when $\tick_+$ is given by:
   \[
-    s\rhd m_2\triangleq
-    \lambda t.
+    \tick_+((C,\mem,t),x,v)\triangleq
     \begin{cases}
-      m_1(t.1)               & t\in\underline{\Time_1} \\
-      \inject{C_1}{m_2(t.2)} & t\in\underline{\Time_2}
+      \tick_1((C.1,\mem.1,t),x,v.1)                                           & t\in\Time_1 \\
+      \tick_2((\delete{C_1}{C}.2,\delete{C_1}{\mem}.2,t),x,\delete{C_1}{v}.2) & t\in\Time_2
     \end{cases}
-    \qquad
-    s\rhd r\triangleq
-    (\inject{C_1}{V_2},s\rhd m_2,t_2)
-  \]
-  assuming that all timestamps $t\in\Time_1$ is lifted to $(t,0_2)$ and all timestamps $t\in\Time_2$ is lifted to $(t_1,t)$.
-
-  Furthermore, when $\ell=(e,s')\in L_2$, and $A\subseteq (L_2\times R_2)\cup R_2$, we define:
-  \[
-    s\rhd\ell\triangleq(e,s\rhd s')\qquad
-    {s}\rhd{A}\triangleq\{s\rhd\rho|\rho\in A\}\cup\{s\rhd\ell\rightsquigarrow s\rhd\rho|\ell\rightsquigarrow\rho\in A\}
   \]
 \end{definition}
 
-We shall omit $s_1$ and simply call the linked $\tick$ function as $\tick_+$ when the exported state $s_1$ is clear from the context.
-More specifically, it is to be understood that $\tick_+(s_1)$ is used when computing $\sembracket{e}(s_1\rhd s_2)$.
-Then we can prove that the $\tick_+$ function is indeed \emph{well-defined}.
+Since $\tick_+$ digs out $C_1$ from the memory and context, timestamps produced by $\tick_+$ after injection will look at only the parts before injection.
+Thus, it will produce the same timestamps that were produced by $\tick_2$ under $S_2$.
+This is why transitions after injection are valid as transitions under injected time.
 
-\begin{lem}[Injection preserves timestamps under linked time]
+\subsection{Semantic Linking}
+\begin{figure}[h!]
+  \footnotesize
+  \begin{align*}
+    (s_1,\tick_1)\rhd(\rho_2,\tick_2)                         & \triangleq
+    \begin{cases}
+      (r_+,\tick_+)     & \rho_2=r_2\wedge(r_+,\tick_+)=(s_1,\tick_1)\rhd(r_2,\tick_2)            \\
+      ((e,s_+),\tick_+) & \rho_2=\ell_2=(e,s_2)\wedge(s_+,\tick_+)=(s_1,\tick_1)\rhd(s_2,\tick_2)
+    \end{cases} \\
+    (s_1,\tick_1)\rhd(\ell_2\rightsquigarrow_{\tick_2}\rho_2) & \triangleq
+    \ell_+\rightsquigarrow_{\tick_+}\rho_+                                                      \\
+                                                              & \text{ where }
+    (\ell_+,\tick_+)=(s_1,\tick_1)\rhd(\ell_2,\tick_2)\wedge
+    (\rho_+,\tick_+)=(s_1,\tick_1)\rhd(\rho_2,\tick_2)
+  \end{align*}
+  \caption{Extension of $\rhd$ to define injection into a cache.}
+  \label{fig:extinject}
+\end{figure}
+Now we need to define the semantic linking operator $\semlink$.
+More specifically, we must define $S_1\semlink A_2$, when $S_1\subseteq\State(\Time_1)\times\Tick(\Time_1)$ and $A_2\subseteq(\Left_2\times\Tick(\Time_2)\times\Right_2)\cup(\Right_2\times\Tick(\Time_2))$.
+Remember that $A_2$ is the separately computed semantics, and $S_1$ is what was missing.
+Thus, we must first inject all $(s_1,\tick_1)\in S_1$ into $(\rho_2,\tick_2),\ell_2\rightsquigarrow_{\tick_2}\rho_2\in A_2$.
+The definition for elementwise injection into a cache is given in Fig. \ref{fig:extinject}.
+Next, since we have gained new information about the external environment, we must collect more that can be gleaned from $S_1$.
+Thus, the definition of semantic linking is as follows:
+\begin{definition}[Semantic Linking]
+  Let $S_1\subseteq\State(\Time_1)\times\Tick(\Time_1)$ and $A_2\subseteq(\Left_2\times\Tick(\Time_2)\times\Right_2)\cup(\Right_2\times\Tick(\Time_2))$.
+  Then:
   \[
-    \forall s\in\State{\Time_1},s'\in\State{\Time_2}:{s}\rhd{\sembracket{e}}({s'})\subseteq{\sembracket{e}}({s}\rhd{s'})
+    S_1\semlink A_2\triangleq
+    \mathsf{lfp}(\lambda X.\mathsf{Step}(X)\cup(S_1\rhd A_2))
+  \]
+\end{definition}
+
+Since we defined $\rhd$ and thus $\semlink$ well, we have the following property:
+\begin{lem}[Advance]
+  Let $S_1\subseteq\State(\Time_1)\times\Tick(\Time_1)$ and $S_2\subseteq\State(\Time_2)\times\Tick(\Time_2)$. Then:
+  \[
+    \sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2
   \]
 \end{lem}
+This means that we can compute part of $\sembracket{e}S$ in \emph{advance}, when $S$ is {separable} into $S_1\rhd S_2$, by $\sembracket{e}S_2$, then link $S_1$ later to obtain the full semantics.
+Thus our main theorem follows directly: since $|\sembracket{e_1}S|\cong S_1\rhd S_2$(separability), 
+\[
+|\sembracket{\link{e_1}{e_2}}S|=|\sembracket{e_2}|\sembracket{e_1}S||\cong|\sembracket{e_2}(S_1\rhd S_2)|=|S_1\semlink\sembracket{e_2}S_2|
+\]
+when the first equality is from the definition of $|\sembracket{e}S|$, $\cong$ is due to the separability assumption and irrelevence of $\tick$, and the final equality is due to the advance lemma.
 
-Now, as promised, we present how to link the semantics to obtain the semantics under linked time.
-To streamline the presentation, we introduce more notation that captures what is needed when pasting together separate parts of a linked expression.
-First, we write $\underline{e}(s)\triangleq\{r|(e,s)\rightsquigarrow r\}$ to denote the final value $(e,s)$ evalates to.
-Note that if $e$ is a module, $\underline{e}(s)$ is the state that $e$ exports.
-Second, we write $\sembracket{e}(S)\triangleq\bigcup_{s\in S}\sembracket{e}(s)$.
-This is used when $e_2$ imports $S=\underline{e_1}(s)$ from $e_1$.
-Third, we write $\ell\rightsquigarrow P\triangleq\{\ell,\ell\rightsquigarrow\rho|\rho\in P\}$.
-This is used when pasting together the initial configuration $\ell=(\link{e_1}{e_2},s)$ with the separately computed configurations.
-Finally, we write $(e,S)\triangleq\{(e,s)|s\in S\}$.
+\subsection{A Simple Case}
 
-\begin{definition}[Concrete linking operator]
-  Given $e_1$, $e_2$, $s$, let $\Exp=\{s_1\rhd 0_2|s_1\in\underline{e_1}(s)\}$. Then:
-  \begin{align*}
-    \Link\:e_1\:e_2\:s & \triangleq\sembracket{e_1}(s)\cup\sembracket{e_2}(\Exp)\cup(\link{e_1}{e_2},s)\rightsquigarrow(\{(e_1,s)\}\cup(e_2,\Exp)\cup\underline{e_2}(\Exp))
-  \end{align*}
-  when all timestamps $t\in\Time_1$ are lifted to $(t,0_2)$.
-\end{definition}
-
-Then the following result follows directly from the \emph{definition} of the collecting semantics.
-
-\begin{thm}[Concrete linking] Given $s\in\State{\Time_1}$ and another time domain $\Time_2$,
+The most obvious case in separability is when $e_2$ does not depend on what $e_1$ exports.
+In this case, $S_2=\mt\triangleq\{([],\varnothing,0)\}$.
+Since any $S$ is trivially separable as $S\cong S\rhd\mt\cong$, we have that $|\sembracket{e_1}S|\cong|\sembracket{e_1}S|\rhd\mt$.
+Thus, we have:
+\begin{cor}[A Simple Case]
   \[
-    \sembracket{\link{e_1}{e_2}}(s)=\Link\:e_1\:e_2\:s
+    |\sembracket{\link{e_1}{e_2}}S|\cong||\sembracket{e_1}S|\semlink\sembracket{e_2}\mt|
   \]
-  under $\tick_+$.
-\end{thm}
+\end{cor}
 
+\newpage
 \section{Abstract Semantics}
 
 The abstract semantics is almost exactly the same as the concrete semantics, except for the fact that the memory domain is now a finite map from the abstract time domain to a \emph{set} of values.
@@ -799,12 +869,12 @@ They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
   \footnotesize
   \begin{tabular}{rccll}
     Abstract Time                & $\A{t}$  & $\in$ & $\ATime$                                                                                   \\
-    Environment/Context          & $\A{C}$  & $\in$ & $\Ctx\ATime$                                                                               \\
-    Value of expressions         & $\A{v}$  & $\in$ & $\Value\ATime$                                                                             \\
-    Value of expressions/modules & $\A{V}$  & $\in$ & $\Value{\ATime}+\Ctx{\ATime}$                                                              \\
-    Abstract Memory              & $\A\mem$ & $\in$ & $\AMem{\ATime} \triangleq \fin{\ATime}{\wp(\Value{\ATime})}$                               \\
-    Abstract State               & $\A{s}$  & $\in$ & $\AState{\ATime} \triangleq \Ctx{\ATime}\times\Mem{\ATime}\times\ATime$                    \\
-    Abstract Result              & $\A{r}$  & $\in$ & $\AResult{\ATime} \triangleq (\Value{\ATime}+\Ctx{\ATime})\times\AMem{\ATime}\times\ATime$ \\
+    Environment/Context          & $\A{C}$  & $\in$ & $\Ctx(\ATime)$                                                                             \\
+    Value of expressions         & $\A{v}$  & $\in$ & $\Value(\ATime)$                                                                           \\
+    Value of expressions/modules & $\A{V}$  & $\in$ & $\Value(\ATime)+\Ctx(\ATime)$                                                              \\
+    Abstract Memory              & $\A\mem$ & $\in$ & $\AMem(\ATime) \triangleq \fin{\ATime}{\wp(\Value(\ATime))}$                               \\
+    Abstract State               & $\A{s}$  & $\in$ & $\AState(\ATime) \triangleq \Ctx(\ATime)\times\Mem{\ATime}\times\ATime$                    \\
+    Abstract Result              & $\A{r}$  & $\in$ & $\AResult(\ATime) \triangleq (\Value(\ATime)+\Ctx(\ATime))\times\AMem(\ATime)\times\ATime$ \\
   \end{tabular}
   \caption{Definition of the semantic domains.}
 \end{figure}
@@ -812,7 +882,7 @@ They are simply $C$, $v$, $V$, parametrized by a different $\Time$.
 First the abstract evaluation relation $\A{\rightsquigarrow}$ is defined.
 Note that the update for the memory is now a weak update. That is,
 \begin{definition}[Weak update]
-  Given $\A{\mem}\in\AMem{\ATime}$, $\A{t}\in\ATime$, $\A{v}\in\Value{\ATime}$, define $\A{\mem}[\A{t}\A{\mapsto}\A{v}]$ as:
+  Given $\A{\mem}\in\AMem(\ATime)$, $\A{t}\in\ATime$, $\A{v}\in\Value(\ATime)$, define $\A{\mem}[\A{t}\A{\mapsto}\A{v}]$ as:
   \[
     \A{\mem}[\A{t}\A{\mapsto}\A{v}](\A{t'})\triangleq
     \begin{cases}
@@ -825,7 +895,7 @@ Note that the update for the memory is now a weak update. That is,
 Also, for the abstract time, we do not enforce the existence of an ordering on the timestamps, but we do need a policy for performing the tick operation.
 The abstract $\A\tick$ must simulate the $\tick$ function, so it must have the same type as $\tick$.
 \begin{definition}[Abstract time]
-  $(\ATime,\A{\tick})$ is an \emph{abstract time} when $\A{\tick}:\Ctx{\ATime}\rightarrow\AMem{\ATime}\rightarrow\ATime\rightarrow\ExprVar\rightarrow\Value{\ATime}\rightarrow\ATime$ is the policy for advancing the timestamp.
+  $(\ATime,\A{\tick})$ is an \emph{abstract time} when $\A{\tick}:\Ctx(\ATime)\rightarrow\AMem(\ATime)\rightarrow\ATime\rightarrow\ExprVar\rightarrow\Value(\ATime)\rightarrow\ATime$ is the policy for advancing the timestamp.
 \end{definition}
 
 The abstract one-step reachability relation is defined in Fig. \ref{fig:absreach}.
@@ -1100,11 +1170,11 @@ Since the only values in our language are closures that pair code with a context
 \begin{definition}[Extensions of abstraction]
   Given a function $\alpha:\Time\rightarrow\ATime$,
   \begin{itemize}
-    \item Extend $\alpha$ to a function on $\Ctx{\Time}\rightarrow\Ctx{\ATime}$ by mapping $\alpha$ over all timestamps.
-    \item Extend $\alpha$ to a function on $\Value{\Time}\rightarrow\Value{\ATime}$ by mapping $\alpha$ over all timestamps.
-    \item Extend $\alpha$ to a function on $\Mem{\Time}\rightarrow\AMem{\ATime}$ by defining
+    \item Extend $\alpha$ to a function on $\Ctx(\Time)\rightarrow\Ctx(\ATime)$ by mapping $\alpha$ over all timestamps.
+    \item Extend $\alpha$ to a function on $\Value(\Time)\rightarrow\Value(\ATime)$ by mapping $\alpha$ over all timestamps.
+    \item Extend $\alpha$ to a function on $\Mem(\Time)\rightarrow\AMem(\ATime)$ by defining
           \[\alpha(\mem)\triangleq\bigcup_{t\in\mathsf{dom}(\mem)}[\alpha(t)\mapsto\{\alpha(\mem(t))\}]\]
-    \item Extend $\alpha$ to a function on $\Result{\Time}\rightarrow\AResult{\ATime}$ by $\alpha(V,\mem,t)\triangleq(\alpha(V),\alpha(\mem),\alpha(t))$
+    \item Extend $\alpha$ to a function on $\Result(\Time)\rightarrow\AResult(\ATime)$ by $\alpha(V,\mem,t)\triangleq(\alpha(V),\alpha(\mem),\alpha(t))$
     \item Extend $\alpha$ to a function on $L\rightarrow\A{L}$ by $\alpha(e,s)\triangleq(e,\alpha(s))$.
   \end{itemize}
 \end{definition}
@@ -1136,7 +1206,7 @@ Now we can prove that:
 \begin{thm}[Soundness]
   Given a tick-approximating $\alpha:\Time\rightarrow\ATime$,
   \[
-    \forall s\in\State{\Time}:\sembracket{e}(s)\subseteq\gamma(\A{\sembracket{e}}(\alpha(s)))
+    \forall s\in\State(\Time):\sembracket{e}(s)\subseteq\gamma(\A{\sembracket{e}}(\alpha(s)))
   \]
 \end{thm}
 
