@@ -551,6 +551,32 @@ in/* $\varepsilon$ */)/* $\semlink$ */
       \sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2
     \]
   \end{lemma}
+  Thus
+  \[
+    |\sembracket{\link{e_1}{e_2}}S|=|\sembracket{e_2}|\sembracket{e_1}S||\cong|\sembracket{e_2}(S_1\rhd S_2)|=|S_1\semlink\sembracket{e_2}S_2|
+  \]
+  when $\cong$ is due to the separability assumption and irrelevence of $\tick$
+\end{frame}
+\begin{frame}[c]
+  \frametitle{A Trivial Example}
+  \begin{itemize}
+    \item When $S_2=\mt\triangleq\{([],\varnothing,0)\}$.
+    \item Any $S$ is trivially separable as $S\cong S\rhd\mt$, so $|\sembracket{e_1}S|\cong|\sembracket{e_1}S|\rhd\mt$
+    \item Since our language is CBV $\lambda$-calculus, can't do much better
+  \end{itemize}
+  \begin{corollary}[A Simple Case]
+    \[
+      |\sembracket{\link{e_1}{e_2}}S|\cong||\sembracket{e_1}S|\semlink\sembracket{e_2}\mt|
+    \]
+  \end{corollary}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{A Sketch of Analysis}
+  \begin{itemize}
+    \item Abstract $\Time$ by a finite $\A\Time$
+    \item Use a sound $\A\tick$ satisfying $\A\tick\circ\alpha=\alpha\circ\tick$
+    \item Define sound $\A\rhd$ and $\A\semlink$
+  \end{itemize}
 \end{frame}
 \end{document}
 %%% Local Variables:
