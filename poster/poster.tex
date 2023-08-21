@@ -8,7 +8,7 @@
 % ====================
 
 \usepackage{kotex}
-\usepackage[T1]{fontenc}
+\usepackage{fontenc}
 \usepackage{lmodern}
 \usepackage[orientation=portrait,size=a1,scale=1.2]{beamerposter}
 \usetheme{gemini}
@@ -32,6 +32,7 @@
 %%% Font settings
 \setmainfont{Libertinus Serif}
 \setmathfont{Libertinus Math} % Before set*hangulfont
+\setmathfont{TeX Gyre Pagella Math}[range={\lbrace,\rbrace},Scale=1.1]
 \setmainhangulfont{Noto Serif CJK KR}
 \setsanshangulfont[BoldFont={* Bold}]{KoPubWorldDotum}
 
@@ -273,7 +274,7 @@
           \large
           \fbox{$
               \mathsf{Step}(A)\triangleq
-              \left\{\ell\semarrow_\tick\rho, (\rho,\tick)|
+              \left\{\ell\semarrow_\tick\rho, (\rho,\tick)\middle|
               \begin{prooftree}[center=true]
                 \hypo{A'}\infer1{\ell\semarrow_\tick\rho}
               \end{prooftree}\wedge
@@ -296,7 +297,7 @@
 
     \begin{column}{\colwidth}
       \begin{block}{``합치기''의 정의}
-        \heading{정리 (Concrete Linking)}
+        \heading{정리 (Linking)}
         $|\sembracket{e_1}S|\cong S_1\rhd S_2$임이 확인됐을 때,
         \[|\sembracket{\link{e_1}{e_2}}S|\cong|S_1\semlink\sembracket{e_2}S_2|\]이다.
         \begin{itemize}
@@ -323,7 +324,7 @@
         \heading{$\rhd$, $\semlink$의 정의}
         $(s_1,\tick_1)\rhd(s_2,\tick_2)\triangleq(s_+,\tick_+)$
         \begin{itemize}
-          \item $s_+$는 $s_1=(C_1,\mem_1,t_1)$를 $s_2=(C_2,\mem_2,t_2)$에 \textbf{끼워넣은} 것.
+          \item $s_+$는 $s_1=(C_1,\mem_1,t_1)$을 $s_2=(C_2,\mem_2,t_2)$에 \textbf{끼워넣은} 것.
           \item $\tick_+$는 $t\in\Time_1+\Time_2$를 $t\in\Time_1$의 경우 $\tick_1$으로, $t\in\Time_2$의 경우 \textbf{끼워넣기 전} 상태를 바탕으로 $\tick_2$로 증가시키는 함수.
         \end{itemize}
         \begin{center}
@@ -334,12 +335,19 @@
         \[\sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2\]
       \end{block}
       \begin{block}{분석을 위해서}
-        $\tick$ : 무한히 증가하는 시간 생성 (이미 있는 주소와 안 겹치게)
-
-        $\A\tick$ : 유한한 시간 생성
-
-        $\alpha:\Time\rightarrow\A\Time$ : $\A\tick\circ \alpha=\alpha\circ\tick$이고, 
-
+        \heading{요구사항: $\alpha:\Time\rightarrow\A\Time$}
+        \begin{enumerate}
+          \item $\A\tick\circ\alpha=\alpha\circ\tick$인 $\A\tick$ 사용.
+          \item $\forall\A{t}:\alpha^{-1}(\A{t})$는 $\Time$의 순서에 대해 윗뚜껑이 없다.
+        \end{enumerate}
+        \heading{분석 방법: $|\sembracket{\link{e_1}{e_2}}\A{S}|$ 어림잡기}
+        \begin{enumerate}
+          \item 가정($\A{S}_2$)하고 분석($\A{\sembracket{e_2}}\A{S}_2$)하라
+          \item 가정이 성립($\A{S}_1\A\rhd\A{S}_2\A\cong|\A{\sembracket{e_1}}\A{S}|$)하면, 합쳐라($\A\semlink$)
+        \end{enumerate}
+        \begin{center}
+          \fbox{\texttt{github.com/LimitEpsilon/modular-analysis}}
+        \end{center}
       \end{block}
     \end{column}
 
