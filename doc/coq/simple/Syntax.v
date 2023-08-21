@@ -73,8 +73,8 @@ Lemma eqb_neq_template T eqb
   forall x x', eqb x x' = false <-> x <> x'.
 Proof.
   intros; split; intros contra.
-  - red; intros. rewrite <- eqb_eq in *. 
-    rewrite H in contra. inversion contra.
+  - red; intros RR. rewrite <- eqb_eq in *.
+    rewrite RR in contra. inversion contra.
   - destruct (eqb x x') eqn:EQ; try reflexivity.
     exfalso. apply contra. rewrite <- eqb_eq. eauto.
 Qed.
@@ -103,7 +103,7 @@ Proof.
   - destruct EQ as [EQhd | EQtl].
     subst. rewrite t_refl. eauto.
     rewrite <- IHl in EQtl. rewrite EQtl.
-    destruct (eqb a t); eauto.
+    des_goal; eauto.
 Qed.
 
 Lemma Inb_neq {T} `{Eq T} :
@@ -217,15 +217,8 @@ Proof.
 Qed.
 
 (** Statics *)
-Inductive path :=
-  | pnil
-  | pe (x : ID) (tl : path)
-  | pm (M : ID) (tl : path)
-.
-
 Inductive value :=
   | v_fn (x : ID) (e : tm)
-  | v_ptr (ptr : path -> bool)
 .
 
 Inductive st_ctx :=
@@ -432,61 +425,27 @@ Definition supp_ρ {T} (ρ : config) (t : T) :=
   end.
 
 (** Observational equivalence *)
+Inductive path :=
+  | Pnil
+  | Pe (x : ID) (tl : path)
+  | Pm (M : ID) (tl : path)
+.
+
 Inductive view {T} :=
   | Ctx (C : @dy_ctx T)
-  | Ptr (t : T) (* for imperative extensions *)
   | Opq (* cannot observe more *)
 .
 
-Fixpoint obs_view {T : Type}
+Fixpoint observe {T}
   (V : @dy_value T) (m : @memory T) (p : path) :=
   match p with
-  | pnil =>
-    match V with
-    | EVal (Closure x e C) => Ctx C
-    | MVal C => Ctx C
-    end
-  | pe x tl =>
-    match obs_view V m tl with
-    | Ctx C =>
-      match addr_x C x with
-      | None => Opq
-      | Some t =>
-        match m t with
-        | None => Opq
-        | Some (Closure x e C) => Ctx C
-        end
-      end
-    | _ => Opq
-    end
-  | pm M tl =>
-    match obs_view V m tl with
-    | Ctx C =>
-      match ctx_M C M with
-      | None => Opq
-      | Some C => Ctx C
-      end
-    | _ => Opq
-    end
-  end.
-
-Definition ptr_of_t {T} `{Eq T}
-  (V : @dy_value T) (m : @memory T) (t : T) (p : path) :=
-  match obs_view V m p with
-  | Ptr t' => eqb t t'
-  | _ => false
-  end.
-
-Fixpoint observe {T} `{Eq T}
-  (V : @dy_value T) (m : @memory T) (p : path) :=
-  match p with
-  | pnil =>
+  | Pnil =>
     match V with
     | EVal (Closure x e C) =>
       (Ctx C, [v_fn x e])
     | MVal C => (Ctx C, [])
     end
-  | pe x tl =>
+  | Pe x tl =>
     match observe V m tl with
     | (Ctx C, obs) =>
       match addr_x C x with
@@ -500,7 +459,7 @@ Fixpoint observe {T} `{Eq T}
       end
     | (_, obs) => (Opq, obs)
     end
-  | pm M tl =>
+  | Pm M tl =>
     match observe V m tl with
     | (Ctx C, obs) =>
       match ctx_M C M with
@@ -511,21 +470,34 @@ Fixpoint observe {T} `{Eq T}
     end
   end.
 
-Lemma eq_obs_view {T} `{Eq T} :
-  forall V m p, fst (observe V m p) = obs_view V m p.
-Proof.
-  intros.
-  induction p; simpl;
-  repeat des_goal; simpl in *; clarify; eauto.
-Qed.
+Definition path_of_t {T}
+  (V : @dy_value T) (m : @memory T) (t : T) (p : path) (x : ID) :=
+  match observe V m p with
+  | (Ctx C, _) =>
+    match addr_x C x with
+    | Some addr => t = addr
+    | None => False
+    end
+  | _ => False
+  end.
 
-Definition Observe {T} `{Eq T} 
-  (V : @dy_value T) (m : @memory T) (p : path) :=
-  snd (observe V m p).
-
-Definition equiv {T T'} `{Eq T} `{Eq T'}
+Definition equiv {T T'}
   (V : @dy_value T) (m : @memory T) (V' : @dy_value T') (m' : @memory T') :=
-  forall p, Observe V m p = Observe V' m' p.
+  forall p,
+    match observe V m p, observe V' m' p with
+    | (Ctx C, obs), (Ctx C', obs') =>
+      obs = obs' /\
+      forall x,
+        match addr_x C x, addr_x C' x with
+        | Some t, Some t' =>
+          forall p' x',
+            path_of_t V m t p' x' <-> path_of_t V' m' t' p' x'
+        | None, None => True
+        | _, _ => False
+        end
+    | (Opq, obs), (Opq, obs') => obs = obs'
+    | _, _ => False
+    end.
 
 Notation "'<|' V1 m1 '≃' V2 m2 '|>'" :=
   (equiv V1 m1 V2 m2)
@@ -690,8 +662,9 @@ Proof.
   apply fold_map_comm; intros;
   match goal with
   | [l : list _ |- _] => 
-    (* most recently introduced *) induction l
-  end; repeat des_goal; simpl; eauto.
+    (* most recently introduced *) 
+    induction l; repeat des_goal; simpl
+  end; eauto.
 Qed.
 
 Definition AObserve {T : Type} 

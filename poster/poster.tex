@@ -1,0 +1,350 @@
+% Gemini theme
+% https://github.com/anishathalye/gemini
+
+\documentclass[final]{beamer}
+
+% ====================
+% Packages
+% ====================
+
+\usepackage{kotex}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[orientation=portrait,size=a1,scale=1.2]{beamerposter}
+\usetheme{gemini}
+\usecolortheme{gemini}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.14}
+\usepackage{anyfontsize}
+
+\usepackage{empheq}
+\usepackage[many]{tcolorbox}
+
+%%% Math settings
+\usepackage{amssymb,amsmath,mathtools}
+\usepackage[math-style=TeX,bold-style=TeX]{unicode-math}
+\setlength{\fboxsep}{10pt}
+\setlength{\fboxrule}{0.4pt}
+
+%%% Font settings
+\setmainfont{Libertinus Serif}
+\setmathfont{Libertinus Math} % Before set*hangulfont
+\setmainhangulfont{Noto Serif CJK KR}
+\setsanshangulfont[BoldFont={* Bold}]{KoPubWorldDotum}
+
+%%% PL constructs
+\usepackage{ebproof}
+\ebproofset{left label template=\textsc{[\inserttext]}}
+\ebproofset{center=false}
+
+%%% Custom commands
+\newcommand*{\vbar}{|}
+\newcommand*{\finto}{\xrightarrow{\text{\textrm{fin}}}}
+\newcommand*{\istype}{\mathrel{⩴}}
+\newcommand*{\ortype}{\mathrel{|}}
+\newcommand*{\cons}{::}
+
+\def\ovbarw{1.2mu}
+\def\ovbarh{1}
+\newcommand*{\ovbar}[1]{\mkern \ovbarw\overline{\mkern-\ovbarw{\smash{#1}\scalebox{1}[\ovbarh]{\vphantom{i}}}\mkern-\ovbarw}\mkern \ovbarw}
+\newcommand*{\A}[1]{{#1}^{\#}}
+\newcommand*{\Expr}{\text{Expr}}
+\newcommand*{\ExprVar}{\text{Var}}
+\newcommand*{\Module}{\text{Module}}
+\newcommand*{\ModVar}{\text{ModVar}}
+\newcommand*{\Time}{\mathbb{T}}
+\newcommand*{\ATime}{\A{\Time}}
+\newcommand*{\Ctx}{\text{Ctx}}
+\newcommand*{\Value}{\text{Val}}
+\newcommand*{\Mem}{\text{Mem}}
+\newcommand*{\Left}{\text{L}}
+\newcommand*{\Right}{\text{R}}
+\newcommand*{\mem}{m}
+\newcommand*{\AMem}{\A{\text{Mem}}}
+\newcommand*{\State}{\text{State}}
+\newcommand*{\AState}{\A{\text{State}}}
+\newcommand*{\Result}{\text{Result}}
+\newcommand*{\AResult}{\A{\text{Result}}}
+\newcommand*{\Tick}{\text{Tick}}
+\newcommand*{\semarrow}{\rightsquigarrow}
+\newcommand*{\semlink}{\mathbin{\rotatebox[origin=c]{180}{$\propto$}}}
+\newcommand*{\link}[2]{{#1}\semlink{#2}}
+\newcommand*{\mt}{\mathsf{empty}}
+
+\newcommand*{\doubleplus}{\ensuremath{\mathbin{+\mkern-3mu+}}}
+\newcommand*{\project}{\text{\texttt{:>} }}
+\newcommand*{\Exp}{\mathsf{Exp}}
+\newcommand*{\Imp}{\mathsf{Imp}}
+\newcommand*{\Fin}{\mathsf{Fin}}
+\newcommand*{\Link}{\mathsf{Link}}
+\newcommand*{\sembracket}[1]{\lBrack{#1}\rBrack}
+\newcommand*{\fin}[2]{{#1}\xrightarrow{\text{fin}}{#2}}
+\newcommand*{\addr}{\mathsf{addr}}
+\newcommand*{\tick}{\mathsf{tick}}
+\newcommand*{\modctx}{\mathsf{ctx}}
+\newcommand*{\mapinject}[2]{{#2}[{#1}]}
+\newcommand*{\inject}[2]{{#2}\langle{#1}\rangle}
+\newcommand*{\deletepre}[2]{{#2}\overline{\doubleplus}{#1}}
+\newcommand*{\deletemap}[2]{{#1}\overline{[{#2}]}}
+\newcommand*{\delete}[2]{{#2}{\langle{#1}\rangle}^{-1}}
+\newcommand*{\filter}{\mathsf{filter}}
+\newcommand*{\Let}{\mathtt{let}}
+
+% ====================
+% Lengths
+% ====================
+
+% If you have N columns, choose \sepwidth and \colwidth such that
+% (N+1)*\sepwidth + N*\colwidth = \paperwidth
+\newlength{\sepwidth}
+\newlength{\colwidth}
+\setlength{\sepwidth}{0.025\paperwidth}
+\setlength{\colwidth}{0.4625\paperwidth}
+
+\newcommand{\separatorcolumn}{\begin{column}{\sepwidth}\end{column}}
+
+% ====================
+% Title
+% ====================
+
+\title{프로그램 조각별 따로분석의 이론적 틀}
+
+\author{이준협 \and 이광근}
+
+\institute[shortinst]{서울대학교 프로그래밍 연구실 (ROPAS)}
+
+% ====================
+% Footer (optional)
+% ====================
+
+%\footercontent{
+%  \hfill
+%  2023년 SIGPL 여름학교 포스터 발표
+%  \hfill
+%}
+% (can be left out to remove footer)
+
+% ====================
+% Logo (optional)
+% ====================
+
+% use this to include logos on the left and/or right side of the header:
+\logoright{\includegraphics[height=5cm]{ropas-symbol.png}}
+\logoleft{\includegraphics[height=5cm]{snu-symbol.png}}
+
+% ====================
+% Body
+% ====================
+
+\begin{document}
+
+\begin{frame}[t]
+  \begin{columns}[t]
+    \separatorcolumn
+
+    \begin{column}{\colwidth}
+      \begin{block}{풀고자 한 문제}
+        프로그램 조각이 주어졌을 때, 분석을 해 놓고 기다리자!
+        \begin{itemize}
+          \item 목표: $\link{e_1}{e_2}$의 결과 어림잡기.
+          \item 가정: $e_1$이 무엇을 내보내는지 일부만 알고 있음.
+          \item 질문: $e_2$를 미리 분석해놓고, $e_1$을 \textbf{따로} 분석해서 \textbf{합치면} 전체 결과를 \textbf{안전하게} 어림잡을 수 있을까?
+        \end{itemize}
+        따로분석을 위한 의미구조를 엄밀하게 정의해보자!
+      \end{block}
+
+      \begin{block}{모듈이 있는 언어의 정의}
+        \heading{겉모습 (Untyped $\lambda$+Modules)}
+        \begin{figure}[h!]
+          \large
+          \begin{tabular}{rrcll}
+            Identifiers & $x,M$ & $\in$         & $\ExprVar$                              \\
+            Expression  & $e$   & $\rightarrow$ & $x$                & value identifier   \\
+                        &       & $\vbar$       & $\lambda x.e$      & function           \\
+                        &       & $\vbar$       & $e$ $e$            & application        \\
+                        &       & $\vbar$       & $\link{e}{e}$      & linked expression  \\
+                        &       & $\vbar$       & $\varepsilon$      & empty module       \\
+                        &       & $\vbar$       & $M$                & module identifier  \\
+                        &       & $\vbar$       & $\Let$ $x$ $e$ $e$ & binding expression \\
+                        &       & $\vbar$       & $\Let$ $M$ $e$ $e$ & binding module     \\
+          \end{tabular}
+        \end{figure}
+        \heading{속내용 ($\Time$, $\tick$에 대해 매개화된)}
+        \begin{figure}[h!]
+          \centering
+          \normalsize
+          \begin{tabular}{rrcl}
+            Time            & $t$     & $\in$         & $\Time$                                                                                  \\
+            Context         & $C$     & $\in$         & $\Ctx(\Time)$                                                                            \\
+            Value(Expr)     & $v$     & $\in$         & $\Value(\Time) \triangleq \Expr\times\Ctx(\Time)$                                        \\
+            Value(Expr/Mod) & $V$     & $\in$         & $\Value(\Time)\uplus\Ctx(\Time)$                                                         \\
+            Memory          & $\mem$  & $\in$         & $\Mem(\Time) \triangleq \fin{\Time}{\Value(\Time)}$                                      \\
+            State           & $s$     & $\in$         & $\State(\Time) \triangleq \Ctx(\Time)\times\Mem(\Time)\times\Time$                       \\
+            Result          & $r$     & $\in$         & $\Result(\Time) \triangleq (\Value(\Time)\uplus\Ctx(\Time))\times\Mem(\Time)\times\Time$ \\
+            Tick            & $\tick$ & $\in$         & $\Tick(\Time)\triangleq(\State(\Time)\times\ExprVar\times\Value(\Time))\rightarrow\Time$ \\
+            Context         & $C$     & $\rightarrow$ & []                                                                                       \\
+                            &         & $\vbar$       & $(x,t)\cons C$                                                                           \\
+                            &         & $\vbar$       & $(M,C)\cons C$                                                                           \\
+            Value(Expr)     & $v$     & $\rightarrow$ & $\langle \lambda x.e, C \rangle$
+          \end{tabular}
+
+          $\addr(C,x)$: $C$의 가장 위에 있는 $x$의 주소(시간).
+
+          $\modctx(C,M)$: $C$의 가장 위에 있는 $M$의 값(환경).
+        \end{figure}
+        \heading{실행의미 (Operational)}
+        \begin{figure}[h!]
+          \large
+          \begin{flushright}
+            \fbox{$(e,C,\mem,t)\semarrow_\tick(V,\mem',t')\text{ or }(e',C',\mem',t')$}
+          \end{flushright}
+          \vspace{0pt} % -0.75em}
+          \normalsize
+          \[
+            \begin{prooftree}
+              \hypo{
+                \begin{matrix}
+                  t_{x}=\addr(C,x) \\
+                  v=\mem(t_{x})
+                \end{matrix}
+              }
+              \infer[left label=ExprVar]1{
+              (x, C, \mem, t)
+              \semarrow
+              (v, \mem, t)
+              }
+            \end{prooftree}\qquad
+            \begin{prooftree}
+              \infer[left label=Fn]0{
+              (\lambda x.e, C, \mem, t)
+              \semarrow
+              (\langle\lambda x.e, C\rangle, \mem, t)
+              }
+            \end{prooftree}
+          \]
+          \[
+            \begin{prooftree}
+              \infer[left label={AppL}]0{
+              (e_{1}\:e_{2}, C, \mem, t)
+              \semarrow
+              (e_{1},C, \mem,t)
+              }
+            \end{prooftree}\qquad
+            \begin{prooftree}
+              \hypo{
+                \begin{matrix}
+                  (e_{1}, C, \mem, t)
+                  \semarrow
+                  (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda})
+                \end{matrix}
+              }
+              \infer[left label={AppR}]1{
+              (e_{1}\:e_{2}, C, \mem, t)
+              \semarrow
+              (e_{2}, C, \mem_{\lambda}, t_{\lambda})
+              }
+            \end{prooftree}
+          \]
+          \[
+            \begin{prooftree}
+              \hypo{
+                \begin{matrix}
+                  (e_{1}, C, \mem, t)
+                  \semarrow
+                  (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
+                  (e_{2}, C, \mem_{\lambda}, t_{\lambda})
+                  \semarrow
+                  (v, \mem_{a}, t_{a})
+                \end{matrix}
+              }
+              \infer[left label={AppBody}]1{
+              (e_{1}\:e_{2}, C, \mem, t)
+              \semarrow
+              (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick((C,\mem_{a},t_{a}),x,v))
+              }
+            \end{prooftree}
+          \]
+        \end{figure}
+        \heading{실행의미 (Collecting)}
+        \begin{figure}[h!]
+          \large
+          \fbox{$
+              \mathsf{Step}(A)\triangleq
+              \left\{\ell\semarrow_\tick\rho, (\rho,\tick)|
+              \begin{prooftree}[center=true]
+                \hypo{A'}\infer1{\ell\semarrow_\tick\rho}
+              \end{prooftree}\wedge
+              A'\subseteq A\wedge(\ell,\tick)\in A
+              \right\}$}
+
+          \fbox{$
+          \sembracket{e}S\triangleq
+          \mathsf{lfp}(\lambda X.\mathsf{Step}(X)\cup\{((e,s),\tick)|(s,\tick)\in S\})$}
+        \end{figure}
+
+        \begin{center}
+          모르는 정보가 있어도, 불완전한 증명나무를 저장하고 있다.
+        \end{center}
+      \end{block}
+
+    \end{column}
+
+    \separatorcolumn
+
+    \begin{column}{\colwidth}
+      \begin{block}{``합치기''의 정의}
+        \heading{정리 (Concrete Linking)}
+        $|\sembracket{e_1}S|\cong S_1\rhd S_2$임이 확인됐을 때,
+        \[|\sembracket{\link{e_1}{e_2}}S|\cong|S_1\semlink\sembracket{e_2}S_2|\]이다.
+        \begin{itemize}
+          \item $|\sembracket{e_1}S|$ : $e_1$이 내보내는 환경이
+          \item $S_1\rhd S_2$ : 가정된 $S_2$와 부족했던 $S_1$으로 쪼개질 수 있다.
+          \item $|\cdot|$ : 최종 상태에 관심이 있다.
+          \item $\cong$ : ``동일한 이름들을 내보내는'' 의미구조면 된다.
+        \end{itemize}
+        \heading{$\cong$의 정의}
+        $C,m$ : \underline{이름}($x,M$)으로만 접근 가능한 구조들.
+        \vspace{-1em}
+        \begin{figure}[h!]
+          \large
+          \begin{align*}
+            \mathsf{Step}_m(G) & \triangleq  \{C\xrightarrow{x}t,t|C\in G\wedge t=\addr(C,x)\}      \\
+                               & \cup \{C\xrightarrow{M}C',C'|C\in G\wedge C'=\modctx(C,M)\}        \\
+                               & \cup \{t\xrightarrow{e}C,C|t\in G\wedge \langle e,C \rangle=m(t)\} \\
+            \underline{C,m}    & \triangleq \mathsf{lfp}(\lambda X.\mathsf{Step}_m(X)\cup\{C\})
+          \end{align*}
+        \end{figure}
+        $\underline{C,m}$ : 이름으로 뽑아낼 수 있는 모든 정보를 담은 rooted graph.
+
+        $(C_1,\mem_1)\cong(C_2,\mem_2)\triangleq\underline{C_1,\mem_1}\cong\underline{C_2,\mem_2}$ : 그래프가 동형
+        \heading{$\rhd$, $\semlink$의 정의}
+        $(s_1,\tick_1)\rhd(s_2,\tick_2)\triangleq(s_+,\tick_+)$
+        \begin{itemize}
+          \item $s_+$는 $s_1=(C_1,\mem_1,t_1)$를 $s_2=(C_2,\mem_2,t_2)$에 \textbf{끼워넣은} 것.
+          \item $\tick_+$는 $t\in\Time_1+\Time_2$를 $t\in\Time_1$의 경우 $\tick_1$으로, $t\in\Time_2$의 경우 \textbf{끼워넣기 전} 상태를 바탕으로 $\tick_2$로 증가시키는 함수.
+        \end{itemize}
+        \begin{center}
+          \fbox{$S\semlink A\triangleq\underbrace{\mathsf{lfp}(\lambda X.\mathsf{Step}(X)\cup\overbrace{(S\rhd A)}^{\text{끼워넣고}})}_{\text{나머지를 채운다}}$}
+        \end{center}
+        \heading{도움정리 (Advance)}
+        따로따로 나눌 수 있는 곳에서 출발하면, 미리 하고 합친 것과 같다.
+        \[\sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2\]
+      \end{block}
+      \begin{block}{분석을 위해서}
+        $\tick$ : 무한히 증가하는 시간 생성 (이미 있는 주소와 안 겹치게)
+
+        $\A\tick$ : 유한한 시간 생성
+
+        $\alpha:\Time\rightarrow\A\Time$ : $\A\tick\circ \alpha=\alpha\circ\tick$이고, 
+
+      \end{block}
+    \end{column}
+
+    \separatorcolumn
+  \end{columns}
+\end{frame}
+
+\end{document}
