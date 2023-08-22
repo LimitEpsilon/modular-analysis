@@ -113,10 +113,10 @@
 \usepackage{adjustbox}
 \newcommand{\cfbox}[1]{\adjustbox{cfbox=#1}}
 
-\title{모듈별 프로그램 따로 분석}
+\title{프로그램 조각별 따로분석의 이론적 틀}
 \author{이준협}
-\date{2023년 8월 4일}
-\institute{ROPAS Show \& Tell}
+\date{2023년 8월 23일}
+\institute{SIGPL 2023 여름학교}
 
 \titlegraphic{%
   \begin{tikzpicture}[overlay,remember picture]
@@ -132,35 +132,51 @@
 \begin{document}
 \maketitle
 \begin{frame}[c]
-  \frametitle{Problem Statement}
+  \frametitle{풀고자 한 문제}
+  프로그램 전체를 분석하지 않고, 일부만 미리 분석해놓고 싶다!
   \begin{itemize}
-    \item Given two program segments $e_1$ and $e_2$,
-    \item Want to derive a sound approximation of what ${\link{e_1}{e_2}}$ evaluates to, by \emph{separately} analyzing $e_1$ and $e_2$.
+    \item 상황 1: 외부 모듈에 대한 가정 없이 분석 후 재사용
+    \item 상황 2: 예전에 다른 모듈과 합쳐서 분석했던 결과를 재사용
   \end{itemize}
+  \pause
+  \begin{center}
+    \fbox{가정이 부족한 분석?}
+
+    \fbox{분석 결과의 재사용?}
+  \end{center}
 \end{frame}
-\begin{frame}{Overview}
+\begin{frame}[c]
+  \frametitle{목표}
+  부족했던 것: \textbf{의미구조 정의}부터 자연스럽게 따로분석이 이끌어지는 틀
+  \begin{enumerate}
+    \item 프로그램의 실행의미가 실제 \textbf{실행기}의 동작과 가깝고,
+    \item 분석 디자이너가 신경 쓸 것이 많이 없는,
+    \item 그러나 \textbf{정밀성}을 임의로 조절할 수 있는 틀, 그리고 안전성 증명.
+  \end{enumerate}
+\end{frame}
+\begin{frame}{목차}
   \tableofcontents
 \end{frame}
-\section{Abstract Syntax}
+\section{모듈이 있는 언어}
 \begin{frame}[c]
-  \frametitle{Abstract Syntax}
+  \frametitle{겉모습}
   \begin{figure}[h!]
     \centering
     \begin{tabular}{rrcll}
-      Identifiers & $x,M$ & $\in$         & $\ExprVar$                              \\
-      Expression  & $e$   & $\rightarrow$ & $x$                & value identifier   \\
-                  &       & $\vbar$       & $\lambda x.e$      & function           \\
-                  &       & $\vbar$       & $e$ $e$            & application        \\
-                  &       & $\vbar$       & $\link{e}{e}$      & linked expression  \\
-                  &       & $\vbar$       & $\varepsilon$      & empty module       \\
-                  &       & $\vbar$       & $M$                & module identifier  \\
-                  &       & $\vbar$       & $\Let$ $x$ $e$ $e$ & binding expression \\
-                  &       & $\vbar$       & $\Let$ $M$ $e$ $e$ & binding module     \\
+      Identifiers & $x,M$ & $\in$         & $\ExprVar$                                         \\
+      Expression  & $e$   & $\rightarrow$ & $x$                & value identifier              \\
+                  &       & $\vbar$       & $\lambda x.e$      & function                      \\
+                  &       & $\vbar$       & $e$ $e$            & application                   \\
+                  &       & $\vbar$       & $\link{e}{e}$      & \underline{linked expression} \\
+                  &       & $\vbar$       & $\varepsilon$      & empty module                  \\
+                  &       & $\vbar$       & $M$                & \underline{module identifier} \\
+                  &       & $\vbar$       & $\Let$ $x$ $e$ $e$ & binding expression            \\
+                  &       & $\vbar$       & $\Let$ $M$ $e$ $e$ & binding module                \\
     \end{tabular}
   \end{figure}
 \end{frame}
 \begin{frame}[c,fragile]
-  \frametitle{Example}
+  \frametitle{예시}
   \begin{tcolorbox}[sidebyside, sidebyside align=top, fontupper=\scriptsize, fontlower=\scriptsize]
     \begin{lstlisting}[basicstyle=\ttfamily,escapeinside={/*}{*/}]
 (* A.ml *)
@@ -185,398 +201,51 @@ in/* $\varepsilon$ */)/* $\semlink$ */
 \end{lstlisting}
   \end{tcolorbox}
 \end{frame}
-\section{Concrete Semantics}
+\section{주요 정리}
 \begin{frame}[c]
-  \frametitle{Semantic Domains}
-  \begin{figure}[h!]
-    \centering
-    \footnotesize
-    \begin{tabular}{rrcl}
-      Time            & $t$     & $\in$         & $\Time$                                                                                  \\
-      Context         & $C$     & $\in$         & $\Ctx(\Time)$                                                                            \\
-      Value(Expr)     & $v$     & $\in$         & $\Value(\Time) \triangleq \Expr\times\Ctx(\Time)$                                        \\
-      Value(Expr/Mod) & $V$     & $\in$         & $\Value(\Time)\uplus\Ctx(\Time)$                                                         \\
-      Memory          & $\mem$  & $\in$         & $\Mem(\Time) \triangleq \fin{\Time}{\Value(\Time)}$                                      \\
-      State           & $s$     & $\in$         & $\State(\Time) \triangleq \Ctx(\Time)\times\Mem(\Time)\times\Time$                       \\
-      Result          & $r$     & $\in$         & $\Result(\Time) \triangleq (\Value(\Time)\uplus\Ctx(\Time))\times\Mem(\Time)\times\Time$ \\
-      Tick            & $\tick$ & $\in$         & $\Tick(\Time)\triangleq(\State(\Time)\times\ExprVar\times\Value(\Time))\rightarrow\Time$ \\
-      Context         & $C$     & $\rightarrow$ & []                                                                                       \\
-                      &         & $\vbar$       & $(x,t)\cons C$                                                                           \\
-                      &         & $\vbar$       & $(M,C)\cons C$                                                                           \\
-      Value(Expr)     & $v$     & $\rightarrow$ & $\langle \lambda x.e, C \rangle$
-    \end{tabular}
-  \end{figure}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{$\addr$ and $\modctx$}
-  \begin{itemize}
-    \item $\addr(C,x)$ looks up when $x$ was bound in $C$.
-    \item $\modctx(C,M)$ looks up what is bound to $M$ in $C$
-  \end{itemize}
-  \begin{figure}[h!]
-    \centering
-    \footnotesize
-    \[
-      \addr(C,x)\triangleq
-      \begin{cases}
-        \bot         & C=[]                              \\
-        t            & C=(x, t)\cons C'                  \\
-        \addr(C',x)  & C=(x', t)\cons C' \wedge x'\neq x \\
-        \addr(C'',x) & C=(M, C')\cons C''
-      \end{cases}
-    \]
-    \[
-      \modctx(C,M)\triangleq
-      \begin{cases}
-        \bot           & C=[]                               \\
-        C'             & C=(M, C')\cons C''                 \\
-        \modctx(C'',M) & C=(M', C')\cons C''\wedge M'\neq M \\
-        \modctx(C',M)  & C=(x, t)\cons C'
-      \end{cases}
-    \]
-  \end{figure}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Operational Semantics : $\semarrow_{\tick}$}
-  \begin{figure}[h!]
-    \begin{flushright}
-      \fbox{$(e,C,\mem,t)\semarrow_\tick(V,\mem',t')\text{ or }(e',C',\mem',t')$}
-    \end{flushright}
-    \vspace{0pt} % -0.75em}
-    \footnotesize
-    \[
-      \begin{prooftree}
-        \hypo{t_{x}=\addr(C,x)}
-        \hypo{v=\mem(t_{x})}
-        \infer[left label=ExprVar]2{
-        (x, C, \mem, t)
-        \semarrow
-        (v, \mem, t)
-        }
-      \end{prooftree}
-    \]
-    \[
-      \begin{prooftree}
-        \infer[left label={AppL}]0{
-        (e_{1}\:e_{2}, C, \mem, t)
-        \semarrow
-        (e_{1},C, \mem,t)
-        }
-      \end{prooftree}\qquad
-      \begin{prooftree}
-        \hypo{
-          \begin{matrix}
-            (e_{1}, C, \mem, t)
-            \semarrow
-            (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda})
-          \end{matrix}
-        }
-        \infer[left label={AppR}]1{
-        (e_{1}\:e_{2}, C, \mem, t)
-        \semarrow
-        (e_{2}, C, \mem_{\lambda}, t_{\lambda})
-        }
-      \end{prooftree}
-    \]
-    \[
-      \begin{prooftree}
-        \hypo{
-          \begin{matrix}
-            (e_{1}, C, \mem, t)
-            \semarrow
-            (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
-            (e_{2}, C, \mem_{\lambda}, t_{\lambda})
-            \semarrow
-            (v, \mem_{a}, t_{a})
-          \end{matrix}
-        }
-        \infer[left label={AppBody}]1{
-        (e_{1}\:e_{2}, C, \mem, t)
-        \semarrow
-        (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick((C,\mem_{a},t_{a}),x,v))
-        }
-      \end{prooftree}
-    \]
-  \end{figure}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{$\Time$ and $\tick$}
-  Q: So, what $\Time$ and $\tick$ should we use?
-
-  A: Anything! (If it satisfies two requirements)
-  \pause
-  \begin{enumerate}
-    \item $\tick$ produces a strictly larger timestamp with respect to some total order on $\Time$.
-          \[\forall t\in\Time:t<\tick((\_,\_,t),\_,\_)\]
-    \item All $(V,\mem,t)\in\Result(\Time)$ satisfies: $V < t\wedge\mem < t$
-          \begin{minipage}{\linewidth}
-            \begin{figure}[h!]
-              \scriptsize
-              \[
-                \begin{array}{cc}
-                  C < t\triangleq
-                  \begin{cases}
-                    \mathsf{True}        & C=[]              \\
-                    t' < t\wedge C' < t  & C=(x,t')\cons C'  \\
-                    C' < t\wedge C'' < t & C=(M,C')\cons C''
-                  \end{cases}
-                   &
-                  \begin{array}{l}
-                    V < t\triangleq
-                    \begin{cases}
-                      C < t & V=\langle\_,C\rangle \\
-                      C < t & V=C
-                    \end{cases} \\
-                    \mem < t\triangleq\forall t'\in\mathsf{dom}(\mem):t'<t\wedge\mem(t') < t
-                  \end{array}
-                \end{array}
-              \]
-            \end{figure}
-          \end{minipage}
-  \end{enumerate}
-  Then all $\tick$s will produce \emph{fresh} timestamps.
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Irrelevence of $\tick$}
-  Q: How can we consider semantics instantiated with different $\Time$ and $\tick$ to be equivalent?
-
-  A: If they have the same structure!
+  \frametitle{따로분석이란?}
+  최종목표: $S$에서 출발한 $\link{e_1}{e_2}$ 의 결과 : $|\sembracket{\link{e_1}{e_2}}S|$
   \pause
   \begin{itemize}
-    \item Let $r=(V,\mem,t)\in\Result(\Time)$, $r'=(V',\mem',t')\in\Result(\Time')$.
-    \item If we can \emph{translate} the timestamps in $r$ into $r'$ and vice versa, $r$ and $r'$ are \emph{isomorphic} ($r\cong r'$).
-
-          \pause
-    \item ``Can translate $r$ to $r'$": $\exists f\in\Time\rightarrow\Time':f(V)=V'\wedge f\circ\mem=\mem'\circ f\wedge f(t)=t'$.
-  \end{itemize}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Irrelevence of $\tick$}
-  If we start from isomorphic states, the execution stays isomorphic!
-
-  \pause
-  Notation: $\ell\in\Left\triangleq\Expr\times\State(\Time)$, $\rho\in\Right\triangleq\Left\cup\Result(\Time)$
-  \begin{theorem}[Irrelevence of $\tick$]
-    Let $s\in\State(\Time)$ and $s'\in\State(\Time')$.
-    If $s\cong s'$, then:
-    \[\forall\tick,\tick',e,\rho:(e,s)\semarrow_\tick\rho\Rightarrow\exists\rho':(e,s')\semarrow_{\tick'}\rho'\wedge\rho\cong\rho'\]
-  \end{theorem}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Collecting Semantics}
-  \[\sembracket{e}S\subseteq(\Right\times\Tick(\Time))\cup(\Left\times\Tick(\Time)\times\Right )\]
-  \begin{itemize}
-    \item Collecting semantics of $e$ under $S\subseteq\State(\Time)\times\Tick(\Time)$.
-    \item Collect \emph{all} configurations in the proof tree starting from $\{((e,s),\tick)|(s,\tick)\in S\}\subseteq\Right\times\Tick(\Time)$.
-  \end{itemize}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Collecting Semantics}
-  \begin{definition}[Transfer Function]
-    \[
-      \mathsf{Step}(A)\triangleq
-      \left\{\ell\semarrow_\tick\rho, (\rho,\tick)|
-      \begin{prooftree}[center=true]
-        \hypo{A'}\infer1{\ell\semarrow_\tick\rho}
-      \end{prooftree}\wedge
-      A'\subseteq A\wedge(\ell,\tick)\in A
-      \right\}
-    \]
-  \end{definition}
-  \begin{definition}[Collecting Semantics]
-    \[
-      \sembracket{e}S\triangleq
-      \mathsf{lfp}(\lambda X.\mathsf{Step}(X)\cup\{((e,s),\tick)|(s,\tick)\in S\})
-    \]
-  \end{definition}
-\end{frame}
-\section{Concrete Linking}
-\begin{frame}[c]
-  \frametitle{Our Goal}
-  What does $\link{e_1}{e_2}$ evaluate to under $S$? : $|\sembracket{\link{e_1}{e_2}}S|$
-  \begin{itemize}
-    \item Normally, first evaluate $e_1$ under $S$ : $|\sembracket{e_1}S|$
-    \item Then evaluate $e_2$ under the exported states : $|\sembracket{e_2}|\sembracket{e_1}S||$
+    \item 원래는, 먼저 $S$에서 출발해 $e_1$의 결과를 계산 : $|\sembracket{e_1}S|$
+    \item $e_1$의 결과에서 출발해 $e_2$의 결과를 계산 : $|\sembracket{e_2}|\sembracket{e_1}S||$
           \[|\sembracket{\link{e_1}{e_2}}S|=|\sembracket{e_2}|\sembracket{e_1}S||\]
-    \item Instead, collect $e_2$ \emph{in advance} under an \emph{assumed} $S_2$ : $\sembracket{e_2}S_2$
-    \item Later, check if the assumption is guaranteed : $|\sembracket{e_1}S|\cong S_1\rhd S_2$
-    \item Fill in the blanks with $S_1$, then finish : $S_1\semlink\sembracket{e_2}S_2$
-          \[|\sembracket{\link{e_1}{e_2}}S|\cong|S_1\semlink\sembracket{e_2}S_2|\]
+          \pause
+    \item 대신, \textbf{가정된} $S_2$에서 출발해 $e_2$을 가능한 곳까지 계산 : $\sembracket{e_2}S_2$
+    \item \textbf{이후}, $e_1$의 결과가 $S_2$와 나머지로 분리되나 확인 : $|\sembracket{e_1}S|\cong S_1\rhd S_2$
+    \item 부족했던 부분인 $S_1$을 합쳐서 최종 결과 계산 : $S_1\semlink\sembracket{e_2}S_2$
+          \begin{center}
+            \fbox{$|\sembracket{\link{e_1}{e_2}}S|\cong|S_1\semlink\sembracket{e_2}S_2|$}
+          \end{center}
+  \end{itemize}
+\end{frame}
+\section{분석을 위해 신경 쓸 것}
+\begin{frame}[c]
+  \frametitle{$\Time$와 $\tick$}
+  실행의미는 $\Time$(Time)이라는 집합과 $\tick$이라는 함수로 매개화되어있다.
+  \begin{itemize}
+    \item $\Time$: 실행중 프로그램 지점을 구별해줌, 메모리 주소로도 쓰임.
+    \item $\tick$: 현재 환경을 받아서, 증가된(지금껏 안 쓰인) 시간을 줌.
   \end{itemize}
 \end{frame}
 \begin{frame}[c]
-  \frametitle{Definitions to Come}
+  \frametitle{분석}
+  요구사항: $\alpha:\Time\rightarrow\A\Time$
   \begin{enumerate}
-    \item What is $|\sembracket{e}S|$ and $|S_1\semlink\sembracket{e}S_2|$(final results)?
-          \pause
-          \[
-            |\sembracket{e}S|\triangleq\{r|(e,\_)\semarrow r\in\sembracket{e}S\}\quad
-            |S_1\semlink\sembracket{e}S_2|\triangleq\{r|(e,\_)\semarrow r\in S_1\semlink\sembracket{e}S_2\}
-          \]
-
-          \pause
-    \item What is $\rhd$(injection)?
-    \item What is $\semlink$(semantic linking)?
+    \item $\A\tick\circ\alpha=\alpha\circ\tick$인 $\A\tick$ 사용.
+    \item $\forall\A{t}:\alpha^{-1}(\A{t})$는 $\Time$의 순서에 대해 윗뚜껑이 없다.
+  \end{enumerate}
+  분석 방법:
+  \begin{enumerate}
+    \item 가정($\A{S}_2$)하고 분석($\A{\sembracket{e_2}}\A{S}_2$)하라
+    \item 가정이 성립($\A{S}_1\A\rhd\A{S}_2\A\cong|\A{\sembracket{e_1}}\A{S}|$)하면, 합쳐라($\A{S}_1\A\semlink\A{\sembracket{e_2}}\A{S}_2$)
   \end{enumerate}
 \end{frame}
-
 \begin{frame}[c]
-  \frametitle{Definition of $\rhd$: Desired Properties}
-  Elementwise injection: $(s_+,\tick_+)=(s_1,\tick_1)\rhd(s_2,\tick_2)$
-
-  \begin{enumerate}
-    \item If $s_2=([],\varnothing,0)$, $s_+\cong s_1$
-    \item If $(e,s_2)\semarrow_{\tick_2}^*(e',s_2')$, then $(s_+',\tick_+')=(s_1,\tick_1)\rhd(s_2',\tick_2)$ must satisfy
-          $\tick_+=\tick_+'$ and $(e,s_+)\semarrow_{\tick_+}^*(e',s_+')$.
-  \end{enumerate}
-\end{frame}
-
-\begin{frame}[c]
-  \frametitle{Definition of $\rhd$, Step 1: Fill in the Blanks}
-  \begin{figure}[h!]
-    \footnotesize
-    \[
-      \inject{C_{1}}{C_{2}}\triangleq
-      \begin{cases}
-        C_1                                             & C_{2}=[]              \\
-        (x, t)\cons\inject{C_{1}}{C'}                   & C_{2}=(x,t)\cons C'   \\
-        (M, \inject{C_{1}}{C'})\cons\inject{C_{1}}{C''} & C_{2}=(M,C')\cons C''
-      \end{cases}
-    \]
-    \[
-      \delete{C_{1}}{C_{2}}\triangleq
-      \begin{cases}
-        []                                              & C_{2}=C_{1}\lor C_{2}=[] \\
-        (x,t)\cons\delete{C_{1}}{C'}                    & C_{2}=(x,t)\cons C'      \\
-        (M, \delete{C_{1}}{C'})\cons\delete{C_{1}}{C''} & C_{2}=(M, C')\cons C''
-      \end{cases}
-    \]\pause
-    \[
-      \begin{array}{cc}
-        \inject{C_1}{V_2}\triangleq
-        \begin{cases}
-          \inject{C_1}{C_2}                           & V_2=C_2                            \\
-          \langle\lambda x.e,\inject{C_1}{C_2}\rangle & V_2=\langle\lambda x.e, C_2\rangle
-        \end{cases} &
-        \begin{array}{l}
-          \inject{C_1}{\mem_2}\triangleq
-          \displaystyle\bigcup_{t\in\mathsf{dom}(\mem_2)}\{t\mapsto\inject{C_1}{\mem_2(t)}\} \\
-          \inject{s_1}{r_2}\triangleq
-          (\inject{C_1}{V_2},\mem_1\cup\inject{C_1}{\mem_2},t_2)
-        \end{array}
-      \end{array}
-    \]
-  \end{figure}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Definition of $\rhd$, Step 2: $\tick_+$}
-  Note $\inject{C_1}{C_2}\in\Ctx(\Time_1+\Time_2)$. What should $\tick_+$ be?
-
-  \begin{figure}[h!]
-    \footnotesize
-    \[
-      \tick_+((C,\mem,t),x,v)\triangleq
-      \begin{cases}
-        \tick_1((C.1,\mem.1,t),x,v.1)                                           & t\in\Time_1 \\
-        \tick_2((\delete{C_1}{C}.2,\delete{C_1}{\mem}.2,t),x,\delete{C_1}{v}.2) & t\in\Time_2
-      \end{cases}
-    \]
-  \end{figure}
-  where
-  \begin{figure}[h!]
-    \footnotesize
-    \[
-      \begin{array}{cc}
-        C.i\triangleq
-        \begin{cases}
-          []                  & C=[]                                    \\
-          (x,t)\cons C'.i     & C=(x,t)\cons C'\wedge t\in{\Time_i}     \\
-          C'.i                & C=(x,t)\cons C'\wedge t\not\in{\Time_i} \\
-          (M,C'.i)\cons C''.i & C=(M, C')\cons C''
-        \end{cases} &
-        \begin{array}{l}
-          V.i\triangleq
-          \begin{cases}
-            C.i                           & V=C                           \\
-            \langle\lambda x.e,C.i\rangle & V=\langle\lambda x.e,C\rangle
-          \end{cases} \\ \\
-          \mem.i\triangleq
-          \displaystyle\bigcup_{t\in\mathsf{dom}(\mem)\cap\Time_i}\{t\mapsto \mem(t).i\}
-        \end{array}
-      \end{array}
-    \]
-  \end{figure}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Definition of $\rhd$}
-  \begin{definition}[Definition of $\rhd$]
-    \[(s_1,\tick_1)\rhd(r_2,\tick_2)\triangleq(\inject{s_1}{r_2},\tick_+)\]
-    \[S_1\rhd S_2\triangleq\{(s_1,\tick_1)\rhd(s_2,\tick_2)|(s_1,\tick_1)\in S_1\wedge(s_2,\tick_2)\in S_2\}\]
-  \end{definition}
-  To inject into a cache,
-  \begin{figure}[h!]
-    \scriptsize
-    \begin{align*}
-      (s_1,\tick_1)\rhd(\rho_2,\tick_2)                  & \triangleq
-      \begin{cases}
-        (r_+,\tick_+)     & \rho_2=r_2\wedge(r_+,\tick_+)=(s_1,\tick_1)\rhd(r_2,\tick_2)            \\
-        ((e,s_+),\tick_+) & \rho_2=\ell_2=(e,s_2)\wedge(s_+,\tick_+)=(s_1,\tick_1)\rhd(s_2,\tick_2)
-      \end{cases} \\
-      (s_1,\tick_1)\rhd(\ell_2\semarrow_{\tick_2}\rho_2) & \triangleq
-      \ell_+\semarrow_{\tick_+}\rho_+
-    \end{align*}
-    \[
-      \text{ where }
-      (\ell_+,\tick_+)=(s_1,\tick_1)\rhd(\ell_2,\tick_2)\wedge
-      (\rho_+,\tick_+)=(s_1,\tick_1)\rhd(\rho_2,\tick_2)
-    \]
-  \end{figure}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Definition of $\semlink$}
-  \begin{definition}[Semantic Linking]
-    Let $S_1\subseteq\State(\Time_1)\times\Tick(\Time_1)$ and $A_2\subseteq(\Left_2\times\Tick(\Time_2)\times\Right_2)\cup(\Right_2\times\Tick(\Time_2))$.
-    Then:
-    \[
-      S_1\semlink A_2\triangleq
-      \mathsf{lfp}(\lambda X.\mathsf{Step}(X)\cup(S_1\rhd A_2))
-    \]
-  \end{definition}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{Advance}
-  \begin{lemma}[Advance]
-    Let $S_1\subseteq\State(\Time_1)\times\Tick(\Time_1)$ and $S_2\subseteq\State(\Time_2)\times\Tick(\Time_2)$. Then:
-    \[
-      \sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2
-    \]
-  \end{lemma}
-  Thus
-  \[
-    |\sembracket{\link{e_1}{e_2}}S|=|\sembracket{e_2}|\sembracket{e_1}S||\cong|\sembracket{e_2}(S_1\rhd S_2)|=|S_1\semlink\sembracket{e_2}S_2|
-  \]
-  when $\cong$ is due to the separability assumption and irrelevence of $\tick$
-\end{frame}
-\begin{frame}[c]
-  \frametitle{A Trivial Example}
-  \begin{itemize}
-    \item When $S_2=\mt\triangleq\{([],\varnothing,0)\}$.
-    \item Any $S$ is trivially separable as $S\cong S\rhd\mt$, so $|\sembracket{e_1}S|\cong|\sembracket{e_1}S|\rhd\mt$
-    \item Since our language is CBV $\lambda$-calculus, can't do much better
-  \end{itemize}
-  \begin{corollary}[A Simple Case]
-    \[
-      |\sembracket{\link{e_1}{e_2}}S|\cong||\sembracket{e_1}S|\semlink\sembracket{e_2}\mt|
-    \]
-  \end{corollary}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{A Sketch of Analysis}
-  \begin{itemize}
-    \item Abstract $\Time$ by a finite $\A\Time$
-    \item Use a sound $\A\tick$ satisfying $\A\tick\circ\alpha=\alpha\circ\tick$
-    \item Define sound $\A\rhd$ and $\A\semlink$
-  \end{itemize}
+  \frametitle{홍보}
+  \begin{center}
+    포스터에 언어의 실행의미 등 더 자세한 설명이 적혀있습니다!
+  \end{center}
 \end{frame}
 \end{document}
 %%% Local Variables:
