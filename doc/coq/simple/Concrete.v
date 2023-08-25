@@ -97,6 +97,8 @@ Inductive multi_step `{time T} : (@config T) -> (@config T) -> Prop :=
     : multi_step cf cf''
 .
 
+#[export] Hint Constructors multi_step : core.
+
 Notation "'{|' ll '~>' rr '|}'" := 
   (step ll rr) 
   (at level 10, ll at next level, rr at next level).
@@ -255,8 +257,8 @@ Proof.
 Qed.
 
 Lemma Eval_well_defined_l :
-  forall `{time T} e (C : @dy_ctx T) m t l V m' t' 
-    (R : {| Cf e C m t ~> Rs V m' t' |}),
+  forall `{time T} e (C : @dy_ctx T) m t V m' t' 
+    (R : {| Cf e C m t ~> Rs V m' t' |}) l,
     exists FUEL, 
       match eval e C m t l FUEL with
       | Resolved V' m'' t'' _ => V = V' /\ m' = m'' /\ t' = t''
@@ -344,8 +346,9 @@ Theorem Eval_well_defined `{time T} :
       end) <->
     ({| (Cf e C m t) ~> (Rs V m' t') |}).
 Proof.
-  intros; split; try apply Eval_well_defined_l.
-  intros RR. destruct RR as [FUEL EVAL].
+  intros; split; intros RR;
+  try apply Eval_well_defined_l; eauto.
+  destruct RR as [FUEL EVAL].
   eapply Eval_well_defined_r. eauto.
 Qed.
 
@@ -393,12 +396,31 @@ Lemma reach_myself `{time T} :
   forall FUEL e (C : @dy_ctx T) m t l cf,
     In cf (Cf e C m t :: l) -> In cf (extract_reached (eval e C m t l FUEL)).
 Proof.
-  rename H into ET. rename H0 into OT. rename H1 into TT.
   induction FUEL; intros; try (simpl; eauto; fail).
   simpl. destruct e; repeat des_goal; simpl; eauto;
   try rep_with_rew reached1 IHFUEL;
   try rep_with_rew reached0 IHFUEL;
   try rep_with_rew reached IHFUEL.
+Qed.
+
+Lemma reach_myself_eval `{time T} :
+  forall FUEL e (C : @dy_ctx T) m t l,
+  match eval e C m t l FUEL with
+  | Resolved V m' t' l' => In (Rs V m' t') l'
+  | _ => True
+  end.
+Proof.
+  induction FUEL; intros; try (simpl; eauto; fail);
+  destruct e; simpl; repeat des_goal; eauto;
+  repeat des_hyp; clarify; simpl; eauto;
+  match goal with
+  | |- In (Rs ?V ?m' ?t') ?l' =>
+    match goal with
+    | [RR : eval ?e ?C ?m ?t ?l ?FUEL = Resolved V m' t' l' |- _] =>
+      specialize (IHFUEL e C m t l);
+      rewrite RR in IHFUEL
+    end
+  end; eauto.
 Qed.
 
 Ltac clar_eval := 
@@ -487,7 +509,7 @@ Proof.
   rename H into ET. rename H0 into OT. rename H1 into TT.
   induction FUEL; intros.
   simpl. intros. destruct H; eauto.
-  assert ((forall cf : config,
+  assert ((forall cf : config T,
             In cf (Cf e C m t :: l) ->
             In cf (Cf e C m t :: l'))) as CONTAINED'.
   { intros. simpl in *. destruct H; eauto. }
@@ -627,431 +649,213 @@ Proof.
     simpl in *; eauto 7; try contradict.
 Qed.
 
-(*
-Lemma ReachR_well_defined_l :
-  forall `{TIME : time T} (C : @dy_ctx T) st e C' st' e' (R : <| C st e ~> C' st' e' |>),
+Lemma Reach_well_defined_l `{time T} :
+  forall e (C : dy_ctx T) m t cf' (R : {| (Cf e C m t) ~> cf' |}),
     exists FUEL,
-      In (Config C' st' e') (extract_reached (eval C st e [] FUEL)).
+      In cf' (extract_reached (eval e C m t [] FUEL)).
 Proof.
-  intros. rename H into ET. rename H0 into OT.
-  induction R.
-  - exists 1. destruct e; simpl; eauto.
-    destruct (addr_x C x); destruct st; destruct (mem t); simpl; eauto.
-    destruct (ctx_M C M); simpl; eauto.
-  - destruct IHR as [FUEL CONTAINED].
-    exists (S FUEL). simpl.
-    destruct (eval C st e1 [Config C st (e_app e1 e2)] FUEL) eqn:EVAL1;
-    try (rewrite <- EVAL1; rewrite separate_reach; eauto).
-    assert (In (Config C' st' e') (extract_reached (Resolved v st0 reached))).
-    { rewrite <- EVAL1; rewrite separate_reach; eauto. }
-    destruct v; simpl in *; eauto. destruct ev.
-    destruct (eval C st0 e2 reached FUEL) eqn:EVAL2;
-    try (rewrite <- EVAL2; rewrite separate_reach; eauto).
-    assert (In (Config C' st' e') (extract_reached (Resolved v st1 reached0))).
-    { rewrite <- EVAL2; rewrite separate_reach; eauto. }
-    destruct v; simpl in *; eauto. destruct st1.
-    destruct (eval (C0 [|dy_binde x t ([||])|])
-                   (ST (t !-> ev; mem) (tick C (ST mem t) x ev))
-                   e reached0 FUEL) eqn:EVAL3;
-    try (rewrite <- EVAL3; rewrite separate_reach; eauto).
-    assert (In (Config C' st' e') (extract_reached (Resolved v st1 reached1))).
-    { rewrite <- EVAL3; rewrite separate_reach; eauto. }
-    destruct v; simpl in *; eauto.
-  - destruct IHR as [FUEL CONTAINED].
-    pose proof (EvalR_well_defined_l C st e1 [Config C st (e_app e1 e2)] (EVal (Closure x e C_lam)) st_lam FN).
-    destruct H as [FUEL' CONTAINED'].
-    exists (S (Nat.max FUEL FUEL')). simpl.
-    destruct (eval C st e1 [Config C st (e_app e1 e2)] FUEL') eqn:EVAL1;
-    try (inversion CONTAINED'; fail).
-    destruct CONTAINED' as [RR RR']. rewrite <- RR in *. rewrite RR' in *. clear RR RR'.
-    assert (eval C st e1 [Config C st (e_app e1 e2)] (Nat.max FUEL FUEL') = Resolved (EVal (Closure x e C_lam)) st0 reached) as RR.
-    { apply relax_fuel with (FUEL := FUEL'). nia. eauto. }
-    rewrite RR. clear RR.
-    destruct (eval C st0 e2 reached (Nat.max FUEL FUEL')) eqn:EVAL2;
-    try (rewrite <- EVAL2; rewrite separate_reach; right; 
-        apply relax_fuel_reach with (FUEL := FUEL); try nia; eauto).    
-    assert (In (Config C' st' e') (extract_reached (Resolved v0 st1 reached0))).
-    { rewrite <- EVAL2; rewrite separate_reach.
-      right. apply relax_fuel_reach with (FUEL := FUEL). nia. eauto. }
-    destruct v0; simpl in *; eauto. destruct st1.
-    destruct (eval (C_lam [|dy_binde x t ([||])|])
-                   (ST (t !-> ev; mem) (tick C (ST mem t) x ev))
-                   e reached0 (Nat.max FUEL FUEL')) eqn:EVAL3;
-    try (rewrite <- EVAL3; rewrite separate_reach; eauto).
-    assert (In (Config C' st' e') (extract_reached (Resolved v0 st1 reached1))).
-    { rewrite <- EVAL3; rewrite separate_reach; eauto. }
-    destruct v0; simpl in *; eauto.
-  - destruct IHR as [FUEL CONTAINED].
-    pose proof (EvalR_well_defined_l C st e1 [Config C st (e_app e1 e2)] (EVal (Closure x e C_lam)) st_lam FN).
-    destruct H as [FUEL' CONTAINED'].
-    destruct (eval C st e1 [Config C st (e_app e1 e2)] FUEL') eqn:EVAL1;
-    try (inversion CONTAINED'; fail).
-    destruct CONTAINED' as [RR RR']. rewrite <- RR in *. rewrite <- RR' in *. clear RR RR'.
-    pose proof (EvalR_well_defined_l C st_lam e2 reached (EVal arg) (ST mem t) ARG).
-    destruct H as [FUEL'' CONTAINED''].
-    destruct (eval C st_lam e2 reached FUEL'') eqn:EVAL2;
-    try (inversion CONTAINED''; fail).
-    destruct CONTAINED'' as [RR RR']. rewrite <- RR in *. rewrite <- RR' in *. clear RR RR'.
-    exists (S (Nat.max FUEL (Nat.max FUEL' FUEL''))).
-    simpl.
-    assert (eval C st e1 [Config C st (e_app e1 e2)]
-                (Nat.max FUEL (Nat.max FUEL' FUEL'')) = Resolved (EVal (Closure x e C_lam)) st_lam reached) as RR.
-    { apply relax_fuel with (FUEL := FUEL'). nia. eauto. } 
-    rewrite RR. clear RR.
-    assert (eval C st_lam e2 reached (Nat.max FUEL (Nat.max FUEL' FUEL'')) = Resolved (EVal arg) (ST mem t) reached0) as RR.
-    { apply relax_fuel with (FUEL := FUEL''). nia. eauto. }
-    rewrite RR. clear RR.
-    destruct (eval (C_lam [|dy_binde x t ([||])|])
-                   (ST (t !-> arg; mem) (tick C (ST mem t) x arg))
-                   e reached0 (Nat.max FUEL (Nat.max FUEL' FUEL''))) eqn:EVAL3;
-    try (rewrite <- EVAL3; apply relax_fuel_reach with (FUEL := FUEL); try nia; eauto;
-         rewrite separate_reach; eauto).
-    assert (In (Config C' st' e') (extract_reached (Resolved v1 st2 reached1))).
-    { rewrite <- EVAL3; rewrite separate_reach; eauto. right.
-      apply relax_fuel_reach with (FUEL := FUEL); try nia; eauto. }
-    destruct v1; simpl in *; eauto.
-  - destruct IHR as [FUEL CONTAINED].
-    exists (S FUEL). simpl.
-    assert (In (Config C' st' e') (extract_reached (eval C st m [Config C st (e_link m e)] FUEL))).
-    { rewrite separate_reach. eauto. }
-    destruct (eval C st m [Config C st (e_link m e)] FUEL) eqn:EVAL; eauto.
-    destruct v; eauto.
-    assert (In (Config C' st' e') (extract_reached (eval mv st0 e reached FUEL))).
-    { rewrite separate_reach. simpl in *. eauto. }
-    destruct (eval mv st0 e reached FUEL) eqn:EVAL2; eauto.
-  - destruct IHR as [FUEL CONTAINED].
-    pose proof (EvalR_well_defined_l C st m [Config C st (e_link m e)] (MVal C_m) st_m MOD).
-    destruct H as [FUEL' CONTAINED'].
-    destruct (eval C st m [Config C st (e_link m e)] FUEL') eqn:EVAL1;
-    try (inversion CONTAINED'; fail).
-    destruct CONTAINED' as [RR RR']. rewrite <- RR in *. rewrite <- RR' in *. clear RR RR'.
-    exists (S (Nat.max FUEL FUEL')).
-    assert (eval C st m [Config C st (e_link m e)] (Nat.max FUEL FUEL') = Resolved (MVal C_m) st_m reached) as RR.
-    { apply relax_fuel with (FUEL := FUEL'). nia. eauto. }
-    simpl. rewrite RR. clear RR.
-    destruct (eval C_m st_m e reached (Nat.max FUEL FUEL')) eqn:EVAL2;
-    try (rewrite <- EVAL2; rewrite separate_reach; right;
-        apply relax_fuel_reach with (FUEL := FUEL); try nia; eauto).
-  - destruct IHR as [FUEL CONTAINED].
-    exists (S FUEL). simpl.
-    destruct (eval C st e [Config C st (m_lete x e m)] FUEL) eqn:EVAL1;
-    try (rewrite <- EVAL1; rewrite separate_reach; eauto).
-    assert (In (Config C' st' e') (extract_reached (Resolved v st0 reached))).
-    { rewrite <- EVAL1; rewrite separate_reach; eauto. }
-    destruct v; simpl in *; eauto. destruct st0.
-    destruct (eval (C [|dy_binde x t ([||])|])
-                   (ST (t !-> ev; mem) (tick C (ST mem t) x ev))
-                   m reached FUEL) eqn:EVAL2;
-    try (rewrite <- EVAL2; rewrite separate_reach; eauto).
-    assert (In (Config C' st' e') (extract_reached (Resolved v st0 reached0))).
-    { rewrite <- EVAL2; rewrite separate_reach; eauto. }
-    destruct v; simpl in *; eauto.
-  - destruct IHR as [FUEL CONTAINED].
-    pose proof (EvalR_well_defined_l C st e [Config C st (m_lete x e m)] (EVal v) (ST mem t) EVALx).
-    destruct H as [FUEL' CONTAINED'].
-    destruct (eval C st e [Config C st (m_lete x e m)] FUEL') eqn:EVAL1;
-    try (inversion CONTAINED'; fail).
-    destruct CONTAINED' as [RR RR']. rewrite <- RR in *. rewrite <- RR' in *. clear RR RR'.
-    exists (S (Nat.max FUEL FUEL')).
-    assert (eval C st e [Config C st (m_lete x e m)] (Nat.max FUEL FUEL') = Resolved (EVal v) (ST mem t) reached) as RR.
-    { apply relax_fuel with (FUEL := FUEL'). nia. eauto. }
-    simpl. rewrite RR. clear RR.
-    destruct (eval (C [|dy_binde x t ([||])|])
-                   (ST (t !-> v; mem) (tick C (ST mem t) x v))
-                   m reached (Nat.max FUEL FUEL')) eqn:EVAL2;
-    try (rewrite <- EVAL2; apply relax_fuel_reach with (FUEL := FUEL); try nia; eauto;
-         rewrite separate_reach; eauto).
-    assert (In (Config C' st' e') (extract_reached (Resolved v1 st1 reached0))).
-    { rewrite <- EVAL2; rewrite separate_reach; eauto. right.
-      apply relax_fuel_reach with (FUEL := FUEL); try nia; eauto. }
-    destruct v1; simpl in *; eauto.
-  - destruct IHR as [FUEL CONTAINED].
-    exists (S FUEL). simpl.
-    destruct (eval C st m1 [Config C st (m_letm M m1 m2)] FUEL) eqn:EVAL1;
-    try (rewrite <- EVAL1; rewrite separate_reach; eauto).
-    assert (In (Config C' st' e') (extract_reached (Resolved v st0 reached))).
-    { rewrite <- EVAL1; rewrite separate_reach; eauto. }
-    destruct v; simpl in *; eauto. destruct st0.
-    destruct (eval (C [|dy_bindm M mv ([||])|]) (ST mem t) m2 reached FUEL) eqn:EVAL2;
-    try (rewrite <- EVAL2; rewrite separate_reach; eauto).
-    assert (In (Config C' st' e') (extract_reached (Resolved v st0 reached0))).
-    { rewrite <- EVAL2; rewrite separate_reach; eauto. }
-    destruct v; simpl in *; eauto.
-  - destruct IHR as [FUEL CONTAINED].
-    pose proof (EvalR_well_defined_l C st m1 [Config C st (m_letm M m1 m2)] (MVal C_M) st_M EVALM).
-    destruct H as [FUEL' CONTAINED'].
-    destruct (eval C st m1 [Config C st (m_letm M m1 m2)] FUEL') eqn:EVAL1;
-    try (inversion CONTAINED'; fail).
-    destruct CONTAINED' as [RR RR']. rewrite <- RR in *. rewrite <- RR' in *. clear RR RR'.
-    exists (S (Nat.max FUEL FUEL')).
-    assert (eval C st m1 [Config C st (m_letm M m1 m2)] (Nat.max FUEL FUEL') = Resolved (MVal C_M) st_M reached) as RR.
-    { apply relax_fuel with (FUEL := FUEL'). nia. eauto. }
-    simpl. rewrite RR. clear RR.
-    destruct (eval (C [|dy_bindm M C_M ([||])|]) st_M m2 reached (Nat.max FUEL FUEL')) eqn:EVAL2;
-    try (rewrite <- EVAL2; apply relax_fuel_reach with (FUEL := FUEL); try nia; eauto;
-         rewrite separate_reach; eauto).
-    assert (In (Config C' st' e') (extract_reached (Resolved v0 st1 reached0))).
-    { rewrite <- EVAL2; rewrite separate_reach; eauto. right.
-      apply relax_fuel_reach with (FUEL := FUEL); try nia; eauto. }
-    destruct v0; simpl in *; eauto.
+  intros. remember (Cf e C m t) as cf.
+  ginduction R; intros; clarify;
+  try (exists 1; simpl; repeat des_goal; clarify; eauto; fail);
+  repeat match goal with
+  | [IH : context [Cf ?e ?C ?m ?t = _ -> _] |- _] =>
+    let FUEL := fresh "FUEL" in
+    let CONTAINED := fresh "CONTAINED" in
+    specialize (IH e C m t eq_refl);
+    destruct IH as [FUEL CONTAINED]
+  | [R : {| (Cf ?e ?C ?m ?t) ~> (Rs ?V' ?m' ?t') |} |- _] =>
+    let EVAL := fresh "EVAL" in
+    pose proof (Eval_well_defined_l e C m t V' m' t' R) as EVAL;
+    clear R
+  end;
+  match goal with
+  | |- exists n, In ?cf (extract_reached (eval ?e ?C ?m ?t _ n)) =>
+    repeat match goal with
+    | [H : forall l, exists n, 
+      match eval ?e' _ _ _ l n with _ => _ end |- _] =>
+      let FUEL := fresh "FUEL" in
+      let RR := fresh "RR" in
+      match e with
+      | e_app ?e1 ?e2 =>
+        match e' with
+        | e1 => specialize (H [Cf e C m t]); destruct H as [FUEL RR]
+        | e2 => 
+          match goal with 
+          | [_ : eval e1 _ _ _ _ _ = Resolved _ _ _ ?ll |- _] =>
+            specialize (H ll); destruct H as [FUEL RR]
+          end
+        | _ =>
+          match goal with
+          | [_ : eval e2 _ _ _ _ _ = Resolved _ _ _ ?ll |- _] =>
+            specialize (H ll); destruct H as [FUEL RR]
+          end
+        end
+      | e_link ?e1 ?e2 =>
+        match e' with
+        | e1 => specialize (H [Cf e C m t]); destruct H as [FUEL RR]
+        | e2 =>
+          match goal with
+          | [_ : eval e1 _ _ _ _ _ = Resolved _ _ _ ?ll |- _] =>
+            specialize (H ll); destruct H as [FUEL RR]
+          end
+        end
+      | m_lete _ ?e1 ?e2 =>
+        match e' with
+        | e1 => specialize (H [Cf e C m t]); destruct H as [FUEL RR]
+        | e2 =>
+          match goal with
+          | [_ : eval e1 _ _ _ _ _ = Resolved _ _ _ ?ll |- _] =>
+            specialize (H ll); destruct H as [FUEL RR]
+          end
+        end
+      | m_letm _ ?e1 ?e2 =>
+        match e' with
+        | e1 => specialize (H [Cf e C m t]); destruct H as [FUEL RR]
+        | e2 =>
+          match goal with
+          | [_ : eval e1 _ _ _ _ _ = Resolved _ _ _ ?ll |- _] =>
+            specialize (H ll); destruct H as [FUEL RR]
+          end
+        end
+      end; des_hyp; try (destruct RR as [? [? ?]]; subst)
+    end
+  end;
+  match goal with
+  | [_ : eval _ _ _ _ _ ?n = Resolved _ _ _ _ |- _] =>
+    match goal with
+    | [_ : eval _ _ _ _ _ ?n0 = Resolved _ _ _ _ |- _] =>
+      lazymatch n0 with
+      | n => fail
+      | _ =>
+        match goal with
+        | [_ : eval _ _ _ _ _ ?n1 = Resolved _ _ _ _ |- _] =>
+          lazymatch n1 with
+          | n => fail
+          | n0 => fail
+          | _ => exists (S (Nat.max n (Nat.max n0 n1)))
+          end
+        | _ => exists (S (Nat.max n n0))
+        end
+      end
+    | _ => exists (S n)
+    end
+  end; simpl;
+  repeat rep_eval relax_fuel;
+  match goal with
+  | |- context [match eval ?e ?C ?m ?t ?l ?n with | _ => _ end] =>
+    let H := fresh "H" in
+    assert (In (Cf e C m t) (extract_reached (eval e C m t l n))) as H;
+    try (apply reach_myself; simpl; eauto);
+    repeat des_goal; eauto;
+    rep_with_rew reached1 reach_myself
+  | [RR : eval ?e ?C ?m ?t ?l ?n = Resolved ?V ?m' ?t' ?l' |- 
+    In _ (extract_reached (Resolved ?V ?m' ?t' ?l'))] =>
+    let H := fresh "H" in
+    pose proof (reach_myself_eval n e C m t l) as H;
+    rewrite RR in H; eauto
+  end.
 Qed.
 
-Lemma ReachR_well_defined_r :
-  forall `{TIME : time T} FUEL (C : @dy_ctx T) st e C' st' e'
-         (R : In (Config C' st' e') (extract_reached (eval C st e [] FUEL))),
-  <| C st e ~> C' st' e' |>.
+Lemma Reach_well_defined_r `{time T} :
+  forall FUEL e (C : @dy_ctx T) m t cf'
+         (R : In cf' (extract_reached (eval e C m t [] FUEL))),
+  {|(Cf e C m t) ~>* cf'|}.
 Proof.
-  intros. rename H into ET. rename H0 into OT.
-  revert C st e C' st' e' R.
   induction FUEL; intros; simpl in *.
-  - destruct R as [R | R]; inversion R; eauto.
-  - destruct e.
-    + destruct (addr_x C x); destruct st; destruct (mem t); simpl in *;
-      destruct R as [R | R]; inversion R; eauto.
-    + simpl in *. destruct R as [R | R]; inversion R; eauto.
-    + destruct (eval C st e1 [Config C st (e_app e1 e2)] FUEL) eqn:EVAL1;
-      try (rewrite <- EVAL1 in R; rewrite separate_reach in R; simpl in *;
-           destruct R as [[R|R]|R]; try inversion R; eauto).
-      destruct v. all:cycle 1.
-      simpl in *. replace reached with (extract_reached (Resolved (MVal mv) st0 reached)) in R by reflexivity.
-      rewrite <- EVAL1 in R. rewrite separate_reach in R. simpl in *.
-      destruct R as [[R|R]|R]; try inversion R; eauto.
-      destruct ev.
-      pose proof (EvalR_well_defined_r FUEL C st e1 [Config C st (e_app e1 e2)] (EVal (Closure x e C0)) st0).
-      rewrite EVAL1 in H. 
-      assert (EvalR C st e1 (EVal (Closure x e C0)) st0) as FN. 
-      eauto. clear H.
-      destruct (eval C st0 e2 reached FUEL) eqn:EVAL2;
-      try (rewrite <- EVAL2 in R; eauto; rewrite separate_reach in R; simpl in *;
-           destruct R as [R|R]; eauto;
-           replace reached with (extract_reached (Resolved (EVal (Closure x e C0)) st0 reached)) in R by reflexivity;
-           rewrite <- EVAL1 in R; rewrite separate_reach in R; simpl in *;
-           destruct R as [[R|R]|R]; try inversion R; eauto).
-      destruct v. all:cycle 1.
-      simpl in *. replace reached0 with (extract_reached (Resolved (MVal mv) st1 reached0)) in R by reflexivity.
-      rewrite <- EVAL2 in R. rewrite separate_reach in R. simpl in *.
-      replace reached with (extract_reached (Resolved (EVal (Closure x e C0)) st0 reached)) in R by reflexivity.
-      rewrite <- EVAL1 in R. rewrite separate_reach in R. simpl in *.
-      destruct R as [[[R|R]|R]|R]; try inversion R; eauto.
-      destruct st1.
-      pose proof (EvalR_well_defined_r FUEL C st0 e2 reached (EVal ev) (ST mem t)).
-      rewrite EVAL2 in H.
-      assert (EvalR C st0 e2 (EVal ev) (ST mem t)) as ARG.
-      eauto. clear H.
-      destruct (eval (C0 [|dy_binde x t ([||])|])
-                     (ST (t !-> ev; mem) (tick C (ST mem t) x ev))
-                     e reached0 FUEL) eqn:EVAL3;
-      try (rewrite <- EVAL3 in R; eauto; rewrite separate_reach in R; simpl in *;
-           destruct R as [R|R]; eauto;
-           replace reached0 with (extract_reached (Resolved (EVal ev) (ST mem t) reached0)) in R by reflexivity;
-           rewrite <- EVAL2 in R; rewrite separate_reach in R; simpl in *;
-           replace reached with (extract_reached (Resolved (EVal (Closure x e C0)) st0 reached)) in R by reflexivity;
-           rewrite <- EVAL1 in R; rewrite separate_reach in R; simpl in *;
-           destruct R as [[[R|R]|R]|R]; try inversion R; eauto).
-      replace reached1 with (extract_reached (Resolved v st1 reached1)) in R by reflexivity;
-      rewrite <- EVAL3 in R.
-      destruct v; simpl in *; rewrite separate_reach in R;
-      replace reached0 with (extract_reached (Resolved (EVal ev) (ST mem t) reached0)) in R by reflexivity;
-      rewrite <- EVAL2 in R; rewrite separate_reach in R; simpl in *;
-      replace reached with (extract_reached (Resolved (EVal (Closure x e C0)) st0 reached)) in R by reflexivity;
-      rewrite <- EVAL1 in R; rewrite separate_reach in R; simpl in *;
-      destruct R as [[[[R|R]|R]|R]|R]; try inversion R; eauto.
-    + destruct (eval C st e1 [Config C st (e_link e1 e2)] FUEL) eqn:EVAL1;
-      try (rewrite <- EVAL1 in R; rewrite separate_reach in R; simpl in *;
-           destruct R as [[R|R]|R]; try inversion R; eauto).
-      destruct v.
-      simpl in *. replace reached with (extract_reached (Resolved (EVal ev) st0 reached)) in R by reflexivity.
-      rewrite <- EVAL1 in R. rewrite separate_reach in R. simpl in *.
-      destruct R as [[R|R]|R]; try inversion R; eauto.
-      pose proof (EvalR_well_defined_r FUEL C st e1 [Config C st (e_link e1 e2)] (MVal mv) st0).
-      rewrite EVAL1 in H.
-      assert (EvalR C st e1 (MVal mv) st0) as MOD. 
-      eauto. clear H.
-      destruct (eval mv st0 e2 reached FUEL) eqn:EVAL2;
-      try (rewrite <- EVAL2 in R; eauto; rewrite separate_reach in R; simpl in *;
-           destruct R as [R|R]; eauto;
-           replace reached with (extract_reached (Resolved (MVal mv) st0 reached)) in R by reflexivity;
-           rewrite <- EVAL1 in R; rewrite separate_reach in R; simpl in *;
-           destruct R as [[R|R]|R]; try inversion R; eauto).
-    + simpl in *. destruct R as [R|R]; inversion R; eauto.
-    + destruct (ctx_M C M); simpl in *; destruct R as [R|R]; inversion R; eauto.
-    + destruct (eval C st e1 [Config C st (m_lete x e1 e2)] FUEL) eqn:EVAL1;
-      try (rewrite <- EVAL1 in R; rewrite separate_reach in R; simpl in *;
-           destruct R as [[R|R]|R]; try inversion R; eauto).
-      destruct v. all:cycle 1.
-      simpl in *. replace reached with (extract_reached (Resolved (MVal mv) st0 reached)) in R by reflexivity.
-      rewrite <- EVAL1 in R. rewrite separate_reach in R. simpl in *.
-      destruct R as [[R|R]|R]; try inversion R; eauto.
-      destruct ev.
-      pose proof (EvalR_well_defined_r FUEL C st e1 [Config C st (m_lete x e1 e2)] (EVal (Closure x0 e C0)) st0).
-      rewrite EVAL1 in H. 
-      assert (EvalR C st e1 (EVal (Closure x0 e C0)) st0) as EVALx.
-      eauto. clear H. destruct st0.
-      destruct (eval (C [|dy_binde x t ([||])|])
-                     (ST (t !-> Closure x0 e C0; mem) (tick C (ST mem t) x (Closure x0 e C0)))
-                     e2 reached FUEL) eqn:EVAL2;
-      try (rewrite <- EVAL2 in R; eauto; rewrite separate_reach in R; simpl in *;
-           destruct R as [R|R]; eauto;
-           replace reached with (extract_reached (Resolved (EVal (Closure x0 e C0)) (ST mem t) reached)) in R by reflexivity;
-           rewrite <- EVAL1 in R; rewrite separate_reach in R; simpl in *;
-           destruct R as [[R|R]|R]; try inversion R; eauto).
-      destruct v; simpl in *;
-      try (replace reached0 with (extract_reached (Resolved (EVal ev) st0 reached0)) in R by reflexivity);
-      try (replace reached0 with (extract_reached (Resolved (MVal mv) st0 reached0)) in R by reflexivity);
-      rewrite <- EVAL2 in R; rewrite separate_reach in R; simpl in *;
-      replace reached with (extract_reached (Resolved (EVal (Closure x0 e C0)) (ST mem t) reached)) in R by reflexivity;
-      rewrite <- EVAL1 in R; rewrite separate_reach in R; simpl in *;
-      destruct R as [[[R|R]|R]|R]; try inversion R; eauto.
-    + destruct (eval C st e1 [Config C st (m_letm M e1 e2)] FUEL) eqn:EVAL1;
-      try (rewrite <- EVAL1 in R; rewrite separate_reach in R; simpl in *;
-           destruct R as [[R|R]|R]; try inversion R; eauto).
-      destruct v.
-      simpl in *. replace reached with (extract_reached (Resolved (EVal ev) st0 reached)) in R by reflexivity.
-      rewrite <- EVAL1 in R. rewrite separate_reach in R. simpl in *.
-      destruct R as [[R|R]|R]; try inversion R; eauto.
-      pose proof (EvalR_well_defined_r FUEL C st e1 [Config C st (m_letm M e1 e2)] (MVal mv) st0).
-      rewrite EVAL1 in H. 
-      assert (EvalR C st e1 (MVal mv) st0) as EVALm.
-      eauto. clear H.
-      destruct (eval (C [|dy_bindm M mv ([||])|]) st0 e2 reached FUEL) eqn:EVAL2;
-      try (rewrite <- EVAL2 in R; eauto; rewrite separate_reach in R; simpl in *;
-           destruct R as [R|R]; eauto;
-           replace reached with (extract_reached (Resolved (MVal mv) st0 reached)) in R by reflexivity;
-           rewrite <- EVAL1 in R; rewrite separate_reach in R; simpl in *;
-           destruct R as [[R|R]|R]; try inversion R; eauto).
-      destruct v; simpl in *;
-      try (replace reached0 with (extract_reached (Resolved (EVal ev) st1 reached0)) in R by reflexivity);
-      try (replace reached0 with (extract_reached (Resolved (MVal mv0) st1 reached0)) in R by reflexivity);
-      rewrite <- EVAL2 in R; rewrite separate_reach in R; simpl in *;
-      replace reached with (extract_reached (Resolved (MVal mv) st0 reached)) in R by reflexivity;
-      rewrite <- EVAL1 in R; rewrite separate_reach in R; simpl in *;
-      destruct R as [[[R|R]|R]|R]; try inversion R; eauto.
+  destruct R as [R | R]; inversion R; eauto.
+  repeat des_hyp;
+  repeat match goal with
+  | [RR : eval ?e ?C ?m ?t ?l ?n = _ |- _] =>
+    let H := fresh "H" in
+    assert (In cf' (extract_reached (eval e C m t l n))) as H;
+    try (rewrite RR; simpl; eauto);
+    rewrite separate_reach in H;
+    clear RR; simpl in *
+  | H : _ \/ _ |- _ => destruct H as [?|?]
+  | _ => clarify; try contradict; eauto
+  end;
+  repeat match goal with
+  | [H : In cf' (extract_reached (eval ?e ?C ?m ?t [] ?n)) |- _] =>
+    apply IHFUEL in H
+  | [H : eval ?e ?C ?m ?t _ _ = Resolved ?V ?m' ?t' _ |- _] =>
+    assert ({|(Cf e C m t) ~> (Rs V m' t')|});
+    try (eapply Eval_well_defined_r; rewrite H; eauto);
+    clear H
+  end; eauto.
 Qed.
 
-Theorem ReachR_well_defined :
-  forall `{TIME : time T} (C : @dy_ctx T) st e C' st' e',
-    (exists FUEL, In (Config C' st' e') (extract_reached (eval C st e [] FUEL))) <->
-    <| C st e ~> C' st' e' |>.
+Theorem Reach_well_defined `{time T}:
+  forall e (C : @dy_ctx T) m t cf',
+    (exists FUEL, In cf' (extract_reached (eval e C m t [] FUEL))) <->
+    {| (Cf e C m t) ~>* cf' |}.
 Proof.
-  intros. rename H into ET. rename H0 into OT.
-  split; try apply ReachR_well_defined_l.
-  intros. destruct H as [FUEL CONTAINED].
-  apply ReachR_well_defined_r with (FUEL := FUEL). eauto.
+  split; intros REACH; 
+  try (destruct REACH as [FUEL REACH]; eapply Reach_well_defined_r; eauto).
+  remember (Cf e C m t) as cf.
+  ginduction REACH; intros; subst.
+  exists 0. simpl. eauto.
+  apply Reach_well_defined_l in REACHl.
+  destruct REACHl as [FUEL IN].
+  destruct cf'; inversion REACH; subst; eauto;
+  match goal with
+  | [contra : {|(Rs _ _ _) ~> _|}|-_] => inversion contra
+  | [H : forall e C m t, Cf ?e' ?C' ?m' ?t' = Cf e C m t -> _ |- _] =>
+    let FUEL := fresh "FUEL'" in
+    let IN := fresh "IN'" in
+    specialize (H e' C' m' t' eq_refl);
+    destruct H as [FUEL IN]; move FUEL at top
+  end.
+  clear REACH REACHl REACHr cf'.
+  exists (FUEL + FUEL').
+  ginduction FUEL; intros.
+  destruct IN as [IN|IN]; clarify; eauto.
+  simpl in IN.
+  repeat des_hyp;
+  repeat match goal with
+  | H : _ \/ _ |- _ => destruct H as [?|?]
+  | _ => clarify; eauto 2
+  end;
+  try (apply relax_fuel_reach with (FUEL := FUEL'); try nia; assumption);
+  repeat match goal with
+  | H : In (Cf ?e0 ?C0 ?m0 ?t0) ?l0 |- _ =>
+    let IN := fresh "IN" in
+    match goal with
+    | RR : eval ?e ?C ?m ?t ?l ?n = _ |- _ =>
+      match type of RR with
+      | context [l0] =>
+        replace l0 with (extract_reached (eval e C m t l n)) in H;
+        try (rewrite RR; reflexivity);
+        rewrite separate_reach in H;
+        destruct H as [H | H]; 
+        simpl in H; try (destruct H; clarify)
+      end
+    end
+  end;
+  try (apply relax_fuel_reach with (FUEL := FUEL'); try nia; assumption);
+  eapply IHFUEL in IN'; eauto; simpl;
+  repeat match goal with
+  | H : eval ?e ?C ?m ?t ?l ?n = ?r |- 
+    context [eval ?e ?C ?m ?t ?l (?n + ?n0)] =>
+    let RR := fresh "RR" in
+    match type of H with
+    | context [Error] =>
+      assert (eval e C m t l (n + n0) = r) as RR;
+      try (apply relax_fuel_err with (FUEL := n); eauto; try nia);
+      rewrite RR
+    | context [Resolved] =>
+      assert (eval e C m t l (n + n0) = r) as RR;
+      try (apply relax_fuel with (FUEL := n); eauto; try nia);
+      rewrite RR
+    end
+  end; simpl; repeat des_goal;
+  repeat match goal with
+  | RR : eval ?e ?C ?m ?t ?l ?n = ?r |- In cf'' ?ll =>
+    match type of RR with
+    | context [ll] =>
+      replace ll with (extract_reached (eval e C m t l n));
+      try (rewrite RR; reflexivity);
+      rewrite separate_reach;
+      first [right; assumption | left]
+    end
+  end.
 Qed.
-
-Lemma eval_then_reach :
-  forall `{TIME : time T} FUEL C st e,
-    match eval C st e [] FUEL with
-    | Resolved v st' reached =>
-      exists C' e',
-      In (Config C' st' e') reached /\
-      eval C' st' e' [] 1 = Resolved v st' [Config C' st' e']
-    | _ => True
-    end.
-Proof.
-  assert (forall {X} (l : list X) cf, In cf [] -> In cf l) as HINT.
-  simpl; intros; inversion H.
-  intros. rename H into ET. rename H0 into OT.
-  revert C st e. induction FUEL.
-  - intros. simpl. eauto.
-  - intros. destruct e; simpl.
-    + destruct (addr_x C x) eqn:ADDR; destruct st; destruct (mem t) eqn:ACCESS; eauto.
-      exists C. exists (e_var x). split; simpl; eauto.
-      rewrite ADDR. rewrite ACCESS. eauto.
-    + exists C. exists (e_lam x e). eauto.
-    + destruct (eval C st e1 [Config C st (e_app e1 e2)] FUEL) eqn:FN; eauto.
-      destruct v; eauto. destruct ev.
-      destruct (eval C st0 e2 reached FUEL) eqn:ARG; eauto.
-      destruct v; eauto. destruct st1.
-      destruct (eval (C0 [|dy_binde x t ([||])|])
-                     (ST (t !-> ev; mem) (tick C (ST mem t) x ev))
-                     e reached0 FUEL) eqn:BODY; eauto.
-      destruct v; eauto.
-      pose proof (reach_same FUEL (C0 [|dy_binde x t ([||])|])
-                                  (ST (t !-> ev; mem) (tick C (ST mem t) x ev))
-                                  e [] reached0 (HINT _ reached0)) as R.
-      rewrite BODY in R.
-      destruct (eval (C0 [|dy_binde x t ([||])|])
-                     (ST (t !-> ev; mem) (tick C (ST mem t) x ev))
-                     e [] FUEL) eqn:BODY'; try (inversion R; fail).
-      specialize (IHFUEL (C0 [|dy_binde x t ([||])|])
-                         (ST (t !-> ev; mem) (tick C (ST mem t) x ev))
-                         e). rewrite BODY' in IHFUEL.
-      destruct R as [RR [RR' R]]. rewrite RR in *. rewrite RR' in *. clear RR RR'.
-      destruct IHFUEL as [C' [e' [CONTAINED EVAL]]].
-      exists C'. exists e'. eauto.
-    + destruct (eval C st e1 [Config C st (e_link e1 e2)] FUEL) eqn:MOD; eauto.
-      destruct v; eauto.
-      destruct (eval mv st0 e2 reached FUEL) eqn:BODY; eauto.
-      pose proof (reach_same FUEL mv st0 e2 [] reached (HINT _ reached)) as R.
-      rewrite BODY in R.
-      destruct (eval mv st0 e2 []) eqn:BODY'; try (inversion R; fail).
-      specialize (IHFUEL mv st0 e2). rewrite BODY' in IHFUEL.
-      destruct R as [RR [RR' R]]. rewrite RR in *. rewrite RR' in *. clear RR RR'.
-      destruct IHFUEL as [C' [e' [CONTAINED EVAL]]].
-      exists C'. exists e'. eauto.
-    + exists C. exists m_empty. eauto.
-    + destruct (ctx_M C M) eqn:ACCESS; eauto.
-      exists C. exists (m_var M). rewrite ACCESS. simpl in *; eauto.
-    + destruct (eval C st e1 [Config C st (m_lete x e1 e2)] FUEL) eqn:EVALx; eauto.
-      destruct v; eauto. destruct st0.
-      destruct (eval (C [|dy_binde x t ([||])|])
-                     (ST (t !-> ev; mem) (tick C (ST mem t) x ev))
-                     e2 reached FUEL) eqn:BODY; eauto.
-      pose proof (reach_same FUEL (C [|dy_binde x t ([||])|])
-                                  (ST (t !-> ev; mem) (tick C (ST mem t) x ev))
-                                  e2 [] reached (HINT _ reached)) as R.
-      rewrite BODY in R.
-      destruct (eval (C [|dy_binde x t ([||])|])
-                     (ST (t !-> ev; mem) (tick C (ST mem t) x ev))
-                     e2 []) eqn:BODY'; try (inversion R; fail).
-      specialize (IHFUEL (C [|dy_binde x t ([||])|])
-                         (ST (t !-> ev; mem) (tick C (ST mem t) x ev))
-                         e2). rewrite BODY' in IHFUEL.
-      destruct R as [RR [RR' R]]. rewrite RR in *. rewrite RR' in *. clear RR RR'.
-      destruct IHFUEL as [C' [e' [CONTAINED EVAL]]].
-      destruct v; eauto.
-    + destruct (eval C st e1 [Config C st (m_letm M e1 e2)] FUEL) eqn:EVALM; eauto.
-      destruct v; eauto.
-      destruct (eval (C [|dy_bindm M mv ([||])|]) st0 e2 reached FUEL) eqn:BODY; eauto.
-      pose proof (reach_same FUEL (C [|dy_bindm M mv ([||])|]) st0 e2 [] reached (HINT _ reached)) as R.
-      rewrite BODY in R.
-      destruct (eval (C [|dy_bindm M mv ([||])|]) st0 e2 []) eqn:BODY'; try (inversion R; fail).
-      specialize (IHFUEL (C [|dy_bindm M mv ([||])|]) st0 e2). rewrite BODY' in IHFUEL.
-      destruct R as [RR [RR' R]]. rewrite RR in *. rewrite RR' in *. clear RR RR'.
-      destruct IHFUEL as [C' [e' [CONTAINED EVAL]]].
-      destruct v; eauto.
-Qed.
-
-(* well-definedness *)
-Corollary EvalR_then_ReachR :
-  forall `{TIME : time T} C st e v st'
-         (R : EvalR C st e v st'),
-    exists C' e',
-      <| C st e ~> C' st' e' |> /\
-      eval C' st' e' [] 1 = Resolved v st' [Config C' st' e'].
-Proof.
-  intros. rewrite <- (EvalR_well_defined []) in R.
-  destruct R as [FUEL R].
-  destruct (eval C st e [] FUEL) eqn:EVAL;
-  try (inversion R; fail).
-  destruct R as [RR RR']. rewrite RR in *. rewrite RR' in *. clear RR RR'.
-  pose proof (eval_then_reach FUEL C st e) as EXACT.
-  rewrite EVAL in EXACT. destruct EXACT as [C' [e' [REACH EXACT]]].
-  replace reached with (extract_reached (Resolved v0 st0 reached)) in REACH by reflexivity.
-  rewrite <- EVAL in REACH.
-  assert (<| C st e ~> C' st0 e' |>).
-  { rewrite <- ReachR_well_defined. exists FUEL. eauto. }
-  exists C'. exists e'. eauto.
-Qed. 
-
-Lemma value_reach_only_itself :
-  forall `{TIME : time T} C st v (pf : value v)
-         C' st' e'
-         (REACH : <| C st v ~> C' st' e' |>),
-         C = C' /\ st = st' /\ v = e'.
-Proof.
-  intros; repeat split; inversion pf; inversion REACH; subst; eauto;
-  try inversion H2.
-Qed.
-*)
