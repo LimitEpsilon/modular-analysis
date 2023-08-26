@@ -363,17 +363,8 @@ Lemma mod_is_static_some : forall {T} (dC : dy_ctx T) (M : ID),
   (forall v, ctx_M dC M = Some v -> st_ctx_M (dy_to_st dC) M = Some (dy_to_st v)) /\
   (forall v, st_ctx_M (dy_to_st dC) M = Some v -> exists dv, dy_to_st dv = v /\ ctx_M dC M = Some dv).
 Proof.
-  intros; split; induction dC; simpl; intros; eauto;
-  match goal with
-  | [H : None = Some _ |- _] => inversion H
-  | [H : Some _ = None |- _] => inversion H
-  | _ => repeat des_goal; eauto;
-    match goal with
-    | [H : Some _ = Some _ |- _] =>
-      inversion H; subst; eauto
-    | _ => idtac
-    end
-  end.
+  intros; split; induction dC; simpl; intros; eauto; clarify;
+  repeat des_goal; clarify; eauto.
 Qed.
 
 (* More semantic domains *)
