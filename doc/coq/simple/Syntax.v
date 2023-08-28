@@ -65,11 +65,23 @@ Class Eq T : Type :=
 {
   eqb : T -> T -> bool;
   eqb_eq : forall (t t' : T), eqb t t' = true <-> t = t';
-  eqb_neq : forall (t t' : T), eqb t t' = false <-> t <> t'
 }.
 
-Lemma eqb_neq_template T eqb 
-  (eqb_eq : forall (x x' : T), eqb x x' = true <-> x = x') : 
+Lemma eqb_comm {T} `{Eq T} :
+  forall x x', eqb x x' = eqb x' x.
+Proof.
+  intros.
+  destruct (eqb x x') eqn:EQ; destruct (eqb x' x) eqn:EQ';
+  try reflexivity;
+  try rewrite eqb_eq in *; subst;
+  try rewrite <- EQ; try rewrite <- EQ';
+  match goal with
+  | |- true = _ => symmetry
+  | _ => idtac
+  end; rewrite eqb_eq; eauto.
+Qed.
+
+Lemma eqb_neq {T} `{Eq T} : 
   forall x x', eqb x x' = false <-> x <> x'.
 Proof.
   intros; split; intros contra.
@@ -382,9 +394,7 @@ Inductive dy_value T :=
 Arguments EVal {T}.
 Arguments MVal {T}.
 
-Definition memory T := T -> option (expr_value T).
-
-Definition amemory T := T -> list (expr_value T).
+Definition memory T := list (T * expr_value T).
 
 Inductive config T :=
   | Cf (e : tm) (C : dy_ctx T) (m : memory T) (t : T)
@@ -394,13 +404,27 @@ Inductive config T :=
 Arguments Cf {T}.
 Arguments Rs {T}.
 
-Inductive aconfig T :=
-  | ACf (e : tm) (abs_C : dy_ctx T) (abs_m : amemory T) (abs_t : T)
-  | ARs (abs_V : dy_value T) (abs_m : amemory T) (abs_t : T)
-.
+(* memory reads *)
+Fixpoint read {T} `{Eq T} (m : memory T) (t : T) :=
+  match m with
+  | [] => None
+  | (t', v) :: m' =>
+    if eqb t' t then Some v else read m' t
+  end.
 
-Arguments ACf {T}.
-Arguments ARs {T}.
+Definition same {T} `{Eq T} (m : memory T) (m' : memory T) :=
+  forall t v, Some v = read m t <-> Some v = read m' t.
+
+Fixpoint aread {T} `{Eq T} (m : memory T) (t : T) :=
+  match m with
+  | [] => []
+  | (t', v) :: m' =>
+    let tl := aread m' t in
+    if eqb t' t then v :: tl else tl
+  end.
+
+Definition asame {T} `{Eq T} (m : memory T) (m' : memory T) :=
+  forall t v, In v (aread m t) <-> In v (aread m' t).
 
 (* Definitions for the (finite) supports *)
 Fixpoint supp_C {T} (C : dy_ctx T) (t : T) :=
@@ -421,8 +445,12 @@ Definition supp_V {T} (V : dy_value T) :=
   | MVal mv => supp_C mv
   end.
 
-Definition supp_m {T} (m : memory T) (t : T) :=
-  exists addr v, m addr = Some v /\ (addr = t \/ supp_v v t).
+Fixpoint supp_m {T} (m : memory T) (t : T) :=
+  match m with
+  | [] => False
+  | (t', v) :: m' =>
+    t = t' \/ supp_v v t \/ supp_m m' t
+  end.
 
 Definition supp_ρ {T} (ρ : config T) (t : T) :=
   match ρ with
@@ -459,14 +487,14 @@ Fixpoint pmap {T T'} (f : node T -> node T') (p : path T) :=
   | Pv v nCv tl => Pv v (f nCv) (pmap f tl)
   end.
 
-Fixpoint valid_path {T}
+Fixpoint valid_path {T} `{Eq T}
   (V : dy_value T) (m : memory T) (p : path T) :=
   match p, V with
   | Pnil, _ => True
   | Px x (Ptr tx) tl, MVal mv =>
     match addr_x mv x with
     | Some t => 
-      tx = t /\ (exists ev, Some ev = m t /\ valid_path (EVal ev) m tl)
+      tx = t /\ (exists ev, Some ev = read m t /\ valid_path (EVal ev) m tl)
     | _ => False
     end
   | PM M (Ctx CM) tl, MVal mv =>
@@ -483,7 +511,7 @@ Fixpoint valid_path {T}
   | _, _ => False
   end.
 
-Definition equiv {T T'}
+Definition equiv {T T'} `{Eq T} `{Eq T'}
   (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T') :=
   exists f f', forall p p',
     (valid_path V m p -> valid_path V' m' (pmap f p)) /\
@@ -493,14 +521,14 @@ Notation "'<|' V1 m1 '≃' V2 m2 '|>'" :=
   (equiv V1 m1 V2 m2)
   (at level 10, V1 at next level, m1 at next level, V2 at next level, m2 at next level).
 
-Fixpoint avalid_path {T}
-  (V : dy_value T) (m : amemory T) (p : path T) :=
+Fixpoint avalid_path {T} `{Eq T}
+  (V : dy_value T) (m : memory T) (p : path T) :=
   match p, V with
   | Pnil, _ => True
   | Px x (Ptr tx) tl, MVal mv =>
     match addr_x mv x with
     | Some t => 
-      tx = t /\ (exists ev, In ev (m t) /\ avalid_path (EVal ev) m tl)
+      tx = t /\ (exists ev, In ev (aread m t) /\ avalid_path (EVal ev) m tl)
     | _ => False
     end
   | PM M (Ctx CM) tl, MVal mv =>
@@ -517,8 +545,8 @@ Fixpoint avalid_path {T}
   | _, _ => False
   end.
 
-Definition aequiv {T T'}
-  (V : dy_value T) (m : amemory T) (V' : dy_value T') (m' : amemory T') :=
+Definition aequiv {T T'} `{Eq T} `{Eq T'}
+  (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T') :=
   exists f f', forall p p',
     (avalid_path V m p -> avalid_path V' m' (pmap f p)) /\
     (avalid_path V' m' p' -> avalid_path V m (pmap f' p')).
@@ -546,22 +574,148 @@ Definition trans_V {T T'} (α : T -> T') (V : dy_value T) :=
   | MVal C => MVal (trans_C α C)
   end.
 
-Definition trans_m {CT AT} (α : CT -> AT) (m : memory CT) (am : amemory AT) :=
-  forall abs_t abs_v,
-    (In abs_v (am abs_t) <->
-      exists t v, trans_v α v = abs_v /\ α t = abs_t /\ m t = Some v)
-.
+Fixpoint trans_m_aux {CT AT} `{Eq CT} (α : CT -> AT) (m : memory CT) (seen : list CT) :=
+  match m with
+  | [] => []
+  | (t, v) :: m' =>
+    if Inb t seen then trans_m_aux α m' seen else
+    (α t, trans_v α v) :: trans_m_aux α m' (t :: seen)
+  end.
 
-Definition trans_ρ {CT AT} (α : CT -> AT) (ρ : config CT) (aρ : aconfig AT) :=
-  match ρ, aρ with
-  | Cf e C m t, ACf e' C' m' t' =>
-    e = e' /\ trans_C α C = C' /\ trans_m α m m' /\ α t = t'
-  | Rs V m t, ARs V' m' t' =>
-    trans_V α V = V' /\ trans_m α m m' /\ α t = t'
-  | _, _ => False
+Definition trans_m {CT AT} `{Eq CT} (α : CT -> AT) (m : memory CT) : memory AT :=
+  trans_m_aux α m [].
+
+Definition trans_ρ {CT AT} `{Eq CT} (α : CT -> AT) (ρ : config CT) :=
+  match ρ with
+  | Cf e C m t => Cf e (trans_C α C) (trans_m α m) (α t)
+  | Rs V m t => Rs (trans_V α V) (trans_m α m) (α t)
   end.
 
 (* Lemmas on translation *)
+Lemma aread_in {T} `{Eq T} :
+  forall (m : memory T) t v, In v (aread m t) <-> In (t, v) m.
+Proof.
+  induction m; intros; split; intros IN; simpl in *;
+  repeat des_hyp;
+  repeat des_goal;
+  repeat match goal with
+  | H : _ \/ _ |- _ => destruct H
+  end; clarify;
+  try rewrite eqb_eq in *;
+  try rewrite IHm in *;
+  clarify; eauto.
+  rewrite eqb_neq in *. contradict.
+Qed.
+
+Lemma read_in {T} `{Eq T} :
+  forall (m : memory T) t, 
+    (exists v', In (t, v') m) ->
+    (exists v, read m t = Some v).
+Proof.
+  induction m; simpl; intros; repeat des_hyp;
+  repeat match goal with
+  | H : exists _, _ |- _ => destruct H
+  | H : _ \/ _ |- _ => destruct H
+  end; try contradict; subst; try rewrite t_refl; eauto.
+  exploit IHm. exists x. eauto.
+  intros [v RR]. rewrite RR.
+  des_goal; subst. des_goal; eauto.
+Qed.
+
+Lemma trans_m_aux_prop {CT AT} `{Eq CT} (α : CT -> AT) :
+  forall m abs_t abs_v seen,
+  In (abs_t, abs_v) (trans_m_aux α m seen) <->
+  (exists t v, ~ In t seen /\ read m t = Some v /\ α t = abs_t /\ trans_v α v = abs_v).
+Proof.
+  induction m; intros; split; intros IN; simpl in *;
+  repeat match goal with
+  | H : exists _, _ |- _ => destruct H as [t [v ?]]
+  | H : _ /\ _ |- _ => destruct H
+  end; clarify;
+  repeat des_goal; repeat des_hyp;
+  try rewrite eqb_eq in *;
+  try rewrite t_refl in *; clarify;
+  try rewrite Inb_eq in *; try contradict; eauto.
+  - rewrite IHm in IN.
+    destruct IN as [t [v [IN [READ [TRANSt TRANSv]]]]].
+    exists t. exists v. repeat split; try assumption.
+    des_goal; try rewrite eqb_eq in *; subst; try contradict; eauto.
+  - destruct IN as [IN|IN].
+    clarify. exists c. exists e. rewrite t_refl. rewrite <- Inb_neq. eauto.
+    rewrite IHm in IN.
+    destruct IN as [t [v [IN [READ [TRANSt TRANSv]]]]].
+    exists t. exists v. rewrite <- Inb_neq in *. simpl in *.
+    repeat des_hyp; clarify; eauto.
+  - rewrite IHm. exists t. exists v. eauto.
+  - right. rewrite IHm. exists t. exists v.
+    rewrite <- Inb_neq in *. simpl.
+    repeat des_hyp; clarify; eauto.
+Qed.
+
+Lemma trans_m_read {CT AT} `{Eq CT} `{Eq AT} (α : CT -> AT) :
+  forall (m : memory CT) t v,
+  In v (aread (trans_m α m) t) <->
+  (exists t' v', α t' = t /\ Some v' = read m t' /\ trans_v α v' = v).
+Proof.
+  induction m; intros; split; intros IN;
+  try (simpl in IN; contradict);
+  try (destruct IN as [t' [v' [? [? ?]]]]; clarify);
+  unfold trans_m in *; simpl in *; repeat des_hyp; clarify;
+  match goal with
+  | _ => simpl in *; rewrite t_refl in *; clarify
+  | _ => idtac
+  end;
+  try rewrite eqb_eq in *; 
+  try rewrite aread_in in *;
+  subst; simpl; eauto.
+  - destruct IN as [IN|IN].
+    subst. exists c. exists e. rewrite t_refl; eauto.
+    rewrite trans_m_aux_prop in IN.
+    destruct IN as [t [v' [IN [READ [TRANSt TRANSv]]]]].
+    rewrite <- Inb_neq in IN. simpl in IN.
+    des_hyp.
+    exists t. exists v'. repeat split; try assumption.
+    rewrite HDES. eauto.
+  - rewrite trans_m_aux_prop in IN.
+    destruct IN as [t' [v' [IN [READ [TRANSt TRANSv]]]]].
+    rewrite <- Inb_neq in IN. simpl in IN.
+    des_hyp.
+    exists t'. exists v'. repeat split; try assumption.
+    rewrite HDES. eauto.
+  - right. rewrite trans_m_aux_prop.
+    exists t'. exists v'.
+    rewrite <- Inb_neq; simpl.
+    rewrite HDES0. eauto.
+Qed.
+
+Ltac rw :=
+  match goal with
+  | RR : _ = _ |- _ => rewrite RR
+  end.
+
+Lemma trans_m_same {CT AT} `{Eq CT} `{Eq AT} (α : CT -> AT) :
+  forall (m m' : memory CT) (EQ : same m m'),
+    asame (trans_m α m) (trans_m α m').
+Proof.
+  induction m; intros; unfold same in EQ;
+  unfold asame; intros; split; intros IN; simpl in *;
+  try contradict.
+  - rewrite trans_m_read in IN.
+    destruct IN as [? [? [? [contra ?]]]].
+    rewrite <- EQ in contra. inversion contra.
+  - rewrite trans_m_read in *.
+    destruct IN as [t' [v' [TRANSt [READ TRANSv]]]].
+    simpl in *. repeat des_hyp; clarify.
+    exists t'. exists e. repeat split; try reflexivity.
+    rewrite <- EQ. repeat rw. eauto.
+    exists t'. exists v'. repeat split; try reflexivity.
+    rewrite <- EQ. repeat rw. eauto.
+  - rewrite trans_m_read in *.
+    destruct IN as [t' [v' [TRANSt [READ TRANSv]]]].
+    simpl in *. rewrite <- EQ in READ.
+    exists t'. exists v'. repeat split; eauto.
+Qed.
+
 Lemma trans_C_addr :
   forall {CT AT} (α : CT -> AT) C x,
     addr_x (trans_C α C) x = 

@@ -1,3 +1,6 @@
+simple/Abstract.vo simple/Abstract.glob simple/Abstract.v.beautified simple/Abstract.required_vo: simple/Abstract.v simple/Concrete.vo
+simple/Abstract.vio: simple/Abstract.v simple/Concrete.vio
+simple/Abstract.vos simple/Abstract.vok simple/Abstract.required_vos: simple/Abstract.v simple/Concrete.vos
 simple/Concrete.vo simple/Concrete.glob simple/Concrete.v.beautified simple/Concrete.required_vo: simple/Concrete.v simple/Syntax.vo
 simple/Concrete.vio: simple/Concrete.v simple/Syntax.vio
 simple/Concrete.vos simple/Concrete.vok simple/Concrete.required_vos: simple/Concrete.v simple/Syntax.vos

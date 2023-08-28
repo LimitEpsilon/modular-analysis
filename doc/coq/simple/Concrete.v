@@ -4,22 +4,24 @@ Generalizable Variables T.
 
 Class time `{TotalOrder T} :=
 {
-  tick : @dy_ctx T -> @memory T -> T -> ID -> @expr_value T -> T;
+  tick : dy_ctx T -> memory T -> T -> ID -> expr_value T -> T;
+  (* functional extensionality *)
+  tick_ext : forall C m m' t x v (EQ : same m m'), tick C m t x v = tick C m' t x v;
+  (* fresh timestamp *)
   tick_lt : forall C mem t x v, t < tick C mem t x v
 }.
 
-Definition update_m {T X} `{Eq T} mem (t : T) (x : X) :=
-  fun t' => if eqb t' t then Some x else mem t'.
+Definition update_m {T X} m (t : T) (x : X) := (t, x) :: m.
 
-Definition empty_mem {T X} (t : T) : option X := None.
+Definition empty_mem {T} : list T := [].
 
 Notation "p '!->' v ';' mem" := (update_m mem p v)
                               (at level 100, v at next level, right associativity).
 
-Inductive step `{time T} : (@config T) -> (@config T) -> Prop :=
+Inductive step `{time T} : (config T) -> (config T) -> Prop :=
   | ExprID x C m t v addr
     (ADDR : addr_x C x = Some addr)
-    (ACCESS : m addr = Some v)
+    (ACCESS : read m addr = Some v)
     : step (Cf (e_var x) C m t) (Rs (EVal v) m t)
 
   | Fn x e C m t
@@ -108,8 +110,8 @@ Notation "'{|' ll '~>*' rr '|}'" :=
   (at level 10, ll at next level, rr at next level).
 
 Inductive interpreter_state `{time T} :=
-  | Pending (reached : list (@config T))
-  | Error (reached : list (@config T)) (* Type error *)
+  | Pending (reached : list (config T))
+  | Error (reached : list (config T)) (* Type error *)
   | Resolved (V : @dy_value T) (m : @memory T) (t : T) (reached : list (@config T))
 .
 
@@ -123,7 +125,7 @@ Fixpoint eval `{time T} e C m t (reached : list (@config T)) (FUEL : nat) :=
       match addr_x C x with
       | None => Error reached
       | Some addr =>
-        match m addr with
+        match read m addr with
         | None => Error reached
         | Some v => Resolved (EVal v) m t ((Rs (EVal v) m t) :: reached)
         end
