@@ -4,6 +4,9 @@ simple/Abstract.vos simple/Abstract.vok simple/Abstract.required_vos: simple/Abs
 simple/Concrete.vo simple/Concrete.glob simple/Concrete.v.beautified simple/Concrete.required_vo: simple/Concrete.v simple/Syntax.vo
 simple/Concrete.vio: simple/Concrete.v simple/Syntax.vio
 simple/Concrete.vos simple/Concrete.vok simple/Concrete.required_vos: simple/Concrete.v simple/Syntax.vos
+simple/Equiv.vo simple/Equiv.glob simple/Equiv.v.beautified simple/Equiv.required_vo: simple/Equiv.v simple/Concrete.vo
+simple/Equiv.vio: simple/Equiv.v simple/Concrete.vio
+simple/Equiv.vos simple/Equiv.vok simple/Equiv.required_vos: simple/Equiv.v simple/Concrete.vos
 simple/Syntax.vo simple/Syntax.glob simple/Syntax.v.beautified simple/Syntax.required_vo: simple/Syntax.v 
 simple/Syntax.vio: simple/Syntax.v 
 simple/Syntax.vos simple/Syntax.vok simple/Syntax.required_vos: simple/Syntax.v 

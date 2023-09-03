@@ -144,8 +144,8 @@ Definition ctx_bound_cf `{Eq T} ub (cf : config T) :=
   | Rs (EVal (Closure x e C)) m t =>
     ctx_bound_m ub m /\
     forall sC (IN : In sC (snd (collect_ctx (dy_to_st C) (e_lam x e)))), In sC ub
-  | Rs _ m t =>
-    ctx_bound_m ub m
+  | Rs (MVal C) m t =>
+    ctx_bound_m ub m /\ In (dy_to_st C) ub
   end.
 
 Lemma step_ctx_bound `{time T} :
@@ -183,7 +183,12 @@ Proof.
     apply Meval_then_collect in H
   end; intros;
   match goal with
-  | H : _ |- _ => apply H; simpl; right; eauto; fail
+  | H : _ |- _ => apply H; simpl; eauto; fail
+  | H : ctx_M ?C ?M = Some ?C_M |- _ =>
+    let RR := fresh "RR" in
+    apply BOUNDe;
+    pose proof (mod_is_static_some C M) as [RR ?];
+    simpl; erewrite RR; simpl; eauto
   | H : _ |- _ => apply H;
     simpl; repeat des_goal; clarify;
     repeat match goal with
