@@ -4,7 +4,7 @@ Ltac lebt x :=
   apply leb_trans with (t' := x);
   try assumption; try apply tick_lt; try apply leb_refl.
 
-Generalizable Variables T TT.
+Generalizable Variables T aT TT aTT.
 
 Definition time_bound_C `{TotalOrder T} C t :=
   forall t', supp_C C t' -> t' < t.
@@ -289,7 +289,7 @@ Proof.
         assert (t < t) as contra;
         first [
           unfold time_bound_m in *; apply H; intros; simpl in *; eauto |
-          inversion contra; rewrite eqb_neq in *; contradict]
+          destruct contra; rewrite eqb_neq in *; contradict]
       end
     | _ => idtac
     end;
@@ -324,7 +324,7 @@ Proof.
   intros; simpl; split; intros; eauto.
 Qed.
 
-Lemma time_bound_e `{time T} :
+Lemma time_bound `{time T} :
   forall e C m t cf'
          (EVAL : {|(Cf e C m t) ~> cf'|})
          (BOUND : time_bound_ρ (Cf e C m t)),
@@ -335,7 +335,7 @@ Proof.
   unfold time_bound_ρ in *; eauto; destruct BOUND;
   split; try assumption;
   match goal with
-  | RR : read ?m ?addr = Some ?v |- _ =>
+  | RR : read ?m ?addr = Some _ |- _ =>
     match goal with
     | H : time_bound_m m ?t |- _ =>
       pose proof (time_bound_read m t addr H);
@@ -392,20 +392,431 @@ Proof.
       end
     | IN : supp_C ?C ?t |- eqb ?t _ = false =>
       match goal with
-      | H : time_bound_C C ?t' |- _ =>
+      | H : time_bound_C C _ |- _ =>
         specialize (H t IN); destruct H as [? contra];
         rewrite eqb_neq in *; red; intros; subst;
-        apply contra; try reflexivity;
-        apply leb_sym; assumption
+        apply contra;
+        first [reflexivity | apply leb_sym; assumption]
       end
     end
-  | |- time_bound_m ?m ?t => try assumption;
-    apply time_bound_tick; simpl; assumption
+  | |- time_bound_m ?m ?t => 
+    first [assumption |
+    apply time_bound_tick; simpl; assumption]
   end.
 Qed.
 
-(* Set Printing Implicit. *)
+Fixpoint remove_x {T} (C : dy_ctx T) x :=
+  match C with
+  | [||] => [||]
+  | dy_binde x' t C' =>
+    let C' := remove_x C' x in
+    if eqb_ID x x' then C' else dy_binde x' t C'
+  | dy_bindm M C' C'' =>
+    dy_bindm M C' (remove_x C'' x)
+  end.
 
+Fixpoint remove_M {T} (C : dy_ctx T) M :=
+  match C with
+  | [||] => [||]
+  | dy_binde x t C' =>
+    dy_binde x t (remove_M C' M)
+  | dy_bindm M' C' C'' =>
+    let C'' := remove_M C'' M in
+    if eqb_ID M M' then C'' else dy_bindm M' C' C''
+  end.
+
+Fixpoint remove_t `{Eq T} (m : memory T) t :=
+  match m with
+  | [] => []
+  | (t', v) :: tl =>
+    let tl := remove_t tl t in
+    if eqb t t' then tl else (t', v) :: tl
+  end.
+
+Fixpoint equiv_C `{Eq T} `{Eq TT} seenx seenM
+  (C1 : dy_ctx T) (C2 : dy_ctx TT) :=
+  match C1 with
+  | [||] => 
+    match C2 with
+    | [||] => Some ([], [])
+    | _ => None
+    end
+  | dy_binde x t C1 =>
+    if Inb x seenx then 
+      equiv_C seenx seenM C1 C2
+    else match addr_x C2 x with
+    | Some t' =>
+      match equiv_C (x :: seenx) seenM C1 (remove_x C2 x) with
+      | Some (tl, Cl) => Some ((t, t') :: tl, Cl)
+      | None => None
+      end
+    | None => None
+    end
+  | dy_bindm M C1' C1 =>
+    if Inb M seenM then
+      equiv_C seenx seenM C1 C2
+    else match ctx_M C2 M with
+    | Some C2' =>
+      match equiv_C seenx (M :: seenM) C1 (remove_M C2 M) with
+      | Some (tl, Cl) => match equiv_C [] [] C1' C2' with
+        | Some (tl', Cl') => Some (tl ++ tl', (C1', C2') :: Cl ++ Cl')
+        | None => None
+        end
+      | None => None
+      end
+    | None => None
+    end
+  end.
+
+Lemma asame_aequiv `{Eq T} `{Eq TT} :
+  forall (V : dy_value T) m (V' : dy_value TT) m' m''
+    (EQUIV : <|V m ≃# V' m'|>) (SAME : asame m' m''),
+  <|V m ≃# V' m''|>.
+Proof.
+  intros. red in EQUIV.
+  destruct EQUIV as [f [f' [EQl EQr]]].
+  unfold asame in SAME.
+  red. exists f. exists f'. split; simpl in *.
+  - intros. specialize (EQl p VALp).
+    split; try apply EQl.
+    destruct EQl as [EQ ELSE].
+    clear ELSE EQr VALp. remember (pmap f p) as p'.
+    clear Heqp' p f f' m V.
+    ginduction p'; intros; simpl in *;
+    repeat des_goal; repeat des_hyp; clarify; eauto.
+    + destruct EQ as [? [ev [IN VALp]]]; subst.
+      split; eauto. exists ev.
+      split. rewrite <- SAME. eauto.
+      eapply IHp'; eauto.
+    + destruct EQ as [? VALp]; subst.
+      split; eauto.
+    + destruct EQ as [? [? VALp]]; subst.
+      repeat split; eauto.
+  - intros. apply EQr.
+    clear EQl EQr f f' V.
+    ginduction p'; intros; simpl in *;
+    repeat des_goal; repeat des_hyp; clarify; eauto.
+    + destruct VALp' as [? [ev [IN ?]]]; subst.
+      split; eauto. exists ev.
+      split. rewrite SAME. eauto.
+      eapply IHp'; eauto.
+    + destruct VALp' as [? ?]; subst.
+      split; eauto.
+    + destruct VALp' as [? [? ?]]; subst.
+      repeat split; eauto.
+Qed.
+
+Lemma same_equiv `{Eq T} `{Eq TT} :
+  forall (V : dy_value T) m (V' : dy_value TT) m' m''
+    (EQUIV : <|V m ≃ V' m'|>) (SAME : same m' m''),
+  <|V m ≃ V' m''|>.
+Proof.
+  intros. red in EQUIV.
+  destruct EQUIV as [f [f' [EQl EQr]]].
+  unfold same in SAME.
+  red. exists f. exists f'. split; simpl in *.
+  - intros. specialize (EQl p VALp).
+    split; try apply EQl.
+    destruct EQl as [EQ ELSE].
+    clear ELSE EQr VALp. remember (pmap f p) as p'.
+    clear Heqp' p f f' m V.
+    ginduction p'; intros; simpl in *;
+    repeat des_goal; repeat des_hyp; clarify; eauto.
+    + destruct EQ as [? [ev [IN VALp]]]; subst.
+      split; eauto. exists ev.
+      split. rewrite <- SAME. eauto.
+      eapply IHp'; eauto.
+    + destruct EQ as [? VALp]; subst.
+      split; eauto.
+    + destruct EQ as [? [? VALp]]; subst.
+      repeat split; eauto.
+  - intros. apply EQr.
+    clear EQl EQr f f' V.
+    ginduction p'; intros; simpl in *;
+    repeat des_goal; repeat des_hyp; clarify; eauto.
+    + destruct VALp' as [? [ev [IN ?]]]; subst.
+      split; eauto. exists ev.
+      split. rewrite SAME. eauto.
+      eapply IHp'; eauto.
+    + destruct VALp' as [? ?]; subst.
+      split; eauto.
+    + destruct VALp' as [? [? ?]]; subst.
+      repeat split; eauto.
+Qed.
+
+(* lift unreachable Cs *)
+Fixpoint lift_C `{Eq T} `{Eq aT}
+  (inv_α : (T * aT) -> T) (t : T) (C : dy_ctx aT) :=
+  match C with
+  | [||] => [||]
+  | dy_binde x tx C =>
+    let tx := inv_α (t, tx) in
+    let C := lift_C inv_α t C in
+    dy_binde x tx C
+  | dy_bindm M C_M C =>
+    let C_M := lift_C inv_α t C_M in
+    let C := lift_C inv_α t C in
+    dy_bindm M C_M C
+  end.
+
+Fixpoint fst_trans `{Eq T} `{Eq TT} 
+  (trans : list (node T * node TT)) (n : node T) :=
+  match trans with
+  | [] => None
+  | (f, s) :: tl =>
+    if eqb f n then Some s else fst_trans tl n
+  end.
+
+Fixpoint snd_trans `{Eq T} `{Eq TT} 
+  (trans : list (node T * node TT)) (n : node TT) :=
+  match trans with
+  | [] => None
+  | (f, s) :: tl =>
+    if eqb s n then Some f else snd_trans tl n
+  end.
+
+Lemma aaaa `{TotalOrder T} `{TotalOrder TT} :
+  forall f (V : dy_value T) (V' : dy_value TT) (m : memory T) (m' : memory TT)
+    (VALp : forall p, valid_path V m p -> valid_path V' m' (pmap f p)) p p',
+  valid_path V m (papp p' p) ->
+  let C := match V with
+    | EVal (Closure _ _ C) => C
+    | MVal C => C
+  end in
+  let C' := match V' with
+    | EVal (Closure _ _ C') => C'
+    | MVal C' => C'
+  end in
+  valid_path V' m' 
+    (papp (pmap f p') (pmap (fun n => if eqb n (Ctx C) then (Ctx C') else f n) p)).
+Proof.
+  intros. subst C. subst C'.
+  ginduction p; intros; ginduction p'; intros; simpl in *;
+  repeat des_goal; repeat des_hyp; des; clarify.
+  - specialize (VALp (Px x (Ptr t1) p)).
+    simpl in VALp. rewrite HDES2 in VALp.
+    exploit VALp; try split; eauto; intros.
+    des_hyp; eauto.
+  - assert (forall p : path T,
+       valid_path (MVal ev) m p -> valid_path (MVal mv) m' (pmap f p))
+    exploit IHp; eauto; simpl.
+  
+
+  specialize (VALp (Px x (Ptr t2) p)).
+  simpl in VALp. rewrite HDES1 in VALp.
+  exploit VALp; eauto. rewrite GDES. rewrite GDES1. eauto.
+  exploit IHp; eauto.
+   replace p with (papp Pnil p) in * by reflexivity.
+  remember Pnil as p'. clear Heqp'.
+  ginduction p; intros; ginduction p'; intros;
+  simpl in *; repeat des_goal; repeat des_hyp; des; clarify.
+  exploit IHp'; eauto.
+  assert (valid_path (MVal C) m (papp (Px x (Ptr t2) Pnil) p)).
+  simpl. rewrite HDES1. split; eauto.
+  exact H4.
+  intros.
+  iso (MVal C) m (MVal C') m' 
+    (fun n => if eqb n (Ctx C) then (Ctx C') else f n)
+    (fun n' => if eqb n' (Ctx C') then (Ctx C) else f' n').
+Proof.
+  intros. destruct H3 as [EQl EQr].
+  unfold iso in *. split; intros.
+  - specialize (EQl p VALp). clear EQr.
+    destruct EQl as [VALp' EQ]. split.
+    + assert (pmap (fun n : node T => if eqb n (Ctx C) then Ctx C' else f n) p 
+      = pmap f p) as RR.
+      {
+       clear VALp' m' EQ.
+       ginduction p; intros; simpl in *; try reflexivity;
+       repeat des_goal; repeat des_hyp; des; clarify;
+       erewrite IHp; eauto.
+       all:cycle 1.
+       assert (eqb (Ctx d) (Ctx C) = true) as RR.
+       assumption. rewrite eqb_eq in RR. clarify.
+      }
+    induction p; intros; simpl in *; eauto;
+    repeat des_goal; repeat des_hyp; des; clarify;
+    repeat split; eauto.
+    exists ev0. split; eauto.
+
+    try rewrite eqb_eq in *.
+
+(* assumed : f (α C) ≃# aC except for paths starting with
+ * x in seenx and M in seenM, when f is a graph isomorphism *)
+(* trans: holds translated equivalent nodes *)
+Fixpoint trans_equiv_C_aux `{Eq T} `{Eq TT} `{Eq aTT}
+  (inv_α : (TT * aTT) -> TT)
+  (t : TT) (trans : list (node T * node TT)) seenx seenM
+  (C : dy_ctx T) (aC : dy_ctx aTT) :=
+  match fst_trans trans (Ctx C) with
+  | Some (Ctx C) => Some (t, trans, C) (* already translated *)
+  | Some (Ptr _) => None
+  | None =>
+  let ret := match aC with
+  | [||] => Some (t, trans, [||])
+  | dy_binde x tx aC =>
+    if Inb x seenx then (* unreachable *)
+      let tx := inv_α (t, tx) in
+      match trans_equiv_C_aux inv_α t trans seenx seenM C aC with
+      | None => None
+      | Some (t, trans, C) => Some (t, trans, dy_binde x tx C)
+      end
+    else match addr_x C x with (* reachable *)
+    | None => None
+    | Some addr =>
+      let seenx := x :: seenx in
+      match fst_trans trans (Ptr addr) with
+      | Some (Ctx _) => None
+      | Some (Ptr tx) =>
+        match trans_equiv_C_aux inv_α t trans seenx seenM C aC with
+        | None => None
+        | Some (t, trans, C) => Some (t, trans, dy_binde x tx C)
+        end
+      | None =>
+        let tx := inv_α (t, tx) in
+        let trans := (Ptr addr, Ptr tx) :: trans in
+        match trans_equiv_C_aux inv_α tx trans seenx seenM C aC with
+        | None => None
+        | Some (t, trans, C) => Some (t, trans, dy_binde x tx C)
+        end
+      end
+    end
+  | dy_bindm M C_M aC =>
+    if Inb M seenM then (* unreachable *)
+      let C_M := lift_C inv_α t C_M in
+      match trans_equiv_C_aux inv_α t trans seenx seenM C aC with
+      | None => None
+      | Some (t, trans, C) => Some (t, trans, dy_bindm M C_M C)
+      end
+    else match ctx_M C M with (* reachable *)
+    | None => None
+    | Some C_M' =>
+      let seenM := M :: seenM in
+      match fst_trans trans (Ctx C_M') with
+      | Some (Ptr _) => None
+      | Some (Ctx C_M) =>
+        match trans_equiv_C_aux inv_α t trans seenx seenM C aC with
+        | None => None
+        | Some (t, trans, C) => Some (t, trans, dy_bindm M C_M C)
+        end
+      | None =>
+        match trans_equiv_C_aux inv_α t trans [] [] C_M' C_M with
+        | None => None
+        | Some (t, trans, C_M) =>
+          match trans_equiv_C_aux inv_α t trans seenx seenM C aC with
+          | None => None
+          | Some (t, trans, C) => Some (t, trans, dy_bindm M C_M C)
+          end
+        end
+      end
+    end
+  end in
+  let top := match seenx, seenM with
+  | [], [] => true
+  | _, _ => false
+  end in
+  match ret with
+  | None => None
+  | Some (t, trans, C') =>
+    if top
+    then Some (t, (Ctx C, Ctx C') :: trans, C')
+    else Some (t, trans, C')
+  end end.
+
+with trans_equiv_C `{Eq T} `{Eq TT} `{Eq aTT}
+  (inv_α : (TT * aTT) -> TT)
+  (t : TT) (trans : list (node T * node TT))
+  (C : dy_ctx T) (aC : dy_ctx aTT) :=
+  match fst_trans trans (Ctx C) with
+  | Some (Ctx C) => Some (t, trans, C)
+  | Some _ => None
+  | None =>
+    match trans_equiv_C_aux inv_α t trans [] [] C aC with
+    | None => None
+    | Some (t, trans, C') => Some (t, (Ctx C, Ctx C') :: trans, C')
+    end
+  end.
+
+Fixpoint trans_equiv_m 
+  (* check oracle, if reachable trans_equiv_C
+     if unreachable lift_C *)
+
+Definition trans_equiv
+
+(*
+Definition equiv_aux `{Eq T} `{Eq TT}
+  (C : dy_ctx T) m (C' : dy_ctx TT) m' :=
+  match C with
+  | [||] => C' = [||]
+  | dy_binde x t C =>
+    match addr_x C' x with
+    | None => False
+    | Some t' =>
+      <|(MVal (remove_x C x)) m ≃ (MVal (remove_x C' x)) m'|> /\
+      match read m t, read m' t' with
+      | None, None => True
+      | Some v, Some v' =>
+      <|(EVal v) (remove_t m t) ≃ (EVal v') (remove_t m' t')|>
+      | _, _ => False
+      end
+    end
+  | dy_bindm M C_M C =>
+    match ctx_M C' M with
+    | None => False
+    | Some C_M' =>
+      <|(MVal (remove_M C M)) m ≃ (MVal (remove_M C' M)) m'|> /\
+      <|(MVal C_M) m ≃ (MVal C_M') m'|>
+    end
+  end.
+
+Definition equiv_alt `{Eq T} `{Eq TT}
+  (V : dy_value T) m (V' : dy_value TT) m' :=
+  match V, V' with
+  | EVal (Closure x e C), EVal (Closure x' e' C') =>
+    x = x' /\ e = e' /\ equiv_aux C m C' m'
+  | MVal C, MVal C' =>
+    equiv_aux C m C' m'
+  | _, _ => False
+  end.
+
+Lemma equiv_alt_eq `{Eq T} `{Eq TT} :
+  forall (V : dy_value T) m (V' : dy_value TT) m'
+    (EQ : equiv_alt V m V' m'),
+  equiv V m V' m'.
+Proof.
+  intros; red in EQ.
+  repeat des_hyp; clarify; try destruct EQ as [? [? EQ]]; subst.
+  - ginduction C; intros; simpl in *; clarify.
+    + exists (fun _ => Ctx ([||])). exists (fun _ => Ctx ([||])).
+      split; intros;
+      match goal with
+      | |- _ /\ _ = ?p => destruct p; simpl in *; repeat des_hyp; eauto;
+        match goal with
+        | H : _ /\ _ /\ _ |- _ =>
+          destruct H as [? [? H]]; subst; repeat split; eauto;
+          match goal with
+          | H : valid_path _ _ ?p |- _ =>
+            destruct p; simpl in *; repeat des_hyp; eauto
+          end
+        end
+      end.
+    + repeat des_hyp; unfold equiv in EQ;
+      match goal with
+      | H : _ /\ False |- _ => destruct H; contradict
+      | H : _ /\ True |- _ => destruct H as [[f [f' [EQl EQr]]] ?];
+        match goal with
+        | H : True |- _ => clear H
+        end
+      | _ =>
+        destruct EQ as [EQt EQtx];
+        destruct EQt as [ft [ft' [EQtl EQtr]]];
+        destruct EQtx as [ftx [ftx' [EQtxl EQtxr]]]
+      end.
+      all:cycle 1.
+*)
+
+(* Set Printing Implicit. *)
+(*
 Lemma sound_eval `{Conc.time CT} `{Abs.time AT} (α : CT -> AT) (PRES : preserve_tick α) :
   forall C st e V stV (EVAL : EvalR C st e V stV)
     abs_C abs_st
@@ -691,3 +1102,4 @@ Proof.
     split; eauto.
     eapply Abs.one_letmr. eauto.
 Qed.
+*)

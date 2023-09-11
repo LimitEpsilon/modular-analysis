@@ -167,6 +167,8 @@ Definition eqb_ID := Nat.eqb.
 
 Definition eqb_ID_eq := Nat.eqb_eq.
 
+#[export] Instance EqID : Eq ID := { eqb:= eqb_ID; eqb_eq := eqb_ID_eq; }.
+
 Definition eqb_ID_neq := Nat.eqb_neq.
 
 Lemma ID_refl : forall x, eqb_ID x x = true.
@@ -225,6 +227,8 @@ Proof.
   | _ => fail
   end.
 Qed.
+
+#[export] Instance Eqtm : Eq tm := { eqb := eq_tm; eqb_eq := eq_tm_eq; }.
 
 (** Statics *)
 Inductive value :=
@@ -519,15 +523,19 @@ Fixpoint valid_path {T} `{Eq T}
   | _, _ => False
   end.
 
-Definition equiv {T T'} `{Eq T} `{Eq T'}
-  (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T') :=
-  exists f f',
+Definition iso {T T'} `{Eq T} `{Eq T'}
+  (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T')
+  f f' :=
   (forall p (VALp : valid_path V m p),
     let p' := pmap f p in
     valid_path V' m' p' /\ pmap f' p' = p) /\
   (forall p' (VALp' : valid_path V' m' p'),
     let p := pmap f' p' in
     valid_path V m p /\ pmap f p = p').
+
+Definition equiv {T T'} `{Eq T} `{Eq T'}
+  (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T') :=
+  exists f f', iso V m V' m' f f'.
 
 Notation "'<|' V1 m1 '≃' V2 m2 '|>'" :=
   (equiv V1 m1 V2 m2)
@@ -557,15 +565,19 @@ Fixpoint avalid_path {T} `{Eq T}
   | _, _ => False
   end.
 
-Definition aequiv {T T'} `{Eq T} `{Eq T'}
-  (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T') :=
-  exists f f',
+Definition aiso {T T'} `{Eq T} `{Eq T'}
+  (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T') 
+  f f' :=
   (forall p (VALp : avalid_path V m p),
     let p' := pmap f p in
     avalid_path V' m' p' /\ pmap f' p' = p) /\
   (forall p' (VALp' : avalid_path V' m' p'),
     let p := pmap f' p' in
     avalid_path V m p /\ pmap f p = p').
+
+Definition aequiv {T T'} `{Eq T} `{Eq T'}
+  (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T') :=
+  exists f f', aiso V m V' m' f f'.
 
 Notation "'<|' V1 m1 '≃#' V2 m2 '|>'" :=
   (aequiv V1 m1 V2 m2)
@@ -862,6 +874,56 @@ Proof.
   induction C; simpl; try rewrite ID_refl; try rewrite t_refl;
   try rewrite IHC; try rewrite IHC1; try rewrite IHC2; eauto.
 Qed.
+
+Definition eqb_C {T} `{Eq T} := eq_C eqb.
+
+Lemma eqb_C_eq {T} `{Eq T} :
+  forall (C C' : dy_ctx T),
+  eqb_C C C' = true <-> C = C'.
+Proof.
+  induction C; intros; unfold eqb_C in *;
+  simpl; repeat des_goal; repeat des_hyp;
+  split; intros EQ; clarify;
+  try rewrite eqb_ID_eq in *; try rewrite eqb_eq in *;
+  try rewrite IHC in *; try rewrite IHC1 in *; try rewrite IHC2 in *;
+  subst;
+  match goal with
+  | _ => reflexivity
+  | _ => rewrite eqb_neq in *; contradict
+  | _ => rewrite eqb_ID_neq in *; contradict
+  | H : eq_C eqb ?C ?C = false |- _ =>
+    let contra := fresh "contra" in
+    assert (C = C) as contra; try reflexivity;
+    match goal with
+    | RR : context[C = _] |- _ => 
+      rewrite <- RR in *; rewrite contra in *; clarify
+    end
+  end.
+Qed.
+
+#[export] Instance EqC {T} `{Eq T} : `{Eq (dy_ctx T)} := 
+  { eqb := eqb_C; eqb_eq := eqb_C_eq; }.
+
+Definition eq_node {T} `{Eq T} (n1 n2 : node T) :=
+  match n1, n2 with
+  | Ptr t1, Ptr t2 => eqb t1 t2
+  | Ctx C1, Ctx C2 => eqb C1 C2
+  | _, _ => false
+  end.
+
+Lemma eq_node_eq {T} `{Eq T} :
+  forall (n n' : node T),
+  eq_node n n' = true <-> n = n'.
+Proof.
+  intros; split; intros EQ; unfold eq_node in *;
+  repeat des_goal; repeat des_hyp;
+  try rewrite eqb_eq in *;
+  try rewrite eqb_C_eq in *; 
+  clarify.
+Qed.
+
+#[export] Instance EqNode {T} `{Eq T} : `{Eq (node T)} :=
+  { eqb := eq_node; eqb_eq := eq_node_eq; }.
 
 Lemma eq_C_st_eq {T} eqb (C1 C2 : dy_ctx T) :
   eq_C eqb C1 C2 = true -> dy_to_st C1 = dy_to_st C2.

@@ -842,12 +842,12 @@ Proof.
     match type of H with
     | context [Error] =>
       assert (eval e C m t l (n + n0) = r) as RR;
-      try (apply relax_fuel_err with (FUEL := n); eauto; try nia);
-      rewrite RR
+      first [apply relax_fuel_err with (FUEL := n); eauto; nia|
+      rewrite RR]
     | context [Resolved] =>
       assert (eval e C m t l (n + n0) = r) as RR;
-      try (apply relax_fuel with (FUEL := n); eauto; try nia);
-      rewrite RR
+      first [apply relax_fuel with (FUEL := n); eauto; nia|
+      rewrite RR]
     end
   end; simpl; repeat des_goal;
   repeat match goal with
