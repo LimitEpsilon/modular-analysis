@@ -1237,11 +1237,11 @@ The deletion operator $\delete{C_1}{C_2}$, which ``digs out'' $C_1$ from $C_2$, 
     For example, we check for $\A\alpha_+(C_2)=\A\alpha_+(C_1)$ first when deleting $C_1$ from $C_2$.}
   \label{fig:concinject}
 \end{figure}
+This definition can be extended to injection and deletion between abstract contexts as well.
 
 Naturally, we expect $\tick_+$ to increment timestamps in $\Time_+$ by using $\tick_1$ for timestamps in $2\mathbb{Z}\times\Time_1$, and by using $\tick_2$ for timestamps in $(2\mathbb{Z}+1)\times\Time_2$.
 However, the context and memory will contain timestamps originating from both $\Time_1$ and $\Time_2$.
 Therefore, we need to define the filter operations $C.1$ and $C.2$ which selects only timestamps from the time domain of interest.
-
 \begin{figure}[h!]
   \[
     \begin{array}{cc}
@@ -1266,6 +1266,7 @@ Therefore, we need to define the filter operations $C.1$ and $C.2$ which selects
   \caption{Definition for the filter operations ($i=1,2$).}
   \label{fig:concfilter}
 \end{figure}
+This definition can be extended to filter out abstract timestamps as well.
 
 Note that $\mem.i$ cannot be well-defined for memories that contain addresses with overlapping second coordinates.
 That is, in the case when $\mem$ can be accessed with both $(0,t_1)$ and $(2,t_1)$, $\mem.1$ is not well-defined.
@@ -1273,6 +1274,7 @@ In this case, we leave $\mem.i$ as undefined.
 This means that the mapping $\mem\mapsto\mem.i$ is a partial function that is defined for only memories with distinct second coordinates.
 Luckily, in the case that $\mem$ is derived from injection, all timestamps in $2\mathbb{Z}\times\Time_1$ will be of the form $(0,\_)$, and all timestamps in $(2\mathbb{Z}+1)\times\Time_2$ will be of the form $(1,\_)$.
 Thus, $\mem.i$ will always be defined for our purposes.
+Of course, $\A\mem.i$ is always defined, since the only even first coordinate is $0$, and the only odd first coordinate is $1$.
 
 Moving on, we extend $\inject{\_}{\_}$ and $\delete{\_}{\_}$:
 \begin{definition}[Filling in the Blanks]
@@ -1302,12 +1304,13 @@ Moving on, we extend $\inject{\_}{\_}$ and $\delete{\_}{\_}$:
     \delete{C_1}{\mem_2}\triangleq
     \displaystyle\bigcup_{t\in\mathsf{dom}(\mem_2)}\left\{t\mapsto\delete{C_1}{\mem_2(t)}\right\}
   \]
+  Naturally, these definitions extend to their abstract counterparts.
 \end{definition}
 
 Note that $\inject{s_1}{r_2}\in\Result_+$. That is, it is time-bounded.
 Now we only have to define $\tick_+$ which preserves transitions made before injection.
 The definition for $\rhd$ is:
-\begin{definition}[Injection]
+\begin{definition}[Concrete Injection]
   Let $s_1=(C_1,\mem_1,t_1)\in\State_1$, $\tick_1\in\Tick_1$, $r_2=(V_2,\mem_2,t_2)\in\Result_2$, and $\tick_2\in\Tick_2$.
   We define $(s_1,\tick_1)\rhd(r_2,\tick_2)\triangleq(\inject{s_1}{r_2},\tick_+)\in\Result_+\times\Tick_+$, when $\tick_+$ is given by:
   \[
@@ -1320,7 +1323,7 @@ The definition for $\rhd$ is:
   \]
   where
   \[
-    \A\tick_+((\A{C},\A\mem,\A{t}),x,\A{v})\triangleq
+    \A\tick_+(\A{C},\A\mem,\A{t},x,\A{v})\triangleq
     \begin{cases}
       (0,\A\alpha_1(\tick_1)(\A{C}.1,\A\mem.1,\A{t}_1,x,\A{v}.1))                                                                                     & \A{t}=(0,\A{t}_1) \\
       (1,\A\alpha_2(\tick_2)(\delete{\A\alpha_1({C}_1)}{\A{C}}.2,\delete{\A\alpha_1({C}_1)}{\A\mem}.2,\A{t}_2,x,\delete{\A\alpha_1({C}_1)}{\A{v}}.2)) & \A{t}=(1,\A{t}_2) \\
@@ -1329,65 +1332,21 @@ The definition for $\rhd$ is:
   satisfies $\A\alpha_+\circ\tick_+=\A\tick_+\circ\A\alpha_+$.
 \end{definition}
 
+\begin{definition}[Abstract Injection]
+  Let $\A{s}_1=(\A{C}_1,\A\mem_1,\A{t}_1)\in\A\State_1$, $\A\tick_1\in\A\Tick_1$, $\A{r}_2=(\A{V}_2,\A\mem_2,\A{t}_2)\in\A\Result_2$, and $\A\tick_2\in\A\Tick_2$.
+  We define $(\A{s}_1,\A\tick_1)\A\rhd(\A{r}_2,\A\tick_2)\triangleq(\inject{\A{s}_1}{\A{r}_2},\A\tick_+)\in\A\Result_+\times\A\Tick_+$, when $\A\tick_+$ is given by:
+  \[
+    \A\tick_+(\A{C},\A\mem,\A{t},x,\A{v})\triangleq
+    \begin{cases}
+      (0,\A\tick_1(\A{C}.1,\A\mem.1,\A{t}_1,x,\A{v}.1))                                                       & \A{t}=(0,\A{t}_1) \\
+      (1,\A\tick_2(\delete{\A{C}_1}{\A{C}}.2,\delete{\A{C}_1}{\A\mem}.2,\A{t}_2,x,\delete{\A{C}_1}{\A{v}}.2)) & \A{t}=(1,\A{t}_2) \\
+    \end{cases}
+  \]
+\end{definition}
+
 Since $\tick_+$ digs out $C_1$ from the memory and context, timestamps produced by $\tick_+$ after injection will look at only the parts before injection.
 Thus, it will produce the same timestamps that were produced by $\tick_2$ under $S_2$.
-This is why transitions after injection are valid as transitions under injected time.
-
-Then the filtering operation for the context can naturally be defined as in Figure \ref{fig:absfilter}, and the definition for the added time domain can be given.
-\begin{figure}[h!]
-  \[
-    \A\filter_i(\A{C})\triangleq
-    \begin{cases}
-      []                                               & \A{C}=[]                                                \\
-      (x,\A{t})\cons\A\filter_i(\A{C'})                & \A{C}=(x,\A{t})\cons \A{C'}\wedge \A{t}\in\A\Time_i     \\
-      \A\filter_i(\A{C'})                              & \A{C}=(x,\A{t})\cons \A{C'}\wedge \A{t}\not\in\A\Time_i \\
-      (M,\A\filter_i(\A{C'}))\cons\A\filter_i(\A{C''}) & \A{C}=(M, \A{C'})\cons \A{C''}
-    \end{cases}
-  \]
-  \caption{Definition of the abstract filter operation ($i=1,2$).}
-  \label{fig:absfilter}
-\end{figure}
-
-\begin{definition}[Addition of time domains]
-  Let $(\ATime_1,\A\tick_1)$ and $(\ATime_2,\A\tick_2)$ be two abstract time domains.
-  Given $\A{s}_1=(\A{C}_1,\A\mem_1,\A{t}_1)\in\AState{\ATime_1}$, define the $\A{\tick}_+(\A{s}_1)$ function as:
-  \[
-    \A\tick_{+}(\A{s}_1)(\A{C},\A\mem,\A{t},x,\A{v})\triangleq
-    \begin{cases}
-      \A{\tick}_1\:\A\filter_1(\A{C},\A\mem,\A{t},x,\A{v})                   & \A{t}\in\ATime_1 \\
-      \A{\tick}_2\:\A\filter_2(\delete{\A{C}_1}{\A{C},\A\mem,\A{t},x,\A{v}}) & \A{t}\in\ATime_2
-    \end{cases}
-  \]
-
-  Then we call the abstract time $(\ATime_1+\ATime_2,\A\tick_{+}(\A{s}_1))$ the linked time when $\A{s}_1$ is exported.
-\end{definition}
-
-Now the rest flows analogously to concrete linking.
-First the injection operator that injects the exported state to the next time must be defined.
-
-\begin{definition}[Injection of a configuration : $\A\rhd$]
-  $\:$
-
-  Given $\A{s}=(\A{C}_1,\A{\mem}_1,\A{t}_1)\in\AState{\ATime_1}$ and $\A{r}=(\A{V}_2,\A{\mem}_2,\A{t}_2)\in\AResult{\ATime_2}$,
-  let $\A{s}\A\rhd \A{\mem}_2$ and $\A{s}\A\rhd \A{r}$:
-  \[
-    \A{s}\A\rhd\A{\mem}_2\triangleq
-    \lambda \A{t}.
-    \begin{cases}
-      \A{\mem}_1(\A{t})                   & \A{t}\in\ATime_1 \\
-      \inject{\A{C}_1}{\A{\mem}_2(\A{t})} & \A{t}\in\ATime_2
-    \end{cases}
-    \qquad
-    \A{s}\A\rhd \A{r}\triangleq
-    (\inject{\A{C}_1}{\A{V}_2},\A{s}\A\rhd \A{\mem}_2,\A{t}_2)
-  \]
-
-  Furthermore, when $\A\ell=(e,\A{s'})\in \A{L}_2$, and $\A{A}\subseteq (\A{L}_2\times \A{R}_2)\cup \A{R}_2$, we define:
-  \[
-    \A{s}\A\rhd\A\ell\triangleq(e,\A{s}\rhd \A{s'})\qquad
-    \A{s}\A\rhd\A{A}\triangleq\{\A{s}\A\rhd\A\rho|\A\rho\in \A{A}\}\cup\{\A{s}\A\rhd\A\ell\A\semarrow \A{s}\A\rhd\A\rho|\A\ell\A\semarrow\A\rho\in \A{A}\}
-  \]
-\end{definition}
+This is why injection into transitions computed in advance are valid as transitions beginning from injected states.
 
 \subsubsection{Semantic Linking}
 \begin{figure}[h!]
@@ -1403,22 +1362,31 @@ First the injection operator that injects the exported state to the next time mu
     (\ell_+,\tick_+)=(s_1,\tick_1)\rhd(\ell_2,\tick_2)\wedge
     (\rho_+,\tick_+)=(s_1,\tick_1)\rhd(\rho_2,\tick_2)
   \end{align*}
-  \caption{Extension of $\rhd$ to define injection into a cache.}
+  \caption{Extension of $\rhd$ to define injection into an element of $\wp(D_2)$.}
   \label{fig:extinject}
 \end{figure}
 Now we need to define the semantic linking operator $\semlink$.
-More specifically, we must define $S_1\semlink A_2$, when $S_1\subseteq\State_1\times\Tick_1$ and $A_2\subseteq(\Left_2\times\Tick_2\times\Right_2)\cup(\Right_2\times\Tick_2)$.
+More specifically, we must define $S_1\semlink A_2$, when $S_1\subseteq\State_1\times\Tick_1$ and $A_2\subseteq D_2$.
 Remember that $A_2$ is the separately computed semantics, and $S_1$ is what was missing.
 Thus, we must first inject all $(s_1,\tick_1)\in S_1$ into $(\rho_2,\tick_2),\ell_2\semarrow_{\tick_2}\rho_2\in A_2$.
-The definition for elementwise injection into a cache is given in Fig. \ref{fig:extinject}.
+The definition for elementwise injection into a cache is given in Figure \ref{fig:extinject}.
 Next, since we have gained new information about the external environment, we must collect more that can be gleaned from $S_1$.
 Thus, the definition of semantic linking is as follows:
-\begin{definition}[Semantic Linking]
-  Let $S_1\subseteq\State_1\times\Tick_1$ and $A_2\subseteq(\Left_2\times\Tick_2\times\Right_2)\cup(\Right_2\times\Tick_2)$.
+\begin{definition}[Concrete Linking]
+  Let $S_1\subseteq\State_1\times\Tick_1$ and $A_2\subseteq D_2$.
   Then:
   \[
     S_1\semlink A_2\triangleq
     \mathsf{lfp}(\lambda X.\mathsf{Step}(X)\cup(S_1\rhd A_2))
+  \]
+\end{definition}
+
+\begin{definition}[Abstract Linking]
+  Let $\Abs{S}_1\subseteq\A\State_1\times\A\Tick_1$ and $\Abs{A}_2\subseteq \Abs{D}_2$.
+  Then:
+  \[
+    \Abs{S}_1\Abs\semlink\Abs{A}_2\triangleq
+    \mathsf{lfp}(\lambda \Abs{X}.\Abs\Step(\Abs{X})\cup(\Abs{S}_1\Abs\rhd \Abs{A}_2))
   \]
 \end{definition}
 
@@ -1436,41 +1404,6 @@ Thus our main theorem follows directly: since $|\sembracket{e_1}S|\cong S_1\rhd 
   |\sembracket{\link{e_1}{e_2}}S|=|\sembracket{e_2}|\sembracket{e_1}S||\cong|\sembracket{e_2}(S_1\rhd S_2)|=|S_1\semlink\sembracket{e_2}S_2|
 \]
 when the first equality is from the definition of $|\sembracket{e}S|$, $\cong$ is due to the separability assumption and irrelevence of $\tick$, and the final equality is due to the advance lemma.
-
-\subsection{A Simple Case}
-
-The most obvious case in separability is when $e_2$ does not depend on what $e_1$ exports.
-In this case, $S_2=\mt\triangleq\{([],\varnothing,0)\}$.
-Since any $S$ is trivially separable as $S\cong S\rhd\mt$, we have that $|\sembracket{e_1}S|\cong|\sembracket{e_1}S|\rhd\mt$.
-Thus, we have:
-\begin{cor}[A Simple Case]
-  \[
-    |\sembracket{\link{e_1}{e_2}}S|\cong||\sembracket{e_1}S|\semlink\sembracket{e_2}\mt|
-  \]
-\end{cor}
-
-\begin{lem}[Linked abstraction]
-  Let $s_1=(C_1,\mem_1,t_1)\in\State{\Time_1}$, and let $\alpha_1:\Time_1\rightarrow\ATime_1$.
-  Also, let $\alpha_2:\Time_2\rightarrow\ATime_2$ be a tick-approximating abstraction.
-  Now define $\alpha_+:\underline{\Time_1}\uplus\underline{\Time_2}\rightarrow\ATime_1+\ATime_2$ as:
-  \[
-    \alpha_+(t)\triangleq
-    \begin{cases}
-      \alpha_1(t.1) & t\in\underline{\Time_1} \\
-      \alpha_2(t.2) & t\in\underline{\Time_2}
-    \end{cases}
-  \]
-  Then $\alpha_+$ is tick-approximating on $\underline{\Time_2}$ between $(\underline{\Time_1}\uplus\underline{\Time_2},\le_+,\tick_+(s_1))$ and $(\ATime_1+\ATime_2,\A\tick_+(\alpha_1(s_1)))$.
-\end{lem}
-
-\begin{thm}[Abstract linking]
-  Let $\Time_i(i=1,2)$ be two concrete times, and let $\ATime_i(i=1,2)$ be two abstract times.
-  Let $\alpha_i:\Time_i\rightarrow\ATime_i(i=1,2)$ be tick-approximating, and let $\A{s}=\alpha_1(s)$ approximate the initial state.
-  Then, $\A\Link\:e_1\:e_2\:\A{s}$ is a sound approximation of $\Link\:e_1\:e_2\:s$.
-  That is:
-  \[\Link\:e_1\:e_2\:s\subseteq\gamma_1(\A{\sembracket{e_1}}(\A{s}))\cup\gamma_+(\A{\sembracket{e_2}}(\A\Exp)\cup(\link{e_1}{e_2},\A{s})\A\semarrow(\{(e_1,\A{s})\}\cup(e_2,\A\Exp)\cup\A{\underline{e_2}}(\A\Exp)))\]
-  when the Galois pairs of $\alpha_1$ and $\alpha_+$, $\gamma_1$ and $\gamma_+$, are defined as in section 5.
-\end{thm}
 
 \end{document}
 %%% Local Variables: 
