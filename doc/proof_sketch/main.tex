@@ -1310,7 +1310,7 @@ Moving on, we extend $\inject{\_}{\_}$ and $\delete{\_}{\_}$:
 Note that $\inject{s_1}{r_2}\in\Result_+$. That is, it is time-bounded.
 Now we only have to define $\tick_+$ which preserves transitions made before injection.
 The definition for $\rhd$ is:
-\begin{definition}[Concrete Injection]
+\begin{definition}[Elementwise Concrete Injection]
   Let $s_1=(C_1,\mem_1,t_1)\in\State_1$, $\tick_1\in\Tick_1$, $r_2=(V_2,\mem_2,t_2)\in\Result_2$, and $\tick_2\in\Tick_2$.
   We define $(s_1,\tick_1)\rhd(r_2,\tick_2)\triangleq(\inject{s_1}{r_2},\tick_+)\in\Result_+\times\Tick_+$, when $\tick_+$ is given by:
   \[
@@ -1332,7 +1332,7 @@ The definition for $\rhd$ is:
   satisfies $\A\alpha_+\circ\tick_+=\A\tick_+\circ\A\alpha_+$.
 \end{definition}
 
-\begin{definition}[Abstract Injection]
+\begin{definition}[Elementwise Abstract Injection]
   Let $\A{s}_1=(\A{C}_1,\A\mem_1,\A{t}_1)\in\A\State_1$, $\A\tick_1\in\A\Tick_1$, $\A{r}_2=(\A{V}_2,\A\mem_2,\A{t}_2)\in\A\Result_2$, and $\A\tick_2\in\A\Tick_2$.
   We define $(\A{s}_1,\A\tick_1)\A\rhd(\A{r}_2,\A\tick_2)\triangleq(\inject{\A{s}_1}{\A{r}_2},\A\tick_+)\in\A\Result_+\times\A\Tick_+$, when $\A\tick_+$ is given by:
   \[
@@ -1362,14 +1362,25 @@ This is why injection into transitions computed in advance are valid as transiti
     (\ell_+,\tick_+)=(s_1,\tick_1)\rhd(\ell_2,\tick_2)\wedge
     (\rho_+,\tick_+)=(s_1,\tick_1)\rhd(\rho_2,\tick_2)
   \end{align*}
-  \caption{Extension of $\rhd$ to define injection into an element of $\wp(D_2)$.}
+  \caption{Extension of $\rhd$ to define injection into an element of $D_2$.}
   \label{fig:extinject}
 \end{figure}
+\begin{definition}[Concrete Injection]
+  Let $S_1\subseteq\State_1\times\Tick_1$ and $A_2\subseteq D_2$. Then we define:
+  \[
+    S_1\rhd A_2\triangleq\{p\rhd q|p\in S_1\wedge q\in A_2\}
+  \]
+\end{definition}
+\begin{definition}[Abstract Injection]
+  Let $\Abs{S}_1\subseteq\AState_1\times\A\Tick_1$ and $\Abs{A}_2\subseteq\A{D}_2$. Then we define:
+  \[
+    \Abs{S}_1\Abs\rhd\Abs{A}_2\triangleq\{\A{p}\A\rhd\A{q}|\A{p}\in\Abs{S}_1\wedge\A{q}\in\Abs{A}_2\}
+  \]
+\end{definition}
 Now we need to define the semantic linking operator $\semlink$.
 More specifically, we must define $S_1\semlink A_2$, when $S_1\subseteq\State_1\times\Tick_1$ and $A_2\subseteq D_2$.
 Remember that $A_2$ is the separately computed semantics, and $S_1$ is what was missing.
 Thus, we must first inject all $(s_1,\tick_1)\in S_1$ into $(\rho_2,\tick_2),\ell_2\semarrow_{\tick_2}\rho_2\in A_2$.
-The definition for elementwise injection into a cache is given in Figure \ref{fig:extinject}.
 Next, since we have gained new information about the external environment, we must collect more that can be gleaned from $S_1$.
 Thus, the definition of semantic linking is as follows:
 \begin{definition}[Concrete Linking]
@@ -1382,7 +1393,7 @@ Thus, the definition of semantic linking is as follows:
 \end{definition}
 
 \begin{definition}[Abstract Linking]
-  Let $\Abs{S}_1\subseteq\A\State_1\times\A\Tick_1$ and $\Abs{A}_2\subseteq \Abs{D}_2$.
+  Let $\Abs{S}_1\subseteq\A\State_1\times\A\Tick_1$ and $\Abs{A}_2\subseteq \A{D}_2$.
   Then:
   \[
     \Abs{S}_1\Abs\semlink\Abs{A}_2\triangleq
@@ -1391,20 +1402,48 @@ Thus, the definition of semantic linking is as follows:
 \end{definition}
 
 \subsection{Proof Sketches}
-Since we defined $\rhd$ and thus $\semlink$ well, we have the following property:
-\begin{lem}[Advance]
+\begin{lem}[Concrete Advance, Operational]
+  For all $(s_1,\tick_1)\in\State_1\times\Tick_1$, $\ell_2\in\Left_2$, $\tick_2\in\Tick_2$, $\rho_2\in\Right_2$,
+  If we let $(\ell_+,\tick_+)=(s_1,\tick_1)\rhd(\ell_2,\tick_2)$ and $(\rho_+,\tick_+)=(s_1,\tick_1)\rhd(\rho_2,\tick_2)$, we have:
+  \[
+    \ell_2\semarrow_{\tick_2}\rho_2\Rightarrow\ell_+\semarrow_{\tick_+}\rho_+
+  \]
+  Thus $S_1\rhd\sembracket{e}S_2\subseteq\sembracket{e}(S_1\rhd S_2)$
+\end{lem}
+\begin{proof}[Sketch]
+  By induction on $\semarrow_{\tick_2}$.
+  We use the fact that $\inject{C}{\mem[t\mapsto v]}=\inject{C}{\mem}[t\mapsto\inject{C}{v}]$.
+\end{proof}
+\begin{lem}[Concrete Advance]
   Let $S_1\subseteq\State_1\times\Tick_1$ and $S_2\subseteq\State_2\times\Tick_2$. Then:
   \[
     \sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2
   \]
 \end{lem}
-This means that we can compute part of $\sembracket{e}S$ in \emph{advance}, when $S$ is {separable} into $S_1\rhd S_2$, by $\sembracket{e}S_2$, then link $S_1$ later to obtain the full semantics.
-Thus our main theorem follows directly: since $|\sembracket{e_1}S|\cong S_1\rhd S_2$(separability),
-\[
-  |\sembracket{\link{e_1}{e_2}}S|=|\sembracket{e_2}|\sembracket{e_1}S||\cong|\sembracket{e_2}(S_1\rhd S_2)|=|S_1\semlink\sembracket{e_2}S_2|
-\]
-when the first equality is from the definition of $|\sembracket{e}S|$, $\cong$ is due to the separability assumption and irrelevence of $\tick$, and the final equality is due to the advance lemma.
-
+\begin{proof}[Sketch]
+  Straightforward from the previous lemma.
+\end{proof}
+\begin{lem}[Abstract Advance, Operational]
+  For all $(\A{s}_1,\A\tick_1)\in\AState_1\times\A\Tick_1$, $\A\ell_2\in\A\Left_2$, $\A\tick_2\in\A\Tick_2$, $\A\rho_2\in\A\Right_2$,
+  If we let $(\A\ell_+,\A\tick_+)=(\A{s}_1,\A\tick_1)\A\rhd(\A\ell_2,\A\tick_2)$ and $(\A\rho_+,\A\tick_+)=(\A{s}_1,\A\tick_1)\A\rhd(\A\rho_2,\A\tick_2)$, we have:
+  \[
+    \A\ell_2\A\semarrow_{\A\tick_2}\A\rho_2\Rightarrow\A\ell_+\A\semarrow_{\A\tick_+}\A\rho_+
+  \]
+  Thus $\Abs{S}_1\Abs\rhd\Abs{\sembracket{e}}\Abs{S}_2\subseteq\Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd \Abs{S}_2)$
+\end{lem}
+\begin{proof}[Sketch]
+  By induction on $\A\semarrow_{\A\tick_2}$.
+  We use the fact that $\inject{\A{C}}{\A\mem[\A{t}\A\mapsto\A{v}]}=\inject{\A{C}}{\A\mem}[\A{t}\A\mapsto\inject{\A{C}}{\A{v}}]$.
+\end{proof}
+\begin{lem}[Abstract Advance]
+  Let $\Abs{S}_1\subseteq\AState_1\times\A\Tick_1$ and $\Abs{S}_2\subseteq\AState_2\times\A\Tick_2$. Then:
+  \[
+    \Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_2)=\Abs{S}_1\semlink\Abs{\sembracket{e}}\Abs{S}_2
+  \]
+\end{lem}
+\begin{proof}[Sketch]
+  Straightforward from the previous lemma.
+\end{proof}
 \end{document}
 %%% Local Variables: 
 %%% coding: utf-8
