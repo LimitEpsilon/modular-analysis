@@ -956,7 +956,7 @@ This is a simple proof by induction on the transition relation, since $\tick$ al
   For all $e,C,\mem,t$ and $\rho\in\Expr\times\Ctx\times\Mem\times\Time\uplus\Value\Ctx\times\Mem\times\Time$, if $s\triangleq(C,\mem,t)\in\State$ and
   $(e,s)\semarrow_{\tick}\rho$ according to the inference rules in Figure \ref{fig:concreach}, we have that $\rho\in\Right$.
 \end{clm}
-\begin{proof}
+\begin{proof}[Sketch]
   Induction on the definition of $\semarrow_\tick$.
 \end{proof}
 
@@ -965,7 +965,7 @@ We also have to check that $\widehat{\alpha}(\tick)$ is well-defined.
 \begin{clm}[Well-definedness of $\widehat{\alpha}(\tick)$]
   For all $\tick\in\State\times\ExprVar\times\Value\rightarrow\Time$, if $\widehat{\tick}_1\circ\widehat{\alpha}=\widehat{\alpha}\circ\tick$ and $\widehat{\tick}_2\circ\widehat{\alpha}=\widehat{\alpha}\circ\tick$, we have that $\A\tick_1=\A\tick_2$.
 \end{clm}
-\begin{proof}
+\begin{proof}[Sketch]
   We have to prove that for all $\A{s}\in\A\State$, $x\in\ExprVar$, $\A{v}\in\A\Value$, $\A\tick_1(\A{s},x,\A{v})=\A\tick_2(\A{s},x,\A{v})$.
   This is true if for all $\A{s}\in\A\State$, there exists a $s\in\State$ such that $\A\alpha(s)=\A{s}$.
   Then $\A\tick_1(\A{s},x,\A{v})=\tick(\A\alpha(s),x,\A\alpha(v))=\A\tick_2(\A{s},x,\A{v})$ by assumption, thus the desired conclusion is proved.
@@ -978,7 +978,7 @@ We finally check that for all $\A\tick$, there exists a $\tick$ such that $\A\al
 \begin{clm}[Well-definedness of $\Tick$]
   For all $\A\tick\in\A\Tick$, there exists a $\tick\in\Tick$ such that $\A\alpha(\tick)=\A\tick$.
 \end{clm}
-\begin{proof}
+\begin{proof}[Sketch]
   Let $\tick((C,\mem,t),x,v)\triangleq\A\alpha^{-1}(t,\A\tick((\A\alpha(C),\A\alpha(m),\A\alpha(t)),x,\A\alpha(v)))$. Then $\tick\in\Tick$ by the properties of $\A\alpha^{-1}$.
 \end{proof}
 
@@ -1000,7 +1000,7 @@ Then it is straightforward to see that:
 \begin{clm}[Galois Connection]
   $\wp(D)\galois{\alpha}{\gamma}\wp(\A{D})$. That is, $\forall A\subseteq D,\Abs{A}\subseteq\A{D}:\alpha(A)\subseteq\Abs{A}\Leftrightarrow A\subseteq\gamma(\Abs{A})$.
 \end{clm}
-\begin{proof}
+\begin{proof}[Sketch]
   Straightforward from the definitions of $\alpha$ and $\gamma$.
 \end{proof}
 
@@ -1009,7 +1009,7 @@ Also, we can show that the concrete and abstract semantic functions are soundly 
   For all $\ell$, $\tick$, and $\rho$, $\ell\semarrow_{\tick}\rho$ implies $\A\alpha(\ell)\asemarrow_{\A\alpha(\tick)}\A\alpha(\rho)$.
   That is, $\alpha\circ\Step\subseteq\Abs\Step\circ\alpha$ and thus $\alpha(\sembracket{e}S)\subseteq\Abs{\sembracket{e}}\alpha(S)$ for all $e$ and $S\subseteq\State\times\Tick$.
 \end{clm}
-\begin{proof}
+\begin{proof}[Sketch]
   Induction on the definition of $\semarrow_{\tick}$.
 \end{proof}
 
@@ -1033,7 +1033,7 @@ Thus we have:
 \begin{clm}[Computability of the Abstract Semantics]
   If $\Abs{S}$ is finite, $\Abs{\sembracket{e}}\Abs{S}$ is finite.
 \end{clm}
-\begin{proof}
+\begin{proof}[Sketch]
   By existence of a procedure that computes all reachable signatures and by induction on $\asemarrow$.
 \end{proof}
 
@@ -1091,7 +1091,7 @@ Then the definition of equivalence between states simply means that the access g
 
 We also define equivalence between results $r=(V,\mem.t)\in\Result$ and $r'=(V',\mem',t')\in\Result'$ by the conjunction of the equality between the expression part of $V$ and the isomorphism between access graphs.
 Also, equivalence between $\ell=(e,s)\in\Left$ and $\ell'=(e',s')\in\Left'$ can be similarly defined as $e=e'\wedge s\cong s'$.
-Thus equivalence between $\rho\in\Right$ and $\rho'\Right'$ is defined, as either $\rho\in\Left$ or $\rho\in\Result$.
+Thus equivalence between $\rho\in\Right$ and $\rho'\in\Right'$ is defined, as either $\rho\in\Left$ or $\rho\in\Result$.
 
 Then the equivalence between elements of $\wp(D)$ and $\wp(D')$, the CPOs, can be defined as:
 \begin{definition}[Equivalence between Elements of $\wp(D)$ and $\wp(D')$]
@@ -1123,7 +1123,7 @@ That is, we need to prove that starting from equivalent configurations, we end u
   \[\ell\semarrow_{\tick}\rho\wedge\ell\cong\ell'\Rightarrow\exists\rho':\ell'\semarrow_{\tick'}\rho'\wedge\rho\cong\rho'\]
   Thus, if $S\subseteq\State\times\Tick$ and $S'\subseteq\State'\times\Tick'$ are equivalent, $\sembracket{e}S\cong\sembracket{e}S'$.
 \end{clm}
-\begin{proof}
+\begin{proof}[Sketch]
   To perform induction on $\semarrow_\tick$, we need to strengthen the claim.
   For convenience, we write $(\rho,\varphi)\cong(\rho',\varphi^{-1})$ to emphasize that the graph isomorphism is given by $\varphi$.
 
@@ -1131,7 +1131,7 @@ That is, we need to prove that starting from equivalent configurations, we end u
   \[
     \begin{array}{l}
       \forall\ell,\tick,\rho,\ell',\tick',\varphi,\varphi^{-1}:\ell\semarrow_{\tick}\rho\wedge(\ell,\varphi)\cong(\ell',\varphi^{-1})\Rightarrow \\
-      \exists\rho',\phi,\phi^{-1}:\ell'\semarrow_{\tick'}\rho'\wedge(\rho,\phi)\cong(\rho',\phi^{-1})\wedge\varphi(n)|_{n<t}=\phi(n)|_{n<t}\\
+      \exists\rho',\phi,\phi^{-1}:\ell'\semarrow_{\tick'}\rho'\wedge(\rho,\phi)\cong(\rho',\phi^{-1})\wedge\varphi(n)|_{n<t}=\phi(n)|_{n<t}      \\
       \text{when }t\text{ is the time component of }\ell
     \end{array}
   \]
@@ -1149,16 +1149,58 @@ The claim we want to prove is: If $\Abs{S}\Abs\cong\Abs{S'}$, then $\gamma(\Abs{
 \begin{clm}[Concretization Preserves Equivalence]
   For all $\Abs{S}\subseteq\AState\times\A\Tick$ and $\Abs{S'}\subseteq\AState'\times\A\Tick'$, $\Abs{S}\Abs\cong\Abs{S'}$ implies $\gamma(\Abs{S})\cong\gamma'(\Abs{S'})$.
 \end{clm}
-\begin{proof}
+\begin{proof}[Sketch]
   We want to prove:
   \[\forall s\in\State,\A{s}'\in\AState':\A\alpha(s)\A\cong\A{s}'\Rightarrow\exists s'\in\AState':s\cong s'\wedge\A\alpha'(s')=\A{s}'\]
   If this is true, $\forall s\in\gamma(\Abs{s}):\exists s'\in\gamma(\Abs{s'}):s\cong s'$.
 
   Proving the same statement in the opposite side leads to $\forall s'\in\gamma(\Abs{s'}):\exists s\in\gamma(\Abs{s}):s\cong s'$, so that $\gamma(\Abs{S})\cong\gamma'(\Abs{S'})$.
   The proof of the above statement involves constructing such a $s'$ by traversal over reachable subparts $n$ of $s$, (1) translating $n$ to a reachable part $\A{n}'$ of $\A{s}'$ by $\A\varphi\circ\A\alpha$(when $\A\varphi$ is the isomorphism between $\A\alpha(s)$ and $\A{s}'$) and (2) lifting $\A{n}'$ to a reachable part $n'$ of $s'$ while tabulating the graph isomorphism $\varphi$ between $s$ and $s'$.
+  Finally, (3) the unreachable parts of $s'$ are filled in with dummy values that translate to the unfilled parts of $\A{s}'$.
 \end{proof}
 
 \section{Results on Linking}
+In this section, we define how linking between different time domains is performed.
+First, we assume two time domains $(\Time_1,\le_1,\ATime_1,\A\alpha_1)$ and $(\Time_2,\le_2,\ATime_2,\A\alpha_2)$.
+Then we can define $(\Time_+,\le_+,\ATime_+,\A\alpha_+)$ by:
+\[
+  \Time_+\triangleq2\mathbb{Z}\times\Time_1\uplus(2\mathbb{Z}+1)\times\Time_2\quad
+  t_+\le_+t_+'\triangleq
+  \text{lexicographic}\quad
+  \ATime_+\triangleq\ATime_1+\ATime_2\quad
+  \A\alpha_+(t_+)\triangleq
+  \begin{cases}
+    (0,\A\alpha_1(t_1)) & t_+=(2n,t_1)   \\
+    (1,\A\alpha_2(t_2)) & t_+=(2n+1,t_2)
+  \end{cases}
+\]
+when $X+Y$ is the separated sum of $X$ and $Y$.
+A $\A\alpha_+^{-1}\in\Time_+\times\ATime_+\rightarrow\Time_+$ that satisfies the two conditions can be constructed by using some $\A\alpha_1^{-1}$, $\A\alpha_2^{-1}$, $0_1\in\Time_1$ and $0_2\in\Time_2$:
+\[
+  \A\alpha_+^{-1}(t_+,\A{t}_+)\triangleq
+  \begin{cases}
+    (2n, \A\alpha_1^{-1}(t_1,\A{t}_1))   & t_+=(2n,t_1)\wedge\A{t}_+=\A{t}_1   \\
+    (2n+1, \A\alpha_2^{-1}(t_2,\A{t}_2)) & t_+=(2n+1,t_2)\wedge\A{t}_+=\A{t}_2 \\
+    (2n+1,\A\alpha_2^{-1}(0_2,\A{t}_2))  & t_+=(2n,t_1)\wedge\A{t}_+=\A{t}_2   \\
+    (2n+2,\A\alpha_1^{-1}(0_1,\A{t}_1))  & t_+=(2n+1,t_2)\wedge\A{t}_+=\A{t}_1
+  \end{cases}
+\]
+Thus $(\Time_+,\le_+,\ATime_+,\A\alpha_+)$ satisfies our requirements.
+
+The rest of this section explains how, given two initial conditions $S_1\subseteq\State_1\times\Tick_1$ and $S_2\subseteq\State_2\times\Tick_2$, the semantics starting from the \emph{injected} initial state $S_1\rhd S_2$ is equal to $S_1$ \emph{linked} with the semantics computed in advance from $S_2$.
+That is, we want to prove:
+\[
+  \sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2
+\]
+and
+\[
+  \Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd \Abs{S}_2)=\Abs{S}_2\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2
+\]
+
+Before descending into details, we want to clarify that all $C$, $\mem$, $t$ in this section are assumed to be living in the linked time domain.
+Thus, when we have a $C\in\Ctx_1$, we write $C$ to also mean an element of $\Ctx_+$, with all timestamps equal to its original in $\Ctx_1$ in the second coordinate and with the first coordinate fixed to $0$.
+Likewise, for a $C\in\Ctx_2$, we write $C$ to also mean an element of $\Ctx_+$, with all timestamp equal to its original in $\Ctx_2$ in the second coordinate and with the second coordinate fixed to $1$.
+The same assumption applies for elements in $\Mem_1,\Mem_2,\Time_1,\Time_2$.
 \subsection{Definitions}
 \subsubsection{Injection and Deletion}
 We want to define what it means to \emph{inject} an external $S_1\subseteq\State_1\times\Tick_1$ into an assumed $S_2\subseteq\State_2\times\Tick_2$.
@@ -1169,35 +1211,35 @@ Consider the case when we did not assume anything, that is, when $s_2=([],\varno
 Then first, we expect that $s_+\cong s_1$.
 Second, the $\tick_+$ function under $s_+$ must preserve the transitions made by $\tick_2$ under $s_2$.
 That is, if $(e,s_2)\semarrow_{\tick_2}^*(e',s_2')$, then $(s_+',\tick_+')=(s_1,\tick_1)\rhd(s_2',\tick_2)$ must satisfy
-$\tick_+=\tick_+'$ and $(e,s_+)\semarrow_{\tick_+}^*(e',s_+')$, when $R^*$ means the reflexive and transitive closure of a relation $R$.
+$\tick_+=\tick_+'$ and $(e,s_+)\semarrow_{\tick_+}^*(e',s_+')$.
 This is because we want all transitions after injecting the exported states into the semantics calculated in advance to be valid transitions.
 
 As the first step in defining $\rhd$, we first define the injection operator for contexts, when $\inject{C_1}{C_2}$ ``fills in the blank'' in $C_2$ with $C_1$.
 The deletion operator $\delete{C_1}{C_2}$, which ``digs out'' $C_1$ from $C_2$, is also defined.
-Why it is defined might not so be obvious here, but it is necessary to guarantee the second property we expect of $\rhd$.
 \begin{figure}[h!]
   \[
     \inject{C_{1}}{C_{2}}\triangleq
     \begin{cases}
-      C_1                                             & C_{2}=[]              \\
-      (x, t)\cons\inject{C_{1}}{C'}                   & C_{2}=(x,t)\cons C'   \\
-      (M, \inject{C_{1}}{C'})\cons\inject{C_{1}}{C''} & C_{2}=(M,C')\cons C''
+      C_1                                           & C_{2}=[]            \\
+      (x, t)\cons\inject{C_{1}}{C}                  & C_{2}=(x,t)\cons C  \\
+      (M, \inject{C_{1}}{C})\cons\inject{C_{1}}{C'} & C_{2}=(M,C)\cons C'
     \end{cases}
     \delete{C_{1}}{C_{2}}\triangleq
     \begin{cases}
-      []                                              & C_{2}=C_{1}\lor C_{2}=[] \\
-      (x,t)\cons\delete{C_{1}}{C'}                    & C_{2}=(x,t)\cons C'      \\
-      (M, \delete{C_{1}}{C'})\cons\delete{C_{1}}{C''} & C_{2}=(M, C')\cons C''
+      []                                            & \A\alpha_+(C_{2})=\A\alpha_+(C_{1}) \\
+      []                                            & C_{2}=[]                            \\
+      (x,t)\cons\delete{C_{1}}{C}                   & C_{2}=(x,t)\cons C                  \\
+      (M, \delete{C_{1}}{C})\cons\delete{C_{1}}{C'} & C_{2}=(M, C)\cons C'
     \end{cases}
   \]
-  \caption{Definition of the injection operator $\inject{C_1}{C_2}$ and the deletion operator $\delete{C_1}{C_2}$.}
+  \caption{Definition of the injection operator $\inject{C_1}{C_2}$ and the deletion operator $\delete{C_1}{C_2}$.
+    Cases are ordered by precedence.
+    For example, we check for $\A\alpha_+(C_2)=\A\alpha_+(C_1)$ first when deleting $C_1$ from $C_2$.}
   \label{fig:concinject}
 \end{figure}
 
-Note that if we inject $C_1\in\Ctx_1$ into $C_2\in\Ctx_2$, we obtain $\inject{C_1}{C_2}\in\Ctx_+$.
-Why the linked time is the separate sum of the two time domains is because we want to separate what came from outside and what was assumed.
-Then naturally, we expect $\tick_+$ to increment timestamps in $\Time_1+\Time_2$ by using $\tick_1$ for timestamps in $\Time_1$, and by using $\tick_2$ for timestamps in $\Time_2$.
-However, the context and memory will contain timestamps both in $\Time_1$ and $\Time_2$.
+Naturally, we expect $\tick_+$ to increment timestamps in $\Time_+$ by using $\tick_1$ for timestamps in $2\mathbb{Z}\times\Time_1$, and by using $\tick_2$ for timestamps in $(2\mathbb{Z}+1)\times\Time_2$.
+However, the context and memory will contain timestamps originating from both $\Time_1$ and $\Time_2$.
 Therefore, we need to define the filter operations $C.1$ and $C.2$ which selects only timestamps from the time domain of interest.
 
 \begin{figure}[h!]
@@ -1205,19 +1247,19 @@ Therefore, we need to define the filter operations $C.1$ and $C.2$ which selects
     \begin{array}{cc}
       C.i\triangleq
       \begin{cases}
-        []                  & C=[]                                    \\
-        (x,t)\cons C'.i     & C=(x,t)\cons C'\wedge t\in{\Time_i}     \\
-        C'.i                & C=(x,t)\cons C'\wedge t\not\in{\Time_i} \\
+        []                  & C=[]                                \\
+        (x,t')\cons C'.i    & C=(x,t)\cons C'\wedge t=(2n-1+i,t') \\
+        C'.i                & C=(x,t)\cons C'\wedge t=(2n+i,t')   \\
         (M,C'.i)\cons C''.i & C=(M, C')\cons C''
       \end{cases} &
       \begin{array}{l}
         V.i\triangleq
         \begin{cases}
-          C.i                           & V=C                           \\
-          \langle\lambda x.e,C.i\rangle & V=\langle\lambda x.e,C\rangle
+          C.i                  & V=C                  \\
+          \langle e,C.i\rangle & V=\langle e,C\rangle
         \end{cases} \\ \\
         \mem.i\triangleq
-        \displaystyle\bigcup_{t\in\mathsf{dom}(\mem)\cap\Time_i}\{t\mapsto \mem(t).i\}
+        \displaystyle\bigcup_{(2n-1+i,t)\in\mathsf{dom}(\mem)}\{t\mapsto \mem(t).i\}
       \end{array}
     \end{array}
   \]
@@ -1225,15 +1267,22 @@ Therefore, we need to define the filter operations $C.1$ and $C.2$ which selects
   \label{fig:concfilter}
 \end{figure}
 
-Now we give the definition for $\rhd$.
+Note that $\mem.i$ cannot be well-defined for memories that contain addresses with overlapping second coordinates.
+That is, in the case when $\mem$ can be accessed with both $(0,t_1)$ and $(2,t_1)$, $\mem.1$ is not well-defined.
+In this case, we leave $\mem.i$ as undefined.
+This means that the mapping $\mem\mapsto\mem.i$ is a partial function that is defined for only memories with distinct second coordinates.
+Luckily, in the case that $\mem$ is derived from injection, all timestamps in $2\mathbb{Z}\times\Time_1$ will be of the form $(0,\_)$, and all timestamps in $(2\mathbb{Z}+1)\times\Time_2$ will be of the form $(1,\_)$.
+Thus, $\mem.i$ will always be defined for our purposes.
+
+Moving on, we extend $\inject{\_}{\_}$ and $\delete{\_}{\_}$:
 \begin{definition}[Filling in the Blanks]
   Let $s_1=(C_1,\mem_1,t_1)\in\State_1$ and $r_2=(V_2,\mem_2,t_2)\in\Result_2$. Then we define:
   \[
     \begin{array}{cc}
       \inject{C_1}{V_2}\triangleq
       \begin{cases}
-        \inject{C_1}{C_2}                           & V_2=C_2                            \\
-        \langle\lambda x.e,\inject{C_1}{C_2}\rangle & V_2=\langle\lambda x.e, C_2\rangle
+        \inject{C_1}{C_2}                  & V_2=C_2                   \\
+        \langle e,\inject{C_1}{C_2}\rangle & V_2=\langle e, C_2\rangle
       \end{cases} &
       \begin{array}{l}
         \inject{C_1}{\mem_2}\triangleq
@@ -1243,29 +1292,48 @@ Now we give the definition for $\rhd$.
       \end{array}
     \end{array}
   \]
+
+  \[
+    \delete{C_1}{V_2}\triangleq
+    \begin{cases}
+      \delete{C_1}{C_2}                  & V_2=C_2                   \\
+      \langle e,\delete{C_1}{C_2}\rangle & V_2=\langle e, C_2\rangle
+    \end{cases}\:\:
+    \delete{C_1}{\mem_2}\triangleq
+    \displaystyle\bigcup_{t\in\mathsf{dom}(\mem_2)}\left\{t\mapsto\delete{C_1}{\mem_2(t)}\right\}
+  \]
 \end{definition}
 
-Note that $\inject{s_1}{r_2}\in\Result_+$ is time-bounded if we define the order relation on $\Time_1+\Time_2$ as $t_1<t_2$ for all $t_1\in\Time_1$ and $t_2\in\Time_2$.
-Also, we define $\delete{C_1}{V_2}$ and $\delete{C_1}{\mem_2}$ analogously to injection.
-Now we only have to define $\tick_+$ which preserves the separate transitions even after injection.
-
+Note that $\inject{s_1}{r_2}\in\Result_+$. That is, it is time-bounded.
+Now we only have to define $\tick_+$ which preserves transitions made before injection.
+The definition for $\rhd$ is:
 \begin{definition}[Injection]
-  Let $(s_1,\tick_1)\in\State_1\times\Tick_1$ and $(r_2,\tick_2)\in\Result_2\times\Tick_2$.
+  Let $s_1=(C_1,\mem_1,t_1)\in\State_1$, $\tick_1\in\Tick_1$, $r_2=(V_2,\mem_2,t_2)\in\Result_2$, and $\tick_2\in\Tick_2$.
   We define $(s_1,\tick_1)\rhd(r_2,\tick_2)\triangleq(\inject{s_1}{r_2},\tick_+)\in\Result_+\times\Tick_+$, when $\tick_+$ is given by:
   \[
-    \tick_+((C,\mem,t),x,v)\triangleq
+    \tick_+(C,\mem,t,x,v)\triangleq
     \begin{cases}
-      \tick_1((C.1,\mem.1,t),x,v.1)                                           & t\in\Time_1 \\
-      \tick_2((\delete{C_1}{C}.2,\delete{C_1}{\mem}.2,t),x,\delete{C_1}{v}.2) & t\in\Time_2
+      (2n, \tick_1(C.1,\mem.1,t_1,x,v.1))                                                        & t=(2n,t_1)   \\
+      (2n+1,\tick_2(\delete{C_1}{C}.2,\delete{C_1}{\mem}.2,t_2,x,\delete{C_1}{v}.2))             & t=(2n+1,t_2) \\
+      \A\alpha_+^{-1}(t,\A\tick_+(\A\alpha_+(C),\A\alpha_+(\mem),\A\alpha_+(t),x,\A\alpha_+(v))) & \mem.i=\bot
     \end{cases}
   \]
+  where
+  \[
+    \A\tick_+((\A{C},\A\mem,\A{t}),x,\A{v})\triangleq
+    \begin{cases}
+      (0,\A\alpha_1(\tick_1)(\A{C}.1,\A\mem.1,\A{t}_1,x,\A{v}.1))                                                                                     & \A{t}=(0,\A{t}_1) \\
+      (1,\A\alpha_2(\tick_2)(\delete{\A\alpha_1({C}_1)}{\A{C}}.2,\delete{\A\alpha_1({C}_1)}{\A\mem}.2,\A{t}_2,x,\delete{\A\alpha_1({C}_1)}{\A{v}}.2)) & \A{t}=(1,\A{t}_2) \\
+    \end{cases}
+  \]
+  satisfies $\A\alpha_+\circ\tick_+=\A\tick_+\circ\A\alpha_+$.
 \end{definition}
 
 Since $\tick_+$ digs out $C_1$ from the memory and context, timestamps produced by $\tick_+$ after injection will look at only the parts before injection.
 Thus, it will produce the same timestamps that were produced by $\tick_2$ under $S_2$.
 This is why transitions after injection are valid as transitions under injected time.
 
-Then the filtering operation for the context can naturally be defined as in Fig. \ref{fig:absfilter}, and the definition for the added time domain can be given.
+Then the filtering operation for the context can naturally be defined as in Figure \ref{fig:absfilter}, and the definition for the added time domain can be given.
 \begin{figure}[h!]
   \[
     \A\filter_i(\A{C})\triangleq
