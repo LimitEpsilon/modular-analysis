@@ -1034,7 +1034,11 @@ Thus we have:
   If $\Abs{S}$ is finite, $\Abs{\sembracket{e}}\Abs{S}$ is finite.
 \end{clm}
 \begin{proof}[Sketch]
-  By existence of a procedure that computes all reachable signatures and by induction on $\asemarrow$.
+  By existence of a function that computes all reachable signatures and by induction on $\asemarrow$.
+  
+  To elaborate, let this function be called $f$.
+  We prove two statements, the first being $\forall\A\rho:\lfloor\A\rho\rfloor\subseteq f(\A\rho)$ and the second being $\forall\A\ell,\A\rho:\A\ell\A\semarrow\A\rho\Rightarrow f(\A\rho)\subseteq f(\A\ell)$.
+  Then for all $\A\rho$ such that $(e,\A{s})\A\semarrow^*\A\rho$, $\lfloor\A\rho\rfloor\subseteq f(\rho)\subseteq f(\ell)$, thus all signatures in $\Abs{\sembracket{e}}\Abs{S}$ can be bound by $\{f(e,\A{s})|(\A{s},\_)\in S\}$.
 \end{proof}
 
 We stress that this is a nontrivial result, since our definition of $C$ allows contexts to be pushed into the stack.
@@ -1408,7 +1412,7 @@ Thus, the definition of semantic linking is as follows:
   \[
     \ell_2\semarrow_{\tick_2}\rho_2\Rightarrow\ell_+\semarrow_{\tick_+}\rho_+
   \]
-  Thus $S_1\rhd\sembracket{e}S_2\subseteq\sembracket{e}(S_1\rhd S_2)$
+  Thus $S_1\rhd\sembracket{e}S_2\subseteq\sembracket{e}(S_1\rhd S_2)$.
 \end{lem}
 \begin{proof}[Sketch]
   By induction on $\semarrow_{\tick_2}$.
@@ -1429,7 +1433,7 @@ Thus, the definition of semantic linking is as follows:
   \[
     \A\ell_2\A\semarrow_{\A\tick_2}\A\rho_2\Rightarrow\A\ell_+\A\semarrow_{\A\tick_+}\A\rho_+
   \]
-  Thus $\Abs{S}_1\Abs\rhd\Abs{\sembracket{e}}\Abs{S}_2\subseteq\Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd \Abs{S}_2)$
+  Thus $\Abs{S}_1\Abs\rhd\Abs{\sembracket{e}}\Abs{S}_2\subseteq\Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd \Abs{S}_2)$.
 \end{lem}
 \begin{proof}[Sketch]
   By induction on $\A\semarrow_{\A\tick_2}$.
@@ -1438,7 +1442,7 @@ Thus, the definition of semantic linking is as follows:
 \begin{lem}[Abstract Advance]
   Let $\Abs{S}_1\subseteq\AState_1\times\A\Tick_1$ and $\Abs{S}_2\subseteq\AState_2\times\A\Tick_2$. Then:
   \[
-    \Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_2)=\Abs{S}_1\semlink\Abs{\sembracket{e}}\Abs{S}_2
+    \Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_2)=\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2
   \]
 \end{lem}
 \begin{proof}[Sketch]
