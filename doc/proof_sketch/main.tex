@@ -178,6 +178,7 @@
 \newcommand*{\Result}{\text{Result}}
 \newcommand*{\AResult}{\widehat{\text{Result}}}
 \newcommand*{\Tick}{\text{Tick}}
+\newcommand*{\lfp}{\mathsf{lfp}}
 \newcommand*{\Step}{\mathsf{Step}}
 \newcommand*{\semarrow}{\rightsquigarrow}
 \newcommand*{\asemarrow}{\widehat{\rightsquigarrow}}
@@ -210,24 +211,36 @@
 \begin{document}
 \maketitle
 
-\section{Preliminaries}
+\section{Part I: Semantics that Allow Open Code to be Closed Fractionally}
+
+We make the following observations:
+\begin{itemize}
+  \item Most code that static analyzers deal with is \emph{open code} that uses external values.
+  \item Those external values are defined in a different \emph{scope} from the code of interest.
+  \item The different scopes are organized in term of \emph{modules}.
+  \item The modules are usually bound to \emph{module names}.
+\end{itemize}
+Therefore, experts who write realistic analyzers are immediately faced with the problem of \emph{closing} open code.
+Especially, in the case when external values are not defined in the same language, the semantics of such values must be \emph{modelled}, either by the analysis expert or by the user of the analyzer.
+Since we cannot possibly model all such cases in one try, attempts to close open code must be a never-ending race of fractional advances.
+
+If we force the analyzers to output results only in the fortunate case that all external values has already been modelled, we end up unnecessarily recomputing each time we fail to close completely.
+We claim that this is undesirable: the analyzer, upon meeting an open term, may just ``cache'' what has been computed already and ``pick up'' from there when that open term is resolved.
+No doubt, there may already be program analyzers that perform such caching, but how can we model such a computation \emph{mathematically}?
+Therefore, we aim to define semantics for terms that have been fractionally closed, and prove that closing the \emph{fractionally closed semantics} is equal to the \emph{closed semantics}.
+
+To illustrate what will be proven, say that $e$ is an open term, $S_2$ is the set of contexts that close $e$ fractionally, and $S_1$ is another set of contexts that aim to fill in the blanks.
+What we aim to show is:
+\[\sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2\]
+when $S_1\semlink\sembracket{e}S_2$ closes the fractionally closed $\sembracket{e}S_2$ and $\sembracket{e}(S_1\rhd S_2)$ starts from the filled-in states.
+
 In this section, we will define:
 \begin{enumerate}
-  \item The \emph{abstract syntax} of the language under discussion.
-  \item The \emph{semantic domains} that are used to define the semantics of the language.
-  \item The concrete and abstract versions of the \emph{operational semantics} of the language.
-  \item The \emph{collecting semantics} and the \emph{abstract semantics} of the language.
+  \item The \emph{abstract syntax} of a model language with modules that can be bound to names.
+  \item The \emph{semantics} of the language that is defined regardless of openness.
 \end{enumerate}
-and sketch the proofs for:
-\begin{enumerate}
-  \item The well-definedness of the operational semantics.
-  \item The Galois connection between the collecting and abstract semantics.
-  \item The computability of the abstract semantics.
-\end{enumerate}
-
-\subsection{Definitions}
-\subsubsection{Abstract Syntax}
-
+and sketch how to design an analysis that allows fractional specification.
+\subsection{Abstract Syntax}
 The language is basically an extension of untyped lambda calculus with modules and the linking construct.
 $\link{e_1}{e_2}$ means that $e_1$ is a module that is evaluated first to a \emph{context}, and that $e_2$ is evaluated under the exported context.
 
@@ -245,8 +258,414 @@ $\link{e_1}{e_2}$ means that $e_1$ is a module that is evaluated first to a \emp
                 &       & $\vbar$       & $\Let$ $M$ $e$ $e$ & binding module     \\
   \end{tabular}
   \caption{Abstract syntax of the simple module language.}
+  \label{fig:syntax}
+\end{figure}
+\subsection{Operational Semantics}
+\begin{figure}[h!]
+  \centering
+  \begin{tabular}{rrcll}
+    Environment/Context          & $C$ & $\in$         & $\Ctx$                                                      \\
+    Value of expressions         & $v$ & $\in$         & $\Value \subseteq \Expr\times\Ctx$                          \\
+    Value of expressions/modules & $V$ & $\in$         & $\Value\Ctx\triangleq\Value\uplus\Ctx$                      \\
+    Context                      & $C$ & $\rightarrow$ & []                                     & empty stack        \\
+                                 &     & $\vbar$       & $(x,v)\cons C$                         & expression binding \\
+                                 &     & $\vbar$       & $(M,C)\cons C$                         & module binding     \\
+    Value of expressions         & $v$ & $\rightarrow$ & $\langle \lambda x.e, C \rangle$       & closure
+  \end{tabular}
+  \caption{Definition of the semantic domains.}
+  \label{fig:simpdom}
 \end{figure}
 
+\begin{figure}[h!]
+  \begin{flushright}
+    \fbox{$(e,C)\semarrow V\text{ or }(e',C')$}
+  \end{flushright}
+  \centering
+  \vspace{0pt} % -0.75em}
+  \[
+    \begin{prooftree}
+      \hypo{v=C(x)}
+      \infer[left label=ExprID]1{
+      (x, C)
+      \semarrow
+      v
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \infer[left label=Fn]0{
+      (\lambda x.e, C)
+      \semarrow
+      \langle\lambda x.e, C\rangle
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \infer[left label={AppL}]0{
+      (e_{1}\:e_{2}, C)
+      \semarrow
+      (e_{1},C)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C)
+          \semarrow
+          \langle\lambda x.e_{\lambda}, C_{\lambda}\rangle
+        \end{matrix}
+      }
+      \infer[left label={AppR}]1{
+      (e_{1}\:e_{2}, C)
+      \semarrow
+      (e_{2}, C)
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C)
+          \semarrow
+          \langle\lambda x.e_{\lambda}, C_{\lambda}\rangle \\
+          (e_{2}, C)
+          \semarrow
+          v
+        \end{matrix}
+      }
+      \infer[left label={AppBody}]1{
+      (e_{1}\:e_{2}, C, \mem, t)
+      \semarrow
+      (e_{\lambda}, (x, v)\cons C_{\lambda})
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C)
+          \semarrow
+          \langle\lambda x.e_{\lambda}, C_{\lambda}\rangle \\
+          (e_{2}, C)
+          \semarrow
+          v                                                \\
+          (e_{\lambda}, (x, v)\cons C_{\lambda})
+          \semarrow
+          v'
+        \end{matrix}
+      }
+      \infer[left label={App}]1{
+      (e_{1}\:e_{2}, C)
+      \semarrow
+      v'
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \infer[left label=LinkL]0{
+      (\link{e_{1}}{e_{2}}, C)
+      \semarrow
+      (e_{1}, C)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C)
+          \semarrow
+          C'
+        \end{matrix}
+      }
+      \infer[left label=LinkR]1{
+      (\link{e_{1}}{e_{2}}, C)
+      \semarrow
+      (e_{2}, C')
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C)
+          \semarrow
+          C' \\
+          (e_{2}, C')
+          \semarrow
+          V
+        \end{matrix}
+      }
+      \infer[left label=Link]1{
+      (\link{e_{1}}{e_{2}}, C)
+      \semarrow
+      V
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \infer[left label=Empty]0{
+      (\varepsilon, C)
+      \semarrow
+      C
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{C'=C(M)}
+      \infer[left label=ModID]1{
+      (M, C)
+      \semarrow
+      C'
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \infer[left label=LetEL]0{
+      (\mathtt{let}\:x\:e_1\:e_2, C)
+      \semarrow
+      (e_{1}, C)
+      }
+    \end{prooftree}\quad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C)
+          \semarrow
+          v
+        \end{matrix}
+      }
+      \infer[left label=LetER]1{
+      (\mathtt{let}\:x\:e_1\:e_2, C)
+      \semarrow
+      (e_{2}, (x, v)\cons C)
+      }
+    \end{prooftree}\quad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C)
+          \semarrow
+          v \\
+          (e_{2}, (x, v)\cons C)
+          \semarrow
+          C'
+        \end{matrix}
+      }
+      \infer[left label=LetE]1{
+      (\mathtt{let}\:x\:e_1\:e_2, C)
+      \semarrow
+      C'
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \infer[left label=LetML]0{
+      (\mathtt{let}\:M\:e_{1}\:e_{2}, C)
+      \semarrow
+      (e_{1}, C)
+      }
+    \end{prooftree}\quad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C)
+          \semarrow
+          C'
+        \end{matrix}
+      }
+      \infer[left label=LetMR]1{
+      (\mathtt{let}\:M\:e_{1}\:e_{2}, C)
+      \semarrow
+      (e_{2}, (M, C')\cons C)
+      }
+    \end{prooftree}\quad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, C)
+          \semarrow
+          C' \\
+          (e_{2}, (M, C')\cons C)
+          \semarrow
+          C''
+        \end{matrix}
+      }
+      \infer[left label=LetM]1{
+      (\mathtt{let}\:M\:e_{1}\:e_{2}, C)
+      \semarrow
+      C''
+      }
+    \end{prooftree}
+  \]
+  \caption{The concrete one-step transition relation.}
+  \label{fig:simpreach}
+\end{figure}
+We present the operational semantics $\semarrow$ for our language.
+The semantic domains are given in Figure \ref{fig:simpdom} and the operational semantics is defined in Figure \ref{fig:simpreach}.
+
+Our semantics relate an element $\ell$ of $\Left\triangleq\Expr\times\Ctx$ with an element $\rho$ of $\Right\triangleq\Left\uplus\Value\Ctx$.
+Note that $C(x)$ pops the highest value that is associated with $x$ from the stack $C$ and $C(M)$ pops the highest context associated with $M$ from $C$.
+The relation $\semarrow$ is unorthodox in that unlike normal big-step operaional semantics, the relation $\semarrow$ relates a configuration not only to its final result but also to intermediate configurations of which its values are required to compute the final result.
+Why it is defined as such is because defining a \emph{collecting semantics} becomes much simpler.
+
+\subsection{Collecting Semantics}
+To define a semantics that is computable, we must formulate the collecting semantics as a least fixed point of a monotonic function that maps an element of some CPO $D$ to $D$.
+In our case, $D\triangleq\wp(\semarrow\uplus\Right )$.
+The semantics of an expression $e$ starting from initial states in $S\subseteq\Ctx$ is the collection of $\ell\semarrow\rho$ and $\rho$ derivable from initial configurations $(e,C)$ with $C\in S$.
+Defining the transfer function is straightforward from the definition of the transition relation.
+
+\begin{definition}[Transfer function]
+  Given $A\subseteq D$, define
+  \[
+    \mathsf{Step}(A)\triangleq
+    \left\{\ell\semarrow\rho, \rho\middle|
+    \begin{prooftree}[center=true]
+      \hypo{A'}\infer1{\ell\semarrow\rho}
+    \end{prooftree}\wedge
+    A'\subseteq A\wedge\ell\in A
+    \right\}
+  \]
+\end{definition}
+
+The $\mathsf{Step}$ function is naturally monotonic, as a ``cache'' $A$ that remembers more about the intermediate proof tree will derive more results than a cache that remembers less.
+Now, because of Tarski's fixpoint theorem, we can formulate the collecting semantics in fixpoint form.
+\begin{definition}[Collecting semantics]
+  Given $e\in\Expr$ and $S\subseteq\Ctx$, define:
+  \[
+    \sembracket{e}S\triangleq\lfp(\lambda X.\mathsf{Step}(X)\cup\{(e,C)|C\in S\})
+  \]
+\end{definition}
+Note that the above definition can be defined without qualms for situations when the $C$ in $(e,C)$ does not close $e$.
+Then the collecting semantics will store the proof tree only up to the point the first free variable is evaluated.
+
+We can elucidate what $\sembracket{e}S$ in terms of the operational semantics.
+\begin{clm}[Collecting Semantics in Another Form]
+  For all $A\subseteq\Left$,
+  \[\lfp(\lambda X.\Step(X)\cup A)=\{\ell'\semarrow\rho,\ell',\rho|\exists\ell\in A:\ell\semarrow^*\ell'\}\]
+  when $\semarrow^*$ is the reflexive transitive closure of $\semarrow$.
+\end{clm}
+\begin{proof}[Sketch]
+  We first prove that
+  \[\forall X\subseteq D,\ell\in\Left,\rho\in\Right:\Step(X)\subseteq X\wedge\ell\in X\wedge\ell\semarrow\rho\Rightarrow\ell\in\rho,\rho\in X\]
+  . This is a straightforward proof by induction on the derivation of $\semarrow$.
+  Then we prove that
+  \[\forall X\subseteq D,\ell\in\Left,\rho\in\Right:\Step(X)\subseteq X\wedge\ell\in X\wedge\ell\semarrow^*\rho\Rightarrow\rho\in X\]
+  . This is a straightforward proof by induction on the derivation of $\semarrow^*$.
+
+  Then we have that a fixed point of $\lambda X.\Step(X)\cup A$ must contain the right hand side.
+  Since the right hand side \emph{is} a fixed point of $\lambda X.\Step(X)\cup A$, it must be the least fixed point.
+\end{proof}
+
+\subsection{Injection and Linking}
+We first define what it means to \emph{fill in the blanks} of an individual $V_2\in\Value\Ctx$ with a $C_1\in\Ctx$:
+\[
+  \inject{C_{1}}{V_{2}}\triangleq
+  \begin{cases}
+    C_1                                           & V_{2}=[]                        \\
+    (x, \inject{C_1}{v})\cons\inject{C_{1}}{C}    & V_{2}=(x,v)\cons C              \\
+    (M, \inject{C_{1}}{C})\cons\inject{C_{1}}{C'} & V_{2}=(M,C)\cons C'             \\
+    \langle\lambda x.e,\inject{C_1}{C}\rangle     & V_2=\langle\lambda x.e,C\rangle
+  \end{cases}
+\]
+This does indeed ``fill in the blanks'', since:
+\begin{clm}[Fill in the Blanks]
+  For all $C_1,C_2\in\Ctx$, for each expression variable $x$,
+  \[
+    C_2(x)=v\Rightarrow\inject{C_1}{C_2}(x)=\inject{C_1}{v}\text{ and }C_2(x)=\bot\Rightarrow\inject{C_1}{C_2}(x)=C_1(x)
+  \]
+  and for each module variable $M$,
+  \[
+    C_2(M)=C\Rightarrow\inject{C_1}{C_2}(x)=\inject{C_1}{C}\text{ and }C_2(M)=\bot\Rightarrow\inject{C_1}{C_2}(M)=C_1(M)
+  \]
+\end{clm}
+\begin{proof}[Sketch]
+  Induction on $C_2$.
+\end{proof}
+
+Moreover, filling in the blanks preserves the evaluation relation $\semarrow$:
+\begin{clm}[Injection Preserves Evaluation]
+  For all $\ell\in\Left$, $\rho\in\Right$, $\ell\semarrow\rho\Rightarrow\inject{C}{\ell}\semarrow\inject{C}{\rho}$. More explicity,
+  \[(\ell,\rho)\in D\Rightarrow(\inject{C}{\ell},\inject{C}{\rho})\in D\]
+\end{clm}
+\begin{proof}[Sketch]
+  Induction on $\semarrow$.
+\end{proof}
+
+Thus, we can define $\rhd$ that injects a \emph{set} of contexts $S$ into a subset $A$ of $D$ and a semantic linking operation $\semlink$ that does the rest of the computation:
+\begin{definition}[Injection]
+  For $C_1\in\Ctx,\ell=(e,C_2)\in\Left$, define $\inject{C_1}{\ell}\triangleq(e,\inject{C_1}{C_2})$.
+
+  Then for $S\subseteq\Ctx$ and $A\subseteq D$, define:
+  \[S\rhd A\triangleq\{\inject{C}{\rho}|C\in S\wedge\rho\in A\}\cup\{\inject{C}{\ell}\semarrow\inject{C}{\rho}|C\in S\wedge\ell\semarrow\rho\in A\}\]
+\end{definition}
+\begin{definition}[Semantic Linking]
+  For $S\subseteq\Ctx$ and $A\subseteq D$, define:
+  \[S\semlink A\triangleq\lfp(\lambda X.\Step(X)\cup(S\rhd A))\]
+\end{definition}
+
+Thus we reach the main theorem that allows ``fractional closures'' to be soundly defined:
+\begin{clm}[Advance]
+  For all $e\in\Expr$ and $S_1,S_2\subseteq\Ctx$,
+  \[\sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2\]
+\end{clm}
+\begin{proof}
+  Let $A$ be $\{(e,C)|C\in S_1\rhd S_2\}$, and let $B$ be $S_1\rhd\sembracket{e}S_2$.
+  Note that $A\subseteq B$ by the definition of $\sembracket{e}S_2$.
+
+  Also, let $X_A$ be $\lfp(\lambda X.\Step(X)\cup A)=\sembracket{e}(S_1\rhd S_2)$ and let $X_B$ be $\lfp(\lambda X.\Step(X)\cup B)=S_1\semlink\sembracket{e}S_2$.
+  By the previous lemma, we have that $B\subseteq X_A$.
+
+  Then first, $X_A$ is a fixed point of $\lambda X.\Step(X)\cup B$, since
+  \[X_A=X_A\cup B=(\Step(X_A)\cup A)\cup B=\Step(X_A)\cup(A\cup B)=\Step(X_A)\cup B\]
+  . Then since $X_B$ is the least fixed point, $X_B\subseteq X_A$.
+
+  Also, note that $X_B$ is a pre-fixed point of $\lambda X.\Step(X)\cup A$, since
+  \[\Step(X_B)\cup A\subseteq\Step(X_B)\cup B=X_B\]
+  . $\wp(D)$ is a complete lattice, so by the Knaster-Tarski theorem, $X_A$ is the least of all pre-fixed points.
+  Thus, $X_A\subseteq X_B$.
+
+  Since $X_B\subseteq X_A$ and $X_A\subseteq X_B$, we have that $X_A=X_B$.
+\end{proof}
+
+\subsection{Skeleton of a Static Analysis}
+Since we have defined a semantics that fully embrace \emph{incomplete computations}, we only have to abstract our semantic operators to obtain a sound static analysis.
+
+We require a CPO $\Abs{D}$ that is Galois connected with $\wp(D)$ by abstraction $\alpha$ and concretization $\gamma$:
+\[\wp(D)\galois{\alpha}{\gamma}\Abs{D}\]
+and semantic operators $\Abs\Step$ and $\Abs\rhd$ that satisfies:
+\[\Step\circ\gamma\subseteq\gamma\circ\Abs\Step\qquad S_1\rhd S_2\subseteq\gamma(\alpha(S_1)\Abs\rhd\alpha(S_2))\]
+and a linking operator $\Abs\semlink$ that satisfies:
+\[\Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_1)=\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2\]
+. Then we can soundly approximate fractional specifications by:
+\begin{align*}
+  \sembracket{e}(S_1\rhd S_2) & \subseteq\sembracket{e}\gamma(\alpha(S_1)\Abs\rhd\alpha(S_2))         & (\because\rhd\subseteq\gamma\circ\Abs\rhd\circ\alpha)                                                         \\
+                              & \subseteq\gamma(\Abs{\sembracket{e}}(\alpha(S_1)\Abs\rhd\alpha(S_2))) & (\because\Step\circ\gamma\subseteq\gamma\circ\Abs\Step)                                                       \\
+                              & =\gamma(\alpha(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha(S_2))       & (\because\Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_1)=\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2)
+\end{align*}
+
+\section{Part II: A Simple Method to Derive Sound Analyzers with Arbitrary Precision}
+
+It is not obvious how to abstract the semantics in the previous section.
+For easy abstraction, we employ the common technique of introducing addresses and a memory.
+Thus, we extend the operational semantics of the previous section to a sematics that involve choosing a \emph{time} domain $\Time$ to use as addresses,
+and an \emph{abstract time domain} $\A\Time$ that allow easy abstraction of the semantics via a \emph{single} function $\A\alpha:\Time\rightarrow\A\Time$.
+
+We will sketch the proofs for:
+\begin{enumerate}
+  \item The well-definedness of the operational semantics.
+  \item The Galois connection between the collecting and abstract semantics.
+  \item The computability of the abstract semantics.
+\end{enumerate}
+
+\section{Part III: Analysis that Allow Open Code to be Closed Fractionally}
+Fixing a $\tick$ for each time domain is not enough!
+\section{Preliminaries}
+
+\subsection{Definitions}
 \subsubsection{Semantic Domains}
 As it always must be, the domains used in the concrete semantics and the abstract semantics must be connected in a ``coherent'' way.
 Our definition of semantics is parametrized by a quadruple $(\Time,\le,\widehat{\Time},\widehat{\alpha})$, where:
@@ -917,7 +1336,7 @@ Now, because of Tarski's fixpoint theorem, we can formulate the collecting seman
 \begin{definition}[Collecting semantics]
   Given $e\in\Expr$ and $S\subseteq\State\times\Tick$, define:
   \[
-    \sembracket{e}S\triangleq\mathsf{lfp}(\lambda X.\mathsf{Step}(X)\cup\{((e,s),\tick)|(s,\tick)\in S\})
+    \sembracket{e}S\triangleq\lfp(\lambda X.\mathsf{Step}(X)\cup\{((e,s),\tick)|(s,\tick)\in S\})
   \]
 \end{definition}
 
@@ -940,7 +1359,7 @@ How the CPOs are connected will be elaborated in the proof sketches.
 \begin{definition}[Abstract semantics]
   Given $e\in\Expr$ and $\Abs{S}\subseteq\A\State\times\A\Tick$, define:
   \[
-    \Abs{\sembracket{e}}\Abs{S}\triangleq\mathsf{lfp}(\lambda \Abs{X}.\Abs{\mathsf{Step}}(\Abs{X})\cup\{((e,\A{s}),\A\tick)|(\A{s},\A\tick)\in \Abs{S}\})
+    \Abs{\sembracket{e}}\Abs{S}\triangleq\lfp(\lambda \Abs{X}.\Abs{\mathsf{Step}}(\Abs{X})\cup\{((e,\A{s}),\A\tick)|(\A{s},\A\tick)\in \Abs{S}\})
   \]
 \end{definition}
 
@@ -1035,7 +1454,7 @@ Thus we have:
 \end{clm}
 \begin{proof}[Sketch]
   By existence of a function that computes all reachable signatures and by induction on $\asemarrow$.
-  
+
   To elaborate, let this function be called $f$.
   We prove two statements, the first being $\forall\A\rho:\lfloor\A\rho\rfloor\subseteq f(\A\rho)$ and the second being $\forall\A\ell,\A\rho:\A\ell\A\semarrow\A\rho\Rightarrow f(\A\rho)\subseteq f(\A\ell)$.
   Then for all $\A\rho$ such that $(e,\A{s})\A\semarrow^*\A\rho$, $\lfloor\A\rho\rfloor\subseteq f(\rho)\subseteq f(\ell)$, thus all signatures in $\Abs{\sembracket{e}}\Abs{S}$ can be bound by $\{f(e,\A{s})|(\A{s},\_)\in S\}$.
@@ -1066,7 +1485,7 @@ Taking this a step further, one may imagine an ``access graph'' that collects al
     \mathsf{Step}_m(G) & \triangleq & \{C\xrightarrow{x}t,t|C\in G\wedge t=\addr(C,x)\}             & \A{\mathsf{Step}}_{\A{m}}(\A{G}) & \triangleq & \{\A{C}\xrightarrow{x}\A{t},\A{t}|\A{C}\in \A{G}\wedge \A{t}=\addr(\A{C},x)\}                   \\
                        & \cup       & \{C\xrightarrow{M}C',C'|C\in G\wedge C'=\modctx(C,M)\}        &                                  & \cup       & \{\A{C}\xrightarrow{M}\A{C}',\A{C}'|\A{C}\in \A{G}\wedge \A{C}'=\modctx(\A{C},M)\}              \\
                        & \cup       & \{t\xrightarrow{e}C,C|t\in G\wedge \langle e,C \rangle=m(t)\} &                                  & \cup       & \{\A{t}\xrightarrow{e}\A{C},\A{C}|\A{t}\in \A{G}\wedge \langle e,\A{C} \rangle\in\A{m}(\A{t})\} \\
-    \underline{C,m}    & \triangleq & \mathsf{lfp}(\lambda X.\mathsf{Step}_m(X)\cup\{C\})           & \underline{\A{C},\A{m}}          & \triangleq & \mathsf{lfp}(\lambda \A{X}.\A{\mathsf{Step}}_{\A{m}}(\A{X})\cup\{\A{C}\})
+    \underline{C,m}    & \triangleq & \lfp(\lambda X.\mathsf{Step}_m(X)\cup\{C\})                   & \underline{\A{C},\A{m}}          & \triangleq & \lfp(\lambda \A{X}.\A{\mathsf{Step}}_{\A{m}}(\A{X})\cup\{\A{C}\})
   \end{array}
 \]
 
@@ -1392,7 +1811,7 @@ Thus, the definition of semantic linking is as follows:
   Then:
   \[
     S_1\semlink A_2\triangleq
-    \mathsf{lfp}(\lambda X.\mathsf{Step}(X)\cup(S_1\rhd A_2))
+    \lfp(\lambda X.\mathsf{Step}(X)\cup(S_1\rhd A_2))
   \]
 \end{definition}
 
@@ -1401,7 +1820,7 @@ Thus, the definition of semantic linking is as follows:
   Then:
   \[
     \Abs{S}_1\Abs\semlink\Abs{A}_2\triangleq
-    \mathsf{lfp}(\lambda \Abs{X}.\Abs\Step(\Abs{X})\cup(\Abs{S}_1\Abs\rhd \Abs{A}_2))
+    \lfp(\lambda \Abs{X}.\Abs\Step(\Abs{X})\cup(\Abs{S}_1\Abs\rhd \Abs{A}_2))
   \]
 \end{definition}
 
