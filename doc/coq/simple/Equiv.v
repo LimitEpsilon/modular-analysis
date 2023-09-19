@@ -433,40 +433,89 @@ Fixpoint remove_t `{Eq T} (m : memory T) t :=
     if eqb t t' then tl else (t', v) :: tl
   end.
 
-Fixpoint equiv_C `{Eq T} `{Eq TT} seenx seenM
-  (C1 : dy_ctx T) (C2 : dy_ctx TT) :=
-  match C1 with
-  | [||] => 
-    match C2 with
-    | [||] => Some ([], [])
-    | _ => None
-    end
-  | dy_binde x t C1 =>
-    if Inb x seenx then 
-      equiv_C seenx seenM C1 C2
-    else match addr_x C2 x with
-    | Some t' =>
-      match equiv_C (x :: seenx) seenM C1 (remove_x C2 x) with
-      | Some (tl, Cl) => Some ((t, t') :: tl, Cl)
-      | None => None
-      end
-    | None => None
-    end
-  | dy_bindm M C1' C1 =>
-    if Inb M seenM then
-      equiv_C seenx seenM C1 C2
-    else match ctx_M C2 M with
-    | Some C2' =>
-      match equiv_C seenx (M :: seenM) C1 (remove_M C2 M) with
-      | Some (tl, Cl) => match equiv_C [] [] C1' C2' with
-        | Some (tl', Cl') => Some (tl ++ tl', (C1', C2') :: Cl ++ Cl')
-        | None => None
-        end
-      | None => None
-      end
-    | None => None
+Fixpoint reach_C `{Eq T} seenx seenM (C : dy_ctx T) :=
+  match C with
+  | [||] => []
+  | dy_binde x t C =>
+    if Inb x seenx then reach_C seenx seenM C
+    else t :: reach_C (x :: seenx) seenM C
+  | dy_bindm M C C' =>
+    if Inb M seenM then reach_C seenx seenM C
+    else reach_C [] [] C ++ reach_C seenx (M :: seenM) C'
+  end.
+
+Fixpoint reach_m_step `{Eq T} acc (m : memory T) :=
+  match m with
+  | [] => (acc, [])
+  | (t, v) :: m =>
+    if Inb t acc then match v with
+    | Closure _ _ C =>
+      (reach_C [] [] C ++ acc, remove_t m t)
+    end else match reach_m_step acc m with
+    | (acc, m) => (acc, (t, v) :: m)
     end
   end.
+
+Fixpoint reach_m_aux `{Eq T} acc (m : memory T) fuel :=
+  match reach_m_step acc m with
+  | (acc, m') =>
+    if Nat.eqb (List.length m) (List.length m') then
+      Some acc
+    else match fuel with
+    | 0 => None
+    | S fuel => reach_m_aux acc m' fuel
+    end
+  end.
+
+Definition reach_m `{Eq T} init (m : memory T) :=
+  reach_m_aux init m (List.length m).
+
+Lemma remove_t_dec_len `{Eq T} :
+  forall (m : memory T) t,
+  (List.length (remove_t m t)) <= (List.length m).
+Proof.
+  induction m; intros; simpl; eauto.
+  repeat des_goal; repeat des_hyp; clarify;
+  try rewrite eqb_eq in *; subst;
+  match goal with
+  | |- context [remove_t _ ?t] =>
+    specialize (IHm t); nia
+  end.
+Qed.
+
+Lemma reach_m_step_dec_len `{Eq T} :
+  forall (m : memory T) acc,
+  match reach_m_step acc m with
+  | (_, m') => List.length m' <= List.length m
+  end.
+Proof.
+  induction m; intros; simpl; eauto;
+  repeat des_goal; repeat des_hyp; clarify; simpl.
+  - pose proof (remove_t_dec_len m t). nia.
+  - specialize (IHm acc).
+    repeat des_hyp; clarify. nia.
+Qed.
+
+Lemma reach_m_aux_some `{Eq T} :
+  forall fuel m init (GE : (List.length m) <= fuel),
+    exists reached, reach_m_aux init m fuel = Some reached.
+Proof.
+  induction fuel; intros; destruct m; simpl in *; eauto;
+  try (inversion GE; fail).
+  assert (List.length m <= fuel). { nia. }
+  repeat des_goal; repeat des_hyp; clarify; eauto.
+  - apply IHfuel. pose proof (remove_t_dec_len m t). nia.
+  - apply IHfuel. pose proof (remove_t_dec_len m t). nia.
+  - apply IHfuel. pose proof (reach_m_step_dec_len m init).
+    repeat des_hyp; ss; clarify.
+    rewrite Nat.eqb_neq in *. nia.
+Qed.
+
+Lemma reach_m_some `{Eq T} :
+  forall m init, exists reached, reach_m init m = Some reached.
+Proof.
+  intros. unfold reach_m. apply reach_m_aux_some. eauto.
+Qed.
 
 Lemma asame_aequiv `{Eq T} `{Eq TT} :
   forall (V : dy_value T) m (V' : dy_value TT) m' m''
@@ -575,72 +624,6 @@ Fixpoint snd_trans `{Eq T} `{Eq TT}
     if eqb s n then Some f else snd_trans tl n
   end.
 
-Lemma aaaa `{TotalOrder T} `{TotalOrder TT} :
-  forall f (V : dy_value T) (V' : dy_value TT) (m : memory T) (m' : memory TT)
-    (VALp : forall p, valid_path V m p -> valid_path V' m' (pmap f p)) p p',
-  valid_path V m (papp p' p) ->
-  let C := match V with
-    | EVal (Closure _ _ C) => C
-    | MVal C => C
-  end in
-  let C' := match V' with
-    | EVal (Closure _ _ C') => C'
-    | MVal C' => C'
-  end in
-  valid_path V' m' 
-    (papp (pmap f p') (pmap (fun n => if eqb n (Ctx C) then (Ctx C') else f n) p)).
-Proof.
-  intros. subst C. subst C'.
-  ginduction p; intros; ginduction p'; intros; simpl in *;
-  repeat des_goal; repeat des_hyp; des; clarify.
-  - specialize (VALp (Px x (Ptr t1) p)).
-    simpl in VALp. rewrite HDES2 in VALp.
-    exploit VALp; try split; eauto; intros.
-    des_hyp; eauto.
-  - assert (forall p : path T,
-       valid_path (MVal ev) m p -> valid_path (MVal mv) m' (pmap f p))
-    exploit IHp; eauto; simpl.
-  
-
-  specialize (VALp (Px x (Ptr t2) p)).
-  simpl in VALp. rewrite HDES1 in VALp.
-  exploit VALp; eauto. rewrite GDES. rewrite GDES1. eauto.
-  exploit IHp; eauto.
-   replace p with (papp Pnil p) in * by reflexivity.
-  remember Pnil as p'. clear Heqp'.
-  ginduction p; intros; ginduction p'; intros;
-  simpl in *; repeat des_goal; repeat des_hyp; des; clarify.
-  exploit IHp'; eauto.
-  assert (valid_path (MVal C) m (papp (Px x (Ptr t2) Pnil) p)).
-  simpl. rewrite HDES1. split; eauto.
-  exact H4.
-  intros.
-  iso (MVal C) m (MVal C') m' 
-    (fun n => if eqb n (Ctx C) then (Ctx C') else f n)
-    (fun n' => if eqb n' (Ctx C') then (Ctx C) else f' n').
-Proof.
-  intros. destruct H3 as [EQl EQr].
-  unfold iso in *. split; intros.
-  - specialize (EQl p VALp). clear EQr.
-    destruct EQl as [VALp' EQ]. split.
-    + assert (pmap (fun n : node T => if eqb n (Ctx C) then Ctx C' else f n) p 
-      = pmap f p) as RR.
-      {
-       clear VALp' m' EQ.
-       ginduction p; intros; simpl in *; try reflexivity;
-       repeat des_goal; repeat des_hyp; des; clarify;
-       erewrite IHp; eauto.
-       all:cycle 1.
-       assert (eqb (Ctx d) (Ctx C) = true) as RR.
-       assumption. rewrite eqb_eq in RR. clarify.
-      }
-    induction p; intros; simpl in *; eauto;
-    repeat des_goal; repeat des_hyp; des; clarify;
-    repeat split; eauto.
-    exists ev0. split; eauto.
-
-    try rewrite eqb_eq in *.
-
 (* assumed : f (α C) ≃# aC except for paths starting with
  * x in seenx and M in seenM, when f is a graph isomorphism *)
 (* trans: holds translated equivalent nodes *)
@@ -723,25 +706,13 @@ Fixpoint trans_equiv_C_aux `{Eq T} `{Eq TT} `{Eq aTT}
     else Some (t, trans, C')
   end end.
 
-with trans_equiv_C `{Eq T} `{Eq TT} `{Eq aTT}
-  (inv_α : (TT * aTT) -> TT)
-  (t : TT) (trans : list (node T * node TT))
-  (C : dy_ctx T) (aC : dy_ctx aTT) :=
-  match fst_trans trans (Ctx C) with
-  | Some (Ctx C) => Some (t, trans, C)
-  | Some _ => None
-  | None =>
-    match trans_equiv_C_aux inv_α t trans [] [] C aC with
-    | None => None
-    | Some (t, trans, C') => Some (t, (Ctx C, Ctx C') :: trans, C')
-    end
-  end.
 
-Fixpoint trans_equiv_m 
+Definition trans_equiv_m :=
   (* check oracle, if reachable trans_equiv_C
      if unreachable lift_C *)
+0.
 
-Definition trans_equiv
+Definition trans_equiv := 0.
 
 (*
 Definition equiv_aux `{Eq T} `{Eq TT}

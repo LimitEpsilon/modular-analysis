@@ -723,7 +723,6 @@ Tactic Notation "extensionalities" ident(a) ident(b) ident(c) ident(d) ident(e) 
 
 (* short for common tactics *)
 
-(* Tactic Notation "inst" := instantiate. *)
 Tactic Notation "econs" := econstructor.
 Tactic Notation "econs" int_or_var(x) := econstructor x.
 Tactic Notation "i" := intros.
@@ -785,18 +784,23 @@ Ltac clear_upto H :=
   repeat (match goal with [Hcrr : _ |- _ ] => first [ check_equal Hcrr H; fail 2
  | clear Hcrr ] end).
 
-(*Definition _Evar_sflib_ (A:Type) (x:A) := x.
+Definition _Evar_sflib_ (A:Type) (x:A) := x.
 
-Tactic Notation "hide_evar" int_or_var(n) := let QQ := fresh "QQ" in
-  hget_evar n; intro;
-  lazymatch goal with [ H := ?X |- _] =>
-    set (QQ := X) in *; fold (_Evar_sflib_ X) in QQ; clear H
+Ltac hide_evars :=
+  repeat match goal with
+  | [ |- context [?x] ] => is_evar x; set x in *;
+    lazymatch goal with [ H := x |- _ ] =>
+      fold (_Evar_sflib_ x) in H
+    end
   end.
 
-Ltac hide_evars := repeat (hide_evar 1).
-
-Ltac show_evars := repeat (match goal with [ H := @_Evar_sflib_ _ _ |- _ ] => unfold
- _Evar_sflib_ in H; unfold H in *; clear H end).*)
+Ltac show_evars :=
+  repeat match goal with
+  | [ H := @_Evar_sflib_ _ _ |- _ ] =>
+    unfold _Evar_sflib_ in H;
+    unfold H in *;
+    clear H
+  end.
 
 Ltac revert1 := match goal with [H: _|-_] => revert H end.
 

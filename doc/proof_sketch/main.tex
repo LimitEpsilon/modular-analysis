@@ -514,7 +514,7 @@ Why it is defined as such is because defining a \emph{collecting semantics} beco
 
 \subsection{Collecting Semantics}
 To define a semantics that is computable, we must formulate the collecting semantics as a least fixed point of a monotonic function that maps an element of some CPO $D$ to $D$.
-In our case, $D\triangleq\wp(\Sigma)$ when $\Sigma\triangleq\semarrow\uplus\Right$.
+In our case, $D\triangleq\wp(\Sigma)$ when $\Sigma\triangleq\semarrow\uplus\Right$ and $\wp(S)$ is the powerset of $S$.
 The semantics of an expression $e$ starting from initial states in $S\subseteq\Ctx$ is the collection of $\ell\semarrow\rho$ and $\rho$ derivable from initial configurations $(e,C)$ with $C\in S$.
 Defining the transfer function is straightforward from the definition of the transition relation.
 
@@ -617,7 +617,7 @@ Thus we reach the main theorem that allows ``fractional closures'' to be soundly
 Since we have defined a semantics that fully embrace \emph{incomplete computations}, we only have to abstract our semantic operators to obtain a sound static analysis.
 
 We require a CPO $\Abs{D}$ that is Galois connected with $D$ by abstraction $\alpha$ and concretization $\gamma$:
-\[D\galois{\alpha}{\gamma}\Abs{D}\]
+\[D=\wp(\Sigma)\galois{\alpha}{\gamma}\Abs{D}\]
 and semantic operators $\Abs\Step$ and $\Abs\rhd$ that satisfies:
 \[\Step\circ\gamma\subseteq\gamma\circ\Abs\Step\qquad\rhd\circ(\gamma,\gamma)\subseteq\gamma\circ\Abs\rhd\]
 . Then we define $\Abs{\sembracket{e}}$ and $\Abs\semlink$ as:
@@ -634,10 +634,13 @@ which, by definition and Tarski's fixpoint theorem satisfies:
                                & \subseteq\gamma(\alpha(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha(S_2))      & (\because\semlink\circ(\gamma,\gamma)\subseteq\gamma\circ\Abs\semlink)
 \end{align*}
 
-\section{Part II: A Simple Method to Derive Sound Analyzers with Arbitrary Precision}
+\section{Part II: A Simple Method to Derive Sound Analyzers}
 
-It is not obvious how to abstract the semantics in the previous section.
-For easy abstraction, we employ the common technique of introducing addresses and a memory.
+All that is left is to present an abstraction for the semantics in the previous section.
+Since the ``depth'' of the context $C$ is unbound due to entries $(x,v)$ also containing $C$ in the environment part of $v$, we need to abstract $S\subseteq\Ctx$ to finitely compute an overapproximation.
+However, devising such an abstraction is not immediately obvious, since such abstractions must support operations satisfying $\{C(x)|C\in\gamma(\Abs{C})\}\subseteq\gamma(\Abs{C}(x))$, when the operation $\Abs{C}(x)$ reads abstract closures bound to $x$ from the abstract context, which then again must contain abstract closures.
+
+To break this recursive structure, we employ the common technique of introducing addresses and a memory.
 Thus, we extend the operational semantics of the previous section to a sematics that involve choosing a \emph{time} domain $\Time$ to use as addresses,
 and an \emph{abstract time domain} $\A\Time$ that allow easy abstraction of the semantics via a \emph{single} function $\A\alpha:\Time\rightarrow\A\Time$.
 
@@ -664,137 +667,15 @@ and an \emph{abstract time domain} $\A\Time$ that allow easy abstraction of the 
 The domains for defining the operational semantics is extended to include the \emph{concrete time} and \emph{memory}.
 Compared with Figure \ref{fig:simpdom}, Figure \ref{fig:concdom} defines four more sets, $\Time$, $\Mem$, $\State$, and $\Result$ to streamline the presentation.
 A $s=(C,\mem,t)\in\State$ corresponds to a $C$ in Figure \ref{fig:simpdom}, as the pair $C,\mem$ cooperates to represent the recursively defined $C$ in the original representation without memory.
-The $t$ component represents both the execution history up to that point and the address that will be written to next.
 Similarly, a $r=(V,\mem,t)\in\Result$ corresponds to a $V$ in Figure \ref{fig:simpdom}, as the pair $V,\mem$ cooperates to represent the recursively defined $V$.
 
-\begin{figure}[h!]
-  \centering
-  \begin{tabular}{rrcll}
-    Abstract Time                & $\A{t}$     & $\in$         & $\A{\Time}$                                                                                            \\
-    Environment/Context          & $\A{C}$     & $\in$         & $\A{\Ctx}$                                                                                             \\
-    Value of expressions         & $\A{v}$     & $\in$         & $\A{\Value} \subseteq \Expr\times\A{\Ctx}$                                                             \\
-    Value of expressions/modules & $\A{V}$     & $\in$         & $\A{\Value\Ctx}\triangleq\A{\Value}\uplus\A{\Ctx}$                                                     \\
-    Abstract Memory              & $\A{\mem}$  & $\in$         & $\A{\Mem} \triangleq \fin{\A{\Time}}{\wp(\A{\Value})}$                                                 \\
-    Abstract State               & $\A{s}$     & $\in$         & $\A{\State} \triangleq \A{\Ctx}\times\A{\Mem}\times\A{\Time}$                                          \\
-    Abstract Result              & $\A{r}$     & $\in$         & $\A{\Result} \triangleq \A{\Value\Ctx}\times\A{\Mem}\times\A{\Time}$                                   \\
-    Abstract Tick                & $\A{\tick}$ & $\in$         & $\A{\Tick}\triangleq\A{\State}\times\ExprVar\times\A{\Value}\rightarrow\A{\Time}$                      \\
-    Context                      & $\A{C}$     & $\rightarrow$ & []                                                                                & empty stack        \\
-                                 &             & $\vbar$       & $(x,\A{t})\cons \A{C}$                                                            & expression binding \\
-                                 &             & $\vbar$       & $(M,\A{C})\cons \A{C}$                                                            & module binding     \\
-    Value of expressions         & $\A{v}$     & $\rightarrow$ & $\langle \lambda x.e, \A{C} \rangle$                                              & closure
-  \end{tabular}
-  \caption{Definition of the semantic domains in the abstract case. By $\wp(S)$ we mean the powerset of $S$.}
-\end{figure}
-We first introduce sets that are used to describe the abstract version of the operational semantics.
-Among these sets, the most important component for the analysis designer is the $\A{\tick}$ component.
-The $\A{\tick}$ function is what determines the granularity of the analysis.
-Since it takes in $(\A{s},x,\A{v})$ and returns a new $\A{t}$, the timestamps can encode a variety of context information.
-Increasing the variety of information encoded in $\A{t}$ increases the accuracy of the analysis.
+Note that a heavy burden has been cast upon the \emph{time} component.
+The time component is responsible for providing \emph{fresh} addresses to write to in the memory, and it is also an indicator of the execution \emph{history} up to that point.
+Hence, the policy for incrementing the timestamps of states decides what events are recorded in the timestamps, and the abstraction of this policy must select what events are preserved in the abstract semantics.
+We name this policy $\tick$ in our framework.
+The \emph{type} of $\tick$ can be freely chosen, since it may choose to record any event that occurs during execution, but in this section we choose the type $\Time\rightarrow\Time$, the simplest possible option.
 
-Naturally, all $\A{\tick}$ functions must have a concrete $\tick$ that mirrors its action.
-Since the abstract time domain $\A{\Time}$ and the translation function $\A{\alpha}$ meets the basic list of requirements, for each $\A{\tick}$ there exists a $\tick$ that \emph{respects} $\A{\tick}$ and produces \emph{fresh} timestamps.
-To elaborate, we must take a look at the definitions for the concrete semantic domains.
-
-To enforce that the $\tick$ function always produces fresh timestamps, the definition of the concrete $\State$ and $\Result$ ensure that the next timestamp that is recorded in memory is \emph{larger} than any timestamp that is already used.
-Define:
-\[
-  \begin{array}{cc}
-    C < t\triangleq
-    \begin{cases}
-      \mathsf{True}        & C=[]              \\
-      t' < t\wedge C' < t  & C=(x,t')\cons C'  \\
-      C' < t\wedge C'' < t & C=(M,C')\cons C''
-    \end{cases}
-     &
-    \begin{array}{l}
-      V < t\triangleq
-      \begin{cases}
-        C < t & V=\langle\_,C\rangle \\
-        C < t & V=C
-      \end{cases} \\
-      \mem < t\triangleq\forall t'\in\mathsf{dom}(\mem):t'<t\wedge\mem(t') < t
-    \end{array}
-  \end{array}
-\]
-and define:
-\[
-  \State\triangleq\{(C,m,t)|C<t\wedge m<t\}\qquad
-  \Result\triangleq\{(V,m,t)|V<t\wedge m<t\}
-\]
-Note that $\State\subseteq\Result$, thus any statement about $r\in\Result$ also holds for any $s\in\State$.
-
-The fact that the $t$-component in any $r$ bounds the $C$ and $m$ component means that the next location to be updated is fresh.
-After updating the memory, a new timestamp that is larger than the original $t$ must be given by $\tick$.
-This implies that: $\forall t:t<\tick((\_,\_,t),\_,\_)$ should be required of $\tick$.
-Moreover, for every concrete $\tick$ to have a corresponding abstract $\A{\tick}$ connected through $\A{\alpha}$, we want to require that:
-$\exists\A{\tick}:\A{\alpha}\circ\tick=\A{\tick}\circ\A{\alpha}$, when:
-\[
-  \begin{array}{cc}
-    \A{\alpha}(C)\triangleq
-    \begin{cases}
-      []                                  & C=[]              \\
-      (x,\A{\alpha}(t))::\A{\alpha}(C')   & C=(x,t)\cons C'   \\
-      (M,\A{\alpha}(C'))::\A{\alpha}(C'') & C=(M,C')\cons C''
-    \end{cases}
-     &
-    \begin{array}{l}
-      \A{\alpha}(V)\triangleq
-      \begin{cases}
-        \langle e,\A{\alpha}(C)\rangle & V=\langle e,C\rangle \\
-        \A{\alpha}(C)                  & V=C
-      \end{cases} \\
-      \A{\alpha}(\mem)\triangleq\bigcup_{t\in\mathsf{dom}(\mem)}[\A{\alpha}(t)\mapsto\{\A{\alpha}(\mem(t))\}]
-    \end{array}
-  \end{array}
-\]
-
-Thus we can define:
-\[
-  \Tick\triangleq\{\tick|\forall t:t<\tick((\_,\_,t),\_,\_)\wedge\exists\A{\tick}:\A{\alpha}\circ\tick=\A{\tick}\circ\A{\alpha}\}
-\]
-when the $\A{\alpha}$ in $\A{\tick}\circ\A{\alpha}$ maps over tuples and define:
-\[
-  \A{\alpha}(\tick)\triangleq\A{\tick}\qquad\text{where }\A{\alpha}\circ\tick=\A{\tick}\circ\A{\alpha}
-\]
-since if such a $\A{\tick}$ exists, it must be unique.
-
-\subsubsection{Operational Semantics}
-Now we give the operational semantics.
-The relation $\semarrow_{\tick}$ relates two machine states $\ell\in\Left\triangleq\Expr\times\State$ and $\rho\in\Right\triangleq\Left\uplus\Result$, using $\tick$ as the policy for memory allocation.
-Likewise, $\asemarrow_{\A{\tick}}$ relates two machine states $\A{\ell}\in\A{\Left}\triangleq\Expr\times\AState$ and $\A{\rho}\in\A{\Right}\triangleq\A{\Left}\uplus\AResult$, using $\A{\tick}$.
-
-There are auxiliary functions that are used to describe the relation.
-The $\addr$ and $\modctx$ operators each extract the address bound to a variable $x$ and the context bound to a variable $M$ from a context $C$.
-\[
-  {C}(x)\triangleq
-  \begin{cases}
-    \bot         & C=[]                              \\
-    t            & C=(x, t)\cons C'                  \\
-    \addr(C',x)  & C=(x', t)\cons C' \wedge x'\neq x \\
-    \addr(C'',x) & C=(M, C')\cons C''
-  \end{cases}
-  \quad
-  {C}(M)\triangleq
-  \begin{cases}
-    \bot           & C=[]                               \\
-    C'             & C=(M, C')\cons C''                 \\
-    \modctx(C'',M) & C=(M', C')\cons C''\wedge M'\neq M \\
-    \modctx(C',M)  & C=(x, t)\cons C'
-  \end{cases}
-\]
-
-Also, the update of the memory for the abstract operational semantics is not a strong update, which overwrites the previous value stored at the address that is written to.
-\[
-  \A{\mem}[\A{t}\A{\mapsto}\A{v}](\A{t'})\triangleq
-  \begin{cases}
-    \A{\mem}(\A{t})\cup\{\A{v}\} & (\A{t'}=\A{t})     \\
-    \A{\mem}(\A{t'})             & (\text{otherwise})
-  \end{cases}
-\]
-We call this a ``weak update'' of the abstract memory.
-
-The definitions for the operational semantics are given in Figure \ref{fig:concreach} and Figure \ref{fig:absreach}.
-
+\subsection{Operational Semantics}
 \begin{figure}[h!]
   \begin{flushright}
     \fbox{$(e,C,\mem,t)\semarrow(V,\mem',t')\text{ or }(e',C',\mem',t')$}
@@ -1034,8 +915,113 @@ The definitions for the operational semantics are given in Figure \ref{fig:concr
     \end{prooftree}
   \]
   \caption{The concrete one-step transition relation.}
-  \label{fig:concreach}
+  \label{fig:concreach1}
 \end{figure}
+
+The operational semantics with memory is defined in Figure \ref{fig:concreach1}.
+One must first note that there is a problem with the definition of $\semarrow$ as it is.
+There are no restrictions on $\tick$ and the states $(C,\mem,t)$, thus a write to the address $t$ may overwrite an existing value that may be used for future computations.
+That is, (1) $t\not\in\mathsf{supp}(C,\mem)$, and (2) $\tick(t)\not\in\mathsf{supp}(C,\mem)\wedge\tick(t)\neq t$ must be guaranteed, when $\mathsf{supp}(C,\mem)$ is the set of timestamps reachable from $(C,\mem)$.
+To enforce this invariant upon all \emph{valid} concrete executions defined by the relation $\semarrow$, we enforce that there be a \emph{total order} on $\Time$.
+Then the first criteria, that $t$ must be fresh in $C,\mem$, is formalized by demanding that $C<t$ and $\mem<t$, when:
+\[
+  \begin{array}{cc}
+    C < t\triangleq
+    \begin{cases}
+      \mathsf{True}        & C=[]              \\
+      t' < t\wedge C' < t  & C=(x,t')\cons C'  \\
+      C' < t\wedge C'' < t & C=(M,C')\cons C''
+    \end{cases}
+     &
+    \begin{array}{l}
+      V < t\triangleq
+      \begin{cases}
+        C < t & V=\langle\_,C\rangle \\
+        C < t & V=C
+      \end{cases} \\
+      \mem < t\triangleq\forall t'\in\mathsf{dom}(\mem):t'<t\wedge\mem(t') < t
+    \end{array}
+  \end{array}
+\]
+. The second criteria, that $\tick(t)$ must also be fresh and must not equal $t$, is formalized by demanding that:
+\[t < \tick(t)\]
+for all $t$.
+This condition is not as restrictive as it seems, as we can conversely think of a $\tick$ generating fresh timestamps as \emph{inducing} a total order on $\Time$.
+Also, these constraints match with the physical intuition of causality.
+Now, to allow only such valid transitions, we define:
+\[
+  \State\triangleq\{(C,\mem,t)|C<t\wedge\mem<t\}\qquad
+  \Result\triangleq\{(V,\mem,t)|V<t\wedge\mem<t\}
+\]
+as the set of \emph{valid} states that enable $\tick$ to behave nicely.
+It is almost trivial that the set $\Left\times\Result$, when $\Left\triangleq\Expr\times\State$ and $\Right\triangleq\Left\uplus\Result$, is \emph{closed} under the inductive definition of $\semarrow$.
+That is,
+\begin{clm}[Valid States Transition to Valid States]
+  For all $\ell\in\Left$ and $\rho$, if $\ell\semarrow\rho$ according to the inductive rules, $\rho\in\Right$.
+\end{clm}
+\begin{proof}[Sketch]
+  Induction on the derivation of $\semarrow$.
+\end{proof}
+
+\subsection{Collecting Semantics}
+The definition for the collecting semantics of the language is equal to the collecting semantics in the previous section.
+That is, when we let $D\triangleq\wp(\Sigma)$ where $\Sigma\triangleq\Right\uplus\semarrow$,
+\begin{definition}[Transfer function]
+  Given $A\in D$, define
+  \[
+    \mathsf{Step}(A)\triangleq
+    \left\{\ell\semarrow\rho, \rho\middle|
+    \begin{prooftree}[center=true]
+      \hypo{A'}\infer1{\ell\semarrow\rho}
+    \end{prooftree}\wedge
+    A'\subseteq A\wedge\ell\in A
+    \right\}
+  \]
+\end{definition}
+and
+\begin{definition}[Collecting semantics]
+  Given $e\in\Expr$ and $S\subseteq\State$, define:
+  \[
+    \sembracket{e}S\triangleq\lfp(\lambda X.\mathsf{Step}(X)\cup\{(e,s)|s\in S\})
+  \]
+\end{definition}
+
+\subsection{Abstract Semantics}
+\begin{figure}[h!]
+  \centering
+  \begin{tabular}{rrcll}
+    Abstract Time                & $\A{t}$     & $\in$         & $\A{\Time}$                                                                                            \\
+    Environment/Context          & $\A{C}$     & $\in$         & $\A{\Ctx}$                                                                                             \\
+    Value of expressions         & $\A{v}$     & $\in$         & $\A{\Value} \subseteq \Expr\times\A{\Ctx}$                                                             \\
+    Value of expressions/modules & $\A{V}$     & $\in$         & $\A{\Value\Ctx}\triangleq\A{\Value}\uplus\A{\Ctx}$                                                     \\
+    Abstract Memory              & $\A{\mem}$  & $\in$         & $\A{\Mem} \triangleq \fin{\A{\Time}}{\wp(\A{\Value})}$                                                 \\
+    Abstract State               & $\A{s}$     & $\in$         & $\A{\State} \triangleq \A{\Ctx}\times\A{\Mem}\times\A{\Time}$                                          \\
+    Abstract Result              & $\A{r}$     & $\in$         & $\A{\Result} \triangleq \A{\Value\Ctx}\times\A{\Mem}\times\A{\Time}$                                   \\
+    Abstract Tick                & $\A{\tick}$ & $\in$         & $\A{\Tick}\triangleq\A{\State}\times\ExprVar\times\A{\Value}\rightarrow\A{\Time}$                      \\
+    Context                      & $\A{C}$     & $\rightarrow$ & []                                                                                & empty stack        \\
+                                 &             & $\vbar$       & $(x,\A{t})\cons \A{C}$                                                            & expression binding \\
+                                 &             & $\vbar$       & $(M,\A{C})\cons \A{C}$                                                            & module binding     \\
+    Value of expressions         & $\A{v}$     & $\rightarrow$ & $\langle \lambda x.e, \A{C} \rangle$                                              & closure
+  \end{tabular}
+  \caption{Definition of the semantic domains in the abstract case.}
+  \label{fig:absdom}
+\end{figure}
+As promised, we present a way to simply abstract the concrete semantics via a finite abstraction of the time component.
+For this purpose, we choose a finite \emph{abstract time} domain $\A\Time$ that is connected to the concrete time domain via an auxiliary function $\A\alpha:\Time\rightarrow\A\Time$.
+Since the policy to update the timestamp must also be compatible with respect to $\A\alpha$, we require the $\A\tick:\A\Time\rightarrow\A\Time$ function to satisfy $\A\alpha\circ\tick=\A\tick\circ\A\alpha$.
+
+Then the operational semantics can be abstracted directly, with modifications only in the \emph{update} of the memory and \emph{reads} from the memory.
+The memory update operation is defined as a weak update, that is:
+\[
+  \A{\mem}[\A{t}\A{\mapsto}\A{v}](\A{t'})\triangleq
+  \begin{cases}
+    \A{\mem}(\A{t})\cup\{\A{v}\} & (\A{t'}=\A{t})     \\
+    \A{\mem}(\A{t'})             & (\text{otherwise})
+  \end{cases}
+\]
+and the read from the memory returns a set of closures with abstract addresses, allowing transitions to any value within that set.
+The full definition for the abstract version of the operational semantics $\A\semarrow$ is in Figure \ref{fig:absreach1}.
+$\A\semarrow\subseteq\A\Left\times\A\Right$, when $\A\Left\triangleq\Expr\times\A\State$ and $\A\Right\triangleq\A\Left\uplus\A\Result$.
 
 \begin{figure}[h!]
   \begin{flushright}
@@ -1278,106 +1264,10 @@ The definitions for the operational semantics are given in Figure \ref{fig:concr
     \end{prooftree}
   \]
   \caption{The abstract one-step transition relation.}
-  \label{fig:absreach}
+  \label{fig:absreach1}
 \end{figure}
 
-\section{Part III: Analysis that Allow Open Code to be Closed Fractionally}
-Fixing a $\tick$ for each time domain is not enough!
-
-\subsection{Definitions}
-\subsubsection{Semantic Domains}
-As it always must be, the domains used in the concrete semantics and the abstract semantics must be connected in a ``coherent'' way.
-Our definition of semantics is parametrized by a quadruple $(\Time,\le,\A{\Time},\A{\alpha})$, where:
-\begin{enumerate}
-  \item $\le$ is a total order on $\Time$.
-  \item $\A{\Time}$ is a (nonempty) finite set.
-  \item $\A{\alpha}\in\Time\rightarrow\A{\Time}$, and there exists a $\A{\alpha}^{-1}\in(\Time\times\A{\Time})\rightarrow\Time$ that satisfies:
-        \[\forall t\in\Time:t<\A{\alpha}^{-1}(t,\_)\qquad\text{and}\qquad\forall\A{t}\in\A{\Time}:\A{t}=\A{\alpha}(\A{\alpha}^{-1}(\_,\A{t}))\]
-\end{enumerate}
-
-As will be elaborated, these conditions ensure that the concrete and the abstract semantics are soundly connected.
-Now we give the semantic domains that are parametrized by the choice of $(\Time,\le,\A{\Time},\A{\alpha})$.
-
-\begin{figure}[h!]
-  \centering
-  \begin{tabular}{rrcll}
-    Abstract Time                & $\A{t}$     & $\in$         & $\A{\Time}$                                                                                            \\
-    Environment/Context          & $\A{C}$     & $\in$         & $\A{\Ctx}$                                                                                             \\
-    Value of expressions         & $\A{v}$     & $\in$         & $\A{\Value} \subseteq \Expr\times\A{\Ctx}$                                                             \\
-    Value of expressions/modules & $\A{V}$     & $\in$         & $\A{\Value\Ctx}\triangleq\A{\Value}\uplus\A{\Ctx}$                                                     \\
-    Abstract Memory              & $\A{\mem}$  & $\in$         & $\A{\Mem} \triangleq \fin{\A{\Time}}{\wp(\A{\Value})}$                                                 \\
-    Abstract State               & $\A{s}$     & $\in$         & $\A{\State} \triangleq \A{\Ctx}\times\A{\Mem}\times\A{\Time}$                                          \\
-    Abstract Result              & $\A{r}$     & $\in$         & $\A{\Result} \triangleq \A{\Value\Ctx}\times\A{\Mem}\times\A{\Time}$                                   \\
-    Abstract Tick                & $\A{\tick}$ & $\in$         & $\A{\Tick}\triangleq\A{\State}\times\ExprVar\times\A{\Value}\rightarrow\A{\Time}$                      \\
-    Context                      & $\A{C}$     & $\rightarrow$ & []                                                                                & empty stack        \\
-                                 &             & $\vbar$       & $(x,\A{t})\cons \A{C}$                                                            & expression binding \\
-                                 &             & $\vbar$       & $(M,\A{C})\cons \A{C}$                                                            & module binding     \\
-    Value of expressions         & $\A{v}$     & $\rightarrow$ & $\langle \lambda x.e, \A{C} \rangle$                                              & closure
-  \end{tabular}
-  \caption{Definition of the semantic domains in the abstract case. By $\wp(S)$ we mean the powerset of $S$.}
-\end{figure}
-We first introduce sets that are used to describe the abstract version of the operational semantics.
-Among these sets, the most important component for the analysis designer is the $\A{\tick}$ component.
-The $\A{\tick}$ function is what determines the granularity of the analysis.
-Since it takes in $(\A{s},x,\A{v})$ and returns a new $\A{t}$, the timestamps can encode a variety of context information.
-Increasing the variety of information encoded in $\A{t}$ increases the accuracy of the analysis.
-
-Naturally, all $\A{\tick}$ functions must have a concrete $\tick$ that mirrors its action.
-Since the abstract time domain $\A{\Time}$ and the translation function $\A{\alpha}$ meets the basic list of requirements, for each $\A{\tick}$ there exists a $\tick$ that \emph{respects} $\A{\tick}$ and produces \emph{fresh} timestamps.
-To elaborate, we must take a look at the definitions for the concrete semantic domains.
-
-\begin{figure}[h!]
-  \centering
-  \begin{tabular}{rrcll}
-    Time                         & $t$     & $\in$         & $\Time$                                                                               \\
-    Environment/Context          & $C$     & $\in$         & $\Ctx$                                                                                \\
-    Value of expressions         & $v$     & $\in$         & $\Value \subseteq \Expr\times\Ctx$                                                    \\
-    Value of expressions/modules & $V$     & $\in$         & $\Value\Ctx\triangleq\Value\uplus\Ctx$                                                \\
-    Memory                       & $\mem$  & $\in$         & $\Mem \triangleq \fin{\Time}{\Value}$                                                 \\
-    State                        & $s$     & $\in$         & $\State \subseteq \Ctx\times\Mem\times\Time$                                          \\
-    Result                       & $r$     & $\in$         & $\Result \subseteq \Value\Ctx\times\Mem\times\Time$                                   \\
-    Tick                         & $\tick$ & $\in$         & $\Tick\subseteq\State\times\ExprVar\times\Value\rightarrow\Time$                      \\
-    Context                      & $C$     & $\rightarrow$ & []                                                               & empty stack        \\
-                                 &         & $\vbar$       & $(x,t)\cons C$                                                   & expression binding \\
-                                 &         & $\vbar$       & $(M,C)\cons C$                                                   & module binding     \\
-    Value of expressions         & $v$     & $\rightarrow$ & $\langle \lambda x.e, C \rangle$                                 & closure
-  \end{tabular}
-  \caption{Definition of the semantic domains in the concrete case.}
-\end{figure}
-
-To enforce that the $\tick$ function always produces fresh timestamps, the definition of the concrete $\State$ and $\Result$ ensure that the next timestamp that is recorded in memory is \emph{larger} than any timestamp that is already used.
-Define:
-\[
-  \begin{array}{cc}
-    C < t\triangleq
-    \begin{cases}
-      \mathsf{True}        & C=[]              \\
-      t' < t\wedge C' < t  & C=(x,t')\cons C'  \\
-      C' < t\wedge C'' < t & C=(M,C')\cons C''
-    \end{cases}
-     &
-    \begin{array}{l}
-      V < t\triangleq
-      \begin{cases}
-        C < t & V=\langle\_,C\rangle \\
-        C < t & V=C
-      \end{cases} \\
-      \mem < t\triangleq\forall t'\in\mathsf{dom}(\mem):t'<t\wedge\mem(t') < t
-    \end{array}
-  \end{array}
-\]
-and define:
-\[
-  \State\triangleq\{(C,m,t)|C<t\wedge m<t\}\qquad
-  \Result\triangleq\{(V,m,t)|V<t\wedge m<t\}
-\]
-Note that $\State\subseteq\Result$, thus any statement about $r\in\Result$ also holds for any $s\in\State$.
-
-The fact that the $t$-component in any $r$ bounds the $C$ and $m$ component means that the next location to be updated is fresh.
-After updating the memory, a new timestamp that is larger than the original $t$ must be given by $\tick$.
-This implies that: $\forall t:t<\tick((\_,\_,t),\_,\_)$ should be required of $\tick$.
-Moreover, for every concrete $\tick$ to have a corresponding abstract $\A{\tick}$ connected through $\A{\alpha}$, we want to require that:
-$\exists\A{\tick}:\A{\alpha}\circ\tick=\A{\tick}\circ\A{\alpha}$, when:
+We note that the abstract operational semantics is a sound approximation of the concrete semantics in the operational sense, since if we extend $\A\alpha$ as:
 \[
   \begin{array}{cc}
     \A{\alpha}(C)\triangleq
@@ -1393,668 +1283,72 @@ $\exists\A{\tick}:\A{\alpha}\circ\tick=\A{\tick}\circ\A{\alpha}$, when:
         \langle e,\A{\alpha}(C)\rangle & V=\langle e,C\rangle \\
         \A{\alpha}(C)                  & V=C
       \end{cases} \\
-      \A{\alpha}(\mem)\triangleq\bigcup_{t\in\mathsf{dom}(\mem)}[\A{\alpha}(t)\mapsto\{\A{\alpha}(\mem(t))\}]
+      \A{\alpha}(\mem)\triangleq\lambda\A{t}.\{\A\alpha(\mem(t))|\A\alpha(t)=\A{t}\wedge t\in\mathsf{dom}(\mem)\}
     \end{array}
   \end{array}
 \]
-
-Thus we can define:
-\[
-  \Tick\triangleq\{\tick|\forall t:t<\tick((\_,\_,t),\_,\_)\wedge\exists\A{\tick}:\A{\alpha}\circ\tick=\A{\tick}\circ\A{\alpha}\}
-\]
-when the $\A{\alpha}$ in $\A{\tick}\circ\A{\alpha}$ maps over tuples and define:
-\[
-  \A{\alpha}(\tick)\triangleq\A{\tick}\qquad\text{where }\A{\alpha}\circ\tick=\A{\tick}\circ\A{\alpha}
-\]
-since if such a $\A{\tick}$ exists, it must be unique.
-
-\subsubsection{Operational Semantics}
-Now we give the operational semantics.
-The relation $\semarrow_{\tick}$ relates two machine states $\ell\in\Left\triangleq\Expr\times\State$ and $\rho\in\Right\triangleq\Left\uplus\Result$, using $\tick$ as the policy for memory allocation.
-Likewise, $\asemarrow_{\A{\tick}}$ relates two machine states $\A{\ell}\in\A{\Left}\triangleq\Expr\times\AState$ and $\A{\rho}\in\A{\Right}\triangleq\A{\Left}\uplus\AResult$, using $\A{\tick}$.
-
-There are auxiliary functions that are used to describe the relation.
-The $\addr$ and $\modctx$ operators each extract the address bound to a variable $x$ and the context bound to a variable $M$ from a context $C$.
-\[
-  {C}(x)\triangleq
-  \begin{cases}
-    \bot         & C=[]                              \\
-    t            & C=(x, t)\cons C'                  \\
-    \addr(C',x)  & C=(x', t)\cons C' \wedge x'\neq x \\
-    \addr(C'',x) & C=(M, C')\cons C''
-  \end{cases}
-  \quad
-  {C}(M)\triangleq
-  \begin{cases}
-    \bot           & C=[]                               \\
-    C'             & C=(M, C')\cons C''                 \\
-    \modctx(C'',M) & C=(M', C')\cons C''\wedge M'\neq M \\
-    \modctx(C',M)  & C=(x, t)\cons C'
-  \end{cases}
-\]
-
-Also, the update of the memory for the abstract operational semantics is not a strong update, which overwrites the previous value stored at the address that is written to.
-\[
-  \A{\mem}[\A{t}\A{\mapsto}\A{v}](\A{t'})\triangleq
-  \begin{cases}
-    \A{\mem}(\A{t})\cup\{\A{v}\} & (\A{t'}=\A{t})     \\
-    \A{\mem}(\A{t'})             & (\text{otherwise})
-  \end{cases}
-\]
-We call this a ``weak update'' of the abstract memory.
-
-The definitions for the operational semantics are given in Figure \ref{fig:concreach} and Figure \ref{fig:absreach}.
-
-\begin{figure}[h!]
-  \begin{flushright}
-    \fbox{$(e,C,\mem,t)\semarrow_\tick(V,\mem',t')\text{ or }(e',C',\mem',t')$}
-  \end{flushright}
-  \centering
-  \vspace{0pt} % -0.75em}
-  \[
-    \begin{prooftree}
-      \hypo{t_{x}={C}(x)}
-      \hypo{v=\mem(t_{x})}
-      \infer[left label=ExprID]2{
-      (x, C, \mem, t)
-      \semarrow
-      (v, \mem, t)
-      }
-    \end{prooftree}\qquad
-    \begin{prooftree}
-      \infer[left label=Fn]0{
-      (\lambda x.e, C, \mem, t)
-      \semarrow
-      (\langle\lambda x.e, C\rangle, \mem, t)
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \infer[left label={AppL}]0{
-      (e_{1}\:e_{2}, C, \mem, t)
-      \semarrow
-      (e_{1},C, \mem,t)
-      }
-    \end{prooftree}\qquad
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, C, \mem, t)
-          \semarrow
-          (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda})
-        \end{matrix}
-      }
-      \infer[left label={AppR}]1{
-      (e_{1}\:e_{2}, C, \mem, t)
-      \semarrow
-      (e_{2}, C, \mem_{\lambda}, t_{\lambda})
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, C, \mem, t)
-          \semarrow
-          (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
-          (e_{2}, C, \mem_{\lambda}, t_{\lambda})
-          \semarrow
-          (v, \mem_{a}, t_{a})
-        \end{matrix}
-      }
-      \infer[left label={AppBody}]1{
-      (e_{1}\:e_{2}, C, \mem, t)
-      \semarrow
-      (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick((C,\mem_{a},t_{a}),x,v))
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, C, \mem, t)
-          \semarrow
-          (\langle\lambda x.e_{\lambda}, C_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
-          (e_{2}, C, \mem_{\lambda}, t_{\lambda})
-          \semarrow
-          (v, \mem_{a}, t_{a})                                                            \\
-          (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick((C,\mem_{a},t_{a}),x,v))
-          \semarrow
-          (v', \mem',t')
-        \end{matrix}
-      }
-      \infer[left label={App}]1{
-      (e_{1}\:e_{2}, C, \mem, t)
-      \semarrow
-      (v', \mem',t')
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \infer[left label=LinkL]0{
-      (\link{e_{1}}{e_{2}}, C, \mem, t)
-      \semarrow
-      (e_{1}, C, \mem, t)
-      }
-    \end{prooftree}\qquad
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, C, \mem, t)
-          \semarrow
-          (C', \mem', t')
-        \end{matrix}
-      }
-      \infer[left label=LinkR]1{
-      (\link{e_{1}}{e_{2}}, C, \mem, t)
-      \semarrow
-      (e_{2}, C', \mem', t')
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, C, \mem, t)
-          \semarrow
-          (C', \mem', t') \\
-          (e_{2}, C', \mem', t')
-          \semarrow
-          (V, \mem'', t'')
-        \end{matrix}
-      }
-      \infer[left label=Link]1{
-      (\link{e_{1}}{e_{2}}, C, \mem, t)
-      \semarrow
-      (V, \mem'', t'')
-      }
-    \end{prooftree}\qquad
-    \begin{prooftree}
-      \infer[left label=Empty]0{
-      (\varepsilon, C, \mem, t)
-      \semarrow
-      (C, \mem, t)
-      }
-    \end{prooftree}\qquad
-    \begin{prooftree}
-      \hypo{C'={C}(M)}
-      \infer[left label=ModID]1{
-      (M, C, \mem, t)
-      \semarrow
-      (C', \mem, t)
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \infer[left label=LetEL]0{
-      (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
-      \semarrow
-      (e_{1}, C, \mem, t)
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, C, \mem, t)
-          \semarrow
-          (v, \mem', t')
-        \end{matrix}
-      }
-      \infer[left label=LetER]1{
-      (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
-      \semarrow
-      (e_{2}, (x, t')\cons C, \mem'[t'\mapsto v], \tick((C,\mem',t'),x,v))
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \infer[left label=LetML]0{
-      (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \mem, t)
-      \semarrow
-      (e_{1}, C, \mem, t)
-      }
-    \end{prooftree}\qquad
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, C, \mem, t)
-          \semarrow
-          (C', \mem', t')
-        \end{matrix}
-      }
-      \infer[left label=LetMR]1{
-      (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \mem, t)
-      \semarrow
-      (e_{2}, (M, C')\cons C, \mem', t')
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, C, \mem, t)
-          \semarrow
-          (v, \mem', t') \\
-          (e_{2}, (x, t')\cons C, \mem'[t'\mapsto v], \tick((C,\mem',t'),x,v))
-          \semarrow
-          (C', \mem'', t'')
-        \end{matrix}
-      }
-      \infer[left label=LetE]1{
-      (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
-      \semarrow
-      (C', \mem'', t'')
-      }
-    \end{prooftree}\quad
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, C, \mem, t)
-          \semarrow
-          (C', \mem', t') \\
-          (e_{2}, (M, C')\cons C, \mem', t')
-          \semarrow
-          (C'', \mem'', t'')
-        \end{matrix}
-      }
-      \infer[left label=LetM]1{
-      (\mathtt{let}\:M\:e_{1}\:e_{2}, C, \mem, t)
-      \semarrow
-      (C'', \mem'', t'')
-      }
-    \end{prooftree}
-  \]
-  \caption{The concrete one-step transition relation. The subscript $\tick$ is omitted for brevity.}
-  \label{fig:concreach}
-\end{figure}
-
-\begin{figure}[h!]
-  \begin{flushright}
-    \fbox{$(e,\A{C},\A\mem,\A{t})\A\semarrow_{\A\tick}(\A{V},\A{\mem'},\A{t'})\text{ or }(e',\A{C'},\A{\mem'},\A{t'})$}
-  \end{flushright}
-  \vspace{0pt} % -0.75em}
-  \[
-    \begin{prooftree}
-      \hypo{\A{t_x}=\addr(\A{C},x)}
-      \hypo{\A{v}\in\A\mem(\A{t_x})}
-      \infer[left label=ExprID]2{
-      (x, \A{C}, \A\mem, \A{t})
-      \A\semarrow
-      (\A{v}, \A\mem, \A{t})
-      }
-    \end{prooftree}\qquad
-    \begin{prooftree}
-      \infer[left label=Fn]0{
-      (\lambda x.e, \A{C}, \A\mem, \A{t})
-      \A\semarrow
-      (\langle\lambda x.e, \A{C}\rangle, \A\mem, \A{t})
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \infer[left label={AppL}]0{
-      (e_{1}\:e_{2}, \A{C}, \A\mem, \A{t})
-      \A\semarrow
-      (e_{1},\A{C}, \A\mem,\A{t})
-      }
-    \end{prooftree}\qquad
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\semarrow
-          (\langle\lambda x.e_{\lambda}, \A{C}_{\lambda}\rangle, \A\mem_{\lambda}, \A{t_\lambda})
-        \end{matrix}
-      }
-      \infer[left label={AppR}]1{
-      (e_{1}\:e_{2}, \A{C}, \A\mem, \A{t})
-      \A\semarrow
-      (e_{2}, \A{C}, \A\mem_{\lambda}, \A{t_\lambda})
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\semarrow
-          (\langle\lambda x.e_{\lambda}, \A{C}_{\lambda}\rangle, \A\mem_{\lambda}, \A{t_\lambda}) \\
-          (e_{2}, \A{C}, \A\mem_{\lambda}, \A{t_\lambda})
-          \A\semarrow
-          (v, \A\mem_{a}, \A{t_a})
-        \end{matrix}
-      }
-      \infer[left label={AppBody}]1{
-      (e_{1}\:e_{2}, \A{C,} \A\mem, \A{t})
-      \A\semarrow
-      (e_{\lambda}, (x, \A{t_a})\cons \A{C}_{\lambda}, \A\mem_{a}[\A{t_a}\A\mapsto \A{v}], \A\tick((\A{C},\A\mem_{a},\A{t_a}),x,\A{v}))
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\semarrow
-          (\langle\lambda x.e_{\lambda}, \A{C}_{\lambda}\rangle, \A\mem_{\lambda}, \A{t_\lambda}) \\
-          (e_{2}, \A{C}, \A\mem_{\lambda}, \A{t_\lambda})
-          \A\semarrow
-          (\A{v}, \A\mem_{a}, \A{t_a})                                                            \\
-          (e_{\lambda}, (x, \A{t_a})\cons \A{C}_{\lambda}, \A\mem_{a}[\A{t_a}\A\mapsto \A{v}], \A\tick((\A{C},\A\mem_{a},\A{t_a}),x,\A{v}))
-          \A\semarrow
-          (\A{v'}, \A{\mem'},\A{t'})
-        \end{matrix}
-      }
-      \infer[left label={App}]1{
-      (e_{1}\:e_{2}, \A{C}, \A\mem, \A{t})
-      \A\semarrow
-      (\A{v'}, \A{\mem'},\A{t'})
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \infer[left label=LinkL]0{
-      (\link{e_{1}}{e_{2}}, \A{C}, \A\mem, \A{t})
-      \A\semarrow
-      (e_{1}, \A{C}, \A\mem, \A{t})
-      }
-    \end{prooftree}\qquad
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\semarrow
-          (\A{C'}, \A{\mem'}, \A{t'})
-        \end{matrix}
-      }
-      \infer[left label=LinkR]1{
-      (\link{e_{1}}{e_{2}}, \A{C}, \A\mem, \A{t})
-      \A\semarrow
-      (e_{2}, \A{C'}, \A{\mem'}, \A{t'})
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\semarrow
-          (\A{C'}, \A{\mem'}, \A{t'}) \\
-          (e_{2}, \A{C'}, \A{\mem'}, \A{t'})
-          \A\semarrow
-          (\A{V}, \A{\mem''}, \A{t''})
-        \end{matrix}
-      }
-      \infer[left label=Link]1{
-      (\link{e_{1}}{e_{2}}, \A{C}, \A\mem, \A{t})
-      \A\semarrow
-      (\A{V}, \A{\mem''}, \A{t''})
-      }
-    \end{prooftree}\qquad
-    \begin{prooftree}
-      \infer[left label=Empty]0{
-      (\varepsilon, \A{C}, \A\mem, \A{t})
-      \A\semarrow
-      (\A{C}, \A\mem, \A{t})
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \hypo{\A{C'}=\modctx(\A{C},M)}
-      \infer[left label=ModID]1{
-      (M, \A{C}, \A\mem, \A{t})
-      \A\semarrow
-      (\A{C'}, \A\mem, \A{t})
-      }
-    \end{prooftree}\qquad
-    \begin{prooftree}
-      \infer[left label=LetEL]0{
-      (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A\mem, \A{t})
-      \A\semarrow
-      (e_{1}, \A{C}, \A\mem, \A{t})
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\semarrow
-          (\A{v}, \A{\mem'}, \A{t'})
-        \end{matrix}
-      }
-      \infer[left label=LetER]1{
-      (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A\mem, \A{t})
-      \A\semarrow
-      (e_{2}, (x, \A{t'})\cons \A{C}, \A{\mem'}[\A{t'}\A\mapsto \A{v}], \A\tick((\A{C},\A{\mem'},\A{t'}),x,\A{v}))
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \infer[left label=LetML]0{
-      (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A\mem, \A{t})
-      \A\semarrow
-      (e_{1}, \A{C}, \A\mem, \A{t})
-      }
-    \end{prooftree}\quad
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\semarrow
-          (\A{C'}, \A{\mem'}, \A{t'})
-        \end{matrix}
-      }
-      \infer[left label=LetMR]1{
-      (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A\mem, \A{t})
-      \A\semarrow
-      (e_{2}, (M, \A{C'})\cons \A{C}, \A{\mem'}, \A{t'})
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\semarrow
-          (\A{v}, \A{\mem'}, \A{t'}) \\
-          (e_{2}, (x, \A{t'})\cons \A{C}, \A{\mem'}[\A{t'}\A\mapsto \A{v}], \A\tick((\A{C},\A{\mem'},\A{t'}),x,\A{v}))
-          \A\semarrow
-          (\A{C'}, \A{\mem''}, \A{t''})
-        \end{matrix}
-      }
-      \infer[left label=LetE]1{
-      (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A\mem, \A{t})
-      \A\semarrow
-      (\A{C'}, \A{\mem''}, \A{t''})
-      }
-    \end{prooftree}
-  \]
-
-  \[
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, \A{C}, \A\mem, \A{t})
-          \A\semarrow
-          (\A{C'}, \A{\mem'}, \A{t'}) \\
-          (e_{2}, (M, \A{C'})\cons \A{C}, \A{\mem'}, \A{t'})
-          \A\semarrow
-          (\A{C''}, \A{\mem''}, \A{t''})
-        \end{matrix}
-      }
-      \infer[left label=LetM]1{
-      (\mathtt{let}\:M\:e_{1}\:e_{2}, \A{C}, \A\mem, \A{t})
-      \A\semarrow
-      (\A{C''}, \A{\mem''}, \A{t''})
-      }
-    \end{prooftree}
-  \]
-  \caption{The abstract one-step transition relation. The subscript $\A\tick$ is omitted for brevity.}
-  \label{fig:absreach}
-\end{figure}
-
-\subsubsection{Collecting Semantics}
-To define a semantics that is computable, we must formulate the collecting semantics as a least fixed point of a monotonic function that maps an element of some CPO $D$ to $D$.
-In our case, $D\triangleq\wp((\Left\times\Tick\times\Right )\uplus(\Right\times\Tick))$.
-The semantics of an expression $e$ starting from initial states in $S\subseteq\State\times\Tick$ is the collection of $\ell\semarrow_{\tick}\rho$ and $(\rho,\tick)$ derivable from initial configurations $((e,s),\tick)$ with $(s,\tick)\in S$.
-Defining the transfer function is straightforward from the definition of the transition relation.
-
-\begin{definition}[Transfer function]
-  Given $A\subseteq D$, define
-  \[
-    \mathsf{Step}(A)\triangleq
-    \left\{\ell\semarrow_\tick\rho, (\rho,\tick)\middle|
-    \begin{prooftree}[center=true]
-      \hypo{A'}\infer1{\ell\semarrow_\tick\rho}
-    \end{prooftree}\wedge
-    A'\subseteq A\wedge(\ell,\tick)\in A
-    \right\}
-  \]
-\end{definition}
-
-The $\mathsf{Step}$ function is naturally monotonic, as a ``cache'' $A$ that remembers more about the intermediate proof tree will derive more results than a cache that remembers less.
-Now, because of Tarski's fixpoint theorem, we can formulate the collecting semantics in fixpoint form.
-\begin{definition}[Collecting semantics]
-  Given $e\in\Expr$ and $S\subseteq\State\times\Tick$, define:
-  \[
-    \sembracket{e}S\triangleq\lfp(\lambda X.\mathsf{Step}(X)\cup\{((e,s),\tick)|(s,\tick)\in S\})
-  \]
-\end{definition}
-
-The abstract semantics is defined analogously.
-Let $\A{D}\triangleq\wp((\A\Left\times\A\Tick\times\A\Right )\uplus(\A\Right\times\A\Tick))$, then the transfer function and the semantics are defined so that they respect the Galois connection between $\wp(D)$ and $\wp(\A{D})$.
-How the CPOs are connected will be elaborated in the proof sketches.
-
-\begin{definition}[Abstract transfer function]
-  Given $\Abs{A}\subseteq\A{D}$, define
-  \[
-    \Abs{\mathsf{Step}}(\Abs{A})\triangleq
-    \left\{\A\ell\A\semarrow_{\A\tick}\A\rho, (\A\rho,\A\tick)\middle|
-    \begin{prooftree}[center=true]
-      \hypo{\Abs{A'}}\infer1{\A\ell\A\semarrow_{\A\tick}\A\rho}
-    \end{prooftree}\wedge
-    \Abs{A'}\subseteq \Abs{A}\wedge(\A\ell,\A\tick)\in \Abs{A}
-    \right\}
-  \]
-\end{definition}
-\begin{definition}[Abstract semantics]
-  Given $e\in\Expr$ and $\Abs{S}\subseteq\A\State\times\A\Tick$, define:
-  \[
-    \Abs{\sembracket{e}}\Abs{S}\triangleq\lfp(\lambda \Abs{X}.\Abs{\mathsf{Step}}(\Abs{X})\cup\{((e,\A{s}),\A\tick)|(\A{s},\A\tick)\in \Abs{S}\})
-  \]
-\end{definition}
-
-\clearpage
-\subsection{Proof Sketches}
-\subsubsection{Well-Definedness of the Operational Semantics}
-
-The $\Left$ and $\Right$ sets that are connected by the concrete transition relation $\semarrow_{\tick}$ are restricted by the property that the timestamps of each element are bound by its time component.
-Therefore, for the concrete operational semantics to be truly well-defined, we have to check whether our inductive definition preserves the property of time-boundedness.
-This is a simple proof by induction on the transition relation, since $\tick$ always produces increasing timestamps.
-
-\begin{clm}[Well-definedness of $\semarrow_{\tick}$]
-  For all $e,C,\mem,t$ and $\rho\in\Expr\times\Ctx\times\Mem\times\Time\uplus\Value\Ctx\times\Mem\times\Time$, if $s\triangleq(C,\mem,t)\in\State$ and
-  $(e,s)\semarrow_{\tick}\rho$ according to the inference rules in Figure \ref{fig:concreach}, we have that $\rho\in\Right$.
+and define $\A\alpha(r)$ for $r\in\Result$ by mapping over each component, we have:
+\begin{clm}[Operational Soundness]
+  For all $\ell\in\Left$ and $\rho\in\Right$, if $\ell\semarrow\rho$ then $\A\alpha(\ell)\A\semarrow\A\alpha(\rho)$.
 \end{clm}
 \begin{proof}[Sketch]
-  Induction on the definition of $\semarrow_\tick$.
+  Induction on $\semarrow$.
 \end{proof}
 
-We also have to check that $\A{\alpha}(\tick)$ is well-defined.
-
-\begin{clm}[Well-definedness of $\A{\alpha}(\tick)$]
-  For all $\tick\in\State\times\ExprVar\times\Value\rightarrow\Time$, if $\A{\tick}_1\circ\A{\alpha}=\A{\alpha}\circ\tick$ and $\A{\tick}_2\circ\A{\alpha}=\A{\alpha}\circ\tick$, we have that $\A\tick_1=\A\tick_2$.
-\end{clm}
-\begin{proof}[Sketch]
-  We have to prove that for all $\A{s}\in\A\State$, $x\in\ExprVar$, $\A{v}\in\A\Value$, $\A\tick_1(\A{s},x,\A{v})=\A\tick_2(\A{s},x,\A{v})$.
-  This is true if for all $\A{s}\in\A\State$, there exists a $s\in\State$ such that $\A\alpha(s)=\A{s}$.
-  Then $\A\tick_1(\A{s},x,\A{v})=\tick(\A\alpha(s),x,\A\alpha(v))=\A\tick_2(\A{s},x,\A{v})$ by assumption, thus the desired conclusion is proved.
-  The statement $\forall\A{s}\in\A\State:\exists s\in\State:\A\alpha(s)=\A{s}$ can be proved by using $\A\alpha^{-1}$ to generate fresh timestamps for all abstract times in $\A{s}$, and induction on the number of timestamps in $\A{s}$.
-  Note that the time-boundedness of $s\in\State$ is ensured if we use the maximum of all generated timestamps as the first argument to $\A\alpha^{-1}$ and the time component of $\A{s}$ as the second argument.
-\end{proof}
-
-We finally check that for all $\A\tick$, there exists a $\tick$ such that $\A\alpha(\tick)=\A\tick$.
-
-\begin{clm}[Well-definedness of $\Tick$]
-  For all $\A\tick\in\A\Tick$, there exists a $\tick\in\Tick$ such that $\A\alpha(\tick)=\A\tick$.
-\end{clm}
-\begin{proof}[Sketch]
-  Let $\tick((C,\mem,t),x,v)\triangleq\A\alpha^{-1}(t,\A\tick((\A\alpha(C),\A\alpha(m),\A\alpha(t)),x,\A\alpha(v)))$. Then $\tick\in\Tick$ by the properties of $\A\alpha^{-1}$.
-\end{proof}
-
-\subsubsection{Galois Connection between $\wp(D)$ and $\wp(\A{D})$}
-We understand by $\A\alpha(\ell)=(e,\A\alpha(s))$, when $\ell=(e,s)\in\Left$ and $\A\alpha(s)$ maps over all coordinates.
-Likewise, we understand $\A\alpha(\rho)$ to be $\A\alpha(\ell)$ when $\rho=\ell$ and $\A\alpha(r)$ when $\rho=r$ and $\A\alpha(r)$ maps over all coordinates.
-
+Then if we define $\Abs{D}\triangleq\wp(\A\Sigma)$, when $\A\Sigma\triangleq\A\Right\uplus\A\semarrow$, we can establish a Galois connection between $D$ and $\Abs{D}$.
+The abstraction and concretization functions are given by:
 \begin{definition}[Abstraction and Concretization]
-  Define $\alpha:\wp(D)\rightarrow\wp(\A{D})$ and $\gamma:\wp(\A{D})\rightarrow\wp(D)$ by:
+  Define $\alpha:D\rightarrow\Abs{D}$ and $\gamma:\Abs{D}\rightarrow D$ by:
   \[
-    \alpha(A)\triangleq\{\A\alpha(\ell)\asemarrow_{\A\alpha(\tick)}\A\alpha(\rho)|\ell\semarrow_\tick\rho\in A\}\cup\{(\A\alpha(\rho),\A\alpha(\tick))|(\rho,\tick)\in A\}
+    \alpha(A)\triangleq\{\A\alpha(\ell)\asemarrow\A\alpha(\rho)|\ell\semarrow\rho\in A\}\cup\{\A\alpha(\rho)|\rho\in A\}
   \]
   \[
-    \gamma(\Abs{A})\triangleq\{\ell\semarrow_\tick\rho|\A\alpha(\ell)\asemarrow_{\A\alpha(\tick)}\A\alpha(\rho)\in\Abs{A}\}\cup\{(\rho,\tick)|(\A\alpha(\rho),\A\alpha(\tick))\in\Abs{A}\}
+    \gamma(\Abs{A})\triangleq\{\ell\semarrow\rho|\A\alpha(\ell)\asemarrow\A\alpha(\rho)\in\Abs{A}\}\cup\{\rho|\A\alpha(\rho)\in\Abs{A}\}
   \]
 \end{definition}
 
 Then it is straightforward to see that:
 \begin{clm}[Galois Connection]
-  $\wp(D)\galois{\alpha}{\gamma}\wp(\A{D})$. That is, $\forall A\subseteq D,\Abs{A}\subseteq\A{D}:\alpha(A)\subseteq\Abs{A}\Leftrightarrow A\subseteq\gamma(\Abs{A})$.
+  $\wp(\Sigma)=D\galois{\alpha}{\gamma}\Abs{D}=\wp(\A\Sigma)$. That is, $\forall A\in D,\Abs{A}\in\Abs{D}:\alpha(A)\subseteq\Abs{A}\Leftrightarrow A\subseteq\gamma(\Abs{A})$.
 \end{clm}
 \begin{proof}[Sketch]
   Straightforward from the definitions of $\alpha$ and $\gamma$.
 \end{proof}
 
-Also, we can show that the concrete and abstract semantic functions are soundly connected:
-\begin{clm}[Sound Abstraction]
-  For all $\ell$, $\tick$, and $\rho$, $\ell\semarrow_{\tick}\rho$ implies $\A\alpha(\ell)\asemarrow_{\A\alpha(\tick)}\A\alpha(\rho)$.
-  That is, $\alpha\circ\Step\subseteq\Abs\Step\circ\alpha$ and thus $\alpha(\sembracket{e}S)\subseteq\Abs{\sembracket{e}}\alpha(S)$ for all $e$ and $S\subseteq\State\times\Tick$.
+The definition for the abstract fixpoint semantics is naturally connected soundly with the collecting semantics.
+\begin{definition}[Abstract transfer function]
+  Given $\Abs{A}\in\Abs{D}$, define
+  \[
+    \Abs{\mathsf{Step}}(\Abs{A})\triangleq
+    \left\{\A\ell\A\semarrow\A\rho, \A\rho\middle|
+    \begin{prooftree}[center=true]
+      \hypo{\Abs{A'}}\infer1{\A\ell\A\semarrow\A\rho}
+    \end{prooftree}\wedge
+    \Abs{A'}\subseteq \Abs{A}\wedge\A\ell\in\Abs{A}
+    \right\}
+  \]
+\end{definition}
+\begin{definition}[Abstract semantics]
+  Given $e\in\Expr$ and $\Abs{S}\subseteq\A\State$, define:
+  \[
+    \Abs{\sembracket{e}}\Abs{S}\triangleq\lfp(\lambda \Abs{X}.\Abs{\mathsf{Step}}(\Abs{X})\cup\{(e,\A{s})|\A{s}\in \Abs{S}\})
+  \]
+\end{definition}
+Then we can prove that:
+\begin{clm}[Soundness of $\Abs\Step$]
+  $\Step\circ\gamma\subseteq\gamma\circ\Abs\Step$
 \end{clm}
-\begin{proof}[Sketch]
-  Induction on the definition of $\semarrow_{\tick}$.
+\begin{proof}
+  From operational soundness, $\alpha\circ\Step\subseteq\Abs\Step\circ\alpha$.
+  Thus, $\alpha\circ\Step\circ\gamma\subseteq\Abs\Step\circ\alpha\circ\gamma$, since $\gamma$ is monotonic.
+  Since $\alpha\circ\gamma\subseteq\mathsf{id}$ by Galois connection and $\Abs\Step$ is monotonic, we have that $\alpha\circ\Step\circ\gamma\subseteq\Abs\Step$.
+  By Galois connection, this is equivalent to $\Step\circ\gamma\subseteq\gamma\circ\Abs\Step$.
 \end{proof}
 
-\subsubsection{Computability of the Abstract Semantics}
+\subsection{Computability of the Abstract Semantics}
 Now we can say that $\Abs{\sembracket{e}}\alpha(S)$ is a sound abstraction of $\sembracket{e}S$.
 However, is it true that $\Abs{\sembracket{e}}\alpha(S)$ is finitely computable?
-Note that in practice, all reachable configurations are derived from some expression $e$ evaluated from the empty context $[]$ and empty memory $\varnothing$.
+Note that conceptually, all reachable configurations are derived from some closed expression $e$ evaluated from the empty context $[]$ and empty memory $\varnothing$.
 We claim that in such situations, when the abstract semantics is computed from a finite set $\Abs{S}$ of initial states, the resulting computation $\Abs{\sembracket{e}}\Abs{S}$ has finite cardinality.
 
 Since $\ATime$ is finite, all we have to prove is that all reachable \emph{signatures} are finite.
@@ -2075,133 +1369,17 @@ Thus we have:
   By existence of a function that computes all reachable signatures and by induction on $\asemarrow$.
 
   To elaborate, let this function be called $f$.
-  We prove two statements, the first being $\forall\A\rho:\lfloor\A\rho\rfloor\subseteq f(\A\rho)$ and the second being $\forall\A\ell,\A\rho:\A\ell\A\semarrow\A\rho\Rightarrow f(\A\rho)\subseteq f(\A\ell)$.
-  Then for all $\A\rho$ such that $(e,\A{s})\A\semarrow^*\A\rho$, $\lfloor\A\rho\rfloor\subseteq f(\rho)\subseteq f(\ell)$, thus all signatures in $\Abs{\sembracket{e}}\Abs{S}$ can be bound by $\{f(e,\A{s})|(\A{s},\_)\in S\}$.
+  We need two lemmas, the first being $\forall\A\rho:\lfloor\A\rho\rfloor\subseteq f(\A\rho)$ and the second being $\forall\A\ell,\A\rho:\A\ell\A\semarrow\A\rho\Rightarrow f(\A\rho)\subseteq f(\A\ell)$.
+  
+  If we have the lemmas, then for all $\A\rho$ such that $(e,\A{s})\A\semarrow^*\A\rho$, $\lfloor\A\rho\rfloor\subseteq f(\rho)\subseteq f(\ell)$, thus all signatures in $\Abs{\sembracket{e}}\Abs{S}$ can be bound by $X\triangleq\{f(e,\A{s})|(\A{s},\_)\in\Abs{S}\}$, which is finite.
+  The lemmas are formalized in Coq.
 \end{proof}
 
-We stress that this is a nontrivial result, since our definition of $C$ allows contexts to be pushed into the stack.
-In a language where functors that take modules that are not annotated by signatures as arguments, this claim does not hold.
+We stress that this is a nontrivial result, since our definition of $C$ allows contexts to be pushed onto the stack.
+The result holds only because the shape of the stack can be deterministically inferred according to the semantics of our language.
+Thus, in languages which can be annotated with explicit signatures, this property will hold, even with features such as functors or first-class modules.
 
-\section{Results on Equivalence}
-In this section, we define what it means for semantics that use different timestamps to be \emph{equivalent}.
-Our framework hinges heavily on the definition of equivalence, since when we link semantics that use two different timestamps, we end up with a semantics that uses a totally different $\Time$ and $\tick$.
-Even in the case without linking, we need to justify why no matter our choice of $(\Time,\le,\ATime,\A\alpha)$, the analysis overapproximates a \emph{compatible} notion of execution.
-
-In this section, we assume a pair of semantics, each parametrized with $(\Time,\le,\ATime,\A\alpha)$ and $(\Time',\le',\ATime',\A\alpha')$.
-
-\subsection{Definitions}
-We first define what it means for two states $s\in\State$ and $s'\in\State'$ to be equivalent.
-Note that $s=(C,\mem,t)$ and $s'=(C',\mem',t')$ for some contexts $C,C'$, some memories $\mem,\mem'$, and some times $t,t'$.
-The choice of $t$ and $t'$ is ``not special'' in the sense that as long as they bound the context and memory, $\tick$ will continue producing fresh addresses.
-Thus, the notion of equivalence is defined by how the ``information extractable'' from the $C$ and $\mem$ components are ``same''.
-
-Note that the information that is extractable are only accessed through a sequence of names $x$ and $M$.
-Thus, one may imagine access ``paths'' with names on the edges and information sources($C$ and $t$) on the nodes.
-Then the definition of equivalence may be given as equivalence on all access paths with same labels on edges.
-Taking this a step further, one may imagine an ``access graph'' that collects all reachable $C$ and $t$ as the nodes of the graph with directed edges connecting the nodes corresponding to accesses by names or the expression part of closures in memory.
-\[
-  \begin{array}{rclrcl}
-    \mathsf{Step}_m(G) & \triangleq & \{C\xrightarrow{x}t,t|C\in G\wedge t={C}(x)\}             & \A{\mathsf{Step}}_{\A{m}}(\A{G}) & \triangleq & \{\A{C}\xrightarrow{x}\A{t},\A{t}|\A{C}\in \A{G}\wedge \A{t}=\addr(\A{C},x)\}                   \\
-                       & \cup       & \{C\xrightarrow{M}C',C'|C\in G\wedge C'={C}(M)\}        &                                  & \cup       & \{\A{C}\xrightarrow{M}\A{C}',\A{C}'|\A{C}\in \A{G}\wedge \A{C}'=\modctx(\A{C},M)\}              \\
-                       & \cup       & \{t\xrightarrow{e}C,C|t\in G\wedge \langle e,C \rangle=m(t)\} &                                  & \cup       & \{\A{t}\xrightarrow{e}\A{C},\A{C}|\A{t}\in \A{G}\wedge \langle e,\A{C} \rangle\in\A{m}(\A{t})\} \\
-    \underline{C,m}    & \triangleq & \lfp(\lambda X.\mathsf{Step}_m(X)\cup\{C\})                   & \underline{\A{C},\A{m}}          & \triangleq & \lfp(\lambda \A{X}.\A{\mathsf{Step}}_{\A{m}}(\A{X})\cup\{\A{C}\})
-  \end{array}
-\]
-
-The graphs $\underline{C,m}$ and $\underline{\A{C},\A{m}}$ are \emph{rooted labelled directed graph}s, with the initial context as the root.
-Then the definition of equivalence between states simply means that the access graphs are isomorphic.
-\begin{definition}[Equivalent Concrete States]
-  Let $s=(C,\mem,t)\in\State$ and $s'=(C',\mem',t')\in\State'$.
-  We say $s$ is \emph{equivalent} to $s'$ and write $s\cong s'$ when there exists a $\varphi:\Ctx\uplus\Time\rightarrow\Ctx'\uplus\Time'$ and $\varphi^{-1}:\Ctx'\uplus\Time'\rightarrow\Ctx\uplus\Time$ such that:
-  \begin{enumerate}
-    \item $\varphi(C)=C'$ and $\varphi^{-1}(C')=C$
-    \item $\forall\text{node}_1,\text{node}_2:\text{node}_1\xrightarrow{\text{lbl}}\text{node}_2\in\underline{C,\mem}\Rightarrow\varphi(\text{node}_1)\xrightarrow{\text{lbl}}\varphi(\text{node}_2)\in\underline{C',\mem'}$
-    \item $\forall\text{node}_1',\text{node}_2':\text{node}_1'\xrightarrow{\text{lbl}}\text{node}_2'\in\underline{C',\mem'}\Rightarrow\varphi^{-1}(\text{node}_1')\xrightarrow{\text{lbl}}\varphi^{-1}(\text{node}_2')\in\underline{C,\mem}$
-    \item $\forall\text{node},\text{node}':\text{node}\in\underline{C,\mem}\Rightarrow\varphi^{-1}(\varphi(\text{node}))=\text{node}$ and $\text{node}'\in\underline{C',\mem'}\Rightarrow\varphi(\varphi^{-1}(\text{node}'))=\text{node}'$
-  \end{enumerate}
-\end{definition}
-\begin{definition}[Equivalent Abstract States]
-  Let $\A{s}=(\A{C},\A\mem,\A{t})\in\AState$ and $\A{s}'=(\A{C}',\A\mem',\A{t}')\in\AState'$.
-  We say $\A{s}$ is \emph{equivalent} to $\A{s}'$ and write $\A{s}\A\cong\A{s}'$ when there exists a $\A\varphi:\A\Ctx\uplus\ATime\rightarrow\A\Ctx'\uplus\ATime'$ and $\A\varphi^{-1}:\A\Ctx'\uplus\ATime'\rightarrow\A\Ctx\uplus\ATime$ such that:
-  \begin{enumerate}
-    \item $\A\varphi(\A{C})=\A{C}'$ and $\A\varphi^{-1}(\A{C}')=\A{C}$
-    \item $\forall\text{node}_1,\text{node}_2:\text{node}_1\xrightarrow{\text{lbl}}\text{node}_2\in\underline{\A{C},\A\mem}\Rightarrow\A\varphi(\text{node}_1)\xrightarrow{\text{lbl}}\A\varphi(\text{node}_2)\in\underline{\A{C}',\A\mem'}$
-    \item $\forall\text{node}_1'.\text{node}_2':\text{node}_1'\xrightarrow{\text{lbl}}\text{node}_2'\in\underline{\A{C}',\A\mem'}\Rightarrow\A\varphi^{-1}(\text{node}_1')\xrightarrow{\text{lbl}}\A\varphi^{-1}(\text{node}_2')\in\underline{\A{C},\A\mem}$
-    \item $\forall\text{node},\text{node}':\text{node}\in\underline{\A{C},\A\mem}\Rightarrow\A\varphi^{-1}(\A\varphi(\text{node}))=\text{node}$ and $\text{node}'\in\underline{\A{C}',\A\mem'}\Rightarrow\A\varphi(\A\varphi^{-1}(\text{node}'))=\text{node}'$
-  \end{enumerate}
-\end{definition}
-
-We also define equivalence between results $r=(V,\mem.t)\in\Result$ and $r'=(V',\mem',t')\in\Result'$ by the conjunction of the equality between the expression part of $V$ and the isomorphism between access graphs.
-Also, equivalence between $\ell=(e,s)\in\Left$ and $\ell'=(e',s')\in\Left'$ can be similarly defined as $e=e'\wedge s\cong s'$.
-Thus equivalence between $\rho\in\Right$ and $\rho'\in\Right'$ is defined, as either $\rho\in\Left$ or $\rho\in\Result$.
-
-Then the equivalence between elements of $\wp(D)$ and $\wp(D')$, the CPOs, can be defined as:
-\begin{definition}[Equivalence between Elements of $\wp(D)$ and $\wp(D')$]
-  Let $A\subseteq D$ and $A'\subseteq D'$. We say that $A$ and $A'$ are equivalent and write $A\cong A'$ iff:
-  \begin{enumerate}
-    \item $\forall\ell,\tick,\rho:\ell\semarrow_{\tick}\rho\in A\Rightarrow\exists\ell',\tick',\rho':\ell'\semarrow_{\tick'}\rho'\in A'\wedge\ell\cong\ell'\wedge\rho\cong\rho'$
-    \item $\forall\ell',\tick',\rho':\ell'\semarrow_{\tick'}\rho'\in A'\Rightarrow\exists\ell,\tick,\rho:\ell\semarrow_{\tick}\rho\in A\wedge\ell\cong\ell'\wedge\rho\cong\rho'$
-    \item $\forall\rho,\tick:(\rho,{\tick})\in A\Rightarrow\exists\rho',\tick':(\rho',{\tick'})\in A'\wedge\rho\cong\rho'$
-    \item $\forall\rho',\tick':(\rho',{\tick'})\in A'\Rightarrow\exists\rho,\tick:(\rho,{\tick})\in A\wedge\rho\cong\rho'$
-  \end{enumerate}
-\end{definition}
-
-Likewise, we can define equivalence between elements of $\wp(\A{D})$ and $\wp(\A{D}')$.
-\begin{definition}[Equivalence between Elements of $\wp(\A{D})$ and $\wp(\A{D}')$]
-  Let $\Abs{A}\subseteq \A{D}$ and $\Abs{A'}\subseteq \A{D}'$. We say that $\Abs{A}$ and $\Abs{A'}$ are equivalent and write $\Abs{A}\Abs\cong \Abs{A'}$ iff:
-  \begin{enumerate}
-    \item $\forall\A\ell,\A\tick,\A\rho:\A\ell\A\semarrow_{\A\tick}\A\rho\in \Abs{A}\Rightarrow\exists\A\ell',\A\tick',\A\rho':\A\ell'\semarrow_{\A\tick'}\A\rho'\in \Abs{A'}\wedge\A\ell\A\cong\A\ell'\wedge\A\rho\A\cong\A\rho'$
-    \item $\forall\A\ell',\A\tick',\A\rho':\A\ell'\A\semarrow_{\A\tick'}\A\rho'\in \Abs{A'}\Rightarrow\exists\A\ell,\A\tick,\A\rho:\A\ell\semarrow_{\A\tick}\A\rho\in \Abs{A}\wedge\A\ell\A\cong\A\ell'\wedge\A\rho\A\cong\A\rho'$
-    \item $\forall\A\rho,\A\tick:(\A\rho,\A{\tick})\in \Abs{A}\Rightarrow\exists\A\rho',\A\tick':(\A\rho',\A{\tick}')\in A'\wedge\A\rho\A\cong\A\rho'$
-    \item $\forall\A\rho',\A\tick':(\A\rho',\A{\tick}')\in \Abs{A'}\Rightarrow\exists\A\rho,\A\tick:(\A\rho,\A{\tick})\in A\wedge\A\rho\A\cong\A\rho'$
-  \end{enumerate}
-\end{definition}
-\subsection{Proof Sketches}
-\subsubsection{Evaluation Preserves Equivalence}
-To prove if we actually did define equivalence sensibly, we must show that the operational semantics preserves equivalence.
-That is, we need to prove that starting from equivalent configurations, we end up in equivalent configurations.
-\begin{clm}[Evaluation Preserves Equivalence]
-  For all $\ell\in\Left$, $\tick\in\Tick$, $\rho\in\Right$, $\ell'\in\Left'$, $\tick'\in\Tick'$,
-  \[\ell\semarrow_{\tick}\rho\wedge\ell\cong\ell'\Rightarrow\exists\rho':\ell'\semarrow_{\tick'}\rho'\wedge\rho\cong\rho'\]
-  Thus, if $S\subseteq\State\times\Tick$ and $S'\subseteq\State'\times\Tick'$ are equivalent, $\sembracket{e}S\cong\sembracket{e}S'$.
-\end{clm}
-\begin{proof}[Sketch]
-  To perform induction on $\semarrow_\tick$, we need to strengthen the claim.
-  For convenience, we write $(\rho,\varphi)\cong(\rho',\varphi^{-1})$ to emphasize that the graph isomorphism is given by $\varphi$.
-
-  Then we can strengthen the claim to a claim about graph isomorphisms.
-  \[
-    \begin{array}{l}
-      \forall\ell,\tick,\rho,\ell',\tick',\varphi,\varphi^{-1}:\ell\semarrow_{\tick}\rho\wedge(\ell,\varphi)\cong(\ell',\varphi^{-1})\Rightarrow \\
-      \exists\rho',\phi,\phi^{-1}:\ell'\semarrow_{\tick'}\rho'\wedge(\rho,\phi)\cong(\rho',\phi^{-1})\wedge\varphi(n)|_{n<t}=\phi(n)|_{n<t}      \\
-      \text{when }t\text{ is the time component of }\ell
-    \end{array}
-  \]
-  The important part here is that $\phi$ is an \emph{extension} of $\varphi$ in the sense that it agrees with $\varphi$ with nodes in $\underline{\ell}$.
-  Thus the induction hypothesis will push through.
-\end{proof}
-
-\subsubsection{Concretization Preserves Equivalence}
-For the definition of equivalence to be compatible with analysis, we want to show that if the abstract initial states are equivalent, so are the concretization of those states.
-If this is true, we can obtain an overapproximation of an equivalent semantics by $\sembracket{e}\gamma(\Abs{S})\cong\sembracket{e}\gamma'(\Abs{S'})\subseteq\gamma'(\Abs{\sembracket{e}}\Abs{S'})$ from $\Abs{S}\Abs\cong\Abs{S'}$.
-The first $\cong$ is from the fact that evaluation preserves equivalence and concretization preserves equivalence.
-The second $\subseteq$ is from the fact that $\Abs\Step$ is a sound approximation of $\Step$.
-The claim we want to prove is: If $\Abs{S}\Abs\cong\Abs{S'}$, then $\gamma(\Abs{S})\cong\gamma'(\Abs{S'})$.
-
-\begin{clm}[Concretization Preserves Equivalence]
-  For all $\Abs{S}\subseteq\AState\times\A\Tick$ and $\Abs{S'}\subseteq\AState'\times\A\Tick'$, $\Abs{S}\Abs\cong\Abs{S'}$ implies $\gamma(\Abs{S})\cong\gamma'(\Abs{S'})$.
-\end{clm}
-\begin{proof}[Sketch]
-  We want to prove:
-  \[\forall s\in\State,\A{s}'\in\AState':\A\alpha(s)\A\cong\A{s}'\Rightarrow\exists s'\in\AState':s\cong s'\wedge\A\alpha'(s')=\A{s}'\]
-  If this is true, $\forall s\in\gamma(\Abs{s}):\exists s'\in\gamma(\Abs{s'}):s\cong s'$.
-
-  Proving the same statement in the opposite side leads to $\forall s'\in\gamma(\Abs{s'}):\exists s\in\gamma(\Abs{s}):s\cong s'$, so that $\gamma(\Abs{S})\cong\gamma'(\Abs{S'})$.
-  The proof of the above statement involves constructing such a $s'$ by traversal over reachable subparts $n$ of $s$, (1) translating $n$ to a reachable part $\A{n}'$ of $\A{s}'$ by $\A\varphi\circ\A\alpha$(when $\A\varphi$ is the isomorphism between $\A\alpha(s)$ and $\A{s}'$) and (2) lifting $\A{n}'$ to a reachable part $n'$ of $s'$ while tabulating the graph isomorphism $\varphi$ between $s$ and $s'$.
-  Finally, (3) the unreachable parts of $s'$ are filled in with dummy values that translate to the unfilled parts of $\A{s}'$.
-\end{proof}
-
-\section{Results on Linking}
+\section{Part III: Formalizing Linking in the Semantics with Memory}
 In this section, we define how linking between different time domains is performed.
 First, we assume two time domains $(\Time_1,\le_1,\ATime_1,\A\alpha_1)$ and $(\Time_2,\le_2,\ATime_2,\A\alpha_2)$.
 Then we can define $(\Time_+,\le_+,\ATime_+,\A\alpha_+)$ by:
@@ -2486,6 +1664,126 @@ Thus, the definition of semantic linking is as follows:
 \begin{proof}[Sketch]
   Straightforward from the previous lemma.
 \end{proof}
+
+\section{Results on Equivalence}
+In this section, we define what it means for semantics that use different timestamps to be \emph{equivalent}.
+Our framework hinges heavily on the definition of equivalence, since when we link semantics that use two different timestamps, we end up with a semantics that uses a totally different $\Time$ and $\tick$.
+Even in the case without linking, we need to justify why no matter our choice of $(\Time,\le,\ATime,\A\alpha)$, the analysis overapproximates a \emph{compatible} notion of execution.
+
+In this section, we assume a pair of semantics, each parametrized with $(\Time,\le,\ATime,\A\alpha)$ and $(\Time',\le',\ATime',\A\alpha')$.
+
+\subsection{Definitions}
+We first define what it means for two states $s\in\State$ and $s'\in\State'$ to be equivalent.
+Note that $s=(C,\mem,t)$ and $s'=(C',\mem',t')$ for some contexts $C,C'$, some memories $\mem,\mem'$, and some times $t,t'$.
+The choice of $t$ and $t'$ is ``not special'' in the sense that as long as they bound the context and memory, $\tick$ will continue producing fresh addresses.
+Thus, the notion of equivalence is defined by how the ``information extractable'' from the $C$ and $\mem$ components are ``same''.
+
+Note that the information that is extractable are only accessed through a sequence of names $x$ and $M$.
+Thus, one may imagine access ``paths'' with names on the edges and information sources($C$ and $t$) on the nodes.
+Then the definition of equivalence may be given as equivalence on all access paths with same labels on edges.
+Taking this a step further, one may imagine an ``access graph'' that collects all reachable $C$ and $t$ as the nodes of the graph with directed edges connecting the nodes corresponding to accesses by names or the expression part of closures in memory.
+\[
+  \begin{array}{rclrcl}
+    \mathsf{Step}_m(G) & \triangleq & \{C\xrightarrow{x}t,t|C\in G\wedge t={C}(x)\}             & \A{\mathsf{Step}}_{\A{m}}(\A{G}) & \triangleq & \{\A{C}\xrightarrow{x}\A{t},\A{t}|\A{C}\in \A{G}\wedge \A{t}=\addr(\A{C},x)\}                   \\
+                       & \cup       & \{C\xrightarrow{M}C',C'|C\in G\wedge C'={C}(M)\}        &                                  & \cup       & \{\A{C}\xrightarrow{M}\A{C}',\A{C}'|\A{C}\in \A{G}\wedge \A{C}'=\modctx(\A{C},M)\}              \\
+                       & \cup       & \{t\xrightarrow{e}C,C|t\in G\wedge \langle e,C \rangle=m(t)\} &                                  & \cup       & \{\A{t}\xrightarrow{e}\A{C},\A{C}|\A{t}\in \A{G}\wedge \langle e,\A{C} \rangle\in\A{m}(\A{t})\} \\
+    \underline{C,m}    & \triangleq & \lfp(\lambda X.\mathsf{Step}_m(X)\cup\{C\})                   & \underline{\A{C},\A{m}}          & \triangleq & \lfp(\lambda \A{X}.\A{\mathsf{Step}}_{\A{m}}(\A{X})\cup\{\A{C}\})
+  \end{array}
+\]
+
+The graphs $\underline{C,m}$ and $\underline{\A{C},\A{m}}$ are \emph{rooted labelled directed graph}s, with the initial context as the root.
+Then the definition of equivalence between states simply means that the access graphs are isomorphic.
+\begin{definition}[Equivalent Concrete States]
+  Let $s=(C,\mem,t)\in\State$ and $s'=(C',\mem',t')\in\State'$.
+  We say $s$ is \emph{equivalent} to $s'$ and write $s\cong s'$ when there exists a $\varphi:\Ctx\uplus\Time\rightarrow\Ctx'\uplus\Time'$ and $\varphi^{-1}:\Ctx'\uplus\Time'\rightarrow\Ctx\uplus\Time$ such that:
+  \begin{enumerate}
+    \item $\varphi(C)=C'$ and $\varphi^{-1}(C')=C$
+    \item $\forall\text{node}_1,\text{node}_2:\text{node}_1\xrightarrow{\text{lbl}}\text{node}_2\in\underline{C,\mem}\Rightarrow\varphi(\text{node}_1)\xrightarrow{\text{lbl}}\varphi(\text{node}_2)\in\underline{C',\mem'}$
+    \item $\forall\text{node}_1',\text{node}_2':\text{node}_1'\xrightarrow{\text{lbl}}\text{node}_2'\in\underline{C',\mem'}\Rightarrow\varphi^{-1}(\text{node}_1')\xrightarrow{\text{lbl}}\varphi^{-1}(\text{node}_2')\in\underline{C,\mem}$
+    \item $\forall\text{node},\text{node}':\text{node}\in\underline{C,\mem}\Rightarrow\varphi^{-1}(\varphi(\text{node}))=\text{node}$ and $\text{node}'\in\underline{C',\mem'}\Rightarrow\varphi(\varphi^{-1}(\text{node}'))=\text{node}'$
+  \end{enumerate}
+\end{definition}
+\begin{definition}[Equivalent Abstract States]
+  Let $\A{s}=(\A{C},\A\mem,\A{t})\in\AState$ and $\A{s}'=(\A{C}',\A\mem',\A{t}')\in\AState'$.
+  We say $\A{s}$ is \emph{equivalent} to $\A{s}'$ and write $\A{s}\A\cong\A{s}'$ when there exists a $\A\varphi:\A\Ctx\uplus\ATime\rightarrow\A\Ctx'\uplus\ATime'$ and $\A\varphi^{-1}:\A\Ctx'\uplus\ATime'\rightarrow\A\Ctx\uplus\ATime$ such that:
+  \begin{enumerate}
+    \item $\A\varphi(\A{C})=\A{C}'$ and $\A\varphi^{-1}(\A{C}')=\A{C}$
+    \item $\forall\text{node}_1,\text{node}_2:\text{node}_1\xrightarrow{\text{lbl}}\text{node}_2\in\underline{\A{C},\A\mem}\Rightarrow\A\varphi(\text{node}_1)\xrightarrow{\text{lbl}}\A\varphi(\text{node}_2)\in\underline{\A{C}',\A\mem'}$
+    \item $\forall\text{node}_1'.\text{node}_2':\text{node}_1'\xrightarrow{\text{lbl}}\text{node}_2'\in\underline{\A{C}',\A\mem'}\Rightarrow\A\varphi^{-1}(\text{node}_1')\xrightarrow{\text{lbl}}\A\varphi^{-1}(\text{node}_2')\in\underline{\A{C},\A\mem}$
+    \item $\forall\text{node},\text{node}':\text{node}\in\underline{\A{C},\A\mem}\Rightarrow\A\varphi^{-1}(\A\varphi(\text{node}))=\text{node}$ and $\text{node}'\in\underline{\A{C}',\A\mem'}\Rightarrow\A\varphi(\A\varphi^{-1}(\text{node}'))=\text{node}'$
+  \end{enumerate}
+\end{definition}
+
+We also define equivalence between results $r=(V,\mem.t)\in\Result$ and $r'=(V',\mem',t')\in\Result'$ by the conjunction of the equality between the expression part of $V$ and the isomorphism between access graphs.
+Also, equivalence between $\ell=(e,s)\in\Left$ and $\ell'=(e',s')\in\Left'$ can be similarly defined as $e=e'\wedge s\cong s'$.
+Thus equivalence between $\rho\in\Right$ and $\rho'\in\Right'$ is defined, as either $\rho\in\Left$ or $\rho\in\Result$.
+
+Then the equivalence between elements of $\wp(D)$ and $\wp(D')$, the CPOs, can be defined as:
+\begin{definition}[Equivalence between Elements of $\wp(D)$ and $\wp(D')$]
+  Let $A\subseteq D$ and $A'\subseteq D'$. We say that $A$ and $A'$ are equivalent and write $A\cong A'$ iff:
+  \begin{enumerate}
+    \item $\forall\ell,\tick,\rho:\ell\semarrow_{\tick}\rho\in A\Rightarrow\exists\ell',\tick',\rho':\ell'\semarrow_{\tick'}\rho'\in A'\wedge\ell\cong\ell'\wedge\rho\cong\rho'$
+    \item $\forall\ell',\tick',\rho':\ell'\semarrow_{\tick'}\rho'\in A'\Rightarrow\exists\ell,\tick,\rho:\ell\semarrow_{\tick}\rho\in A\wedge\ell\cong\ell'\wedge\rho\cong\rho'$
+    \item $\forall\rho,\tick:(\rho,{\tick})\in A\Rightarrow\exists\rho',\tick':(\rho',{\tick'})\in A'\wedge\rho\cong\rho'$
+    \item $\forall\rho',\tick':(\rho',{\tick'})\in A'\Rightarrow\exists\rho,\tick:(\rho,{\tick})\in A\wedge\rho\cong\rho'$
+  \end{enumerate}
+\end{definition}
+
+Likewise, we can define equivalence between elements of $\wp(\A{D})$ and $\wp(\A{D}')$.
+\begin{definition}[Equivalence between Elements of $\wp(\A{D})$ and $\wp(\A{D}')$]
+  Let $\Abs{A}\subseteq \A{D}$ and $\Abs{A'}\subseteq \A{D}'$. We say that $\Abs{A}$ and $\Abs{A'}$ are equivalent and write $\Abs{A}\Abs\cong \Abs{A'}$ iff:
+  \begin{enumerate}
+    \item $\forall\A\ell,\A\tick,\A\rho:\A\ell\A\semarrow_{\A\tick}\A\rho\in \Abs{A}\Rightarrow\exists\A\ell',\A\tick',\A\rho':\A\ell'\semarrow_{\A\tick'}\A\rho'\in \Abs{A'}\wedge\A\ell\A\cong\A\ell'\wedge\A\rho\A\cong\A\rho'$
+    \item $\forall\A\ell',\A\tick',\A\rho':\A\ell'\A\semarrow_{\A\tick'}\A\rho'\in \Abs{A'}\Rightarrow\exists\A\ell,\A\tick,\A\rho:\A\ell\semarrow_{\A\tick}\A\rho\in \Abs{A}\wedge\A\ell\A\cong\A\ell'\wedge\A\rho\A\cong\A\rho'$
+    \item $\forall\A\rho,\A\tick:(\A\rho,\A{\tick})\in \Abs{A}\Rightarrow\exists\A\rho',\A\tick':(\A\rho',\A{\tick}')\in A'\wedge\A\rho\A\cong\A\rho'$
+    \item $\forall\A\rho',\A\tick':(\A\rho',\A{\tick}')\in \Abs{A'}\Rightarrow\exists\A\rho,\A\tick:(\A\rho,\A{\tick})\in A\wedge\A\rho\A\cong\A\rho'$
+  \end{enumerate}
+\end{definition}
+\subsection{Proof Sketches}
+\subsubsection{Evaluation Preserves Equivalence}
+To prove if we actually did define equivalence sensibly, we must show that the operational semantics preserves equivalence.
+That is, we need to prove that starting from equivalent configurations, we end up in equivalent configurations.
+\begin{clm}[Evaluation Preserves Equivalence]
+  For all $\ell\in\Left$, $\tick\in\Tick$, $\rho\in\Right$, $\ell'\in\Left'$, $\tick'\in\Tick'$,
+  \[\ell\semarrow_{\tick}\rho\wedge\ell\cong\ell'\Rightarrow\exists\rho':\ell'\semarrow_{\tick'}\rho'\wedge\rho\cong\rho'\]
+  Thus, if $S\subseteq\State\times\Tick$ and $S'\subseteq\State'\times\Tick'$ are equivalent, $\sembracket{e}S\cong\sembracket{e}S'$.
+\end{clm}
+\begin{proof}[Sketch]
+  To perform induction on $\semarrow_\tick$, we need to strengthen the claim.
+  For convenience, we write $(\rho,\varphi)\cong(\rho',\varphi^{-1})$ to emphasize that the graph isomorphism is given by $\varphi$.
+
+  Then we can strengthen the claim to a claim about graph isomorphisms.
+  \[
+    \begin{array}{l}
+      \forall\ell,\tick,\rho,\ell',\tick',\varphi,\varphi^{-1}:\ell\semarrow_{\tick}\rho\wedge(\ell,\varphi)\cong(\ell',\varphi^{-1})\Rightarrow \\
+      \exists\rho',\phi,\phi^{-1}:\ell'\semarrow_{\tick'}\rho'\wedge(\rho,\phi)\cong(\rho',\phi^{-1})\wedge\varphi(n)|_{n<t}=\phi(n)|_{n<t}      \\
+      \text{when }t\text{ is the time component of }\ell
+    \end{array}
+  \]
+  The important part here is that $\phi$ is an \emph{extension} of $\varphi$ in the sense that it agrees with $\varphi$ with nodes in $\underline{\ell}$.
+  Thus the induction hypothesis will push through.
+\end{proof}
+
+\subsubsection{Concretization Preserves Equivalence}
+For the definition of equivalence to be compatible with analysis, we want to show that if the abstract initial states are equivalent, so are the concretization of those states.
+If this is true, we can obtain an overapproximation of an equivalent semantics by $\sembracket{e}\gamma(\Abs{S})\cong\sembracket{e}\gamma'(\Abs{S'})\subseteq\gamma'(\Abs{\sembracket{e}}\Abs{S'})$ from $\Abs{S}\Abs\cong\Abs{S'}$.
+The first $\cong$ is from the fact that evaluation preserves equivalence and concretization preserves equivalence.
+The second $\subseteq$ is from the fact that $\Abs\Step$ is a sound approximation of $\Step$.
+The claim we want to prove is: If $\Abs{S}\Abs\cong\Abs{S'}$, then $\gamma(\Abs{S})\cong\gamma'(\Abs{S'})$.
+
+\begin{clm}[Concretization Preserves Equivalence]
+  For all $\Abs{S}\subseteq\AState\times\A\Tick$ and $\Abs{S'}\subseteq\AState'\times\A\Tick'$, $\Abs{S}\Abs\cong\Abs{S'}$ implies $\gamma(\Abs{S})\cong\gamma'(\Abs{S'})$.
+\end{clm}
+\begin{proof}[Sketch]
+  We want to prove:
+  \[\forall s\in\State,\A{s}'\in\AState':\A\alpha(s)\A\cong\A{s}'\Rightarrow\exists s'\in\AState':s\cong s'\wedge\A\alpha'(s')=\A{s}'\]
+  If this is true, $\forall s\in\gamma(\Abs{s}):\exists s'\in\gamma(\Abs{s'}):s\cong s'$.
+
+  Proving the same statement in the opposite side leads to $\forall s'\in\gamma(\Abs{s'}):\exists s\in\gamma(\Abs{s}):s\cong s'$, so that $\gamma(\Abs{S})\cong\gamma'(\Abs{S'})$.
+  The proof of the above statement involves constructing such a $s'$ by traversal over reachable subparts $n$ of $s$, (1) translating $n$ to a reachable part $\A{n}'$ of $\A{s}'$ by $\A\varphi\circ\A\alpha$(when $\A\varphi$ is the isomorphism between $\A\alpha(s)$ and $\A{s}'$) and (2) lifting $\A{n}'$ to a reachable part $n'$ of $s'$ while tabulating the graph isomorphism $\varphi$ between $s$ and $s'$.
+  Finally, (3) the unreachable parts of $s'$ are filled in with dummy values that translate to the unfilled parts of $\A{s}'$.
+\end{proof}
+
 \end{document}
 %%% Local Variables: 
 %%% coding: utf-8
