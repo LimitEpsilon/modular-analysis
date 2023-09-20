@@ -568,7 +568,8 @@ This does indeed ``fill in the blanks'', since:
   Induction on $C_2$.
 \end{proof}
 
-Moreover, filling in the blanks preserves the evaluation relation $\semarrow$:
+Moreover, filling in the blanks preserves the evaluation relation $\semarrow$.
+When we define $\inject{C_1}{\ell}$ for $C_1\in\Ctx,\ell=(e,C_2)\in\Left$ as $(e,\inject{C_1}{C_2})$, we have:
 \begin{clm}[Injection Preserves Evaluation]
   For all $\ell\in\Left$, $\rho\in\Right$, $\ell\semarrow\rho\Rightarrow\inject{C}{\ell}\semarrow\inject{C}{\rho}$. More explicity,
   \[(\ell,\rho)\in\Sigma\Rightarrow(\inject{C}{\ell},\inject{C}{\rho})\in\Sigma\]
@@ -579,9 +580,7 @@ Moreover, filling in the blanks preserves the evaluation relation $\semarrow$:
 
 Thus, we can define $\rhd$ that injects a \emph{set} of contexts $S$ into a subset $A$ of $D$ and a semantic linking operation $\semlink$ that does the rest of the computation:
 \begin{definition}[Injection]
-  For $C_1\in\Ctx,\ell=(e,C_2)\in\Left$, define $\inject{C_1}{\ell}\triangleq(e,\inject{C_1}{C_2})$.
-
-  Then for $S\subseteq\Ctx$ and $A\in D$, define:
+  For $S\subseteq\Ctx$ and $A\in D$, define:
   \[S\rhd A\triangleq\{\inject{C}{\rho}|C\in S\wedge\rho\in A\}\cup\{\inject{C}{\ell}\semarrow\inject{C}{\rho}|C\in S\wedge\ell\semarrow\rho\in A\}\]
 \end{definition}
 \begin{definition}[Semantic Linking]
@@ -648,17 +647,17 @@ and an \emph{abstract time domain} $\A\Time$ that allow easy abstraction of the 
 \begin{figure}[h!]
   \centering
   \begin{tabular}{rrcll}
-    Time                         & $t$     & $\in$         & $\Time$                                                                               \\
-    Environment/Context          & $C$     & $\in$         & $\Ctx$                                                                                \\
-    Value of expressions         & $v$     & $\in$         & $\Value \subseteq \Expr\times\Ctx$                                                    \\
-    Value of expressions/modules & $V$     & $\in$         & $\Value\Ctx\triangleq\Value\uplus\Ctx$                                                \\
-    Memory                       & $\mem$  & $\in$         & $\Mem \triangleq \fin{\Time}{\Value}$                                                 \\
-    State                        & $s$     & $\in$         & $\State \subseteq \Ctx\times\Mem\times\Time$                                          \\
-    Result                       & $r$     & $\in$         & $\Result \subseteq \Value\Ctx\times\Mem\times\Time$                                   \\
-    Context                      & $C$     & $\rightarrow$ & []                                                               & empty stack        \\
-                                 &         & $\vbar$       & $(x,t)\cons C$                                                   & expression binding \\
-                                 &         & $\vbar$       & $(M,C)\cons C$                                                   & module binding     \\
-    Value of expressions         & $v$     & $\rightarrow$ & $\langle \lambda x.e, C \rangle$                                 & closure
+    Time                         & $t$    & $\in$         & $\Time$                                                                  \\
+    Environment/Context          & $C$    & $\in$         & $\Ctx$                                                                   \\
+    Value of expressions         & $v$    & $\in$         & $\Value \subseteq \Expr\times\Ctx$                                       \\
+    Value of expressions/modules & $V$    & $\in$         & $\Value\Ctx\triangleq\Value\uplus\Ctx$                                   \\
+    Memory                       & $\mem$ & $\in$         & $\Mem \triangleq \fin{\Time}{\Value}$                                    \\
+    State                        & $s$    & $\in$         & $\State \subseteq \Ctx\times\Mem\times\Time$                             \\
+    Result                       & $r$    & $\in$         & $\Result \subseteq \Value\Ctx\times\Mem\times\Time$                      \\
+    Context                      & $C$    & $\rightarrow$ & []                                                  & empty stack        \\
+                                 &        & $\vbar$       & $(x,t)\cons C$                                      & expression binding \\
+                                 &        & $\vbar$       & $(M,C)\cons C$                                      & module binding     \\
+    Value of expressions         & $v$    & $\rightarrow$ & $\langle \lambda x.e, C \rangle$                    & closure
   \end{tabular}
   \caption{Definition of the semantic domains in the concrete case.}
   \label{fig:concdom}
@@ -666,8 +665,8 @@ and an \emph{abstract time domain} $\A\Time$ that allow easy abstraction of the 
 
 The domains for defining the operational semantics is extended to include the \emph{concrete time} and \emph{memory}.
 Compared with Figure \ref{fig:simpdom}, Figure \ref{fig:concdom} defines four more sets, $\Time$, $\Mem$, $\State$, and $\Result$ to streamline the presentation.
-A $s=(C,\mem,t)\in\State$ corresponds to a $C$ in Figure \ref{fig:simpdom}, as the pair $C,\mem$ cooperates to represent the recursively defined $C$ in the original representation without memory.
-Similarly, a $r=(V,\mem,t)\in\Result$ corresponds to a $V$ in Figure \ref{fig:simpdom}, as the pair $V,\mem$ cooperates to represent the recursively defined $V$.
+A $s=(C,\mem,t)\in\State$ corresponds to a $C$ in Figure \ref{fig:simpdom}, as the pair $(C,\mem)$ cooperates to represent the recursively defined $C$ in the original representation without memory.
+Similarly, a $r=(V,\mem,t)\in\Result$ corresponds to a $V$ in Figure \ref{fig:simpdom}, as the pair $(V,\mem)$ cooperates to represent the recursively defined $V$.
 
 Note that a heavy burden has been cast upon the \emph{time} component.
 The time component is responsible for providing \emph{fresh} addresses to write to in the memory, and it is also an indicator of the execution \emph{history} up to that point.
@@ -1030,7 +1029,7 @@ $\A\semarrow\subseteq\A\Left\times\A\Right$, when $\A\Left\triangleq\Expr\times\
   \vspace{0pt} % -0.75em}
   \[
     \begin{prooftree}
-      \hypo{\A{t_x}=\addr(\A{C},x)}
+      \hypo{\A{t_x}=\A{C}(x)}
       \hypo{\A{v}\in\A\mem(\A{t_x})}
       \infer[left label=ExprID]2{
       (x, \A{C}, \A\mem, \A{t})
@@ -1167,7 +1166,7 @@ $\A\semarrow\subseteq\A\Left\times\A\Right$, when $\A\Left\triangleq\Expr\times\
 
   \[
     \begin{prooftree}
-      \hypo{\A{C'}=\modctx(\A{C},M)}
+      \hypo{\A{C'}=\A{C}(M)}
       \infer[left label=ModID]1{
       (M, \A{C}, \A\mem, \A{t})
       \A\semarrow
@@ -1356,10 +1355,10 @@ What we mean by a \emph{signature} is a context that is stripped of all timestam
 Explicitly, we mean an element of an inductively defined set $\Sig$ given by $X\rightarrow []\:|\:x::X\:|\:(M,X)::X$.
 Then we may inductively define $\lfloor C\rfloor$ and $\lfloor \A{C}\rfloor$ to be the signatures that are obtained by stripping all timestamps from $C$ and $\A{C}$.
 Moreover, we may define $\lfloor m\rfloor\triangleq\{\lfloor C\rfloor|\exists t:\langle\_,C\rangle=m(t)\}$ and $\lfloor\A{m}\rfloor\triangleq\{\lfloor\A{C}\rfloor|\exists\A{t}:\langle\_,\A{C}\rangle\in\A{m}(\A{t})\}$ to be all signatures in a memory.
-Finally, we may define $\lfloor\rho\rfloor$ as the union of $\lfloor C\rfloor$ and $\lfloor m\rfloor$, when $C$ is the context component of $\rho$ and $m$ is the memory component of $\rho$.
+Finally, we may define $\lfloor\rho\rfloor$ as the union of $\lfloor C\rfloor$ and $\lfloor m\rfloor$, when $C$ is the context component and $m$ is the memory component of $\rho=(V,\mem,t)$ or $(e,C,\mem,t)$.
 $\lfloor\A\rho\rfloor$ can be analogously defined.
 
-If we can prove that for all $e$ and $\A{s}$, $\bigcup_{(e,\A{s})\A\semarrow^*\A\rho}\lfloor\A\rho\rfloor\subseteq X$, when $X$ is a finite set containing all reachable signatures from $(e,\A{s})$, we can show that all reachable $\A\rho$s are finite, since $\ATime$ is finite.
+If we can prove that for all $e$ and $\A{s}$, there exists a finite set $X\subseteq\Sig$ that bounds $\bigcup_{(e,\A{s})\A\semarrow^*\A\rho}\lfloor\A\rho\rfloor\subseteq X$, we can show that all reachable $\A\rho$s are finite, since $\ATime$ is finite.
 It turns out, since the signature of the modules that are pushed into the stack $C$ can be accurately inferred from the definition of the operational semantics, we can \emph{compute} such an $X$.
 Thus we have:
 \begin{clm}[Computability of the Abstract Semantics]
@@ -1368,10 +1367,10 @@ Thus we have:
 \begin{proof}[Sketch]
   By existence of a function that computes all reachable signatures and by induction on $\asemarrow$.
 
-  To elaborate, let this function be called $f$.
+  To elaborate, let this function be called $f:\A\Right\rightarrow\wp(\Sig)$.
   We need two lemmas, the first being $\forall\A\rho:\lfloor\A\rho\rfloor\subseteq f(\A\rho)$ and the second being $\forall\A\ell,\A\rho:\A\ell\A\semarrow\A\rho\Rightarrow f(\A\rho)\subseteq f(\A\ell)$.
-  
-  If we have the lemmas, then for all $\A\rho$ such that $(e,\A{s})\A\semarrow^*\A\rho$, $\lfloor\A\rho\rfloor\subseteq f(\rho)\subseteq f(\ell)$, thus all signatures in $\Abs{\sembracket{e}}\Abs{S}$ can be bound by $X\triangleq\{f(e,\A{s})|(\A{s},\_)\in\Abs{S}\}$, which is finite.
+
+  If we have the lemmas, then for all $\A\rho$ such that $(e,\A{s})\A\semarrow^*\A\rho$, $\lfloor\A\rho\rfloor\subseteq f(\A\rho)\subseteq f(e,\A{s})$, thus all signatures in $\Abs{\sembracket{e}}\Abs{S}$ can be bound by $X\triangleq\{f(e,\A{s})|(\A{s},\_)\in\Abs{S}\}$, which is finite.
   The lemmas are formalized in Coq.
 \end{proof}
 
@@ -1379,293 +1378,152 @@ We stress that this is a nontrivial result, since our definition of $C$ allows c
 The result holds only because the shape of the stack can be deterministically inferred according to the semantics of our language.
 Thus, in languages which can be annotated with explicit signatures, this property will hold, even with features such as functors or first-class modules.
 
-\section{Part III: Formalizing Linking in the Semantics with Memory}
-In this section, we define how linking between different time domains is performed.
-First, we assume two time domains $(\Time_1,\le_1,\ATime_1,\A\alpha_1)$ and $(\Time_2,\le_2,\ATime_2,\A\alpha_2)$.
-Then we can define $(\Time_+,\le_+,\ATime_+,\A\alpha_+)$ by:
+\section{Part III: Linking in the Semantics with Memory}
+Now we need to define an injection operation that fills in the blanks of a $r=(V,\mem,t)\in\Result$ with a $s=(C',\mem',t')\in\State$.
+Recall the definition for injection in the semantics without memory.
+$\inject{C}{V}$ enables access to values that were previously not available in $V$ by filling in the bottom of the stack with $C$.
+Thus, we must mimic this by filling in all contexts in $r$ with the context part of $s$.
+Also, to retain all information stored in the memory, the memory part of $r$ must be merged with the memory of $s$.
+
+It is at this point that a problem occurs.
+When merging the two memories $\mem$ and $\mem'$, we may encounter overlapping addresses.
+Thus, we must require that all reachable addresses from $(C,\mem)$ does not overlap with reachable addresses in $(C',\mem')$.
+Then again, this requirement may be lifted if we allow linking of semantics that use \emph{different} time domains as addresses.
+After all, we can only \emph{read} values from $C$ in $\inject{C}{V}$; why not preserve addresses that were used in $s$ before injection and never allow writing to those addresses?
+Thus, in this section we first define $\inject{s_1}{r_2}$, when $s_1$ uses $\Time_1$ as addresses and $r_2$ uses $\Time_2$ as addresses.
+Then $\inject{s_1}{r_2}$ must live in a version of $\Result$ that uses $\Time_1+\Time_2$ as addresses.
+From now on, variables with subscripts $1$ or $2$ are to be understood to be using $\Time_i(i=1,2)$ as addresses, and variables with the subscript $+$ are to be understood to be the linked version.
+
+Defining linking between different time domains demand that $\tick$, $\A\Time$, $\A\alpha$, and $\A\tick$ also be linked.
+Concretely, we demand that the linked $\tick_+$ preserves the condition that $\A\alpha_+\circ\tick_+=\A\tick_+\circ\A\alpha_+$.
+Also, we need to link $\tick$ well so that for all valid transitions $\ell_2\semarrow\rho_2$ under $\tick_2$, $\inject{s_1}{\ell_2}\semarrow\inject{s_1}{\rho_2}$ is also a valid transition under $\tick_+$.
+This is to ensure that injection into the collecting semantics is well-defined.
+For the rest of this section, we define linking for all semantic domains and prove that the requirements laid out in the skeleton for static analysis hold.
+
+\subsection{$\tick_+$, $\A\alpha_+$, $\A\tick$}
+We must first define $\tick_+$, $\A\alpha_+$, and $\A\tick_+$ that satisfies the condition that $t_+<\tick_+(t_+)$ and $\A\alpha_+\circ\tick_+=\A\tick_+\circ\A\alpha_+$.
+But wait, what must be the order on $\Time_1+\Time_2$?
+We define $\le_+$ to be the \emph{lexicographic} order on $\Time_1+\Time_2$, when an element $t_1$ of $\Time_1$ is lifted to $(0,t_1)$ and an element $t_2$ of $\Time_2$ is lifted to $(1,t_2)$.
+Then if we define:
 \[
-  \Time_+\triangleq2\mathbb{Z}\times\Time_1\uplus(2\mathbb{Z}+1)\times\Time_2\quad
-  t_+\le_+t_+'\triangleq
-  \text{lexicographic}\quad
-  \ATime_+\triangleq\ATime_1+\ATime_2\quad
-  \A\alpha_+(t_+)\triangleq
+  \tick_+(t)\triangleq
   \begin{cases}
-    (0,\A\alpha_1(t_1)) & t_+=(2n,t_1)   \\
-    (1,\A\alpha_2(t_2)) & t_+=(2n+1,t_2)
+    \tick_1(t) & t\in\Time_1 \\
+    \tick_2(t) & t\in\Time_2
+  \end{cases}\qquad
+  \A\alpha_+(t)\triangleq
+  \begin{cases}
+    \A\alpha_1(t) & t\in\Time_1 \\
+    \A\alpha_2(t) & t\in\Time_2
+  \end{cases}\qquad
+  \A\tick_+(\A{t})\triangleq
+  \begin{cases}
+    \A\tick_1(\A{t}) & \A{t}\in\A\Time_1 \\
+    \A\tick_2(\A{t}) & \A{t}\in\A\Time_2
   \end{cases}
 \]
-when $X+Y$ is the separated sum of $X$ and $Y$.
-A $\A\alpha_+^{-1}\in\Time_+\times\ATime_+\rightarrow\Time_+$ that satisfies the two conditions can be constructed by using some $\A\alpha_1^{-1}$, $\A\alpha_2^{-1}$, $0_1\in\Time_1$ and $0_2\in\Time_2$:
-\[
-  \A\alpha_+^{-1}(t_+,\A{t}_+)\triangleq
-  \begin{cases}
-    (2n, \A\alpha_1^{-1}(t_1,\A{t}_1))   & t_+=(2n,t_1)\wedge\A{t}_+=\A{t}_1   \\
-    (2n+1, \A\alpha_2^{-1}(t_2,\A{t}_2)) & t_+=(2n+1,t_2)\wedge\A{t}_+=\A{t}_2 \\
-    (2n+1,\A\alpha_2^{-1}(0_2,\A{t}_2))  & t_+=(2n,t_1)\wedge\A{t}_+=\A{t}_2   \\
-    (2n+2,\A\alpha_1^{-1}(0_1,\A{t}_1))  & t_+=(2n+1,t_2)\wedge\A{t}_+=\A{t}_1
-  \end{cases}
-\]
-Thus $(\Time_+,\le_+,\ATime_+,\A\alpha_+)$ satisfies our requirements.
+it is easy to check that all requirements are satisfied.
 
-The rest of this section explains how, given two initial conditions $S_1\subseteq\State_1\times\Tick_1$ and $S_2\subseteq\State_2\times\Tick_2$, the semantics starting from the \emph{injected} initial state $S_1\rhd S_2$ is equal to $S_1$ \emph{linked} with the semantics computed in advance from $S_2$.
-That is, we want to prove:
-\[
-  \sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2
-\]
-and
-\[
-  \Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd \Abs{S}_2)=\Abs{S}_2\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2
-\]
-
-Before descending into details, we want to clarify that all $C$, $\mem$, $t$ in this section are assumed to be living in the linked time domain.
-Thus, when we have a $C\in\Ctx_1$, we write $C$ to also mean an element of $\Ctx_+$, with all timestamps equal to its original in $\Ctx_1$ in the second coordinate and with the first coordinate fixed to $0$.
-Likewise, for a $C\in\Ctx_2$, we write $C$ to also mean an element of $\Ctx_+$, with all timestamp equal to its original in $\Ctx_2$ in the second coordinate and with the second coordinate fixed to $1$.
-The same assumption applies for elements in $\Mem_1,\Mem_2,\Time_1,\Time_2$.
-\subsection{Definitions}
-\subsubsection{Injection and Deletion}
-We want to define what it means to \emph{inject} an external $S_1\subseteq\State_1\times\Tick_1$ into an assumed $S_2\subseteq\State_2\times\Tick_2$.
-Naturally, we must first define elementwise injection $\rhd$ between $(s_1,\tick_1)\in S_1$ and $(s_2,\tick_2)\in S_2$ and map this over all pairs in $S_1\times S_2$.
-What properties must $(s_+,\tick_+)=(s_1,\tick_1)\rhd(s_2,\tick_2)$ satisfy?
-
-Consider the case when we did not assume anything, that is, when $s_2=([],\varnothing,0)$.
-Then first, we expect that $s_+\cong s_1$.
-Second, the $\tick_+$ function under $s_+$ must preserve the transitions made by $\tick_2$ under $s_2$.
-That is, if $(e,s_2)\semarrow_{\tick_2}^*(e',s_2')$, then $(s_+',\tick_+')=(s_1,\tick_1)\rhd(s_2',\tick_2)$ must satisfy
-$\tick_+=\tick_+'$ and $(e,s_+)\semarrow_{\tick_+}^*(e',s_+')$.
-This is because we want all transitions after injecting the exported states into the semantics calculated in advance to be valid transitions.
-
-As the first step in defining $\rhd$, we first define the injection operator for contexts, when $\inject{C_1}{C_2}$ ``fills in the blank'' in $C_2$ with $C_1$.
-The deletion operator $\delete{C_1}{C_2}$, which ``digs out'' $C_1$ from $C_2$, is also defined.
-\begin{figure}[h!]
-  \[
-    \inject{C_{1}}{C_{2}}\triangleq
-    \begin{cases}
-      C_1                                           & C_{2}=[]            \\
-      (x, t)\cons\inject{C_{1}}{C}                  & C_{2}=(x,t)\cons C  \\
-      (M, \inject{C_{1}}{C})\cons\inject{C_{1}}{C'} & C_{2}=(M,C)\cons C'
-    \end{cases}
-    \delete{C_{1}}{C_{2}}\triangleq
-    \begin{cases}
-      []                                            & \A\alpha_+(C_{2})=\A\alpha_+(C_{1}) \\
-      []                                            & C_{2}=[]                            \\
-      (x,t)\cons\delete{C_{1}}{C}                   & C_{2}=(x,t)\cons C                  \\
-      (M, \delete{C_{1}}{C})\cons\delete{C_{1}}{C'} & C_{2}=(M, C)\cons C'
-    \end{cases}
-  \]
-  \caption{Definition of the injection operator $\inject{C_1}{C_2}$ and the deletion operator $\delete{C_1}{C_2}$.
-    Cases are ordered by precedence.
-    For example, we check for $\A\alpha_+(C_2)=\A\alpha_+(C_1)$ first when deleting $C_1$ from $C_2$.}
-  \label{fig:concinject}
-\end{figure}
-This definition can be extended to injection and deletion between abstract contexts as well.
-
-Naturally, we expect $\tick_+$ to increment timestamps in $\Time_+$ by using $\tick_1$ for timestamps in $2\mathbb{Z}\times\Time_1$, and by using $\tick_2$ for timestamps in $(2\mathbb{Z}+1)\times\Time_2$.
-However, the context and memory will contain timestamps originating from both $\Time_1$ and $\Time_2$.
-Therefore, we need to define the filter operations $C.1$ and $C.2$ which selects only timestamps from the time domain of interest.
+\subsection{Injection}
+Now we define injection between $s_1\in\State_1$ and $r_2\in\Result_2$.
 \begin{figure}[h!]
   \[
     \begin{array}{cc}
-      C.i\triangleq
+      \inject{C_{1}}{V_{2}}\triangleq
       \begin{cases}
-        []                  & C=[]                                \\
-        (x,t')\cons C'.i    & C=(x,t)\cons C'\wedge t=(2n-1+i,t') \\
-        C'.i                & C=(x,t)\cons C'\wedge t=(2n+i,t')   \\
-        (M,C'.i)\cons C''.i & C=(M, C')\cons C''
-      \end{cases} &
-      \begin{array}{l}
-        V.i\triangleq
-        \begin{cases}
-          C.i                  & V=C                  \\
-          \langle e,C.i\rangle & V=\langle e,C\rangle
-        \end{cases} \\ \\
-        \mem.i\triangleq
-        \displaystyle\bigcup_{(2n-1+i,t)\in\mathsf{dom}(\mem)}\{t\mapsto \mem(t).i\}
-      \end{array}
-    \end{array}
-  \]
-  \caption{Definition for the filter operations ($i=1,2$).}
-  \label{fig:concfilter}
-\end{figure}
-This definition can be extended to filter out abstract timestamps as well.
-
-Note that $\mem.i$ cannot be well-defined for memories that contain addresses with overlapping second coordinates.
-That is, in the case when $\mem$ can be accessed with both $(0,t_1)$ and $(2,t_1)$, $\mem.1$ is not well-defined.
-In this case, we leave $\mem.i$ as undefined.
-This means that the mapping $\mem\mapsto\mem.i$ is a partial function that is defined for only memories with distinct second coordinates.
-Luckily, in the case that $\mem$ is derived from injection, all timestamps in $2\mathbb{Z}\times\Time_1$ will be of the form $(0,\_)$, and all timestamps in $(2\mathbb{Z}+1)\times\Time_2$ will be of the form $(1,\_)$.
-Thus, $\mem.i$ will always be defined for our purposes.
-Of course, $\A\mem.i$ is always defined, since the only even first coordinate is $0$, and the only odd first coordinate is $1$.
-
-Moving on, we extend $\inject{\_}{\_}$ and $\delete{\_}{\_}$:
-\begin{definition}[Filling in the Blanks]
-  Let $s_1=(C_1,\mem_1,t_1)\in\State_1$ and $r_2=(V_2,\mem_2,t_2)\in\Result_2$. Then we define:
-  \[
-    \begin{array}{cc}
-      \inject{C_1}{V_2}\triangleq
-      \begin{cases}
-        \inject{C_1}{C_2}                  & V_2=C_2                   \\
-        \langle e,\inject{C_1}{C_2}\rangle & V_2=\langle e, C_2\rangle
+        C_1                                           & V_{2}=[]                            \\
+        (x, t)\cons\inject{C_{1}}{C}                  & V_{2}=(x,t)\cons C                  \\
+        (M, \inject{C_{1}}{C})\cons\inject{C_{1}}{C'} & V_{2}=(M,C)\cons C'                 \\
+        \langle\lambda x.e,\inject{C_1}{C_2}\rangle   & V_{2}=\langle\lambda x.e,C_2\rangle
       \end{cases} &
       \begin{array}{l}
         \inject{C_1}{\mem_2}\triangleq
-        \displaystyle\bigcup_{t\in\mathsf{dom}(\mem_2)}\{t\mapsto\inject{C_1}{\mem_2(t)}\} \\
+        \displaystyle\bigcup_{t\in\mathsf{dom}(\mem_2)}[t\mapsto\inject{C_1}{\mem_2(t)}] \\ \\
         \inject{s_1}{r_2}\triangleq
         (\inject{C_1}{V_2},\mem_1\cup\inject{C_1}{\mem_2},t_2)
       \end{array}
     \end{array}
   \]
-
-  \[
-    \delete{C_1}{V_2}\triangleq
-    \begin{cases}
-      \delete{C_1}{C_2}                  & V_2=C_2                   \\
-      \langle e,\delete{C_1}{C_2}\rangle & V_2=\langle e, C_2\rangle
-    \end{cases}\:\:
-    \delete{C_1}{\mem_2}\triangleq
-    \displaystyle\bigcup_{t\in\mathsf{dom}(\mem_2)}\left\{t\mapsto\delete{C_1}{\mem_2(t)}\right\}
-  \]
-  Naturally, these definitions extend to their abstract counterparts.
-\end{definition}
-
-Note that $\inject{s_1}{r_2}\in\Result_+$. That is, it is time-bounded.
-Now we only have to define $\tick_+$ which preserves transitions made before injection.
-The definition for $\rhd$ is:
-\begin{definition}[Elementwise Concrete Injection]
-  Let $s_1=(C_1,\mem_1,t_1)\in\State_1$, $\tick_1\in\Tick_1$, $r_2=(V_2,\mem_2,t_2)\in\Result_2$, and $\tick_2\in\Tick_2$.
-  We define $(s_1,\tick_1)\rhd(r_2,\tick_2)\triangleq(\inject{s_1}{r_2},\tick_+)\in\Result_+\times\Tick_+$, when $\tick_+$ is given by:
-  \[
-    \tick_+(C,\mem,t,x,v)\triangleq
-    \begin{cases}
-      (2n, \tick_1(C.1,\mem.1,t_1,x,v.1))                                                        & t=(2n,t_1)   \\
-      (2n+1,\tick_2(\delete{C_1}{C}.2,\delete{C_1}{\mem}.2,t_2,x,\delete{C_1}{v}.2))             & t=(2n+1,t_2) \\
-      \A\alpha_+^{-1}(t,\A\tick_+(\A\alpha_+(C),\A\alpha_+(\mem),\A\alpha_+(t),x,\A\alpha_+(v))) & \mem.i=\bot
-    \end{cases}
-  \]
-  where
-  \[
-    \A\tick_+(\A{C},\A\mem,\A{t},x,\A{v})\triangleq
-    \begin{cases}
-      (0,\A\alpha_1(\tick_1)(\A{C}.1,\A\mem.1,\A{t}_1,x,\A{v}.1))                                                                                     & \A{t}=(0,\A{t}_1) \\
-      (1,\A\alpha_2(\tick_2)(\delete{\A\alpha_1({C}_1)}{\A{C}}.2,\delete{\A\alpha_1({C}_1)}{\A\mem}.2,\A{t}_2,x,\delete{\A\alpha_1({C}_1)}{\A{v}}.2)) & \A{t}=(1,\A{t}_2) \\
-    \end{cases}
-  \]
-  satisfies $\A\alpha_+\circ\tick_+=\A\tick_+\circ\A\alpha_+$.
-\end{definition}
-
-\begin{definition}[Elementwise Abstract Injection]
-  Let $\A{s}_1=(\A{C}_1,\A\mem_1,\A{t}_1)\in\A\State_1$, $\A\tick_1\in\A\Tick_1$, $\A{r}_2=(\A{V}_2,\A\mem_2,\A{t}_2)\in\A\Result_2$, and $\A\tick_2\in\A\Tick_2$.
-  We define $(\A{s}_1,\A\tick_1)\A\rhd(\A{r}_2,\A\tick_2)\triangleq(\inject{\A{s}_1}{\A{r}_2},\A\tick_+)\in\A\Result_+\times\A\Tick_+$, when $\A\tick_+$ is given by:
-  \[
-    \A\tick_+(\A{C},\A\mem,\A{t},x,\A{v})\triangleq
-    \begin{cases}
-      (0,\A\tick_1(\A{C}.1,\A\mem.1,\A{t}_1,x,\A{v}.1))                                                       & \A{t}=(0,\A{t}_1) \\
-      (1,\A\tick_2(\delete{\A{C}_1}{\A{C}}.2,\delete{\A{C}_1}{\A\mem}.2,\A{t}_2,x,\delete{\A{C}_1}{\A{v}}.2)) & \A{t}=(1,\A{t}_2) \\
-    \end{cases}
-  \]
-\end{definition}
-
-Since $\tick_+$ digs out $C_1$ from the memory and context, timestamps produced by $\tick_+$ after injection will look at only the parts before injection.
-Thus, it will produce the same timestamps that were produced by $\tick_2$ under $S_2$.
-This is why injection into transitions computed in advance are valid as transitions beginning from injected states.
-
-\subsubsection{Semantic Linking}
-\begin{figure}[h!]
-  \begin{align*}
-    (s_1,\tick_1)\rhd(\rho_2,\tick_2)                  & \triangleq
-    \begin{cases}
-      (r_+,\tick_+)     & \rho_2=r_2\wedge(r_+,\tick_+)=(s_1,\tick_1)\rhd(r_2,\tick_2)            \\
-      ((e,s_+),\tick_+) & \rho_2=\ell_2=(e,s_2)\wedge(s_+,\tick_+)=(s_1,\tick_1)\rhd(s_2,\tick_2)
-    \end{cases} \\
-    (s_1,\tick_1)\rhd(\ell_2\semarrow_{\tick_2}\rho_2) & \triangleq
-    \ell_+\semarrow_{\tick_+}\rho_+                                                             \\
-                                                       & \text{ where }
-    (\ell_+,\tick_+)=(s_1,\tick_1)\rhd(\ell_2,\tick_2)\wedge
-    (\rho_+,\tick_+)=(s_1,\tick_1)\rhd(\rho_2,\tick_2)
-  \end{align*}
-  \caption{Extension of $\rhd$ to define injection into an element of $D_2$.}
-  \label{fig:extinject}
+  \caption{Definition of the injection operator.
+    In the definition of $\inject{s_1}{r_2}$, $s_1=(C_1,\mem_1,t_1)$ and $r_2=(V_2,\mem_2,t_2)$.}
+  \label{fig:concinject}
 \end{figure}
-\begin{definition}[Concrete Injection]
-  Let $S_1\subseteq\State_1\times\Tick_1$ and $A_2\subseteq D_2$. Then we define:
-  \[
-    S_1\rhd A_2\triangleq\{p\rhd q|p\in S_1\wedge q\in A_2\}
-  \]
-\end{definition}
-\begin{definition}[Abstract Injection]
-  Let $\Abs{S}_1\subseteq\AState_1\times\A\Tick_1$ and $\Abs{A}_2\subseteq\A{D}_2$. Then we define:
-  \[
-    \Abs{S}_1\Abs\rhd\Abs{A}_2\triangleq\{\A{p}\A\rhd\A{q}|\A{p}\in\Abs{S}_1\wedge\A{q}\in\Abs{A}_2\}
-  \]
-\end{definition}
-Now we need to define the semantic linking operator $\semlink$.
-More specifically, we must define $S_1\semlink A_2$, when $S_1\subseteq\State_1\times\Tick_1$ and $A_2\subseteq D_2$.
-Remember that $A_2$ is the separately computed semantics, and $S_1$ is what was missing.
-Thus, we must first inject all $(s_1,\tick_1)\in S_1$ into $(\rho_2,\tick_2),\ell_2\semarrow_{\tick_2}\rho_2\in A_2$.
-Next, since we have gained new information about the external environment, we must collect more that can be gleaned from $S_1$.
-Thus, the definition of semantic linking is as follows:
-\begin{definition}[Concrete Linking]
-  Let $S_1\subseteq\State_1\times\Tick_1$ and $A_2\subseteq D_2$.
-  Then:
-  \[
-    S_1\semlink A_2\triangleq
-    \lfp(\lambda X.\mathsf{Step}(X)\cup(S_1\rhd A_2))
-  \]
-\end{definition}
 
-\begin{definition}[Abstract Linking]
-  Let $\Abs{S}_1\subseteq\A\State_1\times\A\Tick_1$ and $\Abs{A}_2\subseteq \A{D}_2$.
-  Then:
-  \[
-    \Abs{S}_1\Abs\semlink\Abs{A}_2\triangleq
-    \lfp(\lambda \Abs{X}.\Abs\Step(\Abs{X})\cup(\Abs{S}_1\Abs\rhd \Abs{A}_2))
-  \]
-\end{definition}
-
-\subsection{Proof Sketches}
-\begin{lem}[Concrete Advance, Operational]
-  For all $(s_1,\tick_1)\in\State_1\times\Tick_1$, $\ell_2\in\Left_2$, $\tick_2\in\Tick_2$, $\rho_2\in\Right_2$,
-  If we let $(\ell_+,\tick_+)=(s_1,\tick_1)\rhd(\ell_2,\tick_2)$ and $(\rho_+,\tick_+)=(s_1,\tick_1)\rhd(\rho_2,\tick_2)$, we have:
-  \[
-    \ell_2\semarrow_{\tick_2}\rho_2\Rightarrow\ell_+\semarrow_{\tick_+}\rho_+
-  \]
-  Thus $S_1\rhd\sembracket{e}S_2\subseteq\sembracket{e}(S_1\rhd S_2)$.
-\end{lem}
+As is expected, injecting $s_1$ into $r_2$ involves injecting $C_1$ in every context in $r_2$ and merging the memories.
+This definition is exactly what we were searching for, since it respects all requirements laid out in the introduction to this section.
+First, the time-boundedness of $\inject{s_1}{r_2}$ is guaranteed with respect to the ordering $\le_+$, thus $\inject{s_1}{r_2}$ is safely in $\Result_+$.
+Also, if we define $\inject{s_1}{\ell_2}$ when $\ell_2=(e,s_2)$ by $(e,\inject{s_1}{s_2})$, we can show that injection preserves valid transitions. That is,
+\begin{clm}[Injection Preserves Evaluation]
+  For all $s_1\in\State_1$, $\ell_2\in\Left_2$ and $\rho_2\in\Right_2$,
+  if $\ell_2\semarrow\rho_2$ under $\tick_2$, then $\inject{s_1}{\ell_2}\semarrow\inject{s_1}{\rho_2}$ under $\tick_+$.
+\end{clm}
 \begin{proof}[Sketch]
-  By induction on $\semarrow_{\tick_2}$.
-  We use the fact that $\inject{C}{\mem[t\mapsto v]}=\inject{C}{\mem}[t\mapsto\inject{C}{v}]$.
+  Induction on $\semarrow$ under $\tick_2$.
+  We use the equality $\inject{C}{\mem[t\mapsto v]}=\inject{C}{\mem}[t\mapsto\inject{C}{v}]$ and other such equalities that allow commutativity of injection and semantic operations.
 \end{proof}
-\begin{lem}[Concrete Advance]
-  Let $S_1\subseteq\State_1\times\Tick_1$ and $S_2\subseteq\State_2\times\Tick_2$. Then:
+
+Thus we can define $\rhd$ and $\semlink$ that satisfies the desired property.
+\begin{definition}[Injection]
+  For $S_1\subseteq\State_1$ and $A_2\in D_2$, define:
+  \[
+    S_1\rhd A_2\triangleq\{\inject{s_1}{\rho_2}|s_1\in S_1\wedge\rho_2\in A_2\}\cup\{\inject{s_1}{\ell_2}\semarrow\inject{s_1}{\rho_2}|s_1\in S_1\wedge\ell_2\semarrow\rho_2\in A_2\}
+  \]
+\end{definition}
+\begin{definition}[Semantic Linking]
+  For $S_1\subseteq\State_1$ and $A_2\in D_2$, define:
+  \[
+    S_1\semlink A_2\triangleq\lfp(\lambda X.\Step(X)\cup(S_1\rhd A_2))
+  \]
+\end{definition}
+\begin{clm}[Advance]
+  For all $e\in\Expr$ and $S_1\subseteq\State_1$, $S_2\subseteq\State_2$,
   \[
     \sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2
   \]
-\end{lem}
+\end{clm}
+\subsection{Checking Soundness for Analysis}
+We can define injection and linking in the abstract semantics in the same way as the concrete semantics.
+Only the definition of $\inject{C_1}{\mem_2}$ in Figure \ref{fig:concinject} has to be adapted to account for the fact that $\mem_2(t)$ is now a \emph{set} of closures and thus injection of $C_1$ must be mapped over all elements.
+Then we can show that:
+\begin{clm}[Injection Preserves Abstract Evaluation]
+  For all $\A{s}_1\in\A\State_1$, $\A\ell_2\in\A\Left_2$ and $\A\rho_2\in\A\Right_2$, if $\A\ell_2\A\semarrow\A\rho_2$ under $\A\tick_2$,
+  then $\inject{\A{s}_1}{\A\ell_2}\A\semarrow\inject{\A{s}_1}{\A\rho_2}$ under $\A\tick_+$.
+\end{clm}
 \begin{proof}[Sketch]
-  Straightforward from the previous lemma.
+  Induction on $\A\semarrow$ under $\A\tick_2$.
 \end{proof}
-\begin{lem}[Abstract Advance, Operational]
-  For all $(\A{s}_1,\A\tick_1)\in\AState_1\times\A\Tick_1$, $\A\ell_2\in\A\Left_2$, $\A\tick_2\in\A\Tick_2$, $\A\rho_2\in\A\Right_2$,
-  If we let $(\A\ell_+,\A\tick_+)=(\A{s}_1,\A\tick_1)\A\rhd(\A\ell_2,\A\tick_2)$ and $(\A\rho_+,\A\tick_+)=(\A{s}_1,\A\tick_1)\A\rhd(\A\rho_2,\A\tick_2)$, we have:
+and thus we can define:
+\begin{definition}[Abstract Injection]
+  For $\Abs{S}_1\subseteq\A\State_1$ and $\A{A}_2\in\Abs{D}_2$, define:
   \[
-    \A\ell_2\A\semarrow_{\A\tick_2}\A\rho_2\Rightarrow\A\ell_+\A\semarrow_{\A\tick_+}\A\rho_+
+    \Abs{S}_1\Abs\rhd\Abs{A}_2\triangleq\{\inject{\A{s}_1}{\A\rho_2}|\A{s}_1\in\Abs{S}_1\wedge\A\rho_2\in\Abs{A}_2\}\cup\{\inject{\A{s}_1}{\A\ell_2}\A\semarrow\inject{\A{s}_1}{\A\rho_2}|\A{s}_1\in\Abs{S}_1\wedge\A\ell_2\A\semarrow\A\rho_2\in\Abs{A}_2\}
   \]
-  Thus $\Abs{S}_1\Abs\rhd\Abs{\sembracket{e}}\Abs{S}_2\subseteq\Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd \Abs{S}_2)$.
-\end{lem}
-\begin{proof}[Sketch]
-  By induction on $\A\semarrow_{\A\tick_2}$.
-  We use the fact that $\inject{\A{C}}{\A\mem[\A{t}\A\mapsto\A{v}]}=\inject{\A{C}}{\A\mem}[\A{t}\A\mapsto\inject{\A{C}}{\A{v}}]$.
-\end{proof}
-\begin{lem}[Abstract Advance]
-  Let $\Abs{S}_1\subseteq\AState_1\times\A\Tick_1$ and $\Abs{S}_2\subseteq\AState_2\times\A\Tick_2$. Then:
+\end{definition}
+\begin{definition}[Abstract Linking]
+  For $\Abs{S}_1\subseteq\A\State_1$ and $\Abs{A}_2\in\Abs{D}_2$, define:
+  \[
+    \Abs{S}_1\Abs\semlink\Abs{A}_2\triangleq\lfp(\lambda\Abs{X}.\Abs\Step(\Abs{X})\cup(\Abs{S}_1\Abs\rhd\Abs{A}_2))
+  \]
+\end{definition}
+so that the \emph{best possible result} is achieved:
+\begin{clm}[Abstract Advance]
+  For all $e\in\Expr$ and $\Abs{S}_1\subseteq\A\State_1$, $\Abs{S}_2\subseteq\A\State_2$,
   \[
     \Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_2)=\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2
   \]
-\end{lem}
-\begin{proof}[Sketch]
-  Straightforward from the previous lemma.
-\end{proof}
-
-\section{Results on Equivalence}
+\end{clm}
+Since we have that
+\[
+  \alpha_+(S_1\rhd A_2)=\alpha_1(S_1)\Abs\rhd\alpha_2(A_2)
+\]
+due to $\alpha_+(\inject{s_1}{r_2})=\inject{\alpha_1(s_1)}{\alpha(r_2)}$, the above claim directly leads to overapproximation by:
+\begin{align*}
+  S_1\semlink\sembracket{e}S_2 & =\sembracket{e}(S_1\rhd S_2)                                          & (\because\text{Advance})                                           \\
+                               & \subseteq\gamma_+(\Abs{\sembracket{e}}\alpha_+(S_1\rhd S_2))          & (\because\text{Galois connection})                                 \\
+                               & =\gamma_+(\Abs{\sembracket{e}}(\alpha_1(S_1)\Abs\rhd\alpha_2(S_2)))   & (\because\alpha_+(S_1\rhd A_2)=\alpha_1(S_1)\Abs\rhd\alpha_2(A_2)) \\
+                               & =\gamma_+(\alpha_1(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha_2(S_2)) & (\because\text{Abstract advance})
+\end{align*}
+\section{Part IV: A Criteria for Reusing Analysis Results}
 In this section, we define what it means for semantics that use different timestamps to be \emph{equivalent}.
 Our framework hinges heavily on the definition of equivalence, since when we link semantics that use two different timestamps, we end up with a semantics that uses a totally different $\Time$ and $\tick$.
 Even in the case without linking, we need to justify why no matter our choice of $(\Time,\le,\ATime,\A\alpha)$, the analysis overapproximates a \emph{compatible} notion of execution.
@@ -1684,8 +1542,8 @@ Then the definition of equivalence may be given as equivalence on all access pat
 Taking this a step further, one may imagine an ``access graph'' that collects all reachable $C$ and $t$ as the nodes of the graph with directed edges connecting the nodes corresponding to accesses by names or the expression part of closures in memory.
 \[
   \begin{array}{rclrcl}
-    \mathsf{Step}_m(G) & \triangleq & \{C\xrightarrow{x}t,t|C\in G\wedge t={C}(x)\}             & \A{\mathsf{Step}}_{\A{m}}(\A{G}) & \triangleq & \{\A{C}\xrightarrow{x}\A{t},\A{t}|\A{C}\in \A{G}\wedge \A{t}=\addr(\A{C},x)\}                   \\
-                       & \cup       & \{C\xrightarrow{M}C',C'|C\in G\wedge C'={C}(M)\}        &                                  & \cup       & \{\A{C}\xrightarrow{M}\A{C}',\A{C}'|\A{C}\in \A{G}\wedge \A{C}'=\modctx(\A{C},M)\}              \\
+    \mathsf{Step}_m(G) & \triangleq & \{C\xrightarrow{x}t,t|C\in G\wedge t={C}(x)\}                 & \A{\mathsf{Step}}_{\A{m}}(\A{G}) & \triangleq & \{\A{C}\xrightarrow{x}\A{t},\A{t}|\A{C}\in \A{G}\wedge \A{t}=\addr(\A{C},x)\}                   \\
+                       & \cup       & \{C\xrightarrow{M}C',C'|C\in G\wedge C'={C}(M)\}              &                                  & \cup       & \{\A{C}\xrightarrow{M}\A{C}',\A{C}'|\A{C}\in \A{G}\wedge \A{C}'=\modctx(\A{C},M)\}              \\
                        & \cup       & \{t\xrightarrow{e}C,C|t\in G\wedge \langle e,C \rangle=m(t)\} &                                  & \cup       & \{\A{t}\xrightarrow{e}\A{C},\A{C}|\A{t}\in \A{G}\wedge \langle e,\A{C} \rangle\in\A{m}(\A{t})\} \\
     \underline{C,m}    & \triangleq & \lfp(\lambda X.\mathsf{Step}_m(X)\cup\{C\})                   & \underline{\A{C},\A{m}}          & \triangleq & \lfp(\lambda \A{X}.\A{\mathsf{Step}}_{\A{m}}(\A{X})\cup\{\A{C}\})
   \end{array}
@@ -1718,25 +1576,25 @@ We also define equivalence between results $r=(V,\mem.t)\in\Result$ and $r'=(V',
 Also, equivalence between $\ell=(e,s)\in\Left$ and $\ell'=(e',s')\in\Left'$ can be similarly defined as $e=e'\wedge s\cong s'$.
 Thus equivalence between $\rho\in\Right$ and $\rho'\in\Right'$ is defined, as either $\rho\in\Left$ or $\rho\in\Result$.
 
-Then the equivalence between elements of $\wp(D)$ and $\wp(D')$, the CPOs, can be defined as:
-\begin{definition}[Equivalence between Elements of $\wp(D)$ and $\wp(D')$]
-  Let $A\subseteq D$ and $A'\subseteq D'$. We say that $A$ and $A'$ are equivalent and write $A\cong A'$ iff:
+Then the equivalence between elements of $D$ and $D'$, the CPOs, can be defined as:
+\begin{definition}[Equivalence between Elements of $D$ and $D'$]
+  Let $A\in D$ and $A'\in D'$. We say that $A$ and $A'$ are equivalent and write $A\cong A'$ iff:
   \begin{enumerate}
-    \item $\forall\ell,\tick,\rho:\ell\semarrow_{\tick}\rho\in A\Rightarrow\exists\ell',\tick',\rho':\ell'\semarrow_{\tick'}\rho'\in A'\wedge\ell\cong\ell'\wedge\rho\cong\rho'$
-    \item $\forall\ell',\tick',\rho':\ell'\semarrow_{\tick'}\rho'\in A'\Rightarrow\exists\ell,\tick,\rho:\ell\semarrow_{\tick}\rho\in A\wedge\ell\cong\ell'\wedge\rho\cong\rho'$
-    \item $\forall\rho,\tick:(\rho,{\tick})\in A\Rightarrow\exists\rho',\tick':(\rho',{\tick'})\in A'\wedge\rho\cong\rho'$
-    \item $\forall\rho',\tick':(\rho',{\tick'})\in A'\Rightarrow\exists\rho,\tick:(\rho,{\tick})\in A\wedge\rho\cong\rho'$
+    \item $\forall\ell,\rho:\ell\semarrow\rho\in A\Rightarrow\exists\ell',\rho':\ell'\semarrow\rho'\in A'\wedge\ell\cong\ell'\wedge\rho\cong\rho'$
+    \item $\forall\ell',\rho':\ell'\semarrow\rho'\in A'\Rightarrow\exists\ell,\rho:\ell\semarrow\rho\in A\wedge\ell\cong\ell'\wedge\rho\cong\rho'$
+    \item $\forall\rho:\rho\in A\Rightarrow\exists\rho':\rho'\in A'\wedge\rho\cong\rho'$
+    \item $\forall\rho':\rho'\in A'\Rightarrow\exists\rho:\rho\in A\wedge\rho\cong\rho'$
   \end{enumerate}
 \end{definition}
 
-Likewise, we can define equivalence between elements of $\wp(\A{D})$ and $\wp(\A{D}')$.
-\begin{definition}[Equivalence between Elements of $\wp(\A{D})$ and $\wp(\A{D}')$]
-  Let $\Abs{A}\subseteq \A{D}$ and $\Abs{A'}\subseteq \A{D}'$. We say that $\Abs{A}$ and $\Abs{A'}$ are equivalent and write $\Abs{A}\Abs\cong \Abs{A'}$ iff:
+Likewise, we can define equivalence between elements of $\Abs{D}$ and $\Abs{D'}$.
+\begin{definition}[Equivalence between Elements of $\Abs{D}$ and $\Abs{D'}$]
+  Let $\Abs{A}\in\Abs{D}$ and $\Abs{A'}\in\Abs{D'}$. We say that $\Abs{A}$ and $\Abs{A'}$ are equivalent and write $\Abs{A}\Abs\cong \Abs{A'}$ iff:
   \begin{enumerate}
-    \item $\forall\A\ell,\A\tick,\A\rho:\A\ell\A\semarrow_{\A\tick}\A\rho\in \Abs{A}\Rightarrow\exists\A\ell',\A\tick',\A\rho':\A\ell'\semarrow_{\A\tick'}\A\rho'\in \Abs{A'}\wedge\A\ell\A\cong\A\ell'\wedge\A\rho\A\cong\A\rho'$
-    \item $\forall\A\ell',\A\tick',\A\rho':\A\ell'\A\semarrow_{\A\tick'}\A\rho'\in \Abs{A'}\Rightarrow\exists\A\ell,\A\tick,\A\rho:\A\ell\semarrow_{\A\tick}\A\rho\in \Abs{A}\wedge\A\ell\A\cong\A\ell'\wedge\A\rho\A\cong\A\rho'$
-    \item $\forall\A\rho,\A\tick:(\A\rho,\A{\tick})\in \Abs{A}\Rightarrow\exists\A\rho',\A\tick':(\A\rho',\A{\tick}')\in A'\wedge\A\rho\A\cong\A\rho'$
-    \item $\forall\A\rho',\A\tick':(\A\rho',\A{\tick}')\in \Abs{A'}\Rightarrow\exists\A\rho,\A\tick:(\A\rho,\A{\tick})\in A\wedge\A\rho\A\cong\A\rho'$
+    \item $\forall\A\ell,\A\rho:\A\ell\A\semarrow\A\rho\in \Abs{A}\Rightarrow\exists\A\ell',\A\rho':\A\ell'\semarrow\A\rho'\in \Abs{A'}\wedge\A\ell\A\cong\A\ell'\wedge\A\rho\A\cong\A\rho'$
+    \item $\forall\A\ell',\A\rho':\A\ell'\A\semarrow\A\rho'\in \Abs{A'}\Rightarrow\exists\A\ell,\A\rho:\A\ell\semarrow\A\rho\in \Abs{A}\wedge\A\ell\A\cong\A\ell'\wedge\A\rho\A\cong\A\rho'$
+    \item $\forall\A\rho:\A\rho\in \Abs{A}\Rightarrow\exists\A\rho':\A\rho'\in A'\wedge\A\rho\A\cong\A\rho'$
+    \item $\forall\A\rho':\A\rho'\in \Abs{A'}\Rightarrow\exists\A\rho:\A\rho\in A\wedge\A\rho\A\cong\A\rho'$
   \end{enumerate}
 \end{definition}
 \subsection{Proof Sketches}
@@ -1744,19 +1602,19 @@ Likewise, we can define equivalence between elements of $\wp(\A{D})$ and $\wp(\A
 To prove if we actually did define equivalence sensibly, we must show that the operational semantics preserves equivalence.
 That is, we need to prove that starting from equivalent configurations, we end up in equivalent configurations.
 \begin{clm}[Evaluation Preserves Equivalence]
-  For all $\ell\in\Left$, $\tick\in\Tick$, $\rho\in\Right$, $\ell'\in\Left'$, $\tick'\in\Tick'$,
-  \[\ell\semarrow_{\tick}\rho\wedge\ell\cong\ell'\Rightarrow\exists\rho':\ell'\semarrow_{\tick'}\rho'\wedge\rho\cong\rho'\]
-  Thus, if $S\subseteq\State\times\Tick$ and $S'\subseteq\State'\times\Tick'$ are equivalent, $\sembracket{e}S\cong\sembracket{e}S'$.
+  For all $\ell\in\Left$, $\rho\in\Right$, $\ell'\in\Left'$,
+  \[\ell\semarrow\rho\wedge\ell\cong\ell'\Rightarrow\exists\rho':\ell'\semarrow\rho'\wedge\rho\cong\rho'\]
+  Thus, if $S\subseteq\State$ and $S'\subseteq\State'$ are equivalent, $\sembracket{e}S\cong\sembracket{e}S'$.
 \end{clm}
 \begin{proof}[Sketch]
-  To perform induction on $\semarrow_\tick$, we need to strengthen the claim.
+  To perform induction on $\semarrow$, we need to strengthen the claim.
   For convenience, we write $(\rho,\varphi)\cong(\rho',\varphi^{-1})$ to emphasize that the graph isomorphism is given by $\varphi$.
 
   Then we can strengthen the claim to a claim about graph isomorphisms.
   \[
     \begin{array}{l}
-      \forall\ell,\tick,\rho,\ell',\tick',\varphi,\varphi^{-1}:\ell\semarrow_{\tick}\rho\wedge(\ell,\varphi)\cong(\ell',\varphi^{-1})\Rightarrow \\
-      \exists\rho',\phi,\phi^{-1}:\ell'\semarrow_{\tick'}\rho'\wedge(\rho,\phi)\cong(\rho',\phi^{-1})\wedge\varphi(n)|_{n<t}=\phi(n)|_{n<t}      \\
+      \forall\ell,\rho,\ell',\varphi,\varphi^{-1}:\ell\semarrow\rho\wedge(\ell,\varphi)\cong(\ell',\varphi^{-1})\Rightarrow \\
+      \exists\rho',\phi,\phi^{-1}:\ell'\semarrow\rho'\wedge(\rho,\phi)\cong(\rho',\phi^{-1})\wedge\varphi(n)|_{n<t}=\phi(n)|_{n<t} \\
       \text{when }t\text{ is the time component of }\ell
     \end{array}
   \]
@@ -1772,7 +1630,7 @@ The second $\subseteq$ is from the fact that $\Abs\Step$ is a sound approximatio
 The claim we want to prove is: If $\Abs{S}\Abs\cong\Abs{S'}$, then $\gamma(\Abs{S})\cong\gamma'(\Abs{S'})$.
 
 \begin{clm}[Concretization Preserves Equivalence]
-  For all $\Abs{S}\subseteq\AState\times\A\Tick$ and $\Abs{S'}\subseteq\AState'\times\A\Tick'$, $\Abs{S}\Abs\cong\Abs{S'}$ implies $\gamma(\Abs{S})\cong\gamma'(\Abs{S'})$.
+  For all $\Abs{S}\subseteq\AState$ and $\Abs{S'}\subseteq\AState'$, $\Abs{S}\Abs\cong\Abs{S'}$ implies $\gamma(\Abs{S})\cong\gamma'(\Abs{S'})$.
 \end{clm}
 \begin{proof}[Sketch]
   We want to prove:

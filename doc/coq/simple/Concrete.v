@@ -217,7 +217,6 @@ Ltac rep_eval SOLVER :=
     (* relax_fuel *)
     try (symmetry; apply SOLVER with (FUEL := n); try nia; eauto; fail);
     move RR at top
-  | _ => fail
   end.
 
 Lemma relax_fuel `{time T} :
@@ -318,7 +317,6 @@ Ltac interp_to_rel SOLVER :=
     assert (REL : {| Cf e C m t ~> Rs V m0 t0 |});
     try (apply SOLVER with (l := reached); rewrite H; eauto);
     move H at top
-  | _ => fail
   end.
 
 Lemma Eval_well_defined_r `{time T} :
@@ -387,11 +385,9 @@ Ltac rep_with_rew short KILLER :=
     rewrite <- RR
   | [RR : short = _ |- _] =>
     rewrite RR
-  | _ => fail
   end;
   match goal with
   | _ => apply KILLER; try right; simpl; eauto
-  | _ => fail
   end.
 
 Lemma reach_myself `{time T} :
@@ -433,7 +429,6 @@ Ltac clar_eval :=
   | [H : eval ?e ?C ?m ?t ?l _ = Resolved _ _ _ _ |-
       context [eval ?e ?C ?m ?t ?l _]] =>
     rep_eval relax_fuel; eauto
-  | _ => fail
   end.
 
 Lemma relax_fuel_reach `{time T} :
@@ -528,7 +523,6 @@ Proof.
   match goal with
     | |- context [eval ?e ?C ?m ?t _ _] =>
       specialize (IHFUEL e C m t _ _ CONTAINED') as CONTAINED''
-    | _ => fail
   end;
   repeat des_hyp; eauto;
   destruct CONTAINED'' as [? [? [? CONTAINED'']]]; subst;
@@ -536,14 +530,12 @@ Proof.
   match goal with
   | |- context [eval ?e ?C ?m ?t _ _] =>
     specialize (IHFUEL e C m t _ _ CONTAINED'') as CONTAINED'''
-  | _ => fail
   end;
   repeat des_hyp; clarify;
   destruct CONTAINED''' as [? [? [? CONTAINED''']]]; subst; eauto;
   match goal with
   | |- context [eval ?e ?C ?m ?t _ _] =>
     specialize (IHFUEL e C m t _ _ CONTAINED''') as CONTAINED''''
-  | _ => fail
   end;
   repeat des_hyp; clarify;
   destruct CONTAINED'''' as [? [? [? ?]]]; clarify.
@@ -563,7 +555,6 @@ Ltac separate_reach_tac cf IHFUEL HINT HINT' RR RR' :=
     specialize (IHFUEL e C m t l0 cf) as HINT';
     pose proof (reach_same n e C m t l l0 RR) as RR';
     clear RR
-  | _ => fail
   end.
 
 Lemma separate_reach `{time T} :
