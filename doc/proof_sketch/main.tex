@@ -616,7 +616,7 @@ Thus we reach the main theorem that allows ``fractional closures'' to be soundly
 Since we have defined a semantics that fully embrace \emph{incomplete computations}, we only have to abstract our semantic operators to obtain a sound static analysis.
 
 We require a CPO $\Abs{D}$ that is Galois connected with $D$ by abstraction $\alpha$ and concretization $\gamma$:
-\[D=\wp(\Sigma)\galois{\alpha}{\gamma}\Abs{D}\]
+\[\wp(\Sigma)=D\galois{\alpha}{\gamma}\Abs{D}\]
 and semantic operators $\Abs\Step$ and $\Abs\rhd$ that satisfies:
 \[\Step\circ\gamma\subseteq\gamma\circ\Abs\Step\qquad\rhd\circ(\gamma,\gamma)\subseteq\gamma\circ\Abs\rhd\]
 . Then we define $\Abs{\sembracket{e}}$ and $\Abs\semlink$ as:
@@ -953,7 +953,7 @@ Now, to allow only such valid transitions, we define:
   \Result\triangleq\{(V,\mem,t)|V<t\wedge\mem<t\}
 \]
 as the set of \emph{valid} states that enable $\tick$ to behave nicely.
-It is almost trivial that the set $\Left\times\Result$, when $\Left\triangleq\Expr\times\State$ and $\Right\triangleq\Left\uplus\Result$, is \emph{closed} under the inductive definition of $\semarrow$.
+It is almost trivial that the set $\Left\times\Right$, when $\Left\triangleq\Expr\times\State$ and $\Right\triangleq\Left\uplus\Result$, is \emph{closed} under the inductive definition of $\semarrow$.
 That is,
 \begin{clm}[Valid States Transition to Valid States]
   For all $\ell\in\Left$ and $\rho$, if $\ell\semarrow\rho$ according to the inductive rules, $\rho\in\Right$.
@@ -1339,7 +1339,7 @@ Then we can prove that:
 \end{clm}
 \begin{proof}
   From operational soundness, $\alpha\circ\Step\subseteq\Abs\Step\circ\alpha$.
-  Thus, $\alpha\circ\Step\circ\gamma\subseteq\Abs\Step\circ\alpha\circ\gamma$, since $\gamma$ is monotonic.
+  Thus, $\alpha\circ\Step\circ\gamma\subseteq\Abs\Step\circ\alpha\circ\gamma$.
   Since $\alpha\circ\gamma\subseteq\mathsf{id}$ by Galois connection and $\Abs\Step$ is monotonic, we have that $\alpha\circ\Step\circ\gamma\subseteq\Abs\Step$.
   By Galois connection, this is equivalent to $\Step\circ\gamma\subseteq\gamma\circ\Abs\Step$.
 \end{proof}
@@ -1370,7 +1370,7 @@ Thus we have:
   To elaborate, let this function be called $f:\A\Right\rightarrow\wp(\Sig)$.
   We need two lemmas, the first being $\forall\A\rho:\lfloor\A\rho\rfloor\subseteq f(\A\rho)$ and the second being $\forall\A\ell,\A\rho:\A\ell\A\semarrow\A\rho\Rightarrow f(\A\rho)\subseteq f(\A\ell)$.
 
-  If we have the lemmas, then for all $\A\rho$ such that $(e,\A{s})\A\semarrow^*\A\rho$, $\lfloor\A\rho\rfloor\subseteq f(\A\rho)\subseteq f(e,\A{s})$, thus all signatures in $\Abs{\sembracket{e}}\Abs{S}$ can be bound by $X\triangleq\{f(e,\A{s})|(\A{s},\_)\in\Abs{S}\}$, which is finite.
+  If we have the lemmas, then for all $\A\rho$ such that $(e,\A{s})\A\semarrow^*\A\rho$, $\lfloor\A\rho\rfloor\subseteq f(\A\rho)\subseteq f(e,\A{s})$, thus all signatures in $\Abs{\sembracket{e}}\Abs{S}$ can be bound by $X\triangleq\bigcup_{\A{s}\in\Abs{s}}f(e,\A{s})$, which is finite.
   The lemmas are formalized in Coq.
 \end{proof}
 
@@ -1483,7 +1483,7 @@ Thus we can define $\rhd$ and $\semlink$ that satisfies the desired property.
 \end{clm}
 \subsection{Checking Soundness for Analysis}
 We can define injection and linking in the abstract semantics in the same way as the concrete semantics.
-Only the definition of $\inject{C_1}{\mem_2}$ in Figure \ref{fig:concinject} has to be adapted to account for the fact that $\mem_2(t)$ is now a \emph{set} of closures and thus injection of $C_1$ must be mapped over all elements.
+Only the definition of $\inject{\A{C}_1}{\A\mem_2}$ in Figure \ref{fig:concinject} has to be adapted to account for the fact that $\A\mem_2(\A{t})$ is now a \emph{set} of closures and thus injection of $\A{C}_1$ must be mapped over all elements.
 Then we can show that:
 \begin{clm}[Injection Preserves Abstract Evaluation]
   For all $\A{s}_1\in\A\State_1$, $\A\ell_2\in\A\Left_2$ and $\A\rho_2\in\A\Right_2$, if $\A\ell_2\A\semarrow\A\rho_2$ under $\A\tick_2$,

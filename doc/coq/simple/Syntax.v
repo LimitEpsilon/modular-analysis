@@ -4,7 +4,6 @@ From Coq Require Export Arith.Arith.
 From Coq Require Export Arith.EqNat.
 From Coq Require Export Lia.
 From Coq Require Export Lists.List.
-From Coq Require Export Strings.String.
 From sflib Require Export sflib.
 
 Notation "x :: y" := (cons x y)
@@ -19,7 +18,7 @@ Ltac contradict :=
   let contra := fresh "contra" in
   assert False as contra; eauto 3; inversion contra.
 
-Lemma __R__ : forall b, b = false <-> b <> true.
+Local Lemma __R__ : forall b, b = false <-> b <> true.
 Proof.
   intros; split; intros; subst.
   red; intros contra. inversion contra.
@@ -32,6 +31,11 @@ Ltac refl_bool :=
   | |- _ <> true => rewrite <- __R__
   | _ => idtac
   end.
+
+Ltac rw :=
+  match goal with
+  | RR : _ |- _ => progress (rewrite RR)
+  end.  
 
 Ltac des_hyp :=
   let DES := fresh "HDES" in
@@ -298,9 +302,7 @@ Proof.
     match goal with
     | [RR : collect_ctx ?C e = _ |- _] =>
       specialize (H C); rewrite RR in H
-    | _ => fail
     end
-  | _ => fail
   end; simpl in *; eauto.
 Qed.
 
@@ -499,6 +501,15 @@ Fixpoint papp {T} (p p' : path T) :=
   | Pv v nCv tl => Pv v nCv (papp tl p')
   end.
 
+Notation "p1 '+++' p2" := (papp p1 p2)
+  (right associativity, at level 60).
+
+Lemma papp_assoc {T} : forall (p1 p2 p3 : path T),
+  p1 +++ p2 +++ p3 = (p1 +++ p2) +++ p3.
+Proof.
+  induction p1; ii; ss; rw; eauto.
+Qed.
+
 Fixpoint valid_path {T} `{Eq T}
   (V : dy_value T) (m : memory T) (p : path T) :=
   match p, V with
@@ -634,11 +645,6 @@ Proof.
   clarify; eauto.
   rewrite eqb_neq in *. contradict.
 Qed.
-
-Ltac rw :=
-  match goal with
-  | RR : _ = _ |- _ => rewrite RR
-  end.
 
 Lemma trans_m_aux_read {CT AT} `{Eq CT} `{Eq AT} (α : CT -> AT) 
   (INJ : forall x y, α x = α y -> x = y) :
@@ -845,16 +851,14 @@ Proof.
 Qed.
 
 Lemma trans_C_ctx_M :
-  forall {CT AT} C (α : CT -> AT) abs_C M C_M
-        (ACCESS : ctx_M C M = Some C_M)
-        (TRANS : trans_C α C = abs_C),
-    ctx_M abs_C M = Some (trans_C α C_M).
+  forall {CT AT} C (α : CT -> AT) M C_M
+        (ACCESS : ctx_M C M = Some C_M),
+    ctx_M (trans_C α C) M = Some (trans_C α C_M).
 Proof.
   induction C; intros; simpl in *.
   - inversion ACCESS.
-  - rewrite <- TRANS. simpl. apply IHC; eauto.
-  - rewrite <- TRANS. simpl.
-    des_goal; eauto.
+  - simpl. apply IHC; eauto.
+  - des_goal; eauto.
     inversion ACCESS; eauto.
 Qed.
 
