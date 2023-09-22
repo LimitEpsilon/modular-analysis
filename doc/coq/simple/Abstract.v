@@ -27,12 +27,12 @@ Inductive step `{time T} : (@config T) -> (@config T) -> Prop :=
   | AppBody e1 e2 C m t x e C_f m_f t_f v m_a t_a
     (FN : step (Cf e1 C m t) (Rs (EVal (Closure x e C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (EVal v) m_a t_a))
-    : step (Cf (e_app e1 e2) C m t) (Cf e (dy_binde x t_a C_f) (t_a !-> v; m_a) (tick C m_a t_a x v))
+    : step (Cf (e_app e1 e2) C m t) (Cf e (dy_binde x (tick C m_a t_a x v) C_f) ((tick C m_a t_a x v) !-> v; m_a) (tick C m_a t_a x v))
 
   | App e1 e2 C m t x e C_f m_f t_f v m_a t_a v' m' t'
     (FN : step (Cf e1 C m t) (Rs (EVal (Closure x e C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (EVal v) m_a t_a))
-    (BODY : step (Cf e (dy_binde x t_a C_f) (t_a !-> v; m_a) (tick C m_a t_a x v)) (Rs (EVal v') m' t'))
+    (BODY : step (Cf e (dy_binde x (tick C m_a t_a x v) C_f) ((tick C m_a t_a x v) !-> v; m_a) (tick C m_a t_a x v)) (Rs (EVal v') m' t'))
     : step (Cf (e_app e1 e2) C m t) (Rs (EVal v') m' t')
 
   | LinkL e1 e2 C m t
@@ -59,11 +59,11 @@ Inductive step `{time T} : (@config T) -> (@config T) -> Prop :=
   
   | LetER x e1 e2 C m t v m' t'
     (EVALx : step (Cf e1 C m t) (Rs (EVal v) m' t'))
-    : step (Cf (m_lete x e1 e2) C m t) (Cf e2 (dy_binde x t' C) (t' !-> v; m') (tick C m' t' x v))
+    : step (Cf (m_lete x e1 e2) C m t) (Cf e2 (dy_binde x (tick C m' t' x v) C) ((tick C m' t' x v) !-> v; m') (tick C m' t' x v))
   
   | LetE x e1 e2 C m t v m' t' C' m'' t''
     (EVALx : step (Cf e1 C m t) (Rs (EVal v) m' t'))
-    (EVALm : step (Cf e2 (dy_binde x t' C) (t' !-> v; m') (tick C m' t' x v)) (Rs (MVal C') m'' t''))
+    (EVALm : step (Cf e2 (dy_binde x (tick C m' t' x v) C) ((tick C m' t' x v) !-> v; m') (tick C m' t' x v)) (Rs (MVal C') m'' t''))
     : step (Cf (m_lete x e1 e2) C m t) (Rs (MVal C') m'' t'')
   
   | LetML M e1 e2 C m t

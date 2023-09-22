@@ -14,6 +14,30 @@ Definition preserve_tick `{Conc.time CT} `{Abs.time AT} (α : CT -> AT) :=
   α (Conc.tick C m t x v) = 
     Abs.tick abs_C abs_m abs_t x abs_v.
 
+Ltac gen_leb :=
+  match goal with
+  | BD : time_bound_C ?C _, H : supp_C ?C _ |- _ =>
+    apply BD in H
+  | BD : time_bound_v ?v _, H : supp_v ?v _ |- _ =>
+    destruct v; unfold time_bound_v in BD; ss;
+    apply BD in H
+  | BD : time_bound_m ?m _, H : supp_m ?m _ |- _ =>
+    apply BD in H
+  | _ => idtac
+  end.
+
+Ltac solve_leb tac :=
+  match goal with
+  | _ => assumption
+  | |- leb ?t ?t = true => apply leb_refl
+  | _ : leb ?t ?t' = true |- leb ?t _ = true =>
+    lebt t';
+    match goal with
+    | _ : leb t' ?t'' = true |- _ => lebt t''
+    end
+  | _ => tac
+  end.
+
 Lemma sound_eval `{Conc.time CT} `{Abs.time AT} (α : CT -> AT) (PRES : preserve_tick α) :
   forall e C m t ρ (EVAL : {|(Cf e C m t) ~> ρ|})
     (BOUND : time_bound_ρ (Cf e C m t)),
@@ -49,47 +73,37 @@ Proof.
       let INC := fresh "INC" in
       let BD := fresh "BD" in
       apply time_increase in H as INC;
-      apply time_bound in H as BD;
-      try solve [ss; eauto]
+      first [solve [ss; eauto] | apply time_bound in H as BD]
     end
-  end;
+  end; ss; des;
   try match goal with
   | |- {| _ ~#> _ |} =>
     try exploit IHEVAL1; eauto;
     try exploit IHEVAL2; eauto;
     try exploit IHEVAL3; eauto;
-    ii; ss;
-    try rewrite trans_m_update in *;
-    try rewrite PRES in *; des; eauto
-  end; ss; des;
-  try solve [split; eauto using relax_ctx_bound];
-  try match goal with
-  | |- context [tick _ _ ?t _ _] =>
-    split; try (apply time_bound_tick; assumption);
-    red; ii; ss; des; clarify;
-    try match goal with
-    | _ => apply tick_lt
-    | H : supp_C ?C_f _, BD : time_bound_C ?C_f _ |- _ =>
-      apply BD in H; eapply relax_p_bound;
-      first [eassumption | lebt t]
-    end
-  | _ => split; first [assumption | red; ii; ss; des; clarify]
+    ii; ss; eauto (* simple cases are solved *)
   end;
+  (* difficult cases *)
   match goal with
-  | BD : time_bound_C ?C _, _ : supp_C ?C _ |- _ =>
-    solve [apply BD; eauto]
-  | BD : time_bound_C ?C _, H : supp_C ?C _ |- _ =>
-    apply BD in H;
-    solve [eapply relax_p_bound; eassumption]
-  | _ => apply time_bound in EVAL2; ss; des;
-    try match goal with
-    | BD : time_bound_v ?v _, H : supp_v ?v _ |- _ =>
-      destruct v; ss; apply BD in H;
-      eapply relax_p_bound; first [eassumption | apply tick_lt]
-    | BD : time_bound_m ?m _, H : supp_m ?m _ |- _ =>
-      apply BD in H;
-      eapply relax_p_bound; first [eassumption | apply tick_lt]
-    | _ => solve [split; eauto using relax_ctx_bound]
-    end
-  end.
+  | |- {| _ ~#> _ |} =>
+    rewrite trans_m_update with (t := t_a) in *;
+    first [apply tick_lt | rewrite PRES in *; eauto | assumption]
+  | |- {| _ ~#> _ |} =>
+    rewrite trans_m_update with (t := t') in *;
+    first [apply tick_lt | rewrite PRES in *; eauto | assumption]
+  | |- _ /\ _ =>
+    try solve [split; eauto 3 using relax_ctx_bound]
+  | _ => idtac
+  end;
+  split; red; ii; ss; des; clarify;
+  gen_leb;
+  solve_leb ltac:(apply time_bound in EVAL2; ss; des);
+  match goal with
+  | |- _ /\ _ => solve [split; eauto 3 using relax_ctx_bound]
+  | |- _ /\ _ => split; red; ii; ss; des; clarify;
+    first [apply leb_refl | idtac]
+  | _ => idtac
+  end;
+  gen_leb;
+  solve_leb idtac.
 Qed.

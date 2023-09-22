@@ -180,9 +180,9 @@ let eval_cache (e : tm) (s : 't state) (a : 't cache) (m : 't memory) (tick : 't
                   match res with
                   | EVal v, t'' -> (
                     let t''' = tick c t'' x v in
-                    let m, changed' = update_mem t'' (Set.singleton v) m in
+                    let m, changed' = update_mem t''' (Set.singleton v) m in
                     let () = changed := !changed || changed' in
-                    let c''' = plugin c_lam (Cbinde (x, t'', Chole)) in
+                    let c''' = plugin c_lam (Cbinde (x, t''', Chole)) in
                     let s''' = (c''', t''') in
                     match Map.find_opt (e_lam, s''') a with
                     | None ->
@@ -247,9 +247,9 @@ let eval_cache (e : tm) (s : 't state) (a : 't cache) (m : 't memory) (tick : 't
           match res with
           | EVal v, t' -> (
             let t'' = tick c t' x v in
-            let m, changed' = update_mem t' (Set.singleton v) m in
+            let m, changed' = update_mem t'' (Set.singleton v) m in
             let () = changed := !changed || changed' in
-            let c'' = plugin c (Cbinde (x, t', Chole)) in
+            let c'' = plugin c (Cbinde (x, t'', Chole)) in
             let s'' = (c'', t'') in
             match Map.find_opt (e2, s'') a with
             | None ->

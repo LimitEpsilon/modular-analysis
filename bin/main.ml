@@ -2,27 +2,25 @@ open Modular
 open Analyze
 open Syntax
 
-type time_without_label = string * int ctx * int ctx
+type time_without_label = string * tm
 type time = time_without_label * int
 
 let precision = ref 20
 
-let tick c (_, t) x v =
+let tick _ (_, t) x v =
   match v with
-  | Closure (_, _, c') ->
-    let without_label = (x, label_ctx c, label_ctx c') in
+  | Closure (xx, ee, _) ->
+    let without_label = (x, Lam (xx, ee)) in
     (without_label, (t + 1) mod !precision)
 
 let string_of_time t =
   match t with
-  | (x, c1, c2), _ ->
+  | (x, e), _ ->
     "(" ^ x ^ ", "
-    ^ string_of_ctx string_of_int c1
-    ^ ", "
-    ^ string_of_ctx string_of_int c2
+    ^ string_of_tm e
     ^ ")"
 
-let init_time = ("$", Chole, Chole)
+let init_time = ("$", EVar "$")
 let init_config = (Chole, (init_time, 0))
 
 let main () =

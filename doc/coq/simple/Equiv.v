@@ -8,10 +8,10 @@ Ltac lebt x :=
 Generalizable Variables T aT TT aTT.
 
 Definition time_bound_C `{TotalOrder T} C t :=
-  forall t', supp_C C t' -> t' < t.
+  forall t', supp_C C t' -> leb t' t = true.
 
 Definition time_bound_m `{TotalOrder T} m t :=
-  forall t', supp_m m t' -> t' < t.
+  forall t', supp_m m t' -> leb t' t = true.
 
 Definition time_bound_v `{TotalOrder T} v t :=
   match v with
@@ -100,25 +100,15 @@ Lemma relax_ctx_bound `{time T} :
          time_bound_C C t2.
 Proof.
   induction C; unfold time_bound_C;
-  intros; edestruct BOUND; simpl in *;
-  try contradict; eauto 3;
-  match goal with
-  | H : _ \/ _ |- _ => destruct H; subst
-  end;
+  intros; ss; des; clarify;
   match goal with
   | H : supp_C ?C ?t |- _ =>
     match goal with
     | H : context [time_bound_C C _] |- _ => eapply H; eauto
     end
   | _ => idtac
-  end; red; intros; try apply BOUND; eauto.
-  Unshelve. split.
-  - lebt t1.
-  - rewrite eqb_neq in *. red; intros; subst.
-    match goal with
-    | H : _ |- _ => apply H; apply leb_sym; eauto
-    end.
-  - assumption.
+  end; try red; intros; try apply BOUND; eauto.
+  - lebt t1. apply BOUND. left; eauto.
 Qed.
 
 Lemma relax_p_bound `{time T} :
@@ -136,19 +126,15 @@ Lemma relax_mem_bound `{time T} :
          time_bound_m m t2.
 Proof.
   induction m; unfold time_bound_m;
-  intros; edestruct BOUND; simpl in *;
-  try contradict; eauto 3;
-  repeat des_hyp.
-  Unshelve.
-  apply relax_p_bound with (t1 := t1); eauto.
-  eauto.
+  intros; ss; repeat des_hyp; clarify.
+  lebt t1. apply BOUND. eauto.
 Qed.
 
 Lemma time_bound_addr `{time T} :
   forall C x t (BOUND : time_bound_C C t),
     match addr_x C x with
     | None => True
-    | Some addr => addr < t
+    | Some addr => leb addr t = true
     end.
 Proof.
   induction C; unfold time_bound_C; intros; simpl in *; eauto;
@@ -232,94 +218,72 @@ Lemma time_bound_tick `{time T} :
   forall C m t x v
          (BOUNDv : time_bound_v v t)
          (BOUNDm : time_bound_m m t),
-  time_bound_m (t !-> v; m) (tick C m t x v).
+  time_bound_m ((tick C m t x v) !-> v; m) (tick C m t x v).
 Proof.
   intros.
   unfold time_bound_v in *.
   unfold time_bound_m in *. des_hyp.
   unfold time_bound_C in *.
-  intros; simpl in *;
-  repeat match goal with
-  | H : _ \/ _ |- _ => destruct H; subst
-  | |- _ < _ => split; try (lebt t); try (apply leb_t_neq_tick)
+  ii; ss; des; clarify;
+  match goal with
   | |- leb ?t ?t = true => apply leb_refl
-  | _ : supp_C ?C ?t |- _ =>
-    match goal with
-    | H : forall _, supp_C C _ -> _ |- _ =>
-      apply H; eauto; fail
-    end
-  | _ : supp_m ?m ?t |- _ =>
-    match goal with
-    | H : forall _, supp_m m _ -> _ |- _ =>
-      apply H; eauto; fail
-    end
+  | H : supp_C ?C _, 
+    BD : forall _, supp_C ?C _ -> _
+    |- leb _ (tick _ _ ?t _ _) = true  =>
+    apply BD in H; lebt t
+  | H : supp_m ?m _,
+    BD : forall _, supp_m ?m _ -> _ 
+    |- leb _ (tick _ _ ?t _ _) = true =>
+    apply BD in H; lebt t
   end.
 Qed.
 
 Lemma trans_m_update `{TotalOrder T} {TT} (α : T -> TT) :
-  forall m t v (BOUND : time_bound_m m t),
-    trans_m α (t !-> v; m) =
-    (α t !-> trans_v α v; trans_m α m).
+  forall m t t' v (BOUND : time_bound_m m t) (LT : t < t'),
+    trans_m α (t' !-> v; m) =
+    (α t' !-> trans_v α v; trans_m α m).
 Proof.
   intros.
   assert (
     forall l l' 
-      (IN : forall t', (In t' l' -> t = t' \/ In t' l) /\ (In t' l -> In t' l')),
+      (IN : forall t'', (In t'' l' -> t' = t'' \/ In t'' l) /\ (In t'' l -> In t'' l')),
     trans_m_aux α m l = trans_m_aux α m l') as RR.
   {
     intros. ginduction m; intros; simpl; eauto.
     repeat des_goal; try rewrite eqb_eq in *; clarify;
     try rewrite Inb_eq in *; try rewrite Inb_neq in *;
     match goal with
-    | _ : In ?t _ |- _ => (* contradictory *)
-      specialize (IN t); destruct IN as [L R];
-      try match goal with
-      | H : _ |- _ => apply R in H
-      end;
-      try match goal with
-      | H : _ |- _ => apply L in H
-      end;
-      try match goal with
-      | H : _ \/ _ |- _ => destruct H
-      end; clarify;
+    | _ : In ?t _ |- _ = _ :: _ =>
+      specialize (IN t) as [L R];
+      match goal with
+      | H : In _ _ |- _ => apply R in H; contradict
+      end
+    | _ : In ?t _ |- _ :: _ = _ =>
+      specialize (IN t) as [L R];
+      match goal with
+      | H : In _ _ |- _ => apply L in H; des; clarify
+      end; rewrite <- not_le_lt in LT;
       match goal with
       | _ => contradict
-      | H : time_bound_m ((?t, _) :: _) ?t |- _ =>
-        let contra := fresh "contra" in
-        assert (t < t) as contra;
-        first [
-          unfold time_bound_m in *; apply H; intros; simpl in *; eauto |
-          destruct contra; rewrite eqb_neq in *; contradict]
+      | _ => 
+        assert (false = true);
+        try (rewrite <- LT; apply BOUND; s; auto);
+        contradict
       end
-    | _ => idtac
-    end;
-    match goal with
-    | |- context [trans_m_aux α m ?l] =>
-    match goal with
-    | |- context [trans_m_aux α m ?l'] =>
-    lazymatch l' with
-    | l => fail
-    | _ => let RR := fresh "RR" in
-      assert (trans_m_aux α m l = trans_m_aux α m l') as RR;
+    | _ => erewrite IHm; eauto;
       match goal with
-      | _ => rewrite RR; reflexivity
-      | _ => (* solve RR *)
-        eapply IHm with (t := t); eauto; unfold time_bound_m in *;
-        intros; try apply BOUND; simpl in *; eauto; split; intros;
-        repeat match goal with
-        | H : _ \/ _ |- _ => destruct H; eauto
-        end; specialize (IN t'); destruct IN as [L R];
-        try match goal with
-        | H : _ |- _ => apply R in H; eauto
-        end;
-        try match goal with
-        | H : _ |- _ => apply L in H; destruct H
-        end; eauto
+      | |- context [time_bound_m] => red; ii; apply BOUND; s; auto
+      | |- forall _, _ =>
+        ii; split; ii; ss; des; auto;
+        match goal with
+        | H : In ?t _ |- _ =>
+          specialize (IN t) as [L R];
+          first [apply L in H | apply R in H]; des; eauto
+        end
       end
-    end end end.
+    end.
   }
-  unfold trans_m, trans_v, update_m.
-  simpl. des_goal.
+  unfold trans_m, update_m. s.
   symmetry. erewrite RR; eauto.
   intros; simpl; split; intros; eauto.
 Qed.
@@ -380,29 +344,17 @@ Proof.
     red; intros; simpl in *;
     repeat match goal with
     | H : _ \/ _ |- _ => destruct H; subst; try apply tick_lt
-    | |- ?t < ?t' =>
-      split; try apply leb_t_neq_tick;
-      try match t' with
-      | tick _ _ ?t' _ _ => lebt t'
-      end
     | _ : supp_C ?C ?t |- leb ?t _ = true =>
       match goal with
       | H : time_bound_C C ?t' |- _ =>
-        lebt t'; apply H; eauto
-      end
-    | IN : supp_C ?C ?t |- eqb ?t _ = false =>
-      match goal with
-      | H : time_bound_C C _ |- _ =>
-        specialize (H t IN); destruct H as [? contra];
-        rewrite eqb_neq in *; red; intros; subst;
-        apply contra;
-        first [reflexivity | apply leb_sym; assumption]
+        lebt t'; try apply H; eauto 3
       end
     end
   | |- time_bound_m ?m ?t => 
     first [assumption |
     apply time_bound_tick; simpl; assumption]
-  end.
+  end;
+  first [apply leb_refl | lebt t_a | lebt t'].
 Qed.
 
 Fixpoint remove_x {T} (C : dy_ctx T) x :=
