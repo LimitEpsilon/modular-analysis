@@ -9,7 +9,7 @@ Definition link_tick `{time BT} `{time AT} (Cout : dy_ctx BT) :=
     | AF t =>
       let Cout := lift_ctx_bf Cout in
       AF (tick (filter_ctx_af (delete eqb Cout C))
-            (filter_mem_af (delete_ctx_mem Cout m)) t
+            (filter_mem_af (delete_ctx_mem eqb Cout m)) t
             x (filter_v_af (delete_v eqb Cout v)))
     end.
 

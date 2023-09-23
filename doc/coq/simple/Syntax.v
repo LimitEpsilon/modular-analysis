@@ -1162,23 +1162,22 @@ Fixpoint inject_ctx_mem `{Eq T} (Cout : dy_ctx T) (mem : memory T) :=
     (t, inject_v Cout v) :: inject_ctx_mem Cout tl
   end.
 
-Fixpoint delete_ctx_mem `{Eq T} (Cout : dy_ctx T) (mem : memory T) :=
+Fixpoint delete_ctx_mem `{Eq T} eqb (Cout : dy_ctx T) (mem : memory T) :=
   match mem with
   | [] => []
   | (t, v) :: tl =>
-    (t, delete_v eqb Cout v) :: delete_ctx_mem Cout tl
+    (t, delete_v eqb Cout v) :: delete_ctx_mem eqb Cout tl
   end.
 
-Lemma delete_ctx_mem_eq `{Eq T} :
+Lemma delete_ctx_mem_eq `{Eq T} eqb (t_refl : forall t, eqb t t = true) :
   forall (Cout : dy_ctx T) (mem : memory T),
-         delete_ctx_mem Cout (inject_ctx_mem Cout mem) = mem.
+         delete_ctx_mem eqb Cout (inject_ctx_mem Cout mem) = mem.
 Proof.
   induction mem; simpl; eauto.
   repeat des_goal; clarify; rw.
   destruct e; simpl.
   pose proof (@delete_inject_eq T eqb) as RR.
   rewrite RR; eauto.
-  intros; rewrite eqb_eq; eauto.
 Qed.
 
 Inductive link BT AT :=
@@ -1364,9 +1363,9 @@ Proof.
         | ss; rewrite eqb_neq in *; contradict].
 Qed.
 
-Lemma read_delete `{Eq T} :
+Lemma read_delete `{Eq T} eqb :
   forall (m : memory T) (Cout : dy_ctx T) t v,
-    Some v = read (delete_ctx_mem Cout m) t <->
+    Some v = read (delete_ctx_mem eqb Cout m) t <->
     exists v', v = delete_v eqb Cout v' /\ Some v' = read m t.
 Proof.
   induction m; intros; ss; split; intros READ;
@@ -1377,9 +1376,9 @@ Proof.
         | try right; rewrite IHm; exists v'; eauto].
 Qed.
 
-Lemma aread_delete `{Eq T} :
+Lemma aread_delete `{Eq T} eqb :
   forall (m : memory T) (Cout : dy_ctx T) t v,
-    In v (aread (delete_ctx_mem Cout m) t) <->
+    In v (aread (delete_ctx_mem eqb Cout m) t) <->
     exists v', v = delete_v eqb Cout v' /\ In v' (aread m t).
 Proof.
   induction m; intros; ss; split; intros READ;
@@ -1410,10 +1409,11 @@ Proof.
   induction C; simpl; repeat rw; eauto.
 Qed.
 
-Lemma filter_delete_eq `{Eq BT} `{Eq AT} (Cout : dy_ctx BT):
+Lemma filter_delete_eq `{Eq BT} `{Eq AT} (Cout : dy_ctx BT) 
+  eqb (t_refl : forall t, eqb t t = true) :
   forall bmem amem,
   filter_mem_af
-    (delete_ctx_mem (lift_ctx_bf Cout)
+    (delete_ctx_mem eqb (lift_ctx_bf Cout)
     (link_mem bmem Cout amem)) = amem.
 Proof.
   induction amem; unfold link_mem;
@@ -1422,10 +1422,9 @@ Proof.
   - induction bmem; simpl; eauto.
     des_goal; clarify.
   - destruct e; ss; clarify.
-    rewrite delete_inject_eq.
+    rewrite delete_inject_eq; eauto.
     rewrite filter_lift_eq_af.
-    unfold link_mem in *. rewrite IHamem. eauto.
-    intros. rewrite link_eqb_eq. eauto.
+    unfold link_mem in *. rewrite IHamem; eauto.
 Qed.
 
 Lemma link_update_m_eq `{Eq BT} `{Eq AT} (Cout : dy_ctx BT):
