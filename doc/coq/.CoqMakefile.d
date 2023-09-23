@@ -13,6 +13,9 @@ simple/Concrete.vos simple/Concrete.vok simple/Concrete.required_vos: simple/Con
 simple/Equiv.vo simple/Equiv.glob simple/Equiv.v.beautified simple/Equiv.required_vo: simple/Equiv.v simple/Abstract.vo simple/Concrete.vo
 simple/Equiv.vio: simple/Equiv.v simple/Abstract.vio simple/Concrete.vio
 simple/Equiv.vos simple/Equiv.vok simple/Equiv.required_vos: simple/Equiv.v simple/Abstract.vos simple/Concrete.vos
+simple/Linking.vo simple/Linking.glob simple/Linking.v.beautified simple/Linking.required_vo: simple/Linking.v simple/Sound.vo
+simple/Linking.vio: simple/Linking.v simple/Sound.vio
+simple/Linking.vos simple/Linking.vok simple/Linking.required_vos: simple/Linking.v simple/Sound.vos
 simple/Sound.vo simple/Sound.glob simple/Sound.v.beautified simple/Sound.required_vo: simple/Sound.v simple/Equiv.vo
 simple/Sound.vio: simple/Sound.v simple/Equiv.vio
 simple/Sound.vos simple/Sound.vok simple/Sound.required_vos: simple/Sound.v simple/Equiv.vos

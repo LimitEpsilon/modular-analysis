@@ -11,13 +11,6 @@ Class time `{TotalOrder T} :=
   tick_lt : forall C mem t x v, t < tick C mem t x v
 }.
 
-Definition update_m {T X} m (t : T) (x : X) := (t, x) :: m.
-
-Definition empty_mem {T} : list T := [].
-
-Notation "p '!->' v ';' mem" := (update_m mem p v)
-                              (at level 100, v at next level, right associativity).
-
 Inductive step `{time T} : (config T) -> (config T) -> Prop :=
   | ExprID x C m t v addr
     (ADDR : addr_x C x = Some addr)
