@@ -1018,7 +1018,7 @@ Notation "Cin '[|' Cout '|]'" := (inject Cout Cin)
 
 Definition inject_v {T} `{Eq T} (Cout : dy_ctx T) (v : expr_value T) :=
   match v with
-  | Closure x t C => Closure x t (Cout [|C|])
+  | Closure x t C => Closure x t (C [|Cout|])
   end.
 
 Definition delete_v {T} eqb (Cout : dy_ctx T) (v : expr_value T) :=

@@ -1,6 +1,9 @@
 tactics/sflib.vo tactics/sflib.glob tactics/sflib.v.beautified tactics/sflib.required_vo: tactics/sflib.v 
 tactics/sflib.vio: tactics/sflib.v 
 tactics/sflib.vos tactics/sflib.vok tactics/sflib.required_vos: tactics/sflib.v 
+simple/ALinking.vo simple/ALinking.glob simple/ALinking.v.beautified simple/ALinking.required_vo: simple/ALinking.v simple/Abstract.vo
+simple/ALinking.vio: simple/ALinking.v simple/Abstract.vio
+simple/ALinking.vos simple/ALinking.vok simple/ALinking.required_vos: simple/ALinking.v simple/Abstract.vos
 simple/Abstract.vo simple/Abstract.glob simple/Abstract.v.beautified simple/Abstract.required_vo: simple/Abstract.v simple/Concrete.vo
 simple/Abstract.vio: simple/Abstract.v simple/Concrete.vio
 simple/Abstract.vos simple/Abstract.vok simple/Abstract.required_vos: simple/Abstract.v simple/Concrete.vos

@@ -1,3 +1,4 @@
 {
-    "coq.coqProjectRoot": "./doc/coq"
+    "coq.coqProjectRoot": "./doc/coq",
+    "vscoq.proof.mode": 0
 }
