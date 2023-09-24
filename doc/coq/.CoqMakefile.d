@@ -16,9 +16,9 @@ simple/Equiv.vos simple/Equiv.vok simple/Equiv.required_vos: simple/Equiv.v simp
 simple/Linking.vo simple/Linking.glob simple/Linking.v.beautified simple/Linking.required_vo: simple/Linking.v simple/Concrete.vo
 simple/Linking.vio: simple/Linking.v simple/Concrete.vio
 simple/Linking.vos simple/Linking.vok simple/Linking.required_vos: simple/Linking.v simple/Concrete.vos
-simple/Sound.vo simple/Sound.glob simple/Sound.v.beautified simple/Sound.required_vo: simple/Sound.v simple/Equiv.vo
-simple/Sound.vio: simple/Sound.v simple/Equiv.vio
-simple/Sound.vos simple/Sound.vok simple/Sound.required_vos: simple/Sound.v simple/Equiv.vos
+simple/Sound.vo simple/Sound.glob simple/Sound.v.beautified simple/Sound.required_vo: simple/Sound.v simple/Equiv.vo simple/ALinking.vo simple/Linking.vo
+simple/Sound.vio: simple/Sound.v simple/Equiv.vio simple/ALinking.vio simple/Linking.vio
+simple/Sound.vos simple/Sound.vok simple/Sound.required_vos: simple/Sound.v simple/Equiv.vos simple/ALinking.vos simple/Linking.vos
 simple/Syntax.vo simple/Syntax.glob simple/Syntax.v.beautified simple/Syntax.required_vo: simple/Syntax.v tactics/sflib.vo
 simple/Syntax.vio: simple/Syntax.v tactics/sflib.vio
 simple/Syntax.vos simple/Syntax.vok simple/Syntax.required_vos: simple/Syntax.v tactics/sflib.vos
