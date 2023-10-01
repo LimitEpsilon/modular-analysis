@@ -100,14 +100,14 @@
     literate=
     {\\forall}{{\color{dkgreen}{$\forall\;$}}}1
     {\\exists}{{$\exists\;$}}1
-    {<-}{{$\leftarrow\;$}}1
+    {\le -}{{$\leftarrow\;$}}1
     {=>}{{$\Rightarrow\;$}}1
     {==}{{\code{==}\;}}1
     {==>}{{\code{==>}\;}}1
     %    {:>}{{\code{:>}\;}}1
     {->}{{$\rightarrow\;$}}1
-    {<->}{{$\leftrightarrow\;$}}1
-    {<==}{{$\leq\;$}}1
+    {\le ->}{{$\leftrightarrow\;$}}1
+    {\le ==}{{$\leq\;$}}1
     {\#}{{$^\star$}}1 
     {\\o}{{$\circ\;$}}1 
     {\@}{{$\cdot$}}1 
@@ -153,6 +153,7 @@
 \newcommand*{\istype}{\mathrel{⩴}}
 \newcommand*{\ortype}{\mathrel{|}}
 \newcommand*{\cons}{::}
+\newcommand*{\pset}{\mathscr{P}}
 
 \def\ovbarw{1.2mu}
 \def\ovbarh{1}
@@ -514,7 +515,7 @@ Why it is defined as such is because defining a \emph{collecting semantics} beco
 
 \subsection{Collecting Semantics}
 To define a semantics that is computable, we must formulate the collecting semantics as a least fixed point of a monotonic function that maps an element of some CPO $D$ to $D$.
-In our case, $D\triangleq\wp(\Sigma)$ when $\Sigma\triangleq\semarrow\uplus\Right$ and $\wp(S)$ is the powerset of $S$.
+In our case, $D\triangleq\pset(\Sigma)$ when $\Sigma\triangleq\semarrow\uplus\Right$ and $\pset(S)$ is the powerset of $S$.
 The semantics of an expression $e$ starting from initial states in $S\subseteq\Ctx$ is the collection of $\ell\semarrow\rho$ and $\rho$ derivable from initial configurations $(e,C)$ with $C\in S$.
 Defining the transfer function is straightforward from the definition of the transition relation.
 
@@ -616,7 +617,7 @@ Thus we reach the main theorem that allows ``fractional closures'' to be soundly
 Since we have defined a semantics that fully embrace \emph{incomplete computations}, we only have to abstract our semantic operators to obtain a sound static analysis.
 
 We require a CPO $\Abs{D}$ that is Galois connected with $D$ by abstraction $\alpha$ and concretization $\gamma$:
-\[\wp(\Sigma)=D\galois{\alpha}{\gamma}\Abs{D}\]
+\[\pset(\Sigma)=D\galois{\alpha}{\gamma}\Abs{D}\]
 and semantic operators $\Abs\Step$ and $\Abs\rhd$ that satisfies:
 \[\Step\circ\gamma\subseteq\gamma\circ\Abs\Step\qquad\rhd\circ(\gamma,\gamma)\subseteq\gamma\circ\Abs\rhd\]
 . Then we define $\Abs{\sembracket{e}}$ and $\Abs\semlink$ as:
@@ -739,7 +740,7 @@ The \emph{type} of $\tick$ can be freely chosen, since it may choose to record a
       \infer[left label={AppBody}]1{
       (e_{1}\:e_{2}, C, \mem, t)
       \semarrow
-      (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick(t_a))
+      (e_{\lambda}, (x, \tick(t_{a}))\cons C_{\lambda}, \mem_{a}[\tick(t_{a})\mapsto v], \tick(t_a))
       }
     \end{prooftree}
   \]
@@ -754,7 +755,7 @@ The \emph{type} of $\tick$ can be freely chosen, since it may choose to record a
           (e_{2}, C, \mem_{\lambda}, t_{\lambda})
           \semarrow
           (v, \mem_{a}, t_{a})                                                            \\
-          (e_{\lambda}, (x, t_{a})\cons C_{\lambda}, \mem_{a}[t_{a}\mapsto v], \tick(t_a))
+          (e_{\lambda}, (x, \tick(t_{a}))\cons C_{\lambda}, \mem_{a}[\tick(t_{a})\mapsto v], \tick(t_a))
           \semarrow
           (v', \mem',t')
         \end{matrix}
@@ -848,7 +849,7 @@ The \emph{type} of $\tick$ can be freely chosen, since it may choose to record a
       \infer[left label=LetER]1{
       (\mathtt{let}\:x\:e_1\:e_2, C, \mem, t)
       \semarrow
-      (e_{2}, (x, t')\cons C, \mem'[t'\mapsto v], \tick(t'))
+      (e_{2}, (x, \tick(t'))\cons C, \mem'[\tick(t')\mapsto v], \tick(t'))
       }
     \end{prooftree}
   \]
@@ -884,7 +885,7 @@ The \emph{type} of $\tick$ can be freely chosen, since it may choose to record a
           (e_{1}, C, \mem, t)
           \semarrow
           (v, \mem', t') \\
-          (e_{2}, (x, t')\cons C, \mem'[t'\mapsto v], \tick(t'))
+          (e_{2}, (x, \tick(t'))\cons C, \mem'[\tick(t')\mapsto v], \tick(t'))
           \semarrow
           (C', \mem'', t'')
         \end{matrix}
@@ -894,7 +895,7 @@ The \emph{type} of $\tick$ can be freely chosen, since it may choose to record a
       \semarrow
       (C', \mem'', t'')
       }
-    \end{prooftree}\quad
+    \end{prooftree}\:
     \begin{prooftree}
       \hypo{
         \begin{matrix}
@@ -920,37 +921,37 @@ The \emph{type} of $\tick$ can be freely chosen, since it may choose to record a
 The operational semantics with memory is defined in Figure \ref{fig:concreach1}.
 One must first note that there is a problem with the definition of $\semarrow$ as it is.
 There are no restrictions on $\tick$ and the states $(C,\mem,t)$, thus a write to the address $t$ may overwrite an existing value that may be used for future computations.
-That is, (1) $t\not\in\mathsf{supp}(C,\mem)$, and (2) $\tick(t)\not\in\mathsf{supp}(C,\mem)\wedge\tick(t)\neq t$ must be guaranteed, when $\mathsf{supp}(C,\mem)$ is the set of timestamps reachable from $(C,\mem)$.
+That is, $\tick(t)\not\in\mathsf{supp}(C,\mem)$ must be guaranteed, when $\mathsf{supp}(C,\mem)$ is the set of timestamps reachable from $(C,\mem)$.
 To enforce this invariant upon all \emph{valid} concrete executions defined by the relation $\semarrow$, we enforce that there be a \emph{total order} on $\Time$.
-Then the first criteria, that $t$ must be fresh in $C,\mem$, is formalized by demanding that $C<t$ and $\mem<t$, when:
+Then our criteria can be guaranteed by first enforcing $C\le t$ and $\mem\le t$, when
 \[
   \begin{array}{cc}
-    C < t\triangleq
+    C \le  t\triangleq
     \begin{cases}
-      \mathsf{True}        & C=[]              \\
-      t' < t\wedge C' < t  & C=(x,t')\cons C'  \\
-      C' < t\wedge C'' < t & C=(M,C')\cons C''
+      \mathsf{True}              & C=[]              \\
+      t' \le  t\wedge C' \le  t  & C=(x,t')\cons C'  \\
+      C' \le  t\wedge C'' \le  t & C=(M,C')\cons C''
     \end{cases}
      &
     \begin{array}{l}
-      V < t\triangleq
+      V \le  t\triangleq
       \begin{cases}
-        C < t & V=\langle\_,C\rangle \\
-        C < t & V=C
+        C \le  t & V=\langle\_,C\rangle \\
+        C \le  t & V=C
       \end{cases} \\
-      \mem < t\triangleq\forall t'\in\mathsf{dom}(\mem):t'<t\wedge\mem(t') < t
+      \mem \le  t\triangleq\forall t'\in\mathsf{dom}(\mem):t'\le t\wedge\mem(t') \le  t
     \end{array}
   \end{array}
 \]
-. The second criteria, that $\tick(t)$ must also be fresh and must not equal $t$, is formalized by demanding that:
+. Then the criteria that $\tick(t)$ must be fresh is formalized by demanding that:
 \[t < \tick(t)\]
 for all $t$.
 This condition is not as restrictive as it seems, as we can conversely think of a $\tick$ generating fresh timestamps as \emph{inducing} a total order on $\Time$.
 Also, these constraints match with the physical intuition of causality.
 Now, to allow only such valid transitions, we define:
 \[
-  \State\triangleq\{(C,\mem,t)|C<t\wedge\mem<t\}\qquad
-  \Result\triangleq\{(V,\mem,t)|V<t\wedge\mem<t\}
+  \State\triangleq\{(C,\mem,t)|C\le t\wedge\mem\le t\}\qquad
+  \Result\triangleq\{(V,\mem,t)|V\le t\wedge\mem\le t\}
 \]
 as the set of \emph{valid} states that enable $\tick$ to behave nicely.
 It is almost trivial that the set $\Left\times\Right$, when $\Left\triangleq\Expr\times\State$ and $\Right\triangleq\Left\uplus\Result$, is \emph{closed} under the inductive definition of $\semarrow$.
@@ -964,7 +965,7 @@ That is,
 
 \subsection{Collecting Semantics}
 The definition for the collecting semantics of the language is equal to the collecting semantics in the previous section.
-That is, when we let $D\triangleq\wp(\Sigma)$ where $\Sigma\triangleq\Right\uplus\semarrow$,
+That is, when we let $D\triangleq\pset(\Sigma)$ where $\Sigma\triangleq\Right\uplus\semarrow$,
 \begin{definition}[Transfer function]
   Given $A\in D$, define
   \[
@@ -993,7 +994,7 @@ and
     Environment/Context          & $\A{C}$     & $\in$         & $\A{\Ctx}$                                                                                             \\
     Value of expressions         & $\A{v}$     & $\in$         & $\A{\Value} \subseteq \Expr\times\A{\Ctx}$                                                             \\
     Value of expressions/modules & $\A{V}$     & $\in$         & $\A{\Value\Ctx}\triangleq\A{\Value}\uplus\A{\Ctx}$                                                     \\
-    Abstract Memory              & $\A{\mem}$  & $\in$         & $\A{\Mem} \triangleq \fin{\A{\Time}}{\wp(\A{\Value})}$                                                 \\
+    Abstract Memory              & $\A{\mem}$  & $\in$         & $\A{\Mem} \triangleq \fin{\A{\Time}}{\pset(\A{\Value})}$                                                 \\
     Abstract State               & $\A{s}$     & $\in$         & $\A{\State} \triangleq \A{\Ctx}\times\A{\Mem}\times\A{\Time}$                                          \\
     Abstract Result              & $\A{r}$     & $\in$         & $\A{\Result} \triangleq \A{\Value\Ctx}\times\A{\Mem}\times\A{\Time}$                                   \\
     Abstract Tick                & $\A{\tick}$ & $\in$         & $\A{\Tick}\triangleq\A{\State}\times\ExprVar\times\A{\Value}\rightarrow\A{\Time}$                      \\
@@ -1085,7 +1086,7 @@ $\A\semarrow\subseteq\A\Left\times\A\Right$, when $\A\Left\triangleq\Expr\times\
       \infer[left label={AppBody}]1{
       (e_{1}\:e_{2}, \A{C,} \A\mem, \A{t})
       \A\semarrow
-      (e_{\lambda}, (x, \A{t_a})\cons \A{C}_{\lambda}, \A\mem_{a}[\A{t_a}\A\mapsto \A{v}], \A\tick(\A{t_a}))
+      (e_{\lambda}, (x, \A\tick(\A{t_a}))\cons \A{C}_{\lambda}, \A\mem_{a}[\A\tick(\A{t_a})\A\mapsto \A{v}], \A\tick(\A{t_a}))
       }
     \end{prooftree}
   \]
@@ -1100,7 +1101,7 @@ $\A\semarrow\subseteq\A\Left\times\A\Right$, when $\A\Left\triangleq\Expr\times\
           (e_{2}, \A{C}, \A\mem_{\lambda}, \A{t_\lambda})
           \A\semarrow
           (\A{v}, \A\mem_{a}, \A{t_a})                                                            \\
-          (e_{\lambda}, (x, \A{t_a})\cons \A{C}_{\lambda}, \A\mem_{a}[\A{t_a}\A\mapsto \A{v}], \A\tick(\A{t_a}))
+          (e_{\lambda}, (x, \A\tick(\A{t_a}))\cons \A{C}_{\lambda}, \A\mem_{a}[\A\tick(\A{t_a})\A\mapsto \A{v}], \A\tick(\A{t_a}))
           \A\semarrow
           (\A{v'}, \A{\mem'},\A{t'})
         \end{matrix}
@@ -1194,7 +1195,7 @@ $\A\semarrow\subseteq\A\Left\times\A\Right$, when $\A\Left\triangleq\Expr\times\
       \infer[left label=LetER]1{
       (\mathtt{let}\:x\:e_1\:e_2, \A{C}, \A\mem, \A{t})
       \A\semarrow
-      (e_{2}, (x, \A{t'})\cons \A{C}, \A{\mem'}[\A{t'}\A\mapsto \A{v}], \A\tick(\A{t'}))
+      (e_{2}, (x, \A\tick(\A{t'}))\cons \A{C}, \A{\mem'}[\A\tick(\A{t'})\A\mapsto \A{v}], \A\tick(\A{t'}))
       }
     \end{prooftree}
   \]
@@ -1230,7 +1231,7 @@ $\A\semarrow\subseteq\A\Left\times\A\Right$, when $\A\Left\triangleq\Expr\times\
           (e_{1}, \A{C}, \A\mem, \A{t})
           \A\semarrow
           (\A{v}, \A{\mem'}, \A{t'}) \\
-          (e_{2}, (x, \A{t'})\cons \A{C}, \A{\mem'}[\A{t'}\A\mapsto \A{v}], \A\tick(\A{t'}))
+          (e_{2}, (x, \A\tick(\A{t'}))\cons \A{C}, \A{\mem'}[\A\tick(\A{t'})\A\mapsto \A{v}], \A\tick(\A{t'}))
           \A\semarrow
           (\A{C'}, \A{\mem''}, \A{t''})
         \end{matrix}
@@ -1294,7 +1295,7 @@ and define $\A\alpha(r)$ for $r\in\Result$ by mapping over each component, we ha
   Induction on $\semarrow$.
 \end{proof}
 
-Then if we define $\Abs{D}\triangleq\wp(\A\Sigma)$, when $\A\Sigma\triangleq\A\Right\uplus\A\semarrow$, we can establish a Galois connection between $D$ and $\Abs{D}$.
+Then if we define $\Abs{D}\triangleq\pset(\A\Sigma)$, when $\A\Sigma\triangleq\A\Right\uplus\A\semarrow$, we can establish a Galois connection between $D$ and $\Abs{D}$.
 The abstraction and concretization functions are given by:
 \begin{definition}[Abstraction and Concretization]
   Define $\alpha:D\rightarrow\Abs{D}$ and $\gamma:\Abs{D}\rightarrow D$ by:
@@ -1308,7 +1309,7 @@ The abstraction and concretization functions are given by:
 
 Then it is straightforward to see that:
 \begin{clm}[Galois Connection]
-  $\wp(\Sigma)=D\galois{\alpha}{\gamma}\Abs{D}=\wp(\A\Sigma)$. That is, $\forall A\in D,\Abs{A}\in\Abs{D}:\alpha(A)\subseteq\Abs{A}\Leftrightarrow A\subseteq\gamma(\Abs{A})$.
+  $\pset(\Sigma)=D\galois{\alpha}{\gamma}\Abs{D}=\pset(\A\Sigma)$. That is, $\forall A\in D,\Abs{A}\in\Abs{D}:\alpha(A)\subseteq\Abs{A}\Leftrightarrow A\subseteq\gamma(\Abs{A})$.
 \end{clm}
 \begin{proof}[Sketch]
   Straightforward from the definitions of $\alpha$ and $\gamma$.
@@ -1367,7 +1368,7 @@ Thus we have:
 \begin{proof}[Sketch]
   By existence of a function that computes all reachable signatures and by induction on $\asemarrow$.
 
-  To elaborate, let this function be called $f:\A\Right\rightarrow\wp(\Sig)$.
+  To elaborate, let this function be called $f:\A\Right\rightarrow\pset(\Sig)$.
   We need two lemmas, the first being $\forall\A\rho:\lfloor\A\rho\rfloor\subseteq f(\A\rho)$ and the second being $\forall\A\ell,\A\rho:\A\ell\A\semarrow\A\rho\Rightarrow f(\A\rho)\subseteq f(\A\ell)$.
 
   If we have the lemmas, then for all $\A\rho$ such that $(e,\A{s})\A\semarrow^*\A\rho$, $\lfloor\A\rho\rfloor\subseteq f(\A\rho)\subseteq f(e,\A{s})$, thus all signatures in $\Abs{\sembracket{e}}\Abs{S}$ can be bound by $X\triangleq\bigcup_{\A{s}\in\Abs{s}}f(e,\A{s})$, which is finite.
@@ -1401,7 +1402,7 @@ This is to ensure that injection into the collecting semantics is well-defined.
 For the rest of this section, we define linking for all semantic domains and prove that the requirements laid out in the skeleton for static analysis hold.
 
 \subsection{$\tick_+$, $\A\alpha_+$, $\A\tick$}
-We must first define $\tick_+$, $\A\alpha_+$, and $\A\tick_+$ that satisfies the condition that $t_+<\tick_+(t_+)$ and $\A\alpha_+\circ\tick_+=\A\tick_+\circ\A\alpha_+$.
+We must first define $\tick_+$, $\A\alpha_+$, and $\A\tick_+$ that satisfies the condition that $t_+\le \tick_+(t_+)$ and $\A\alpha_+\circ\tick_+=\A\tick_+\circ\A\alpha_+$.
 But wait, what must be the order on $\Time_1+\Time_2$?
 We define $\le_+$ to be the \emph{lexicographic} order on $\Time_1+\Time_2$, when an element $t_1$ of $\Time_1$ is lifted to $(0,t_1)$ and an element $t_2$ of $\Time_2$ is lifted to $(1,t_2)$.
 Then if we define:
@@ -1613,8 +1614,8 @@ That is, we need to prove that starting from equivalent configurations, we end u
   Then we can strengthen the claim to a claim about graph isomorphisms.
   \[
     \begin{array}{l}
-      \forall\ell,\rho,\ell',\varphi,\varphi^{-1}:\ell\semarrow\rho\wedge(\ell,\varphi)\cong(\ell',\varphi^{-1})\Rightarrow \\
-      \exists\rho',\phi,\phi^{-1}:\ell'\semarrow\rho'\wedge(\rho,\phi)\cong(\rho',\phi^{-1})\wedge\varphi(n)|_{n<t}=\phi(n)|_{n<t} \\
+      \forall\ell,\rho,\ell',\varphi,\varphi^{-1}:\ell\semarrow\rho\wedge(\ell,\varphi)\cong(\ell',\varphi^{-1})\Rightarrow              \\
+      \exists\rho',\phi,\phi^{-1}:\ell'\semarrow\rho'\wedge(\rho,\phi)\cong(\rho',\phi^{-1})\wedge\varphi(n)|_{n\le t}=\phi(n)|_{n\le t} \\
       \text{when }t\text{ is the time component of }\ell
     \end{array}
   \]

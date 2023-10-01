@@ -1,8 +1,8 @@
-From Simple Require Export Equiv.
+From Simple Require Export Bound.
 From Simple Require Export ALinking.
 From Simple Require Export Linking.
 
-Generalizable Variables CT AT.
+Generalizable Variables T CT AT.
 
 Definition preserve_tick `{Concrete.time CT} `{Abstract.time AT} (α : CT -> AT) :=
   forall C m t x v,
@@ -36,6 +36,56 @@ Ltac solve_leb tac :=
     end
   | _ => tac
   end.
+
+Lemma trans_m_update `{TotalOrder T} {TT} (α : T -> TT) :
+  forall m t t' v (BOUND : time_bound_m m t) (LT : t < t'),
+    trans_m α (t' !-> v; m) =
+    (α t' !-> trans_v α v; trans_m α m).
+Proof.
+  intros.
+  assert (
+    forall l l' 
+      (IN : forall t'', (In t'' l' -> t' = t'' \/ In t'' l) /\ (In t'' l -> In t'' l')),
+    trans_m_aux α m l = trans_m_aux α m l') as RR.
+  {
+    intros. ginduction m; intros; simpl; eauto.
+    repeat des_goal; try rewrite eqb_eq in *; clarify;
+    try rewrite Inb_eq in *; try rewrite Inb_neq in *;
+    match goal with
+    | _ : In ?t _ |- _ = _ :: _ =>
+      specialize (IN t) as [L R];
+      match goal with
+      | H : In _ _ |- _ => apply R in H; contradict
+      end
+    | _ : In ?t _ |- _ :: _ = _ =>
+      specialize (IN t) as [L R];
+      match goal with
+      | H : In _ _ |- _ => apply L in H; des; clarify
+      end; rewrite <- not_le_lt in LT;
+      match goal with
+      | _ => contradict
+      | _ => 
+        assert (false = true);
+        try (rewrite <- LT; apply BOUND; s; auto);
+        contradict
+      end
+    | _ => erewrite IHm; eauto;
+      match goal with
+      | |- context [time_bound_m] => red; ii; apply BOUND; s; auto
+      | |- forall _, _ =>
+        ii; split; ii; ss; des; auto;
+        match goal with
+        | H : In ?t _ |- _ =>
+          specialize (IN t) as [L R];
+          first [apply L in H | apply R in H]; des; eauto
+        end
+      end
+    end.
+  }
+  unfold trans_m, update_m. s.
+  symmetry. erewrite RR; eauto.
+  intros; simpl; split; intros; eauto.
+Qed.
 
 Theorem sound_eval `{Concrete.time CT} `{Abstract.time AT} (α : CT -> AT) (PRES : preserve_tick α) :
   forall e C m t ρ (EVAL : {|(Cf e C m t) ~> ρ|})
@@ -107,6 +157,7 @@ Proof.
   solve_leb idtac.
 Qed.
 
+(* soundness of linking *)
 Generalizable Variables BCT BAT ACT AAT.
 
 Definition link_abs 

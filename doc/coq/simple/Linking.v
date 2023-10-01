@@ -153,15 +153,17 @@ Proof.
   intros. destruct v. unfold inject_v. simpl.
   repeat rewrite delete_inject_eq.
   rewrite filter_delete_eq.
-  rewrite filter_lift_eq_af. rewrite filter_lift_eq_af.
+  repeat rewrite filter_lift_eq_af.
   reflexivity.
   all:(apply t_refl).
 Qed.
 
-Lemma link_eval_eq `{Eq T} `{time BT} `{time AT}
+Theorem link_step_eq `{Eq T} `{time BT} `{time AT}
   (Cout : dy_ctx BT) (α : link BT AT -> T) :
   forall bmem e (C : dy_ctx AT) m t cf' (EVAL : {|(Cf e C m t) ~> cf'|}),
-  (@step (link BT AT) _ _ (@link_time T _ BT _ _ _ AT _ _ _ Cout α) (inject_cf Cout bmem (Cf e C m t)) (inject_cf Cout bmem cf')).
+  (@step (link BT AT) _ _ (@link_time T _ BT _ _ _ AT _ _ _ Cout α)
+    (inject_cf Cout bmem (Cf e C m t))
+    (inject_cf Cout bmem cf')).
 Proof.
   intros. remember (Cf e C m t) as cf.
   ginduction EVAL; ii; ss; repeat des_goal; repeat des_hyp; clarify;

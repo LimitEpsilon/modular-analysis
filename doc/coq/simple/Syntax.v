@@ -35,7 +35,7 @@ Ltac refl_bool :=
 Ltac rw :=
   match goal with
   | RR : _ |- _ => progress (rewrite RR)
-  end.  
+  end.
 
 Ltac des_hyp :=
   let DES := fresh "HDES" in
@@ -518,84 +518,100 @@ Proof.
 Qed.
 
 Fixpoint valid_path {T} `{Eq T}
-  (V : dy_value T) (m : memory T) (p : path T) :=
-  match p, V with
+  (n : node T) (m : memory T) (p : path T) :=
+  match p, n with
   | Pnil, _ => True
-  | Px x (Ptr tx) tl, MVal mv =>
-    match addr_x mv x with
+  | Px x (Ptr tx) tl, Ctx C =>
+    match addr_x C x with
     | Some t => 
-      tx = t /\ (exists ev, Some ev = read m t /\ valid_path (EVal ev) m tl)
+      tx = t /\ valid_path (Ptr tx) m tl
     | _ => False
     end
-  | PM M (Ctx CM) tl, MVal mv =>
-    match ctx_M mv M with
+  | PM M (Ctx CM) tl, Ctx C =>
+    match ctx_M C M with
     | Some C =>
-      CM = C /\ valid_path (MVal CM) m tl
+      CM = C /\ valid_path (Ctx CM) m tl
     | _ => False
     end
-  | Pv v (Ctx Cv) tl, EVal ev =>
+  | Pv v (Ctx Cv) tl, Ptr t =>
+    exists ev, Some ev = read m t /\
     match ev with
     | Closure x e C =>
-      v = v_fn x e /\ Cv = C /\ valid_path (MVal C) m tl
+      v = v_fn x e /\ Cv = C /\ valid_path (Ctx C) m tl
     end
   | _, _ => False
   end.
 
 Definition iso {T T'} `{Eq T} `{Eq T'}
-  (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T')
-  f f' :=
-  (forall p (VALp : valid_path V m p),
+  (C : dy_ctx T) (m : memory T) (C' : dy_ctx T') (m' : memory T') f f' :=
+  f (Ctx C) = Ctx C' /\ f' (Ctx C') = Ctx C /\
+  (forall p (VALp : valid_path (Ctx C) m p),
     let p' := pmap f p in
-    valid_path V' m' p' /\ pmap f' p' = p) /\
-  (forall p' (VALp' : valid_path V' m' p'),
+    valid_path (Ctx C') m' p' /\ pmap f' p' = p) /\
+  (forall p' (VALp' : valid_path (Ctx C') m' p'),
     let p := pmap f' p' in
-    valid_path V m p /\ pmap f p = p').
+    valid_path (Ctx C) m p /\ pmap f p = p').
 
 Definition equiv {T T'} `{Eq T} `{Eq T'}
   (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T') :=
-  exists f f', iso V m V' m' f f'.
+  match V, V' with
+  | MVal C, MVal C' =>
+    exists f f', iso C m C' m' f f'
+  | EVal (Closure x e C), EVal (Closure x' e' C') =>
+    x = x' /\ e = e' /\
+    exists f f', iso C m C' m' f f'
+  | _, _ => False
+  end.
 
 Notation "'<|' V1 m1 '≃' V2 m2 '|>'" :=
   (equiv V1 m1 V2 m2)
   (at level 10, V1 at next level, m1 at next level, V2 at next level, m2 at next level).
 
 Fixpoint avalid_path {T} `{Eq T}
-  (V : dy_value T) (m : memory T) (p : path T) :=
-  match p, V with
+  (n : node T) (m : memory T) (p : path T) :=
+  match p, n with
   | Pnil, _ => True
-  | Px x (Ptr tx) tl, MVal mv =>
-    match addr_x mv x with
+  | Px x (Ptr tx) tl, Ctx C =>
+    match addr_x C x with
     | Some t => 
-      tx = t /\ (exists ev, In ev (aread m t) /\ avalid_path (EVal ev) m tl)
+      tx = t /\ avalid_path (Ptr tx) m tl
     | _ => False
     end
-  | PM M (Ctx CM) tl, MVal mv =>
-    match ctx_M mv M with
+  | PM M (Ctx CM) tl, Ctx C =>
+    match ctx_M C M with
     | Some C =>
-      CM = C /\ avalid_path (MVal CM) m tl
+      CM = C /\ avalid_path (Ctx CM) m tl
     | _ => False
     end
-  | Pv v (Ctx Cv) tl, EVal ev =>
+  | Pv v (Ctx Cv) tl, Ptr t =>
+    exists ev, In ev (aread m t) /\
     match ev with
     | Closure x e C =>
-      v = v_fn x e /\ Cv = C /\ avalid_path (MVal C) m tl
+      v = v_fn x e /\ Cv = C /\ avalid_path (Ctx C) m tl
     end
   | _, _ => False
   end.
 
 Definition aiso {T T'} `{Eq T} `{Eq T'}
-  (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T') 
-  f f' :=
-  (forall p (VALp : avalid_path V m p),
+  (C : dy_ctx T) (m : memory T) (C' : dy_ctx T') (m' : memory T') f f' :=
+  f (Ctx C) = Ctx C' /\ f' (Ctx C') = Ctx C /\
+  (forall p (VALp : avalid_path (Ctx C) m p),
     let p' := pmap f p in
-    avalid_path V' m' p' /\ pmap f' p' = p) /\
-  (forall p' (VALp' : avalid_path V' m' p'),
+    avalid_path (Ctx C') m' p' /\ pmap f' p' = p) /\
+  (forall p' (VALp' : avalid_path (Ctx C') m' p'),
     let p := pmap f' p' in
-    avalid_path V m p /\ pmap f p = p').
+    avalid_path (Ctx C) m p /\ pmap f p = p').
 
 Definition aequiv {T T'} `{Eq T} `{Eq T'}
   (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T') :=
-  exists f f', aiso V m V' m' f f'.
+  match V, V' with
+  | MVal C, MVal C' =>
+    exists f f', aiso C m C' m' f f'
+  | EVal (Closure x e C), EVal (Closure x' e' C') =>
+    x = x' /\ e = e' /\
+    exists f f', aiso C m C' m' f f'
+  | _, _ => False
+  end.
 
 Notation "'<|' V1 m1 '≃#' V2 m2 '|>'" :=
   (aequiv V1 m1 V2 m2)

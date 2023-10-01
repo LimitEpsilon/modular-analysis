@@ -63,9 +63,11 @@ Proof.
   all:(intros; rewrite link_eqb_eq; reflexivity).
 Qed.
 
-Lemma link_step_eq `{time BT} `{time AT} (Cout : dy_ctx BT) :
+Theorem link_step_eq `{time BT} `{time AT} (Cout : dy_ctx BT) :
   forall bmem e (C : dy_ctx AT) m t cf' (EVAL : {|(Cf e C m t) ~#> cf'|}),
-    (@step (link BT AT) _ (link_time Cout) (inject_cf Cout bmem (Cf e C m t)) (inject_cf Cout bmem cf')).
+    (@step (link BT AT) _ (link_time Cout)
+      (inject_cf Cout bmem (Cf e C m t))
+      (inject_cf Cout bmem cf')).
 Proof.
   intros. remember (Cf e C m t) as cf.
   ginduction EVAL; ii; ss; repeat des_goal; repeat des_hyp; clarify;
