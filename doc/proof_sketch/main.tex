@@ -187,6 +187,8 @@
 \newcommand*{\semlink}{\mathbin{\rotatebox[origin=c]{180}{$\propto$}}}
 \newcommand*{\link}[2]{{#1}\rtimes{#2}}
 \newcommand*{\mt}{\mathsf{empty}}
+\newcommand*{\valid}{\mathsf{valid}}
+\newcommand*{\Path}{\text{Path}}
 
 \newcommand*{\doubleplus}{\ensuremath{\mathbin{+\mkern-3mu+}}}
 \newcommand*{\project}{\text{\texttt{:>} }}
@@ -994,7 +996,7 @@ and
     Environment/Context          & $\A{C}$     & $\in$         & $\A{\Ctx}$                                                                                             \\
     Value of expressions         & $\A{v}$     & $\in$         & $\A{\Value} \subseteq \Expr\times\A{\Ctx}$                                                             \\
     Value of expressions/modules & $\A{V}$     & $\in$         & $\A{\Value\Ctx}\triangleq\A{\Value}\uplus\A{\Ctx}$                                                     \\
-    Abstract Memory              & $\A{\mem}$  & $\in$         & $\A{\Mem} \triangleq \fin{\A{\Time}}{\pset(\A{\Value})}$                                                 \\
+    Abstract Memory              & $\A{\mem}$  & $\in$         & $\A{\Mem} \triangleq \fin{\A{\Time}}{\pset(\A{\Value})}$                                               \\
     Abstract State               & $\A{s}$     & $\in$         & $\A{\State} \triangleq \A{\Ctx}\times\A{\Mem}\times\A{\Time}$                                          \\
     Abstract Result              & $\A{r}$     & $\in$         & $\A{\Result} \triangleq \A{\Value\Ctx}\times\A{\Mem}\times\A{\Time}$                                   \\
     Abstract Tick                & $\A{\tick}$ & $\in$         & $\A{\Tick}\triangleq\A{\State}\times\ExprVar\times\A{\Value}\rightarrow\A{\Time}$                      \\
@@ -1530,6 +1532,9 @@ Our framework hinges heavily on the definition of equivalence, since when we lin
 Even in the case without linking, we need to justify why no matter our choice of $(\Time,\le,\ATime,\A\alpha)$, the analysis overapproximates a \emph{compatible} notion of execution.
 
 In this section, we assume a pair of semantics, each parametrized with $(\Time,\le,\ATime,\A\alpha)$ and $(\Time',\le',\ATime',\A\alpha')$.
+\subsection{Motivation}
+Assume that we have a cached analysis result that uses the abstract timestamps $\{0,1\}$.
+Unfortunately, 
 
 \subsection{Definitions}
 We first define what it means for two states $s\in\State$ and $s'\in\State'$ to be equivalent.
@@ -1539,41 +1544,75 @@ Thus, the notion of equivalence is defined by how the ``information extractable'
 
 Note that the information that is extractable are only accessed through a sequence of names $x$ and $M$.
 Thus, one may imagine access ``paths'' with names on the edges and information sources($C$ and $t$) on the nodes.
-Then the definition of equivalence may be given as equivalence on all access paths with same labels on edges.
-Taking this a step further, one may imagine an ``access graph'' that collects all reachable $C$ and $t$ as the nodes of the graph with directed edges connecting the nodes corresponding to accesses by names or the expression part of closures in memory.
+Also, given a $\varphi\in\Time\rightarrow\Time'$, we can define how access paths that use timestamps in $\Time$ are translated to access paths in $\Time'$.
+The definitions are given in \ref{fig:accpath}.
+\begin{figure}[h!]
+  \centering
+  \begin{tabular}{rclr}
+    $p$ & $\rightarrow$ & $\epsilon$                   & (empty path)     \\
+        & $|$           & $\xrightarrow{x}t\:p$        & (address access) \\
+        & $|$           & $\xrightarrow{M}p$           & (module access)  \\
+        & $|$           & $\xrightarrow{\lambda x.e}p$ & (value access)
+  \end{tabular}\:
+  $
+    \varphi(p)\triangleq
+    \begin{cases}
+      \epsilon                               & p=\epsilon                    \\
+      \xrightarrow{x}\varphi(t)\:\varphi(p') & p=\xrightarrow{x}t\:p'        \\
+      \xrightarrow{M}\varphi(p')             & p=\xrightarrow{M}p'           \\
+      \xrightarrow{\lambda x.e}\varphi(p')   & p=\xrightarrow{\lambda x.e}p'
+    \end{cases}
+  $
+  \caption{Definition for access paths and how translation of timestamps are mapped over access paths.}
+  \label{fig:accpath}
+\end{figure}
+From now on, we shall write $\Path$ for the set of access paths that use timestamps in $\Time$, and $\Path'$ for the set of access paths that use timestamps in $\Time'$.
+
+Then given an access path, we can define a predicate $\valid\in(\Ctx\uplus\Time)\times\Mem\times\Path\rightarrow\mathsf{Prop}$.
+Given $r\in\Ctx\uplus\Time,\mem\in\Mem,p\in\Path$, $\valid(r,\mem,p)$ is true iff all access edges in the path are valid, when starting from $r$.
 \[
-  \begin{array}{rclrcl}
-    \mathsf{Step}_m(G) & \triangleq & \{C\xrightarrow{x}t,t|C\in G\wedge t={C}(x)\}                 & \A{\mathsf{Step}}_{\A{m}}(\A{G}) & \triangleq & \{\A{C}\xrightarrow{x}\A{t},\A{t}|\A{C}\in \A{G}\wedge \A{t}=\addr(\A{C},x)\}                   \\
-                       & \cup       & \{C\xrightarrow{M}C',C'|C\in G\wedge C'={C}(M)\}              &                                  & \cup       & \{\A{C}\xrightarrow{M}\A{C}',\A{C}'|\A{C}\in \A{G}\wedge \A{C}'=\modctx(\A{C},M)\}              \\
-                       & \cup       & \{t\xrightarrow{e}C,C|t\in G\wedge \langle e,C \rangle=m(t)\} &                                  & \cup       & \{\A{t}\xrightarrow{e}\A{C},\A{C}|\A{t}\in \A{G}\wedge \langle e,\A{C} \rangle\in\A{m}(\A{t})\} \\
-    \underline{C,m}    & \triangleq & \lfp(\lambda X.\mathsf{Step}_m(X)\cup\{C\})                   & \underline{\A{C},\A{m}}          & \triangleq & \lfp(\lambda \A{X}.\A{\mathsf{Step}}_{\A{m}}(\A{X})\cup\{\A{C}\})
-  \end{array}
+  \valid(r,\mem,p)\triangleq
+  \begin{cases}
+    \mathsf{True}                                                       & p=\epsilon                             \\
+    t=C(x)\land\valid(t,\mem,p')                                        & r=C\land p=\xrightarrow{x}t\:p'        \\
+    \exists C_M:C_M=C(M)\wedge\valid(C_M,\mem,p')                       & r=C\land p=\xrightarrow{M}p'           \\
+    \exists C:\langle\lambda x.e,C\rangle=\mem(t)\land\valid(C,\mem,p') & r=t\land p=\xrightarrow{\lambda x.e}p' \\
+    \mathsf{False}                                                      & \text{otherwise}
+  \end{cases}
 \]
 
-The graphs $\underline{C,m}$ and $\underline{\A{C},\A{m}}$ are \emph{rooted labelled directed graph}s, with the initial context as the root.
-Then the definition of equivalence between states simply means that the access graphs are isomorphic.
+Likewise, we can define a predicate $\A\valid\in(\A\Ctx\uplus\A\Time)\times\A\Mem\times\A\Path\rightarrow\mathsf{Prop}$.
+Given $\A{r}\in\A\Ctx\uplus\A\Time,\A\mem\in\A\Mem,\A{p}\in\A\Path$, $\A\valid(\A{r},\A\mem,\A{p})$ is true iff all access edges in the path are valid, when starting from $\A{r}$.
+\[
+  \A\valid(\A{r},\A\mem,\A{p})\triangleq
+  \begin{cases}
+    \mathsf{True}                                                                                   & \A{p}=\epsilon                                         \\
+    \A{t}=\A{C}(x)\land\A\valid(\A{t},\A\mem,\A{p'})                                                & \A{r}=\A{C}\land \A{p}=\xrightarrow{x}\A{t}\:\A{p'}    \\
+    \exists \A{C_M}:\A{C_M}=\A{C}(M)\wedge\A\valid(\A{C_M},\A\mem,\A{p'})                           & \A{r}=\A{C}\land \A{p}=\xrightarrow{M}\A{p'}           \\
+    \exists \A{C}:\langle\lambda x.e,\A{C}\rangle\in\A\mem(\A{t})\land\A\valid(\A{C},\A\mem,\A{p'}) & \A{r}=\A{t}\land \A{p}=\xrightarrow{\lambda x.e}\A{p'} \\
+    \mathsf{False}                                                                                  & \text{otherwise}
+  \end{cases}
+\]
+
+Now we can give a straightforward definitions of equivalence.
 \begin{definition}[Equivalent Concrete States]
   Let $s=(C,\mem,t)\in\State$ and $s'=(C',\mem',t')\in\State'$.
-  We say $s$ is \emph{equivalent} to $s'$ and write $s\cong s'$ when there exists a $\varphi:\Ctx\uplus\Time\rightarrow\Ctx'\uplus\Time'$ and $\varphi^{-1}:\Ctx'\uplus\Time'\rightarrow\Ctx\uplus\Time$ such that:
+  We say $s$ is \emph{equivalent} to $s'$ and write $s\cong s'$ when there exists a $\varphi:\Time\rightarrow\Time'$ and $\varphi^{-1}:\Time'\rightarrow\Time$ such that:
   \begin{enumerate}
-    \item $\varphi(C)=C'$ and $\varphi^{-1}(C')=C$
-    \item $\forall\text{node}_1,\text{node}_2:\text{node}_1\xrightarrow{\text{lbl}}\text{node}_2\in\underline{C,\mem}\Rightarrow\varphi(\text{node}_1)\xrightarrow{\text{lbl}}\varphi(\text{node}_2)\in\underline{C',\mem'}$
-    \item $\forall\text{node}_1',\text{node}_2':\text{node}_1'\xrightarrow{\text{lbl}}\text{node}_2'\in\underline{C',\mem'}\Rightarrow\varphi^{-1}(\text{node}_1')\xrightarrow{\text{lbl}}\varphi^{-1}(\text{node}_2')\in\underline{C,\mem}$
-    \item $\forall\text{node},\text{node}':\text{node}\in\underline{C,\mem}\Rightarrow\varphi^{-1}(\varphi(\text{node}))=\text{node}$ and $\text{node}'\in\underline{C',\mem'}\Rightarrow\varphi(\varphi^{-1}(\text{node}'))=\text{node}'$
+    \item For all $p\in\Path$, if $\valid(C,\mem,p)$ then $\valid(C',\mem',\varphi(p))$ and $p=\varphi^{-1}(\varphi(p))$.
+    \item For all $p'\in\Path'$, if $\valid(C',\mem',p')$ then $\valid(C,\mem,\varphi^{-1}(p'))$ and $p'=\varphi(\varphi^{-1}(p'))$.
   \end{enumerate}
 \end{definition}
 \begin{definition}[Equivalent Abstract States]
   Let $\A{s}=(\A{C},\A\mem,\A{t})\in\AState$ and $\A{s}'=(\A{C}',\A\mem',\A{t}')\in\AState'$.
-  We say $\A{s}$ is \emph{equivalent} to $\A{s}'$ and write $\A{s}\A\cong\A{s}'$ when there exists a $\A\varphi:\A\Ctx\uplus\ATime\rightarrow\A\Ctx'\uplus\ATime'$ and $\A\varphi^{-1}:\A\Ctx'\uplus\ATime'\rightarrow\A\Ctx\uplus\ATime$ such that:
+  We say $\A{s}$ is \emph{equivalent} to $\A{s}'$ and write $\A{s}\A\cong\A{s}'$ when there exists a $\A\varphi:\ATime\rightarrow\ATime'$ and $\A\varphi^{-1}:\ATime'\rightarrow\ATime$ such that:
   \begin{enumerate}
-    \item $\A\varphi(\A{C})=\A{C}'$ and $\A\varphi^{-1}(\A{C}')=\A{C}$
-    \item $\forall\text{node}_1,\text{node}_2:\text{node}_1\xrightarrow{\text{lbl}}\text{node}_2\in\underline{\A{C},\A\mem}\Rightarrow\A\varphi(\text{node}_1)\xrightarrow{\text{lbl}}\A\varphi(\text{node}_2)\in\underline{\A{C}',\A\mem'}$
-    \item $\forall\text{node}_1'.\text{node}_2':\text{node}_1'\xrightarrow{\text{lbl}}\text{node}_2'\in\underline{\A{C}',\A\mem'}\Rightarrow\A\varphi^{-1}(\text{node}_1')\xrightarrow{\text{lbl}}\A\varphi^{-1}(\text{node}_2')\in\underline{\A{C},\A\mem}$
-    \item $\forall\text{node},\text{node}':\text{node}\in\underline{\A{C},\A\mem}\Rightarrow\A\varphi^{-1}(\A\varphi(\text{node}))=\text{node}$ and $\text{node}'\in\underline{\A{C}',\A\mem'}\Rightarrow\A\varphi(\A\varphi^{-1}(\text{node}'))=\text{node}'$
+    \item For all $\A{p}\in\A\Path$, if $\A\valid(\A{C},\A\mem,\A{p})$ then $\A\valid(\A{C'},\A{\mem'},\A\varphi(p))$ and $\A{p}=\A\varphi^{-1}(\A\varphi(\A{p}))$.
+    \item For all $\A{p'}\in\A{\Path'}$, if $\A\valid(\A{C'},\A{\mem'},\A{p'})$ then $\valid(\A{C},\A{\mem},\A\varphi^{-1}(p'))$ and $\A{p'}=\A\varphi(\A\varphi^{-1}(\A{p'}))$.
   \end{enumerate}
 \end{definition}
 
-We also define equivalence between results $r=(V,\mem.t)\in\Result$ and $r'=(V',\mem',t')\in\Result'$ by the conjunction of the equality between the expression part of $V$ and the isomorphism between access graphs.
+We also define equivalence between results $r=(V,\mem.t)\in\Result$ and $r'=(V',\mem',t')\in\Result'$ by the conjunction of the equality between the expression part of $V$ and equivalence between .
 Also, equivalence between $\ell=(e,s)\in\Left$ and $\ell'=(e',s')\in\Left'$ can be similarly defined as $e=e'\wedge s\cong s'$.
 Thus equivalence between $\rho\in\Right$ and $\rho'\in\Right'$ is defined, as either $\rho\in\Left$ or $\rho\in\Result$.
 
@@ -1609,17 +1648,17 @@ That is, we need to prove that starting from equivalent configurations, we end u
 \end{clm}
 \begin{proof}[Sketch]
   To perform induction on $\semarrow$, we need to strengthen the claim.
-  For convenience, we write $(\rho,\varphi)\cong(\rho',\varphi^{-1})$ to emphasize that the graph isomorphism is given by $\varphi$.
+  For convenience, we write $(\rho,\varphi)\cong(\rho',\varphi^{-1})$ to emphasize that the equivalence is given by $\varphi$.
 
-  Then we can strengthen the claim to a claim about graph isomorphisms.
+  Then we can strengthen the claim.
   \[
     \begin{array}{l}
       \forall\ell,\rho,\ell',\varphi,\varphi^{-1}:\ell\semarrow\rho\wedge(\ell,\varphi)\cong(\ell',\varphi^{-1})\Rightarrow              \\
-      \exists\rho',\phi,\phi^{-1}:\ell'\semarrow\rho'\wedge(\rho,\phi)\cong(\rho',\phi^{-1})\wedge\varphi(n)|_{n\le t}=\phi(n)|_{n\le t} \\
+      \exists\rho',\phi,\phi^{-1}:\ell'\semarrow\rho'\wedge(\rho,\phi)\cong(\rho',\phi^{-1})\wedge\varphi|_{\le t}=\phi|_{\le t} \\
       \text{when }t\text{ is the time component of }\ell
     \end{array}
   \]
-  The important part here is that $\phi$ is an \emph{extension} of $\varphi$ in the sense that it agrees with $\varphi$ with nodes in $\underline{\ell}$.
+  The important part here is that $\phi$ is an \emph{extension} of $\varphi$.
   Thus the induction hypothesis will push through.
 \end{proof}
 
@@ -1639,7 +1678,7 @@ The claim we want to prove is: If $\Abs{S}\Abs\cong\Abs{S'}$, then $\gamma(\Abs{
   If this is true, $\forall s\in\gamma(\Abs{s}):\exists s'\in\gamma(\Abs{s'}):s\cong s'$.
 
   Proving the same statement in the opposite side leads to $\forall s'\in\gamma(\Abs{s'}):\exists s\in\gamma(\Abs{s}):s\cong s'$, so that $\gamma(\Abs{S})\cong\gamma'(\Abs{S'})$.
-  The proof of the above statement involves constructing such a $s'$ by traversal over reachable subparts $n$ of $s$, (1) translating $n$ to a reachable part $\A{n}'$ of $\A{s}'$ by $\A\varphi\circ\A\alpha$(when $\A\varphi$ is the isomorphism between $\A\alpha(s)$ and $\A{s}'$) and (2) lifting $\A{n}'$ to a reachable part $n'$ of $s'$ while tabulating the graph isomorphism $\varphi$ between $s$ and $s'$.
+  The proof of the above statement involves constructing such a $s'$ by traversal over reachable subparts $n$ of $s$, (1) translating $n$ to a reachable part $\A{n}'$ of $\A{s}'$ by $\A\varphi\circ\A\alpha$(when $\A\varphi$ gives the equivalence between $\A\alpha(s)$ and $\A{s}'$) and (2) lifting $\A{n}'$ to a reachable part $n'$ of $s'$ while tabulating the graph isomorphism $\varphi$ between $s$ and $s'$.
   Finally, (3) the unreachable parts of $s'$ are filled in with dummy values that translate to the unfilled parts of $\A{s}'$.
 \end{proof}
 

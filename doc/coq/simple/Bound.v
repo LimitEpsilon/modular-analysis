@@ -34,9 +34,9 @@ Definition time_bound_ρ `{TotalOrder T} (ρ : config T) :=
 
 Lemma not_le_lt `{TotalOrder T} :
   forall (p : T) t,
-    (leb p t = false) <-> (t < p).
+    (leb p t = false) <-> (t << p).
 Proof.
-  intros; unfold "<"; red; split; intros NLE;
+  intros; unfold "<<"; red; split; intros NLE;
   repeat match goal with
   | H : _ /\ _ |- _ => destruct H
   | |- context [leb ?p ?t] =>
@@ -65,7 +65,7 @@ Qed.
 
 Lemma time_bound_or_not `{TotalOrder T} :
   forall (p : T) t,
-    (p < t) \/ ~(p < t).
+    (p << t) \/ ~(p << t).
 Proof.
   intros.
   rewrite <- not_le_lt.
@@ -112,8 +112,8 @@ Proof.
 Qed.
 
 Lemma relax_p_bound `{time T} :
-  forall p t1 t2 (BOUND : p < t1) (LE : leb t1 t2 = true),
-    p < t2.
+  forall p t1 t2 (BOUND : p << t1) (LE : leb t1 t2 = true),
+    p << t2.
 Proof.
   intros. destruct BOUND as [? EQ]. split.
   - lebt t1.

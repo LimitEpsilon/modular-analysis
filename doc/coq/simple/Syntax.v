@@ -34,7 +34,28 @@ Ltac refl_bool :=
 
 Ltac rw :=
   match goal with
-  | RR : _ |- _ => progress (rewrite RR)
+  | RR : _ |- _ => 
+    lazymatch type of RR with
+    | ?a = ?b =>
+      lazymatch b with
+      | context [a] => fail
+      | _ => rewrite RR
+      end
+    | _ => rewrite RR
+    end
+  end.
+
+Ltac rrw :=
+  match goal with
+  | RR : _ |- _ =>
+    lazymatch type of RR with
+    | ?a = ?b =>
+      lazymatch a with
+      | context [b] => idtac
+      | _ => rewrite <- RR
+      end
+    | _ => rewrite <- RR
+    end
   end.
 
 Ltac des_hyp :=
@@ -162,7 +183,7 @@ Class TotalOrder (T : Type) `{Eq T} : Type :=
 Definition lt {T} `{TotalOrder T} (t1 t2 : T) :=
   leb t1 t2 = true /\ eqb t1 t2 = false.
 
-Notation "t1 '<' t2" := (lt t1 t2).
+Notation "t1 '<<' t2" := (lt t1 t2) (at level 71).
 
 (** Syntax of our language *)
 Definition ID := nat.
@@ -319,6 +340,25 @@ Arguments dy_bindm {T}.
 
 Notation "'[|' '|]'" := (dy_hole) (at level 99).
 
+(* ctx append *)
+Fixpoint capp {T} (C C' : dy_ctx T) :=
+  match C with
+  | [||] => C'
+  | dy_binde x tx C =>
+    dy_binde x tx (capp C C')
+  | dy_bindm M CM C =>
+    dy_bindm M CM (capp C C')
+  end.
+
+Notation "C1 '+++' C2" := (capp C1 C2)
+  (right associativity, at level 60).
+
+Lemma capp_assoc {T} : forall (c1 c2 c3 : dy_ctx T),
+  c1 +++ c2 +++ c3 = (c1 +++ c2) +++ c3.
+Proof.
+  induction c1; ii; ss; rw; eauto.
+Qed.
+
 (* Auxiliary operators *)
 Fixpoint addr_x {T} (C : dy_ctx T) (x : ID) :=
   match C with
@@ -335,6 +375,26 @@ Fixpoint ctx_M {T} (C : dy_ctx T) (M : ID) :=
   | dy_bindm M' CM' C' =>
     if eqb_ID M M' then Some CM' else ctx_M C' M
   end.
+
+Lemma capp_addr_x {T} : forall (C1 C2 : dy_ctx T) x,
+  addr_x (C1 +++ C2) x =
+  match addr_x C1 x with
+  | Some t => Some t
+  | None => addr_x C2 x
+  end.
+Proof.
+  induction C1; ii; ss. des_goal; eauto.
+Qed.
+
+Lemma capp_ctx_M {T} : forall (C1 C2 : dy_ctx T) M,
+  ctx_M (C1 +++ C2) M =
+  match ctx_M C1 M with
+  | Some CM => Some CM
+  | None => ctx_M C2 M
+  end.
+Proof.
+  induction C1; ii; ss. des_goal; eauto.
+Qed.
 
 (* Auxiliary definition to aid proofs *)
 Fixpoint st_level (C : st_ctx) :=
@@ -470,7 +530,7 @@ Definition supp_ρ {T} (ρ : config T) (t : T) :=
   end.
 
 (** Graph isomorphism between (C, m) and (C', m') *)
-Inductive node T :=
+Inductive root T :=
   | Ptr (t : T)
   | Ctx (C : dy_ctx T)
 .
@@ -480,9 +540,9 @@ Arguments Ctx {T}.
 
 Inductive path T :=
   | Pnil
-  | Px (x : ID) (ntx : node T) (tl : path T)
-  | PM (M : ID) (nCM : node T) (tl : path T)
-  | Pv (v : value) (nCv : node T) (tl : path T)
+  | Px (x : ID) (tx : T) (tl : path T)
+  | PM (M : ID) (tl : path T)
+  | Pv (v : value) (tl : path T)
 .
 
 Arguments Pnil {T}.
@@ -491,75 +551,55 @@ Arguments PM {T}.
 Arguments Pv {T}.
 
 (* path map *)
-Fixpoint pmap {T T'} (f : node T -> node T') (p : path T) :=
+Fixpoint pmap {T T'} (f : T -> T') (p : path T) :=
   match p with
   | Pnil => Pnil
-  | Px x ntx tl => Px x (f ntx) (pmap f tl)
-  | PM M nCM tl => PM M (f nCM) (pmap f tl)
-  | Pv v nCv tl => Pv v (f nCv) (pmap f tl)
+  | Px x tx tl => Px x (f tx) (pmap f tl)
+  | PM M tl => PM M (pmap f tl)
+  | Pv v tl => Pv v (pmap f tl)
   end.
-
-(* path append *)
-Fixpoint papp {T} (p p' : path T) :=
-  match p with
-  | Pnil => p'
-  | Px x ntx tl => Px x ntx (papp tl p')
-  | PM M nCM tl => PM M nCM (papp tl p')
-  | Pv v nCv tl => Pv v nCv (papp tl p')
-  end.
-
-Notation "p1 '+++' p2" := (papp p1 p2)
-  (right associativity, at level 60).
-
-Lemma papp_assoc {T} : forall (p1 p2 p3 : path T),
-  p1 +++ p2 +++ p3 = (p1 +++ p2) +++ p3.
-Proof.
-  induction p1; ii; ss; rw; eauto.
-Qed.
 
 Fixpoint valid_path {T} `{Eq T}
-  (n : node T) (m : memory T) (p : path T) :=
-  match p, n with
+  (r : root T) (m : memory T) (p : path T) :=
+  match p, r with
   | Pnil, _ => True
-  | Px x (Ptr tx) tl, Ctx C =>
+  | Px x tx tl, Ctx C =>
     match addr_x C x with
     | Some t => 
       tx = t /\ valid_path (Ptr tx) m tl
     | _ => False
     end
-  | PM M (Ctx CM) tl, Ctx C =>
+  | PM M tl, Ctx C =>
     match ctx_M C M with
-    | Some C =>
-      CM = C /\ valid_path (Ctx CM) m tl
+    | Some CM => valid_path (Ctx CM) m tl
     | _ => False
     end
-  | Pv v (Ctx Cv) tl, Ptr t =>
+  | Pv v tl, Ptr t =>
     exists ev, Some ev = read m t /\
     match ev with
-    | Closure x e C =>
-      v = v_fn x e /\ Cv = C /\ valid_path (Ctx C) m tl
+    | Closure x e Cv =>
+      v = v_fn x e /\ valid_path (Ctx Cv) m tl
     end
   | _, _ => False
   end.
 
 Definition iso {T T'} `{Eq T} `{Eq T'}
-  (C : dy_ctx T) (m : memory T) (C' : dy_ctx T') (m' : memory T') f f' :=
-  f (Ctx C) = Ctx C' /\ f' (Ctx C') = Ctx C /\
-  (forall p (VALp : valid_path (Ctx C) m p),
+  (r : root T) (m : memory T) (r' : root T') (m' : memory T') f f' :=
+  (forall p (VALp : valid_path r m p),
     let p' := pmap f p in
-    valid_path (Ctx C') m' p' /\ pmap f' p' = p) /\
-  (forall p' (VALp' : valid_path (Ctx C') m' p'),
+    valid_path r' m' p' /\ pmap f' p' = p) /\
+  (forall p' (VALp' : valid_path r' m' p'),
     let p := pmap f' p' in
-    valid_path (Ctx C) m p /\ pmap f p = p').
+    valid_path r m p /\ pmap f p = p').
 
 Definition equiv {T T'} `{Eq T} `{Eq T'}
   (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T') :=
   match V, V' with
   | MVal C, MVal C' =>
-    exists f f', iso C m C' m' f f'
+    exists f f', iso (Ctx C) m (Ctx C') m' f f'
   | EVal (Closure x e C), EVal (Closure x' e' C') =>
     x = x' /\ e = e' /\
-    exists f f', iso C m C' m' f f'
+    exists f f', iso (Ctx C) m (Ctx C') m' f f'
   | _, _ => False
   end.
 
@@ -568,48 +608,46 @@ Notation "'<|' V1 m1 '≃' V2 m2 '|>'" :=
   (at level 10, V1 at next level, m1 at next level, V2 at next level, m2 at next level).
 
 Fixpoint avalid_path {T} `{Eq T}
-  (n : node T) (m : memory T) (p : path T) :=
-  match p, n with
+  (r : root T) (m : memory T) (p : path T) :=
+  match p, r with
   | Pnil, _ => True
-  | Px x (Ptr tx) tl, Ctx C =>
+  | Px x tx tl, Ctx C =>
     match addr_x C x with
-    | Some t => 
+    | Some t =>
       tx = t /\ avalid_path (Ptr tx) m tl
     | _ => False
     end
-  | PM M (Ctx CM) tl, Ctx C =>
+  | PM M tl, Ctx C =>
     match ctx_M C M with
-    | Some C =>
-      CM = C /\ avalid_path (Ctx CM) m tl
+    | Some CM => avalid_path (Ctx CM) m tl
     | _ => False
     end
-  | Pv v (Ctx Cv) tl, Ptr t =>
+  | Pv v tl, Ptr t =>
     exists ev, In ev (aread m t) /\
     match ev with
-    | Closure x e C =>
-      v = v_fn x e /\ Cv = C /\ avalid_path (Ctx C) m tl
+    | Closure x e Cv =>
+      v = v_fn x e /\ avalid_path (Ctx Cv) m tl
     end
   | _, _ => False
   end.
 
 Definition aiso {T T'} `{Eq T} `{Eq T'}
-  (C : dy_ctx T) (m : memory T) (C' : dy_ctx T') (m' : memory T') f f' :=
-  f (Ctx C) = Ctx C' /\ f' (Ctx C') = Ctx C /\
-  (forall p (VALp : avalid_path (Ctx C) m p),
+  (r : root T) (m : memory T) (r' : root T') (m' : memory T') f f' :=
+  (forall p (VALp : avalid_path r m p),
     let p' := pmap f p in
-    avalid_path (Ctx C') m' p' /\ pmap f' p' = p) /\
-  (forall p' (VALp' : avalid_path (Ctx C') m' p'),
+    avalid_path r' m' p' /\ pmap f' p' = p) /\
+  (forall p' (VALp' : avalid_path r' m' p'),
     let p := pmap f' p' in
-    avalid_path (Ctx C) m p /\ pmap f p = p').
+    avalid_path r m p /\ pmap f p = p').
 
 Definition aequiv {T T'} `{Eq T} `{Eq T'}
   (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T') :=
   match V, V' with
   | MVal C, MVal C' =>
-    exists f f', aiso C m C' m' f f'
+    exists f f', aiso (Ctx C) m (Ctx C') m' f f'
   | EVal (Closure x e C), EVal (Closure x' e' C') =>
     x = x' /\ e = e' /\
-    exists f f', aiso C m C' m' f f'
+    exists f f', aiso (Ctx C) m (Ctx C') m' f f'
   | _, _ => False
   end.
 
@@ -863,7 +901,7 @@ Qed.
 Lemma trans_C_addr :
   forall {CT AT} (α : CT -> AT) C x,
     addr_x (trans_C α C) x = 
-      match (addr_x C x) with 
+      match addr_x C x with 
       | None => None 
       | Some addr => Some (α addr)
       end.
@@ -874,15 +912,15 @@ Proof.
 Qed.
 
 Lemma trans_C_ctx_M :
-  forall {CT AT} C (α : CT -> AT) M C_M
-        (ACCESS : ctx_M C M = Some C_M),
-    ctx_M (trans_C α C) M = Some (trans_C α C_M).
+  forall {CT AT} C (α : CT -> AT) M,
+    ctx_M (trans_C α C) M =
+      match ctx_M C M with
+      | None => None
+      | Some CM => Some (trans_C α CM)
+      end.
 Proof.
-  induction C; intros; simpl in *.
-  - inversion ACCESS.
-  - simpl. apply IHC; eauto.
-  - des_goal; eauto.
-    inversion ACCESS; eauto.
+  induction C; ii; ss.
+  des_goal; eauto.
 Qed.
 
 Fixpoint eq_C {T} eqb (C1 C2 : dy_ctx T) :=
@@ -931,26 +969,26 @@ Qed.
 #[export] Instance EqC {T} `{Eq T} : `{Eq (dy_ctx T)} := 
   { eqb := eqb_C; eqb_eq := eqb_C_eq; }.
 
-Definition eq_node {T} `{Eq T} (n1 n2 : node T) :=
-  match n1, n2 with
+Definition eq_root {T} `{Eq T} (r1 r2 : root T) :=
+  match r1, r2 with
   | Ptr t1, Ptr t2 => eqb t1 t2
   | Ctx C1, Ctx C2 => eqb C1 C2
   | _, _ => false
   end.
 
-Lemma eq_node_eq {T} `{Eq T} :
-  forall (n n' : node T),
-  eq_node n n' = true <-> n = n'.
+Lemma eq_root_eq {T} `{Eq T} :
+  forall (r r' : root T),
+  eq_root r r' = true <-> r = r'.
 Proof.
-  intros; split; intros EQ; unfold eq_node in *;
+  intros; split; intros EQ; unfold eq_root in *;
   repeat des_goal; repeat des_hyp;
   try rewrite eqb_eq in *;
   try rewrite eqb_C_eq in *; 
   clarify.
 Qed.
 
-#[export] Instance EqNode {T} `{Eq T} : `{Eq (node T)} :=
-  { eqb := eq_node; eqb_eq := eq_node_eq; }.
+#[export] Instance EqRoot {T} `{Eq T} : `{Eq (root T)} :=
+  { eqb := eq_root; eqb_eq := eq_root_eq; }.
 
 Lemma eq_C_st_eq {T} eqb (C1 C2 : dy_ctx T) :
   eq_C eqb C1 C2 = true -> dy_to_st C1 = dy_to_st C2.

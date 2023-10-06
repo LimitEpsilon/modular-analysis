@@ -130,7 +130,7 @@ Proof.
 Qed.
 
 Lemma link_tick_lt `{Eq T} `{time BT} `{time AT} (Cout : dy_ctx BT) (α : link BT AT -> T) :
-  forall C m t x v, t < link_tick Cout α C m t x v.
+  forall C m t x v, t << link_tick Cout α C m t x v.
 Proof.
   destruct t; ss; ii; unfold "<"; s; apply tick_lt.
 Qed.
@@ -160,7 +160,8 @@ Qed.
 
 Theorem link_step_eq `{Eq T} `{time BT} `{time AT}
   (Cout : dy_ctx BT) (α : link BT AT -> T) :
-  forall bmem e (C : dy_ctx AT) m t cf' (EVAL : {|(Cf e C m t) ~> cf'|}),
+  forall bmem e C m t cf' 
+    (EVAL : {|(Cf e C m t) ~> cf'|}),
   (@step (link BT AT) _ _ (@link_time T _ BT _ _ _ AT _ _ _ Cout α)
     (inject_cf Cout bmem (Cf e C m t))
     (inject_cf Cout bmem cf')).

@@ -64,7 +64,8 @@ Proof.
 Qed.
 
 Theorem link_step_eq `{time BT} `{time AT} (Cout : dy_ctx BT) :
-  forall bmem e (C : dy_ctx AT) m t cf' (EVAL : {|(Cf e C m t) ~#> cf'|}),
+  forall bmem e C m t cf'
+    (EVAL : {|(Cf e C m t) ~#> cf'|}),
     (@step (link BT AT) _ (link_time Cout)
       (inject_cf Cout bmem (Cf e C m t))
       (inject_cf Cout bmem cf')).

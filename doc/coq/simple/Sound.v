@@ -38,7 +38,7 @@ Ltac solve_leb tac :=
   end.
 
 Lemma trans_m_update `{TotalOrder T} {TT} (α : T -> TT) :
-  forall m t t' v (BOUND : time_bound_m m t) (LT : t < t'),
+  forall m t t' v (BOUND : time_bound_m m t) (LT : t << t'),
     trans_m α (t' !-> v; m) =
     (α t' !-> trans_v α v; trans_m α m).
 Proof.
@@ -112,7 +112,8 @@ Proof.
       exists addr; exists v;
       symmetry in ACCESS; eauto|ss; eauto]
   | ACCESS : ctx_M ?C ?M = Some ?CM |- _ =>
-    pose proof (trans_C_ctx_M C α M CM ACCESS); ss; eauto
+    pose proof (trans_C_ctx_M C α M);
+    rewrite ACCESS in *; ss; eauto
   end;
   repeat match goal with
   | H : {| (Cf ?e ?C ?m ?t) ~> (Rs ?V ?m' ?t') |} |- _ =>

@@ -8,7 +8,7 @@ Class time `{TotalOrder T} :=
   (* functional extensionality *)
   tick_ext : forall C m m' t x v (EQ : same m m'), tick C m t x v = tick C m' t x v;
   (* fresh timestamp *)
-  tick_lt : forall C mem t x v, t < tick C mem t x v
+  tick_lt : forall C mem t x v, t << tick C mem t x v
 }.
 
 Inductive step `{time T} : (config T) -> (config T) -> Prop :=
