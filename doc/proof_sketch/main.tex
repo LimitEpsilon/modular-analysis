@@ -636,7 +636,7 @@ which, by definition and Tarski's fixpoint theorem satisfies:
                                & \subseteq\gamma(\alpha(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha(S_2))      & (\because\semlink\circ(\gamma,\gamma)\subseteq\gamma\circ\Abs\semlink)
 \end{align*}
 
-\section{Part II: A Simple Method to Derive Sound Analyzers}
+\section{Part II: Instrumented Semantics to Enable Abstraction}
 
 All that is left is to present an abstraction for the semantics in the previous section.
 Since the ``depth'' of the context $C$ is unbound due to entries $(x,v)$ also containing $C$ in the environment part of $v$, we need to abstract $S\subseteq\Ctx$ to finitely compute an overapproximation.
@@ -1381,7 +1381,7 @@ We stress that this is a nontrivial result, since our definition of $C$ allows c
 The result holds only because the shape of the stack can be deterministically inferred according to the semantics of our language.
 Thus, in languages which can be annotated with explicit signatures, this property will hold, even with features such as functors or first-class modules.
 
-\section{Part III: Linking in the Semantics with Memory}
+\section{Part III: Linking in the Instrumented Semantics}
 Now we need to define an injection operation that fills in the blanks of a $r=(V,\mem,t)\in\Result$ with a $s=(C',\mem',t')\in\State$.
 Recall the definition for injection in the semantics without memory.
 $\inject{C}{V}$ enables access to values that were previously not available in $V$ by filling in the bottom of the stack with $C$.
@@ -1527,16 +1527,24 @@ due to $\alpha_+(\inject{s_1}{r_2})=\inject{\alpha_1(s_1)}{\alpha(r_2)}$, the ab
                                & =\gamma_+(\alpha_1(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha_2(S_2)) & (\because\text{Abstract advance})
 \end{align*}
 \section{Part IV: A Criteria for Reusing Analysis Results}
-In this section, we define what it means for semantics that use different timestamps to be \emph{equivalent}.
-Our framework hinges heavily on the definition of equivalence, since when we link semantics that use two different timestamps, we end up with a semantics that uses a totally different $\Time$ and $\tick$.
-Even in the case without linking, we need to justify why no matter our choice of $(\Time,\le,\ATime,\A\alpha)$, the analysis overapproximates a \emph{compatible} notion of execution.
-
-In this section, we assume a pair of semantics, each parametrized with $(\Time,\le,\ATime,\A\alpha)$ and $(\Time',\le',\ATime',\A\alpha')$.
 \subsection{Motivation}
-Assume that we have a cached analysis result that uses the abstract timestamps $\{0,1\}$.
-Unfortunately, 
+Assume that we have a cached analysis result of a program fragment $e$ under an abstract state $\A{s}$ uses timestamps in $\{0,1\}$.
+We want to analyze $e$ under another initial state $\A{s'}$ that uses abstract timestamps in $\{a,b\}$.
+The problem is: what is the criteria for reusing the cached analysis results?
+
+Based on the previous sections, we want to find a $s''$ that satisfies $\inject{\A{s''}}{\A{s}}=\A{s'}$, so that linking $s''$ into the cached results result in the semantics that started from $\A{s'}$.
+However, equality is not possible because the timestamps that are used are different.
+Thus, in this section, we define what it means for semantics that use different timestamps to be \emph{equivalent}.
+The definition of equivalence need to satisfy two desired properties, namely:
+\begin{enumerate}
+  \item If $s$ and $s'$ are equivalent, all transitions made by $\semarrow$ starting from $(e,s)$ and $(e,s')$ must go to equivalent states.
+  \item If $\A{s}$ and $\A{s'}$ are equivalent, all $s\in\gamma(\{\A{s}\})$ must have an equivalent $s'\in\gamma(\{\A{s'}\})$ and vice versa.
+\end{enumerate}
+These two properties ensure that if we find a $\A{s''}$ such that $\inject{\A{s''}}{\A{s}}$ is \emph{equivalent} to $\A{s'}$, linking $\A{s'}$ with the cached results will result in an overapproximation of something \emph{equivalent} to the semantics that started from $\gamma(\{\A{s'}\})$.
 
 \subsection{Definitions}
+In this section, we assume a pair of semantics, each parametrized with $(\Time,\le,\ATime,\A\alpha)$ and $(\Time',\le',\ATime',\A\alpha')$.
+
 We first define what it means for two states $s\in\State$ and $s'\in\State'$ to be equivalent.
 Note that $s=(C,\mem,t)$ and $s'=(C',\mem',t')$ for some contexts $C,C'$, some memories $\mem,\mem'$, and some times $t,t'$.
 The choice of $t$ and $t'$ is ``not special'' in the sense that as long as they bound the context and memory, $\tick$ will continue producing fresh addresses.
