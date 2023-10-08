@@ -707,6 +707,10 @@ Proof.
       | split].
 Qed.
 
+Lemma iso_C_is_aiso_C `{Eq T} `{Eq TT} (C : dy_ctx T) (C' : dy_ctx TT) φ φ' :
+  iso_C C C' φ φ' = aiso_C C C' φ φ'.
+Proof. reflexivity. Qed.
+
 (* lift unreachable Cs *)
 Fixpoint lift_C `{Eq T} `{Eq aT}
   (inv_α : (T * aT) -> T) (t : T) (C : dy_ctx aT) :=
@@ -769,6 +773,14 @@ Definition inv_α_spec `{TotalOrder T} `{Eq aT}
     t << inv_α (t, abs_t) /\
     abs_t = α (inv_α (t, abs_t)).
 
+Lemma lift_C_lower `{TotalOrder T} `{Eq aT}
+  (α : T -> aT) inv_α (SPEC : inv_α_spec α inv_α) :
+  forall C t, trans_C α (lift_C inv_α t C) = C.  
+Proof.
+  induction C; ii; ss; repeat rw; eauto.
+  destruct (SPEC t tx). rrw. eauto.
+Qed.
+
 Definition ϕ_spec `{Eq TT} `{Eq aTT} `{TotalOrder T} `{Eq aT}
   (α' : TT -> aTT) (α : T -> aT) (φ : aTT -> aT) (φ' : aT -> aTT)
   (ϕ : list (TT * T)) (t : T) :=
@@ -786,7 +798,7 @@ Proof.
   induction C1; ii; ss; rw; exact eq_refl.
 Qed.
 
-Fixpoint pmap_fst `{Eq T} `{Eq TT} (ϕ : list (T * TT)) (p : path T) :=
+Fixpoint pmap_fst `{Eq T} `{Eq TT} (ϕ: list (T * TT)) (p : path T) :=
   match p with
   | Pnil => Some Pnil
   | Px x tx p =>
@@ -930,7 +942,7 @@ Definition trans_root {T aT} (α : T -> aT) (r : root T) :=
   | Ptr t => Ptr (α t)
   end.
 
-Lemma aaa `{Eq T} `{Eq aT} (α : T -> aT) :
+Lemma avp_then_vp `{Eq T} `{Eq aT} (α : T -> aT) :
   forall p' r (VALp : valid_path (trans_root α r) [] p'),
   exists p, valid_path r [] p /\ p' = pmap α p.
 Proof.
@@ -950,7 +962,7 @@ Proof.
     exists (PM M p). ss. repeat rw. eauto.
 Qed.
 
-Lemma bbb `{Eq T} `{Eq aT} (α : T -> aT) :
+Lemma vp_then_avp `{Eq T} `{Eq aT} (α : T -> aT) :
   forall p r (VALp : valid_path r [] p),
   valid_path (trans_root α r) [] (pmap α p).
 Proof.
@@ -961,7 +973,7 @@ Proof.
     exploit IHp; eauto.
 Qed.
 
-Lemma ccc `{Eq T} `{Eq aT} (α : T -> aT) :
+Lemma avp_unique `{Eq T} `{Eq aT} (α : T -> aT) :
   forall (p p' : path T) r (VALp : valid_path r [] p)
     (VALp' : valid_path r [] p')
     (EQ : pmap α p = pmap α p'),
@@ -1010,6 +1022,52 @@ Proof.
   ii. des. rrw. eauto.
 Qed.
 
+Lemma pmap_fst_app `{Eq TT} `{Eq aTT} `{TotalOrder T} `{Eq aT}
+  (α' : TT -> aTT) (α : T -> aT) (φ : aTT -> aT) (φ' : aT -> aTT) :
+  forall p p'
+    (ϕ ϕ' : list (TT * T)) (t t' : T)
+    (SPECϕ : ϕ_spec α' α φ φ' ϕ t)
+    (SPECϕ' : ϕ_spec α' α φ φ' (ϕ' ++ ϕ) t')
+    (TRANS : pmap_fst ϕ p = Some p'),
+  pmap_fst (ϕ' ++ ϕ) p = Some p'.
+Proof.
+  induction p; ii; ss; repeat des_hyp; des; clarify;
+  try match goal with
+  | H : read_fst _ ?tx = Some ?t |- _ =>
+    symmetry in H;
+    apply read_fst_in in H as HH;
+    exploit (SPECϕ' tx t); auto;
+    try rewrite in_app_iff; auto;
+    ii; des; rrw
+  end;
+  exploit IHp;
+  first [exact SPECϕ | eauto];
+  ii; rw; reflexivity.
+Qed.
+
+Lemma pmap_snd_app `{Eq TT} `{Eq aTT} `{TotalOrder T} `{Eq aT}
+  (α' : TT -> aTT) (α : T -> aT) (φ : aTT -> aT) (φ' : aT -> aTT) :
+  forall p p'
+    (ϕ ϕ' : list (TT * T)) (t t' : T)
+    (SPECϕ : ϕ_spec α' α φ φ' ϕ t)
+    (SPECϕ' : ϕ_spec α' α φ φ' (ϕ' ++ ϕ) t')
+    (TRANS : pmap_snd ϕ p = Some p'),
+  pmap_snd (ϕ' ++ ϕ) p = Some p'.
+Proof.
+  induction p; ii; ss; repeat des_hyp; des; clarify;
+  try match goal with
+  | H : read_snd _ ?tx = Some ?t |- _ =>
+    symmetry in H;
+    apply read_snd_in in H as HH;
+    exploit (SPECϕ' t tx); auto;
+    try rewrite in_app_iff; auto;
+    ii; des; rrw
+  end;
+  exploit IHp;
+  first [exact SPECϕ | eauto];
+  ii; rw; reflexivity.
+Qed.
+
 Lemma trans_iso_C_pre_post `{Eq TT} `{Eq aTT} `{TotalOrder T} `{Eq aT}
   (α' : TT -> aTT) (inv_α : (T * aT) -> T) (α : T -> aT) 
   (SPECα : inv_α_spec α inv_α) (φ : aTT -> aT) (φ' : aT -> aTT) :
@@ -1031,9 +1089,9 @@ Proof.
     split. eauto.
     destruct PRE as [PRE PRE'].
     ii. specialize (PRE (pmap α' p')).
-    exploit PRE. apply (bbb α' p' (Ctx C')). eauto.
+    exploit PRE. apply (vp_then_avp α' p' (Ctx C')). eauto.
     ii; ss; des.
-    apply (aaa α _ (Ctx Cout)) in x0.
+    apply (avp_then_vp α _ (Ctx Cout)) in x0.
     des. rewrite x2 in *.
     exploit PRE0; eauto. ii; des_hyp; clarify.
     symmetry in HDES.
@@ -1041,78 +1099,416 @@ Proof.
     assert (pmap α' p0 = pmap α' p').
     { rrw. eapply pmap_fst_sound; eauto. }
     assert (p0 = p').
-    { eapply (@ccc TT _ aTT _); eauto. }
+    { eapply (@avp_unique TT _ aTT _); eauto. }
     clarify. rrw. eauto.
     ii. exploit SPECϕ; eauto. ii; des; eauto.
-  - repeat des_goal; repeat des_hyp; clarify;
+  - des_goal.
+    all:cycle 1.
+    (* Contradictory *)
+    des_hyp.
+    (* shadowed *)
+    exploit (IHCin (Cout +++ dy_binde x (inv_α (t, tx)) ([||])) C' _ _ _); eauto.
+    rewrite trans_C_app. ss.
+    destruct (SPECα t tx). rrw.
+    rewrite <- capp_assoc. ss. split. eauto.
+    ii. apply PRE0.
+    destruct p; ss;
+    first [rewrite capp_addr_x in *
+    | rewrite capp_ctx_M in *];
+    repeat des_hyp; des; clarify;
+    rewrite eqb_ID_eq in *; clarify.
+    rw. eauto.
+    (* not shadowed *)
+    destruct PRE as [PRE' PRE].
+    specialize (PRE (Px x tx Pnil)) as HINT.
+    exploit HINT; ss.
+    rewrite capp_addr_x.
+    rewrite trans_C_addr. rw. ss.
+    rewrite ID_refl. eauto.
+    rewrite trans_C_addr. clear HINT.
+    ii; des_hyp; des; clarify.
+    des_hyp; clarify.
+    des_hyp;
     match goal with
-    | _ : trans_iso_C _ ?C' _ _ ?Cout ?Cin = _ |- _ =>
-      exploit (IHCin Cout C'); eauto
-    | _ =>
-      destruct PRE as [? PRE];
-      specialize (PRE (Px x tx Pnil));
-      exploit PRE; ss; 
-      first [rewrite capp_addr_x;
-        rewrite trans_C_addr; rw; ss; rewrite ID_refl; eauto
-        | ii; des; ss; rewrite trans_C_addr in *;
-          repeat des_hyp; clarify]
+    | _ : read_fst _ _ = None |- _ =>
+      assert (ϕ_spec α' α φ φ' ((t0, inv_α (t, tx)) :: ϕ) (inv_α (t, tx))) as SPECϕ'
+    | _ => idtac
     end;
     match goal with
-    | |- _ /\ _ =>
-      split; 
-      first [rewrite trans_C_app; s;
-        destruct (SPECα t tx) as [? RR]; rrw;
-        rewrite <- capp_assoc; s; eauto
-        | ii; assert (valid_path (Ctx Cout) [] p)];
-      first [apply PRE0; eauto 
-        | destruct p; ss];
-      first [rewrite capp_addr_x in *
-        | rewrite capp_ctx_M in *];
-      repeat des_hyp; des; clarify;
-      rewrite eqb_ID_eq in *; clarify
-    | _ => idtac
-    end.
-    all:cycle 1.
-    split. rewrite trans_C_app; s.
-    assert (α t2 = φ (α' t1)).
+    | |- ϕ_spec _ _ _ _ _ _ => idtac
+    | H : trans_iso_C _ ?C' ?phi ?t ?Cout _ = None |- _ =>
+      exploit (IHCin Cout C' phi t);
+      first [rw; eauto | assumption | idtac]
+    end;
+    try rewrite trans_C_app; s;
+    try rewrite <- capp_assoc; s.
+    (* addr is already inside ϕ *)
+    assert (α t1 = φ (α' t0)).
     {
-      symmetry in HDES1.
-      apply read_fst_in in HDES1 as HH.
+      symmetry in HDES0.
+      apply read_fst_in in HDES0.
       exploit SPECϕ; eauto. ii; des. eauto.
     }
-    rw.
-    rewrite <- capp_assoc. s.
-    assert (φ (α' t1) = tx).
+    rw. rw. rw. 
+    split. split; eauto.
+    ii. destruct p; ss;
+    first [rewrite capp_addr_x in *
+      | rewrite capp_ctx_M in *];
+    repeat des_hyp; des; clarify.
+    exploit (PRE0 (Px x0 t2 p)). ss. rw. eauto.
+    ii. ss.
+    rewrite eqb_ID_eq in *; clarify.
+    symmetry in HDES0. apply read_fst_in in HDES0 as HH.
+    exploit SPECϕ; eauto.
+    ii; des. rrw.
+    destruct p; ss; des; clarify. rw. eauto.
+    exploit (PRE0 (PM M p)); ss; rw; eauto.
+    (* proof of ϕ_spec *)
+    ii. ss. des; clarify.
+    repeat rewrite t_refl.
+    repeat split; eauto using leb_refl.
+    destruct (SPECα t tx). rrw. rw. eauto.
+    destruct (SPECα t tx). rrw. eauto.
+    assert (eqb t'' t0 = false).
     {
-      destruct PRE as [PRE PRE'].
-      exploit (PRE' (Px x tx Pnil)).
-      ss. rewrite capp_addr_x.
-      rewrite trans_C_addr.
-      rw. ss. rewrite ID_refl. eauto.
-      ii. des. ss. rewrite trans_C_addr in *.
-      repeat des_hyp; des; clarify.
-      rw. eauto.
+      refl_bool. i. rewrite eqb_eq in *. clarify.
+      exploit SPECϕ; eauto. ii. des. rewrite HDES0 in *.
+      clarify.
     }
-    rw. eauto.
-    destruct p; ss.
-    repeat rewrite capp_addr_x.
-    repeat rewrite trans_C_addr in *.
+    assert (eqb t' (inv_α (t, tx)) = false).
+    {
+      refl_bool. i. rewrite eqb_eq in *. clarify.
+      exploit SPECϕ; eauto. ii. des.
+      destruct (SPECα t tx) as [LT RR].
+      rewrite <- RR in *.
+      destruct LT as [LE NEQ].
+      rewrite eqb_neq in *. apply NEQ.
+      apply leb_sym; eauto.
+    }
+    rw. rw. exploit SPECϕ; eauto.
+    ii; des. repeat (split; try assumption).
+    destruct (SPECα t tx) as [[? ?] ?]. lebt t.
+    destruct (SPECα t tx). rrw.
+    (* iso again *)
+    split. split; eauto.
+    ii. destruct p; simpl in VALp;
+    first [rewrite capp_addr_x in *
+      | rewrite capp_ctx_M in * | idtac];
+    repeat des_hyp; des; clarify;
+    match goal with
+    | _ =>
+      s; rewrite t_refl; rewrite eqb_ID_eq in *;
+      destruct p; ss; des; clarify; rw; eauto
+    | |- context [pmap_snd _ ?p] =>
+      exploit (PRE0 p); first [ss; rw; eauto | idtac];
+      ii; des_hyp; clarify;
+      match goal with
+      | |- context [?a :: ?l] =>
+        replace (a :: l) with ([a] ++ l) by reflexivity
+      end;
+      erewrite (@pmap_snd_app TT _ aTT _ T _ _ aT _);
+      eauto; first [exact SPECϕ | exact SPECϕ']
+    end.
+    (* now the non-contradictory cases *)
+    des_hyp.
+    (* shadowed *)
+    exploit (IHCin (Cout +++ dy_binde x (inv_α (t, tx)) ([||])) C' _ _ _); eauto.
+    rewrite trans_C_app. ss.
+    destruct (SPECα t tx). rrw.
+    rewrite <- capp_assoc. ss. split. eauto.
+    ii. apply PRE0.
+    destruct p0; ss;
+    first [rewrite capp_addr_x in *
+    | rewrite capp_ctx_M in *];
+    repeat des_hyp; des; clarify;
+    rewrite eqb_ID_eq in *; clarify.
+    rw. ii. repeat des_hyp; des; clarify.
+    rewrite trans_C_app in *. ss.
+    rewrite <- capp_assoc in *. ss.
+    split. exists (dy_binde x (inv_α (t, tx)) Cin'). eauto.
+    split. rewrite trans_C_app in *. ss.
+    destruct (SPECα t tx). rewrite <- H5 in *.
+    rewrite <- capp_assoc in *. ss.
+    split. exists ϕ''. eauto. eauto.
+    (* not shadowed *)
+    des_hyp; clarify.
+    destruct PRE as [PRE' PRE].
+    specialize (PRE (Px x tx Pnil)) as HINT.
+    exploit HINT; ss.
+    rewrite capp_addr_x.
+    rewrite trans_C_addr. rw. s.
+    rewrite ID_refl. eauto. clear HINT.
+    rewrite trans_C_addr. rw.
+    ii. des; clarify.
+    des_hyp;
+    match goal with
+    | _ : read_fst _ _ = None |- _ =>
+      assert (ϕ_spec α' α φ φ' ((t0, inv_α (t, tx)) :: ϕ) (inv_α (t, tx))) as SPECϕ'
+    | _ => idtac
+    end;
+    match goal with
+    | |- ϕ_spec _ _ _ _ _ _ => idtac
+    | H : trans_iso_C _ ?C' ?phi ?t ?Cout _ = _ |- _ =>
+      exploit (IHCin Cout C' phi t);
+      first [rw; eauto | assumption | idtac]
+    end;
+    try rewrite trans_C_app; s;
+    try rewrite <- capp_assoc; s.
+    (* in ϕ *)
+    assert (α t1 = φ (α' t0)).
+    {
+      symmetry in HDES1.
+      apply read_fst_in in HDES1.
+      exploit SPECϕ; eauto. ii; des. eauto.
+    }
+    rw. rewrite <- x1. rw. 
+    split. split; eauto.
+    ii. destruct p0; ss;
+    first [rewrite capp_addr_x in *
+      | rewrite capp_ctx_M in *];
     repeat des_hyp; des; clarify.
-    des_goal; repeat des_hyp; clarify.
-    rewrite trans
-    destruct p; ss.
-    rewrite capp_addr_x in *.
-    repeat des_hyp; des; clarify.
-    rewrite eqb_ID_eq in *. clarify.
-    rewrite capp_ctx_M in *.
-    repeat des_hyp; des; clarify.
-    apply PRE0. eauto.
+    exploit (PRE0 (Px x0 t2 p0)). ss. rw. eauto.
+    ii. ss.
+    rewrite eqb_ID_eq in *; clarify.
+    symmetry in HDES1. apply read_fst_in in HDES1 as HH.
+    exploit SPECϕ; eauto.
+    ii; des. rrw.
+    destruct p0; ss; des; clarify. rw. eauto.
+    exploit (PRE0 (PM M p0)); ss; rw; eauto.
     all:cycle 1.
-
-    all:cycle 3.
-    exploit 
+    (* prove ϕ_spec *)
+    ii. ss. des; clarify.
+    repeat rewrite t_refl.
+    repeat split; eauto using leb_refl.
+    destruct (SPECα t tx). rrw. rrw. eauto.
+    destruct (SPECα t tx). rrw. eauto.
+    assert (eqb t'' t0 = false).
+    {
+      refl_bool. i. rewrite eqb_eq in *. clarify.
+      exploit SPECϕ; eauto. ii. des. rewrite HDES1 in *.
+      clarify.
+    }
+    assert (eqb t' (inv_α (t, tx)) = false).
+    {
+      refl_bool. i. rewrite eqb_eq in *. clarify.
+      exploit SPECϕ; eauto. ii. des.
+      destruct (SPECα t tx) as [LT RR].
+      rewrite <- RR in *.
+      destruct LT as [LE NEQ].
+      rewrite eqb_neq in *. apply NEQ.
+      apply leb_sym; eauto.
+    }
+    rw. rw. exploit SPECϕ; eauto.
+    ii; des. repeat (split; try assumption).
+    destruct (SPECα t tx) as [[? ?] ?]. lebt t.
+    (* iso when not in ϕ *)
+    destruct (SPECα t tx). rrw.
+    split. split; eauto.
+    ii. destruct p0; simpl in VALp;
+    first [rewrite capp_addr_x in *
+      | rewrite capp_ctx_M in * | idtac];
+    repeat des_hyp; des; clarify;
+    match goal with
+    | _ =>
+      s; rewrite t_refl; rewrite eqb_ID_eq in *;
+      destruct p0; ss; des; clarify; rw; eauto
+    | |- context [pmap_snd _ ?p] =>
+      exploit (PRE0 p); first [ss; rw; eauto | idtac];
+      ii; des_hyp; clarify;
+      match goal with
+      | |- context [?a :: ?l] =>
+        replace (a :: l) with ([a] ++ l) by reflexivity
+      end;
+      erewrite (@pmap_snd_app TT _ aTT _ T _ _ aT _);
+      eauto; first [exact SPECϕ | exact SPECϕ']
+    end.
+    (* main proofs *)
+    + ii. repeat des_hyp; des; clarify.
+      repeat rewrite trans_C_app in *.
+      repeat rewrite <- capp_assoc in *. ss.
+      split. eauto.
+      split. destruct (SPECα t tx) as [? RR]. rewrite <- RR in *. eauto.
+      split. exists (ϕ'' ++ [(t0, inv_α (t, tx))]).
+      rewrite <- app_assoc. s. eauto.
+      eauto.
+    + ii. repeat des_hyp; des; clarify.
+      repeat rewrite trans_C_app in *.
+      repeat rewrite <- capp_assoc in *. ss.
+      split. eauto.
+      split.
+      assert (φ (α' t0) = α t1).
+      {
+        symmetry in HDES1.
+        apply read_fst_in in HDES1.
+        exploit SPECϕ; eauto. ii; des. eauto.
+      }
+      assert (tx = α t1).
+      { rrw. rrw. rw. reflexivity. }
+      rw. eauto.
+      eauto.
+  - des_goal.
+    all:cycle 1.
+    (* Contradictory *)
+    des_hyp.
+    (* shadowed *)
+    exploit (IHCin2 (Cout +++ dy_bindm M (lift_C inv_α t Cin1) ([||])) C' _ _ _); eauto.
+    rewrite trans_C_app. ss.
+    rewrite lift_C_lower; eauto.
+    rewrite <- capp_assoc. ss. split. eauto.
+    ii. apply PRE0.
+    destruct p; ss;
+    first [rewrite capp_addr_x in *
+    | rewrite capp_ctx_M in *];
+    repeat des_hyp; des; clarify;
+    rewrite eqb_ID_eq in *; clarify.
+    rw. eauto.
+    (* not shadowed *)
+    destruct PRE as [PRE' PRE].
+    specialize (PRE (PM M Pnil)) as HINT.
+    exploit HINT; ss.
+    rewrite capp_ctx_M.
+    rewrite trans_C_ctx_M. rw. ss.
+    rewrite ID_refl. eauto.
+    rewrite trans_C_ctx_M. clear HINT.
+    ii; des_hyp; des; clarify.
+    des_hyp; clarify.
+    repeat des_hyp; clarify;
+    match goal with
+    | IHC : context [match trans_iso_C _ _ _ _ _ ?Cin with _ => _ end],
+      _ : trans_iso_C _ ?C' ?phi ?t ?Cout ?Cin = None |- _ =>
+      match goal with
+      | IHC : context [match trans_iso_C _ _ _ _ _ ?Cin with _ => _ end],
+        _ : trans_iso_C _ ?C' ?phi ?t ?Cout ?Cin = Some _ |- _ =>
+        exploit (IHC Cout C' phi t);
+        first [rw; eauto | assumption | idtac]
+      | _ =>
+        exploit (IHC Cout C' phi t);
+        first [rw; eauto | assumption | idtac]
+      end
+    end;
+    try match goal with
+    | |- context [iso] =>
+      s; split; try solve [ii; destruct p; ss];
+      split; ii;
+      match goal with
+      | _ =>
+        exploit (PRE' (PM M p)); s;
+        first [solve [rewrite trans_C_ctx_M; rw; eauto] |
+          rewrite capp_ctx_M; rewrite trans_C_ctx_M;
+          rw; s; rewrite ID_refl; subst p']
+      | _ =>
+        exploit (PRE (PM M p')); s;
+        first [solve [rewrite capp_ctx_M; rewrite trans_C_ctx_M;
+          rw; s; rewrite ID_refl; eauto] |
+          rewrite trans_C_ctx_M; rw; subst p]
+      end
+    end; ii; des; clarify.
+    ss.
+    match goal with
+    | IHC : context [match trans_iso_C _ _ _ _ _ ?Cin with _ => _ end],
+      _ : trans_iso_C _ ?C' ?phi ?t ?Cout ?Cin = None |- _ =>
+      exploit (IHC Cout C' phi t);
+      first [rw; eauto | assumption | idtac]
+    end. clear IHCin1 IHCin2.
+    rewrite trans_C_app. s. rrw.
+    rewrite <- capp_assoc. s.
+    split. split; assumption.
+    ii. destruct p; ss;
+    first [rewrite capp_addr_x in *
+      | rewrite capp_ctx_M in *];
+    repeat des_hyp; des; clarify.
+    exploit (PRE0 (Px x t1 p)). s. rw. eauto.
+    ii. repeat des_hyp; clarify.
+    eapply (@pmap_snd_app TT _ aTT) with (ϕ' := ϕ'') in HDES2 as RR; eauto.
+    clear HDES2. ss. rw. eauto.
+    exploit (PRE0 (PM M0 p)). s. rw. eauto.
+    ii. repeat des_hyp; clarify.
+    eapply (@pmap_snd_app TT _ aTT) in HDES2 as RR; eauto.
+    clear HDES2. ss. rw. eauto.
+    rewrite eqb_ID_eq in *; clarify.
+    exploit x6; eauto. ii.
+    des_hyp; clarify. s. rw. eauto.
+    (* now the non-contradictory cases *)
+    des_hyp.
+    (* shadowed *)
+    match goal with
+    | IHC : context [match trans_iso_C _ _ _ _ _ ?Cin with _ => _ end],
+      _ : trans_iso_C _ ?C' ?phi ?t ?Cout ?Cin = Some _ |- _ =>
+      exploit (IHC Cout C' phi t); 
+      first [rw | assumption | idtac]
+    end;
+    ii; repeat des_hyp; des; clarify;
+    repeat rewrite trans_C_app in *; ss;
+    rewrite lift_C_lower in *; eauto;
+    repeat rewrite <- capp_assoc in *; ss.
+    split. assumption.
+    ii. apply PRE0.
+    destruct p0; ss;
+    first [rewrite capp_addr_x in *
+      | rewrite capp_ctx_M in *];
+    repeat des_hyp; des; clarify.
+    rewrite eqb_ID_eq in *; clarify.
+    repeat (split; eauto).
+    (* not shadowed *)
+    destruct PRE as [PRE' PRE].
+    specialize (PRE (PM M Pnil)) as HINT.
+    exploit HINT; ss.
+    rewrite capp_ctx_M.
+    rewrite trans_C_ctx_M. rw. ss.
+    rewrite ID_refl. eauto.
+    rewrite trans_C_ctx_M. clear HINT.
+    ii; des_hyp; des; clarify.
+    des_hyp; clarify.
+    repeat des_hyp; clarify.
+    exploit (IHCin1 ([||]) d0 ϕ t); eauto; clear IHCin1.
+    match goal with
+    | |- context [iso] =>
+      s; split; try solve [ii; destruct p0; ss];
+      split; ii;
+      match goal with
+      | p : path aTT |- _ =>
+        exploit (PRE' (PM M p)); s;
+        first [solve [rewrite trans_C_ctx_M; rw; eauto] |
+          rewrite capp_ctx_M; rewrite trans_C_ctx_M;
+          rw; s; rewrite ID_refl]
+      | p' : path aT |- _ =>
+        exploit (PRE (PM M p')); s;
+        first [solve [rewrite capp_ctx_M; rewrite trans_C_ctx_M;
+          rw; s; rewrite ID_refl; eauto] |
+          rewrite trans_C_ctx_M; rw]
+      end
+    end; ii; des; clarify.
+    rw. ii. des. clarify.
+    match goal with
+    | IHC : context [match trans_iso_C _ _ _ _ _ ?Cin with _ => _ end],
+      _ : trans_iso_C _ ?C' ?phi ?t ?Cout ?Cin = Some _ |- _ =>
+      exploit (IHC Cout C' phi t); 
+      first [rw | assumption | idtac]
+    end;
+    ii; repeat des_hyp; des; clarify;
+    repeat rewrite trans_C_app in *; ss;
+    repeat rewrite <- capp_assoc in *; ss; repeat rrw.
+    split. split; eauto.
+    ii. destruct p0; ss;
+    first [rewrite capp_addr_x in *
+      | rewrite capp_ctx_M in *];
+    repeat des_hyp; des; clarify.
+    exploit (PRE0 (Px x t1 p0)). s. rw. eauto.
+    ii. repeat des_hyp; clarify.
+    eapply (@pmap_snd_app TT _ aTT) with (ϕ' := ϕ'') in HDES2 as RR; eauto.
+    clear HDES2. ss. rw. eauto.
+    exploit (PRE0 (PM M0 p0)). s. rw. eauto.
+    ii. repeat des_hyp; clarify.
+    eapply (@pmap_snd_app TT _ aTT) in HDES2 as RR; eauto.
+    clear HDES2. ss. rw. eauto.
+    rewrite eqb_ID_eq in *; clarify.
+    exploit x6; eauto. ii.
+    des_hyp; clarify. s. rw. eauto.
+    (* finish off *)
+    repeat (split; eauto).
+    rewrite app_assoc. eauto.
+Qed.
     
-
 (*
 
 

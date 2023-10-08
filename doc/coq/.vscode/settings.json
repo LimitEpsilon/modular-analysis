@@ -1,4 +1,17 @@
 {
     "vscoq.proof.mode": 0,
-    "vscoq.goals.messages.full": true
+    "vscoq.goals.messages.full": true,
+    "files.exclude": {
+        "**/*.vo": true,
+        "**/*.vok": true,
+        "**/*.vos": true,
+        "**/*.aux": true,
+        "**/*.glob": true,
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true
+    }
 }

@@ -51,7 +51,7 @@ Ltac rrw :=
     lazymatch type of RR with
     | ?a = ?b =>
       lazymatch a with
-      | context [b] => idtac
+      | context [b] => fail
       | _ => rewrite <- RR
       end
     | _ => rewrite <- RR
