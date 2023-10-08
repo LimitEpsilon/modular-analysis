@@ -791,6 +791,80 @@ Definition ϕ_spec `{Eq TT} `{Eq aTT} `{TotalOrder T} `{Eq aT}
     α t' = φ (α' t'') /\
     α' t'' = φ' (α t').
 
+Lemma read_fst_in `{Eq T} `{Eq TT} (ϕ : list (T * TT)) :
+  forall t t' (READ : Some t' = read_fst ϕ t),
+    In (t, t') ϕ.
+Proof.
+  induction ϕ; ii; ss; repeat des_hyp; clarify; eauto.
+  rewrite eqb_eq in *; clarify; eauto.
+Qed.
+
+Lemma in_read_fst `{Eq T} `{Eq TT} (ϕ : list (T * TT)) :
+  forall t t' (IN : In (t, t') ϕ),
+    exists t'', Some t'' = read_fst ϕ t.
+Proof.
+  induction ϕ; ii; ss; repeat des_hyp; des; clarify; eauto.
+  rewrite t_refl. eauto.
+  exploit IHϕ; eauto. ii; des; clarify.
+  repeat des_goal; clarify; eauto.
+Qed.
+
+Lemma read_snd_in `{Eq T} `{Eq TT} (ϕ : list (T * TT)) :
+  forall t t' (READ : Some t = read_snd ϕ t'),
+    In (t, t') ϕ.
+Proof.
+  induction ϕ; ii; ss; repeat des_hyp; clarify; eauto.
+  rewrite eqb_eq in *; clarify; eauto.
+Qed.
+
+Lemma in_read_snd `{Eq T} `{Eq TT} (ϕ : list (T * TT)) :
+  forall t t' (IN : In (t, t') ϕ),
+    exists t'', Some t'' = read_snd ϕ t'.
+Proof.
+  induction ϕ; ii; ss; repeat des_hyp; des; clarify; eauto.
+  rewrite t_refl. eauto.
+  exploit IHϕ; eauto. ii; des; clarify.
+  repeat des_goal; clarify; eauto.
+Qed.
+
+Lemma ϕ_spec_app `{Eq TT} `{Eq aTT} `{TotalOrder T} `{Eq aT}
+  (α' : TT -> aTT) (α : T -> aT) (φ : aTT -> aT) (φ' : aT -> aTT) :
+  forall (ϕ1 ϕ2 : list (TT * T)) (t : T)
+    (SPECϕ : ϕ_spec α' α φ φ' (ϕ1 ++ ϕ2) t),
+  ϕ_spec α' α φ φ' ϕ1 t /\ ϕ_spec α' α φ φ' ϕ2 t.
+Proof.
+  induction ϕ1; ii; ss.
+  assert (ϕ_spec α' α φ φ' (ϕ1 ++ ϕ2) t).
+  {
+    ii. exploit (SPECϕ t'' t'); eauto.
+    ss. rewrite in_app_iff in *. des; eauto.
+    ii. des. ss. repeat des_hyp; clarify;
+    first [rewrite t_refl in *; clarify |
+      rewrite eqb_eq in *; clarify].
+    repeat split; eauto.
+    apply in_read_fst in IN as READ. des.
+    apply read_fst_in in READ as IN'.
+    exploit (SPECϕ t0 t''); ss; eauto.
+    rewrite t_refl. ii; des; clarify.
+    apply in_read_snd in IN as READ. des.
+    apply read_snd_in in READ as IN'.
+    exploit (SPECϕ t'' t1); ss; eauto.
+    rewrite t_refl. ii; des; clarify.
+  }
+  exploit IHϕ1; eauto.
+  ii. des. split; eauto.
+  ii. ss.
+  exploit (SPECϕ t'' t'). ss. rewrite in_app_iff.
+  des; eauto. ii. des; clarify.
+  - repeat rewrite t_refl. eauto.
+  - exploit (x0 t'' t'). eauto.
+    ii. des; clarify.
+    ss.
+    rewrite read_fst_top in *.
+    rewrite read_snd_top in *.
+    repeat des_hyp; clarify.
+Qed.
+
 Lemma trans_C_app {T TT} (α : T -> TT) :
   forall (C1 C2 : dy_ctx T),
     trans_C α (C1 +++ C2) = trans_C α C1 +++ trans_C α C2.
@@ -846,22 +920,6 @@ Fixpoint pmap_snd `{Eq T} `{Eq TT} (ϕ : list (T * TT)) (p : path TT) :=
     end
   end.
 
-Lemma read_fst_in `{Eq T} `{Eq TT} (ϕ : list (T * TT)) :
-  forall t t' (READ : Some t' = read_fst ϕ t),
-    In (t, t') ϕ.
-Proof.
-  induction ϕ; ii; ss; repeat des_hyp; clarify; eauto.
-  rewrite eqb_eq in *; clarify; eauto.
-Qed.
-
-Lemma read_snd_in `{Eq T} `{Eq TT} (ϕ : list (T * TT)) :
-  forall t t' (READ : Some t = read_snd ϕ t'),
-    In (t, t') ϕ.
-Proof.
-  induction ϕ; ii; ss; repeat des_hyp; clarify; eauto.
-  rewrite eqb_eq in *; clarify; eauto.
-Qed.
-
 Lemma pmap_ϕ_bij `{Eq T} `{Eq TT} (ϕ : list (T * TT))
   (PRE : forall t t' (IN : In (t, t') ϕ),
     Some t' = read_fst ϕ t /\
@@ -913,6 +971,18 @@ Definition trans_iso_C_pre `{Eq TT} `{Eq aTT} `{TotalOrder T} `{Eq aT}
     end)
 .
 
+Fixpoint Inp `{Eq T} (t : T) (p : path T) :=
+  match p with
+  | Pnil => False
+  | Px x tx p =>
+    t = tx \/ Inp t p
+  | PM M p => Inp t p
+  | Pv v p => Inp t p
+  end.
+
+Definition reachable `{Eq T} (r : root T) (m : memory T) (t : T) :=
+  exists p, valid_path r m p /\ Inp t p.
+
 Definition trans_iso_C_post `{Eq TT} `{Eq aTT} `{TotalOrder T} `{Eq aT}
   (α' : TT -> aTT) (inv_α : (T * aT) -> T) (α : T -> aT)
   (φ : aTT -> aT) (φ' : aT -> aTT) (ϕ : list (TT * T)) (t : T)
@@ -921,7 +991,9 @@ Definition trans_iso_C_post `{Eq TT} `{Eq aTT} `{TotalOrder T} `{Eq aT}
   | Some (C, ϕ', t') =>
     (exists Cin', C = Cout +++ Cin') /\
     trans_C α Cout +++ Cin = trans_C α C /\
-    (exists ϕ'', ϕ' = ϕ'' ++ ϕ) /\
+    (exists ϕ'', ϕ' = ϕ'' ++ ϕ /\
+      forall t (IN : None <> read_fst ϕ'' t),
+        reachable (Ctx C') [] t) /\
     ϕ_spec α' α φ φ' ϕ' t' /\
     (forall p (VALp : valid_path (Ctx C) [] p),
       match pmap_snd ϕ' p with
@@ -1084,7 +1156,7 @@ Proof.
   - rewrite capp_nil_r in *.
     split. exists ([||]). rewrite capp_nil_r. eauto.
     split. eauto.
-    split. exists []. eauto.
+    split. exists []. split; eauto. ii; contradict.
     split. eauto.
     split. eauto.
     destruct PRE as [PRE PRE'].
@@ -1329,7 +1401,11 @@ Proof.
       split. eauto.
       split. destruct (SPECα t tx) as [? RR]. rewrite <- RR in *. eauto.
       split. exists (ϕ'' ++ [(t0, inv_α (t, tx))]).
-      rewrite <- app_assoc. s. eauto.
+      rewrite <- app_assoc. s. split; eauto.
+      ii. rewrite read_fst_top in *. ss.
+      repeat des_hyp; clarify. apply x8. rw. eauto.
+      rewrite eqb_eq in *. clarify.
+      exists (Px x t0 Pnil). ss. rw. eauto.
       eauto.
     + ii. repeat des_hyp; des; clarify.
       repeat rewrite trans_C_app in *.
@@ -1345,7 +1421,7 @@ Proof.
       assert (tx = α t1).
       { rrw. rrw. rw. reflexivity. }
       rw. eauto.
-      eauto.
+      split; eauto.
   - des_goal.
     all:cycle 1.
     (* Contradictory *)
@@ -1506,7 +1582,12 @@ Proof.
     des_hyp; clarify. s. rw. eauto.
     (* finish off *)
     repeat (split; eauto).
-    rewrite app_assoc. eauto.
+    rewrite app_assoc. eexists. split. reflexivity.
+    ii. rewrite read_fst_top in *.
+    repeat des_hyp. apply x13. rw. eauto.
+    assert (reachable (Ctx d0) [] t2) as HINT. eauto.
+    unfold reachable in HINT. des.
+    exists (PM M p). s. rw. eauto.
 Qed.
     
 (*
