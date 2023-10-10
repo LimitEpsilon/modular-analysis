@@ -692,6 +692,13 @@ Definition trans_ρ {CT AT} `{Eq CT} (α : CT -> AT) (ρ : config CT) :=
   end.
 
 (* Lemmas on translation *)
+Lemma trans_C_app {T TT} (α : T -> TT) :
+  forall (C1 C2 : dy_ctx T),
+    trans_C α (C1 +++ C2) = trans_C α C1 +++ trans_C α C2.
+Proof.
+  induction C1; ii; ss; rw; exact eq_refl.
+Qed.
+
 Lemma aread_in {T} `{Eq T} :
   forall (m : memory T) t v, In v (aread m t) <-> In (t, v) m.
 Proof.

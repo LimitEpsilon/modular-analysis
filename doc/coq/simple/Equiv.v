@@ -2,6 +2,51 @@ From Simple Require Export Bound.
 
 Generalizable Variables T TT aT aTT.
 
+Fixpoint Inp {T} (t : T) (p : path T) :=
+  match p with
+  | Pnil => False
+  | Px x tx p =>
+    t = tx \/ Inp t p
+  | PM M p => Inp t p
+  | Pv v p => Inp t p
+  end.
+
+Fixpoint Inpb `{Eq T} (t : T) (p : path T) :=
+  match p with
+  | Pnil => false
+  | Px x tx p =>
+    eqb t tx || Inpb t p
+  | PM M p => Inpb t p
+  | Pv v p => Inpb t p
+  end.
+
+Lemma Inpb_In `{Eq T} :
+  forall p t,
+    Inpb t p = true <-> Inp t p.
+Proof.
+  induction p; ii; ss;
+  split; intros IN;
+  des; repeat des_hyp; clarify.
+  rewrite eqb_eq in *. clarify. eauto.
+  rewrite IHp in IN. eauto.
+  rewrite t_refl. eauto.
+  des_goal. eauto. rewrite IHp. eauto.
+Qed.
+
+Lemma Inpb_nIn `{Eq T} :
+  forall p t,
+    Inpb t p = false <-> ~ Inp t p.
+Proof.
+  ii. destruct (Inpb t p) eqn:CASE.
+  split; ii; clarify.
+  rewrite Inpb_In in *. contradict.
+  split; ii; clarify.
+  rewrite <- Inpb_In in *. rewrite CASE in *. clarify.
+Qed.
+
+Definition reachable `{Eq T} (r : root T) (m : memory T) (t : T) :=
+  exists p, valid_path r m p /\ Inp t p.
+
 Lemma same_top_app {T} :
   forall (a b c : list T) (EQ : a ++ b = a ++ c), b = c.
 Proof.
@@ -865,13 +910,6 @@ Proof.
     repeat des_hyp; clarify.
 Qed.
 
-Lemma trans_C_app {T TT} (α : T -> TT) :
-  forall (C1 C2 : dy_ctx T),
-    trans_C α (C1 +++ C2) = trans_C α C1 +++ trans_C α C2.
-Proof.
-  induction C1; ii; ss; rw; exact eq_refl.
-Qed.
-
 Fixpoint pmap_fst `{Eq T} `{Eq TT} (ϕ: list (T * TT)) (p : path T) :=
   match p with
   | Pnil => Some Pnil
@@ -970,18 +1008,6 @@ Definition trans_iso_C_pre `{Eq TT} `{Eq aTT} `{TotalOrder T} `{Eq aT}
     | None => False
     end)
 .
-
-Fixpoint Inp `{Eq T} (t : T) (p : path T) :=
-  match p with
-  | Pnil => False
-  | Px x tx p =>
-    t = tx \/ Inp t p
-  | PM M p => Inp t p
-  | Pv v p => Inp t p
-  end.
-
-Definition reachable `{Eq T} (r : root T) (m : memory T) (t : T) :=
-  exists p, valid_path r m p /\ Inp t p.
 
 Definition trans_iso_C_post `{Eq TT} `{Eq aTT} `{TotalOrder T} `{Eq aT}
   (α' : TT -> aTT) (inv_α : (T * aT) -> T) (α : T -> aT)
@@ -1403,7 +1429,8 @@ Proof.
       split. exists (ϕ'' ++ [(t0, inv_α (t, tx))]).
       rewrite <- app_assoc. s. split; eauto.
       ii. rewrite read_fst_top in *. ss.
-      repeat des_hyp; clarify. apply x8. rw. eauto.
+      repeat des_hyp; clarify.
+      match goal with H : _ |- _ => apply H; rw; eauto end.
       rewrite eqb_eq in *. clarify.
       exists (Px x t0 Pnil). ss. rw. eauto.
       eauto.
@@ -1584,12 +1611,253 @@ Proof.
     repeat (split; eauto).
     rewrite app_assoc. eexists. split. reflexivity.
     ii. rewrite read_fst_top in *.
-    repeat des_hyp. apply x13. rw. eauto.
+    repeat des_hyp. 
+    match goal with H : _ |- _ => apply H; rw; eauto end.
     assert (reachable (Ctx d0) [] t2) as HINT. eauto.
     unfold reachable in HINT. des.
     exists (PM M p). s. rw. eauto.
 Qed.
-    
+
+Fixpoint find_iso `{Eq aTT} `{Eq aT}
+  (v : expr_value aTT) (vl : list (expr_value aT)) φ φ' :=
+  match vl with
+  | [] => None
+  | v' :: vl' =>
+    match v, v' with
+    | Closure x e C, Closure x' e' C' =>
+      if eqb_ID x x' && eq_tm e e' && iso_C C C' φ φ'
+      then Some v'
+      else find_iso v vl' φ φ'
+    end
+  end.
+
+Fixpoint remove_t `{Eq T} (m : memory T) t :=
+  match m with
+  | [] => []
+  | (t', v) :: tl =>
+    let tl := remove_t tl t in
+    if eqb t t' then tl else (t', v) :: tl
+  end.
+
+Lemma remove_t_dec `{Eq T} :
+  forall (m : memory T) t,
+  (List.length (remove_t m t)) <= (List.length m).
+Proof.
+  induction m; intros; simpl; eauto.
+  repeat des_goal; repeat des_hyp; clarify;
+  try rewrite eqb_eq in *; subst;
+  match goal with
+  | |- context [remove_t _ ?t] =>
+    specialize (IHm t); nia
+  end.
+Qed.
+
+Lemma remove_t_read `{Eq T} :
+  forall (m : memory T) t,
+  None = read (remove_t m t) t.
+Proof.
+  induction m; ii; ss; repeat des_goal; repeat des_hyp; clarify.
+  rewrite eqb_eq in *; clarify. rewrite t_refl in *. clarify.
+Qed.
+
+Lemma remove_t_read_some `{Eq T} :
+  forall (m : memory T) t t' (NEQ : t <> t'),
+  read (remove_t m t) t' = read m t'.
+Proof.
+  induction m; ii; ss; repeat des_goal; repeat des_hyp;
+  try rewrite eqb_eq in *; clarify; eauto.
+Qed.
+
+Lemma vpath_less_then_vpath_more `{Eq T} :
+  forall a b p r (VAL : valid_path r a p),
+  valid_path r (a ++ b) p.
+Proof.
+  ii.
+  ginduction p; ii; ss;
+  repeat des_hyp; des; clarify; eauto.
+  des_hyp; des; clarify.
+  exists (Closure x e C).
+  rewrite read_top. rewrite <- VAL. eauto.
+Qed.
+
+Fixpoint plen {T} (p : path T) :=
+  match p with
+  | Pnil => 0
+  | PM _ p
+  | Pv _ p
+  | Px _ _ p => S (plen p)
+  end.
+
+Lemma separate_vpath `{Eq T} :
+  forall n p C m t tr
+    (LE : plen p <= n)
+    (VAL : valid_path (Ctx C) m p)
+    (NIN : ~ Inp tr p)
+    (IN : Inp t p),
+  exists p' t',
+    valid_path (Ctx C) [] p' /\
+    ~ Inp tr p' /\
+    Inp t' p' /\
+    (t' = t \/
+    exists p'', 
+      ~ Inp tr p'' /\ valid_path (Ptr t') m p'' /\ Inp t p'' /\
+      plen p' + plen p'' <= n).
+Proof.
+  induction n; ii; ss.
+  destruct p; ss; nia.
+  destruct p; ss; repeat des_hyp; des; clarify.
+  - exists (Px x t0 Pnil). exists t0.
+    s. rw. repeat (split; eauto).
+    red; ii; des; clarify. apply NIN. eauto.
+  - exists (Px x t0 Pnil). exists t0.
+    s. rw. repeat (split; eauto).
+    red; ii; des; clarify. apply NIN. eauto.
+    right. exists p. repeat (split; eauto).
+  - exploit IHn; eauto. nia.
+    ii; des; clarify.
+    exists (PM M p'). exists t. s. rw. eauto.
+    exists (PM M p'). exists t'. s. rw.
+    repeat (split; eauto).
+    right. exists p''. repeat (split; eauto).
+    nia.
+Qed.
+
+Lemma reachable_remove_aux `{Eq T} :
+  forall n p r m tr (* time to be removed *) t
+    (LE : plen p <= n)
+    (VAL : valid_path r m p)
+    (IN : Inp t p)
+    (NEQ : t <> tr),
+  (exists p', ~ Inp tr p' /\ valid_path r m p' /\ Inp t p' /\ plen p' <= n) \/
+  match read m tr with
+  | Some (Closure _ _ C) =>
+    exists p' t',
+      valid_path (Ctx C) [] p' /\
+      Inp t' p' /\
+      ~ Inp tr p' /\
+      (t' = t \/
+      exists p'',
+        ~ Inp tr p'' /\ valid_path (Ptr t') m p'' /\ Inp t p'' /\
+        plen p' + plen p'' <= n)
+  | None => False
+  end.
+Proof.
+  induction n.
+  ii. destruct p; ss; nia.
+  ii. destruct p; ss; repeat des_hyp; des; clarify.
+  - left. exists (Px x t0 Pnil). s. rw.
+    repeat (split; eauto). red; ii; des; clarify.
+    nia.
+  - destruct (eqb t0 tr) eqn:CASE.
+    rewrite eqb_eq in *. clarify.
+    destruct p; ss. des. des_hyp. des. clarify.
+    rrw. right.
+    exploit IHn; eauto. nia. rrw.
+    ii; des; clarify.
+    exploit separate_vpath; eauto.
+    ii; des; clarify.
+    eexists. eexists. eauto.
+    eexists. eexists. repeat (split; eauto).
+    right. exists p''. eauto.
+    exists p'. exists t. eauto.
+    exists p'. exists t'. repeat split; eauto.
+    right. exists p''. eauto.
+    rewrite eqb_neq in *.
+    exploit IHn; eauto. nia. ii. des; eauto.
+    left. exists (Px x t0 p').
+    s. rw. repeat (split; eauto).
+    red; ii; des; clarify. nia. right.
+    repeat des_hyp; des; clarify.
+    exists p'. exists t. eauto.
+    exists p'. exists t'. repeat split; eauto.
+    right. exists p''. eauto.
+  - exploit IHn; eauto. nia.
+    ii. des; eauto.
+    left. exists (PM M p'). s. rw. repeat (split; eauto). nia.
+    repeat des_hyp; des; clarify.
+    right. exists p'. exists t. eauto.
+    right. exists p'. exists t'. repeat (split; eauto).
+    right. exists p''. eauto.
+  - des_hyp; des; clarify.
+    destruct (eqb t0 tr) eqn:CASE.
+    rewrite eqb_eq in *. clarify.
+    rrw. right.
+    exploit IHn; eauto. nia.
+    ii. des; clarify.
+    exploit separate_vpath; eauto.
+    ii. des; clarify.
+    eexists. eexists. eauto.
+    eexists. eexists. repeat (split; eauto).
+    right. exists p''. eauto.
+    rewrite <- VAL in *. des; clarify.
+    exists p'. exists t. eauto.
+    exists p'. exists t'. repeat (split; eauto).
+    right. exists p''. eauto.
+    rewrite eqb_neq in *.
+    exploit IHn; eauto. nia.
+    ii. des; clarify.
+    left. exists (Pv (v_fn x e) p').
+    s. repeat (split; eauto).
+    exists (Closure x e C). eauto.
+    nia.
+    repeat des_hyp; des; clarify.
+    right. exists p'. exists t. eauto.
+    right. exists p'. exists t'. repeat (split; eauto).
+    right. exists p''. eauto.
+Qed.
+
+Lemma reachable_remove `{Eq T} :
+  forall r m tr (* time to be removed *) t
+    (REACH : reachable r m t)
+    (NEQ : t <> tr),
+  (exists p', ~ Inp tr p' /\ valid_path r m p' /\ Inp t p') \/
+  match read m tr with
+  | Some (Closure _ _ C) =>
+    exists p' t',
+      valid_path (Ctx C) [] p' /\
+      Inp t' p' /\
+      ~ Inp tr p' /\
+      (t' = t \/
+      exists p'',
+        ~ Inp tr p'' /\ valid_path (Ptr t') m p'' /\ Inp t p'')
+  | None => False
+  end.
+Proof.
+  ii. unfold reachable in REACH. des.
+  exploit reachable_remove_aux; eauto.
+  ii; des. eauto.
+  right. repeat des_hyp; des; clarify.
+  exists p'. exists t. eauto.
+  exists p'. exists t'. eauto 8.
+Qed.
+
+Fixpoint trans_m_step `{Eq TT} `{Eq aTT} `{TotalOrder T} `{Eq aT}
+  (α' : TT -> aTT) (inv_α : (T * aT) -> T) φ φ'
+  (acc' : memory TT) (acc : memory T) (ϕ : list (TT * T)) (t : T)
+  (m : memory aT) (m' : memory TT) :=
+  match m' with
+  | [] => Some (acc', acc, [], ϕ, t)
+  | (t', v') :: m' =>
+    match read_fst ϕ t' with
+    | None =>
+      match trans_m_step α' inv_α φ φ' ϕ m m' with
+      | None => None
+      | Some (m', ϕ, t) => Some ((t', v') :: m', ϕ, t)
+      end
+    | Some _ =>
+      match v' with
+      | Closure _ _ C' =>
+      match find_iso (trans_v α' v') (aread m (φ t')) φ φ' with
+      | None => None
+      | Some C =>
+        match trans_iso_C inv_α C' ϕ t ([||]) C with
+        | None => None
+        | Some C =>
+        end
+      end end
+    end
+  end.
+
 (*
 
 
