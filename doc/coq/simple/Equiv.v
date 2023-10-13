@@ -2422,7 +2422,65 @@ Proof.
       try solve_leb
     end; ii; repeat rw;
     solve [reflexivity | solve_leb].
-  - 
+  - exploit IHEVAL1; eauto. ii; des.
+    repeat des_hyp; des; clarify.
+    gen_time_bound TT.
+    exploit (IHEVAL2 _ _ _ _ _ C0 _ _ C' m t); eauto.
+    ss; des. eauto using relax_ctx_bound.
+    instantiate (1 := g'). instantiate (1 := g).
+    eapply extend_mem_equiv with (t := t0); eauto.
+    exploit (@extend_mem T); eauto. s. eauto. s.
+    ii. symmetry. eauto.
+    exploit (@extend_mem TT); eauto. s. eauto. s.
+    ii. symmetry. eauto.
+    eapply extend_iso_equiv with (t := t0); eauto.
+    ii; des. repeat des_hyp; des; clarify.
+    gen_time_bound TT.
+    match goal with
+    | E1 : @step TT _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Closure ?x ?e ?Cv)) ?m' ?t'),
+      E2 : @step TT _ _ _ (Cf _ ?C ?m' ?t') (Rs (EVal ?v) ?m'' ?t''),
+      ISO : iso _ ?m_up _ _ ?f ?f',
+      E3 : @step T _ _ _ (Cf _ (dy_binde ?x ?t_up ?Cv') (?t_up !-> ?v'; ?m_up) _) _ |- _ =>
+      exploit (update_equiv _ t_up _ (tick C m'' t'' x v) v' v Cv' Cv m_up m'' f f' x);
+        try solve [apply tick_lt | ss; des; eauto using relax_ctx_bound]
+    end.
+    ss. des. eapply relax_ctx_bound; eauto.
+    s.
+    eapply extend_mem_equiv with (t := t_f) (m := m_f) (m' := m) (t' := t);
+    ss; des; eauto.
+    exploit (@extend_mem T _ _ _ _ _ m_f); eauto. s; eauto. s.
+    ii. symmetry. eauto.
+    exploit (@extend_mem TT _ _ _ _ _ m); eauto. s; eauto. s.
+    ii. symmetry. eauto.
+    eapply extend_iso_equiv with (t := t_f) (t' := t); eauto.
+    ii.
+    match goal with
+    | E1 : @step TT _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Closure ?x ?e ?Cv)) ?m' ?t'),
+      E2 : @step TT _ _ _ (Cf _ ?C ?m' ?t') (Rs (EVal ?v) ?m'' ?t''),
+      ISO : iso _ (?t_up !-> ?v'; ?m_up) (Ctx ?C_up') ?m_up' ?f ?f',
+      E3 : @step T _ _ _ (Cf _ (dy_binde ?x ?t_up ?Cv') (?t_up !-> ?v'; ?m_up) _) _ |- _ =>
+      exploit (IHEVAL3 _ _ _ _ _ _ (t_up !-> v'; m_up) t_up C_up' m_up' (tick C m'' t'' x v) f f');
+      eauto
+    end.
+    split; ii; ss; des; clarify; do 5 solve_leb1.
+    lebt t. eauto. apply leb_refl.
+    ii. des; repeat des_hyp; des; clarify.
+    match goal with
+    | E1 : @step TT _ _ _ (Cf _ ?C ?m ?t) (Rs _ ?m' ?t'),
+      E2 : @step TT _ _ _ (Cf _ ?C ?m' ?t') _,
+      E3 : @step TT _ _ _ _ (Rs (EVal (Closure ?x' ?e' ?Cv')) ?m'' ?t''),
+      ISO : iso _ _ (Ctx ?Cv') ?m'' ?f ?f' |- _ =>
+      exists (Rs (EVal (Closure x' e' Cv')) m'' t''); exists f; exists f'
+    end.
+    repeat (split; eauto); ii;
+    repeat rrw;
+    try match goal with
+    | |- context [eqb ?a (tick ?C ?m ?t ?x ?v)] =>
+      exploit (leb_t_neq_tick C m x v a t);
+      try solve_leb
+    end; ii; repeat rw;
+    solve [reflexivity | solve_leb].
+  
 
 (*
 
