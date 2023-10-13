@@ -111,7 +111,7 @@
     {\#}{{$^\star$}}1 
     {\\o}{{$\circ\;$}}1 
     {\@}{{$\cdot$}}1 
-    {\/\\}{{$\wedge\;$}}1
+    {\/\\}{{$\text{ and }\;$}}1
     {\\\/}{{$\vee\;$}}1
     {++}{{\code{++}}}1
     {~}{{\ }}1
@@ -136,8 +136,6 @@
 \setmainfont{Libertinus Serif}
 \setsansfont{Libertinus Sans}[Scale=MatchUppercase]
 \setmonofont{JuliaMono}[Scale=MatchLowercase]
-\setmathfont{Libertinus Math} % Before set*hangulfont
-\setmathfont{TeX Gyre Pagella Math}[range={\lbrace,\rbrace},Scale=1.1]
 \setmainhangulfont{Noto Serif CJK KR}
 \setmonohangulfont{D2Coding}
 
@@ -158,7 +156,7 @@
 \def\ovbarw{1.2mu}
 \def\ovbarh{1}
 \newcommand*{\ovbar}[1]{\mkern \ovbarw\overline{\mkern-\ovbarw{\smash{#1}\scalebox{1}[\ovbarh]{\vphantom{i}}}\mkern-\ovbarw}\mkern \ovbarw}
-\newcommand*{\A}[1]{\ovbar{#1}}
+\newcommand*{\A}[1]{\prescript{\circ}{}{#1}}
 \newcommand*{\Abs}[1]{{#1}^{\#}}
 \newcommand*{\Expr}{\text{Expr}}
 \newcommand*{\ExprVar}{\text{Var}}
@@ -189,6 +187,7 @@
 \newcommand*{\mt}{\mathsf{empty}}
 \newcommand*{\valid}{\mathsf{valid}}
 \newcommand*{\Path}{\text{Path}}
+\newcommand*{\equivalent}{\sim}
 
 \newcommand*{\doubleplus}{\ensuremath{\mathbin{+\mkern-3mu+}}}
 \newcommand*{\project}{\text{\texttt{:>} }}
@@ -307,24 +306,24 @@ $\link{e_1}{e_2}$ means that $e_1$ is a module that is evaluated first to a \emp
       \semarrow
       (e_{1},C)
       }
-    \end{prooftree}\qquad
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, C)
-          \semarrow
-          \langle\lambda x.e_{\lambda}, C_{\lambda}\rangle
-        \end{matrix}
-      }
-      \infer[left label={AppR}]1{
-      (e_{1}\:e_{2}, C)
-      \semarrow
-      (e_{2}, C)
-      }
     \end{prooftree}
   \]
 
   \[
+    \begin{prooftree}
+    \hypo{
+      \begin{matrix}
+        (e_{1}, C)
+        \semarrow
+        \langle\lambda x.e_{\lambda}, C_{\lambda}\rangle
+      \end{matrix}
+    }
+    \infer[left label={AppR}]1{
+    (e_{1}\:e_{2}, C)
+    \semarrow
+    (e_{2}, C)
+    }
+    \end{prooftree}\qquad
     \begin{prooftree}
       \hypo{
         \begin{matrix}
@@ -528,8 +527,8 @@ Defining the transfer function is straightforward from the definition of the tra
     \left\{\ell\semarrow\rho, \rho\middle|
     \begin{prooftree}[center=true]
       \hypo{A'}\infer1{\ell\semarrow\rho}
-    \end{prooftree}\wedge
-    A'\subseteq A\wedge\ell\in A
+    \end{prooftree}\text{ and }
+    A'\subseteq A\text{ and }\ell\in A
     \right\}
   \]
 \end{definition}
@@ -584,7 +583,7 @@ When we define $\inject{C_1}{\ell}$ for $C_1\in\Ctx,\ell=(e,C_2)\in\Left$ as $(e
 Thus, we can define $\rhd$ that injects a \emph{set} of contexts $S$ into a subset $A$ of $D$ and a semantic linking operation $\semlink$ that does the rest of the computation:
 \begin{definition}[Injection]
   For $S\subseteq\Ctx$ and $A\in D$, define:
-  \[S\rhd A\triangleq\{\inject{C}{\rho}|C\in S\wedge\rho\in A\}\cup\{\inject{C}{\ell}\semarrow\inject{C}{\rho}|C\in S\wedge\ell\semarrow\rho\in A\}\]
+  \[S\rhd A\triangleq\{\inject{C}{\rho}|C\in S\text{ and }\rho\in A\}\cup\{\inject{C}{\ell}\semarrow\inject{C}{\rho}|C\in S\text{ and }\ell\semarrow\rho\in A\}\]
 \end{definition}
 \begin{definition}[Semantic Linking]
   For $S\subseteq\Ctx$ and $A\in D$, define:
@@ -931,8 +930,8 @@ Then our criteria can be guaranteed by first enforcing $C\le t$ and $\mem\le t$,
     C \le  t\triangleq
     \begin{cases}
       \mathsf{True}              & C=[]              \\
-      t' \le  t\wedge C' \le  t  & C=(x,t')\cons C'  \\
-      C' \le  t\wedge C'' \le  t & C=(M,C')\cons C''
+      t' \le  t\text{ and } C' \le  t  & C=(x,t')\cons C'  \\
+      C' \le  t\text{ and } C'' \le  t & C=(M,C')\cons C''
     \end{cases}
      &
     \begin{array}{l}
@@ -941,7 +940,7 @@ Then our criteria can be guaranteed by first enforcing $C\le t$ and $\mem\le t$,
         C \le  t & V=\langle\_,C\rangle \\
         C \le  t & V=C
       \end{cases} \\
-      \mem \le  t\triangleq\forall t'\in\mathsf{dom}(\mem):t'\le t\wedge\mem(t') \le  t
+      \mem \le  t\triangleq\forall t'\in\mathsf{dom}(\mem):t'\le t\text{ and }\mem(t') \le  t
     \end{array}
   \end{array}
 \]
@@ -952,8 +951,8 @@ This condition is not as restrictive as it seems, as we can conversely think of 
 Also, these constraints match with the physical intuition of causality.
 Now, to allow only such valid transitions, we define:
 \[
-  \State\triangleq\{(C,\mem,t)|C\le t\wedge\mem\le t\}\qquad
-  \Result\triangleq\{(V,\mem,t)|V\le t\wedge\mem\le t\}
+  \State\triangleq\{(C,\mem,t)|C\le t\text{ and }\mem\le t\}\qquad
+  \Result\triangleq\{(V,\mem,t)|V\le t\text{ and }\mem\le t\}
 \]
 as the set of \emph{valid} states that enable $\tick$ to behave nicely.
 It is almost trivial that the set $\Left\times\Right$, when $\Left\triangleq\Expr\times\State$ and $\Right\triangleq\Left\uplus\Result$, is \emph{closed} under the inductive definition of $\semarrow$.
@@ -975,8 +974,8 @@ That is, when we let $D\triangleq\pset(\Sigma)$ where $\Sigma\triangleq\Right\up
     \left\{\ell\semarrow\rho, \rho\middle|
     \begin{prooftree}[center=true]
       \hypo{A'}\infer1{\ell\semarrow\rho}
-    \end{prooftree}\wedge
-    A'\subseteq A\wedge\ell\in A
+    \end{prooftree}\text{ and }
+    A'\subseteq A\text{ and }\ell\in A
     \right\}
   \]
 \end{definition}
@@ -1282,10 +1281,10 @@ We note that the abstract operational semantics is a sound approximation of the 
     \begin{array}{l}
       \A{\alpha}(V)\triangleq
       \begin{cases}
-        \langle e,\A{\alpha}(C)\rangle & V=\langle e,C\rangle \\
+        \langle \lambda x.e,\A{\alpha}(C)\rangle & V=\langle \lambda x.e,C\rangle \\
         \A{\alpha}(C)                  & V=C
       \end{cases} \\
-      \A{\alpha}(\mem)\triangleq\lambda\A{t}.\{\A\alpha(\mem(t))|\A\alpha(t)=\A{t}\wedge t\in\mathsf{dom}(\mem)\}
+      \A{\alpha}(\mem)\triangleq\lambda\A{t}.\{\A\alpha(\mem(t))|\A\alpha(t)=\A{t}\text{ and } t\in\mathsf{dom}(\mem)\}
     \end{array}
   \end{array}
 \]
@@ -1311,7 +1310,8 @@ The abstraction and concretization functions are given by:
 
 Then it is straightforward to see that:
 \begin{clm}[Galois Connection]
-  $\pset(\Sigma)=D\galois{\alpha}{\gamma}\Abs{D}=\pset(\A\Sigma)$. That is, $\forall A\in D,\Abs{A}\in\Abs{D}:\alpha(A)\subseteq\Abs{A}\Leftrightarrow A\subseteq\gamma(\Abs{A})$.
+  $\pset(\Sigma)=D\galois{\alpha}{\gamma}\Abs{D}=\pset(\A\Sigma)$. That is:
+  \[\forall A\in D,\Abs{A}\in\Abs{D}:\alpha(A)\subseteq\Abs{A}\Leftrightarrow A\subseteq\gamma(\Abs{A})\]
 \end{clm}
 \begin{proof}[Sketch]
   Straightforward from the definitions of $\alpha$ and $\gamma$.
@@ -1325,8 +1325,8 @@ The definition for the abstract fixpoint semantics is naturally connected soundl
     \left\{\A\ell\A\semarrow\A\rho, \A\rho\middle|
     \begin{prooftree}[center=true]
       \hypo{\Abs{A'}}\infer1{\A\ell\A\semarrow\A\rho}
-    \end{prooftree}\wedge
-    \Abs{A'}\subseteq \Abs{A}\wedge\A\ell\in\Abs{A}
+    \end{prooftree}\text{ and }
+    \Abs{A'}\subseteq \Abs{A}\text{ and }\A\ell\in\Abs{A}
     \right\}
   \]
 \end{definition}
@@ -1347,11 +1347,9 @@ Then we can prove that:
   By Galois connection, this is equivalent to $\Step\circ\gamma\subseteq\gamma\circ\Abs\Step$.
 \end{proof}
 
-\subsection{Computability of the Abstract Semantics}
+\subsection{Finiteness of the Abstract Semantics}
 Now we can say that $\Abs{\sembracket{e}}\alpha(S)$ is a sound abstraction of $\sembracket{e}S$.
 However, is it true that $\Abs{\sembracket{e}}\alpha(S)$ is finitely computable?
-Note that conceptually, all reachable configurations are derived from some closed expression $e$ evaluated from the empty context $[]$ and empty memory $\varnothing$.
-We claim that in such situations, when the abstract semantics is computed from a finite set $\Abs{S}$ of initial states, the resulting computation $\Abs{\sembracket{e}}\Abs{S}$ has finite cardinality.
 
 Since $\ATime$ is finite, all we have to prove is that all reachable \emph{signatures} are finite.
 What we mean by a \emph{signature} is a context that is stripped of all timestamps.
@@ -1364,7 +1362,7 @@ $\lfloor\A\rho\rfloor$ can be analogously defined.
 If we can prove that for all $e$ and $\A{s}$, there exists a finite set $X\subseteq\Sig$ that bounds $\bigcup_{(e,\A{s})\A\semarrow^*\A\rho}\lfloor\A\rho\rfloor\subseteq X$, we can show that all reachable $\A\rho$s are finite, since $\ATime$ is finite.
 It turns out, since the signature of the modules that are pushed into the stack $C$ can be accurately inferred from the definition of the operational semantics, we can \emph{compute} such an $X$.
 Thus we have:
-\begin{clm}[Computability of the Abstract Semantics]
+\begin{clm}[Finiteness of the Abstract Semantics]
   If $\Abs{S}$ is finite, $\Abs{\sembracket{e}}\Abs{S}$ is finite.
 \end{clm}
 \begin{proof}[Sketch]
@@ -1373,13 +1371,13 @@ Thus we have:
   To elaborate, let this function be called $f:\A\Right\rightarrow\pset(\Sig)$.
   We need two lemmas, the first being $\forall\A\rho:\lfloor\A\rho\rfloor\subseteq f(\A\rho)$ and the second being $\forall\A\ell,\A\rho:\A\ell\A\semarrow\A\rho\Rightarrow f(\A\rho)\subseteq f(\A\ell)$.
 
-  If we have the lemmas, then for all $\A\rho$ such that $(e,\A{s})\A\semarrow^*\A\rho$, $\lfloor\A\rho\rfloor\subseteq f(\A\rho)\subseteq f(e,\A{s})$, thus all signatures in $\Abs{\sembracket{e}}\Abs{S}$ can be bound by $X\triangleq\bigcup_{\A{s}\in\Abs{s}}f(e,\A{s})$, which is finite.
-  The lemmas are formalized in Coq.
+  If we have the lemmas, then for all $\A\rho$ such that $(e,\A{s})\A\semarrow^*\A\rho$, $\lfloor\A\rho\rfloor\subseteq f(\A\rho)\subseteq f(e,\A{s})$, thus all signatures in $\Abs{\sembracket{e}}\Abs{S}$ can be bound by $X\triangleq\bigcup_{\A{s}\in\Abs{S}}f(e,\A{s})$, which is finite.
+  The lemmas are proven in Coq.
 \end{proof}
 
 We stress that this is a nontrivial result, since our definition of $C$ allows contexts to be pushed onto the stack.
 The result holds only because the shape of the stack can be deterministically inferred according to the semantics of our language.
-Thus, in languages which can be annotated with explicit signatures, this property will hold, even with features such as functors or first-class modules.
+Thus, in languages with static scoping, this property will hold, even with features such as functors or first-class modules.
 
 \section{Part III: Linking in the Instrumented Semantics}
 Now we need to define an injection operation that fills in the blanks of a $r=(V,\mem,t)\in\Result$ with a $s=(C',\mem',t')\in\State$.
@@ -1469,7 +1467,7 @@ Thus we can define $\rhd$ and $\semlink$ that satisfies the desired property.
 \begin{definition}[Injection]
   For $S_1\subseteq\State_1$ and $A_2\in D_2$, define:
   \[
-    S_1\rhd A_2\triangleq\{\inject{s_1}{\rho_2}|s_1\in S_1\wedge\rho_2\in A_2\}\cup\{\inject{s_1}{\ell_2}\semarrow\inject{s_1}{\rho_2}|s_1\in S_1\wedge\ell_2\semarrow\rho_2\in A_2\}
+    S_1\rhd A_2\triangleq\{\inject{s_1}{\rho_2}|s_1\in S_1\text{ and }\rho_2\in A_2\}\cup\{\inject{s_1}{\ell_2}\semarrow\inject{s_1}{\rho_2}|s_1\in S_1\text{ and }\ell_2\semarrow\rho_2\in A_2\}
   \]
 \end{definition}
 \begin{definition}[Semantic Linking]
@@ -1499,7 +1497,7 @@ and thus we can define:
 \begin{definition}[Abstract Injection]
   For $\Abs{S}_1\subseteq\A\State_1$ and $\A{A}_2\in\Abs{D}_2$, define:
   \[
-    \Abs{S}_1\Abs\rhd\Abs{A}_2\triangleq\{\inject{\A{s}_1}{\A\rho_2}|\A{s}_1\in\Abs{S}_1\wedge\A\rho_2\in\Abs{A}_2\}\cup\{\inject{\A{s}_1}{\A\ell_2}\A\semarrow\inject{\A{s}_1}{\A\rho_2}|\A{s}_1\in\Abs{S}_1\wedge\A\ell_2\A\semarrow\A\rho_2\in\Abs{A}_2\}
+    \Abs{S}_1\Abs\rhd\Abs{A}_2\triangleq\{\inject{\A{s}_1}{\A\rho_2}|\A{s}_1\in\Abs{S}_1\text{ and }\A\rho_2\in\Abs{A}_2\}\cup\{\inject{\A{s}_1}{\A\ell_2}\A\semarrow\inject{\A{s}_1}{\A\rho_2}|\A{s}_1\in\Abs{S}_1\text{ and }\A\ell_2\A\semarrow\A\rho_2\in\Abs{A}_2\}
   \]
 \end{definition}
 \begin{definition}[Abstract Linking]
@@ -1528,19 +1526,19 @@ due to $\alpha_+(\inject{s_1}{r_2})=\inject{\alpha_1(s_1)}{\alpha(r_2)}$, the ab
 \end{align*}
 \section{Part IV: A Criteria for Reusing Analysis Results}
 \subsection{Motivation}
-Assume that we have a cached analysis result of a program fragment $e$ under an abstract state $\A{s}$ uses timestamps in $\{0,1\}$.
+Assume that we have a cached analysis result of a program fragment $e$ under an abstract state $\A{s}$ that uses timestamps in $\{0,1\}$.
 We want to analyze $e$ under another initial state $\A{s'}$ that uses abstract timestamps in $\{a,b\}$.
 The problem is: what is the criteria for reusing the cached analysis results?
 
-Based on the previous sections, we want to find a $s''$ that satisfies $\inject{\A{s''}}{\A{s}}=\A{s'}$, so that linking $s''$ into the cached results result in the semantics that started from $\A{s'}$.
+Based on the previous sections, we want to find a $s''$ that satisfies $\inject{\A{s''}}{\A{s}}=\A{s'}$, so that linking $\A{s''}$ into the cached results result in the semantics that started from $\A{s'}$.
 However, equality is not possible because the timestamps that are used are different.
 Thus, in this section, we define what it means for semantics that use different timestamps to be \emph{equivalent}.
 The definition of equivalence need to satisfy two desired properties, namely:
 \begin{enumerate}
+  \item If $\A{s}$ and $\A{s'}$ are equivalent, all $s\in\gamma(\{\A{s}\})$ must have an equivalent $s'\in\gamma'(\{\A{s'}\})$ and vice versa.
   \item If $s$ and $s'$ are equivalent, all transitions made by $\semarrow$ starting from $(e,s)$ and $(e,s')$ must go to equivalent states.
-  \item If $\A{s}$ and $\A{s'}$ are equivalent, all $s\in\gamma(\{\A{s}\})$ must have an equivalent $s'\in\gamma(\{\A{s'}\})$ and vice versa.
 \end{enumerate}
-These two properties ensure that if we find a $\A{s''}$ such that $\inject{\A{s''}}{\A{s}}$ is \emph{equivalent} to $\A{s'}$, linking $\A{s'}$ with the cached results will result in an overapproximation of something \emph{equivalent} to the semantics that started from $\gamma(\{\A{s'}\})$.
+These two properties ensure that if we find a $\A{s''}$ such that $\inject{\A{s''}}{\A{s}}$ is \emph{equivalent} to $\A{s'}$, linking $\A{s''}$ with the cached results will result in an overapproximation of something \emph{equivalent} to the semantics that started from $\gamma'(\{\A{s'}\})$.
 
 \subsection{Definitions}
 In this section, we assume a pair of semantics, each parametrized with $(\Time,\le,\ATime,\A\alpha)$ and $(\Time',\le',\ATime',\A\alpha')$.
@@ -1551,16 +1549,16 @@ The choice of $t$ and $t'$ is ``not special'' in the sense that as long as they 
 Thus, the notion of equivalence is defined by how the ``information extractable'' from the $C$ and $\mem$ components are ``same''.
 
 Note that the information that is extractable are only accessed through a sequence of names $x$ and $M$.
-Thus, one may imagine access ``paths'' with names on the edges and information sources($C$ and $t$) on the nodes.
+Thus, one may imagine access ``paths'' with names on the edges and reachable timestamps on the vertices.
 Also, given a $\varphi\in\Time\rightarrow\Time'$, we can define how access paths that use timestamps in $\Time$ are translated to access paths in $\Time'$.
-The definitions are given in \ref{fig:accpath}.
+The definitions are given in Figure \ref{fig:accpath}.
 \begin{figure}[h!]
   \centering
   \begin{tabular}{rclr}
-    $p$ & $\rightarrow$ & $\epsilon$                   & (empty path)     \\
-        & $|$           & $\xrightarrow{x}t\:p$        & (address access) \\
-        & $|$           & $\xrightarrow{M}p$           & (module access)  \\
-        & $|$           & $\xrightarrow{\lambda x.e}p$ & (value access)
+    $p$ & $\rightarrow$ & $\epsilon$                   & empty path     \\
+        & $|$           & $\xrightarrow{x}t\:p$        & address access \\
+        & $|$           & $\xrightarrow{M}p$           & module access  \\
+        & $|$           & $\xrightarrow{\lambda x.e}p$ & value access
   \end{tabular}\:
   $
     \varphi(p)\triangleq
@@ -1582,9 +1580,9 @@ Given $r\in\Ctx\uplus\Time,\mem\in\Mem,p\in\Path$, $\valid(r,\mem,p)$ is true if
   \valid(r,\mem,p)\triangleq
   \begin{cases}
     \mathsf{True}                                                       & p=\epsilon                             \\
-    t=C(x)\land\valid(t,\mem,p')                                        & r=C\land p=\xrightarrow{x}t\:p'        \\
-    \exists C_M:C_M=C(M)\wedge\valid(C_M,\mem,p')                       & r=C\land p=\xrightarrow{M}p'           \\
-    \exists C:\langle\lambda x.e,C\rangle=\mem(t)\land\valid(C,\mem,p') & r=t\land p=\xrightarrow{\lambda x.e}p' \\
+    t=C(x)\text{ and }\valid(t,\mem,p')                                        & r=C\text{ and } p=\xrightarrow{x}t\:p'        \\
+    \exists C_M:C_M=C(M)\text{ and }\valid(C_M,\mem,p')                       & r=C\text{ and } p=\xrightarrow{M}p'           \\
+    \exists C:\langle\lambda x.e,C\rangle=\mem(t)\text{ and }\valid(C,\mem,p') & r=t\text{ and } p=\xrightarrow{\lambda x.e}p' \\
     \mathsf{False}                                                      & \text{otherwise}
   \end{cases}
 \]
@@ -1595,74 +1593,75 @@ Given $\A{r}\in\A\Ctx\uplus\A\Time,\A\mem\in\A\Mem,\A{p}\in\A\Path$, $\A\valid(\
   \A\valid(\A{r},\A\mem,\A{p})\triangleq
   \begin{cases}
     \mathsf{True}                                                                                   & \A{p}=\epsilon                                         \\
-    \A{t}=\A{C}(x)\land\A\valid(\A{t},\A\mem,\A{p'})                                                & \A{r}=\A{C}\land \A{p}=\xrightarrow{x}\A{t}\:\A{p'}    \\
-    \exists \A{C_M}:\A{C_M}=\A{C}(M)\wedge\A\valid(\A{C_M},\A\mem,\A{p'})                           & \A{r}=\A{C}\land \A{p}=\xrightarrow{M}\A{p'}           \\
-    \exists \A{C}:\langle\lambda x.e,\A{C}\rangle\in\A\mem(\A{t})\land\A\valid(\A{C},\A\mem,\A{p'}) & \A{r}=\A{t}\land \A{p}=\xrightarrow{\lambda x.e}\A{p'} \\
+    \A{t}=\A{C}(x)\text{ and }\A\valid(\A{t},\A\mem,\A{p'})                                                & \A{r}=\A{C}\text{ and } \A{p}=\xrightarrow{x}\A{t}\:\A{p'}    \\
+    \exists \A{C_M}:\A{C_M}=\A{C}(M)\text{ and }\A\valid(\A{C_M},\A\mem,\A{p'})                           & \A{r}=\A{C}\text{ and } \A{p}=\xrightarrow{M}\A{p'}           \\
+    \exists \A{C}:\langle\lambda x.e,\A{C}\rangle\in\A\mem(\A{t})\text{ and }\A\valid(\A{C},\A\mem,\A{p'}) & \A{r}=\A{t}\text{ and } \A{p}=\xrightarrow{\lambda x.e}\A{p'} \\
     \mathsf{False}                                                                                  & \text{otherwise}
   \end{cases}
 \]
 
-Now we can give a straightforward definitions of equivalence.
+Now we can give straightforward definitions of equivalence.
 \begin{definition}[Equivalent Concrete States]
   Let $s=(C,\mem,t)\in\State$ and $s'=(C',\mem',t')\in\State'$.
-  We say $s$ is \emph{equivalent} to $s'$ and write $s\cong s'$ when there exists a $\varphi:\Time\rightarrow\Time'$ and $\varphi^{-1}:\Time'\rightarrow\Time$ such that:
+  We say $s$ is \emph{equivalent} to $s'$ and write $s\equivalent s'$ when there exists a $\varphi:\Time\rightarrow\Time'$ and $\varphi^{-1}:\Time'\rightarrow\Time$ such that:
   \begin{enumerate}
     \item For all $p\in\Path$, if $\valid(C,\mem,p)$ then $\valid(C',\mem',\varphi(p))$ and $p=\varphi^{-1}(\varphi(p))$.
     \item For all $p'\in\Path'$, if $\valid(C',\mem',p')$ then $\valid(C,\mem,\varphi^{-1}(p'))$ and $p'=\varphi(\varphi^{-1}(p'))$.
   \end{enumerate}
 \end{definition}
+\begin{definition}[Weakly Equivalent Abstract States]
+  Let $\A{s}=(\A{C},\A\mem,\A{t})\in\AState$ and $\A{s}'=(\A{C}',\A\mem',\A{t}')\in\AState'$.
+  We say $\A{s}$ is \emph{weakly equivalent} to $\A{s}'$ when there exists a $\A\varphi:\ATime\rightarrow\ATime'$ and $\A\varphi^{-1}:\ATime'\rightarrow\ATime$ such that:
+  \begin{enumerate}
+    \item For all $\A{p}\in\A\Path$, if $\A\valid(\A{C},\A\mem,\A{p})$ then $\A\valid(\A{C'},\A{\mem'},\A\varphi(\A{p}))$ and $\A{p}=\A\varphi^{-1}(\A\varphi(\A{p}))$.
+    \item For all $\A{p'}\in\A{\Path'}$, if $\A\valid(\A{C'},\A{\mem'},\A{p'})$ then $\valid(\A{C},\A{\mem},\A\varphi^{-1}(\A{p'}))$ and $\A{p'}=\A\varphi(\A\varphi^{-1}(\A{p'}))$.
+  \end{enumerate}
+\end{definition}
+The reason that the above definition is called ``weak equivalence'' is because
+\[
+  [(x,0)],\{0\mapsto\{\langle\lambda z.z,[(x,1)]\rangle,\langle\lambda z.z,[(y,2)]\rangle\},1\mapsto\{\langle\lambda z.z,[]\rangle\}\}
+\]
+and
+\[
+  [(x,0)],\{0\mapsto\{\langle\lambda z.z,[(x,1);(y,2)]\rangle\},1\mapsto\{\langle\lambda z.z,[]\rangle\}\}
+\]
+become weakly equivalent.
+However, the concretizations of the two states are not equivalent in the concrete sense.
+Therefore, the definition needs to be strengthened to require that for each reachable address $\A{t}$, all abstract closures that are stored in that address have a weakly equivalent counterpart in the other memory.
 \begin{definition}[Equivalent Abstract States]
   Let $\A{s}=(\A{C},\A\mem,\A{t})\in\AState$ and $\A{s}'=(\A{C}',\A\mem',\A{t}')\in\AState'$.
-  We say $\A{s}$ is \emph{equivalent} to $\A{s}'$ and write $\A{s}\A\cong\A{s}'$ when there exists a $\A\varphi:\ATime\rightarrow\ATime'$ and $\A\varphi^{-1}:\ATime'\rightarrow\ATime$ such that:
+  We say $\A{s}$ is \emph{equivalent} to $\A{s}'$ and write $\A{s}\A\equivalent\A{s'}$ when there exists a $\A\varphi:\ATime\rightarrow\ATime'$ and $\A\varphi^{-1}:\ATime'\rightarrow\ATime$ such that:
   \begin{enumerate}
-    \item For all $\A{p}\in\A\Path$, if $\A\valid(\A{C},\A\mem,\A{p})$ then $\A\valid(\A{C'},\A{\mem'},\A\varphi(p))$ and $\A{p}=\A\varphi^{-1}(\A\varphi(\A{p}))$.
-    \item For all $\A{p'}\in\A{\Path'}$, if $\A\valid(\A{C'},\A{\mem'},\A{p'})$ then $\valid(\A{C},\A{\mem},\A\varphi^{-1}(p'))$ and $\A{p'}=\A\varphi(\A\varphi^{-1}(\A{p'}))$.
+    \item $\A{s}$ and $\A{s'}$ are weakly equivalent by $\A\varphi,\A\varphi^{-1}$.
+    \item For each $\A{t}$ reachable from $\A{s}$, if $\langle\lambda x.e,\A{C}\rangle\in\A\mem(\A{t})$, there exists a $\A{C'}$ such that $\langle\lambda x.e,\A{C'}\rangle\in\A\mem'(\A\varphi(\A{t}))$ and $\A{C}$, $\A{C'}$ are weakly equivalent by $\A\varphi,\A\varphi^{-1}$ under the empty memory.
+    \item The same holds for each $\A{t'}$ reachable from $\A{s'}$.
   \end{enumerate}
 \end{definition}
 
-We also define equivalence between results $r=(V,\mem.t)\in\Result$ and $r'=(V',\mem',t')\in\Result'$ by the conjunction of the equality between the expression part of $V$ and equivalence between .
-Also, equivalence between $\ell=(e,s)\in\Left$ and $\ell'=(e',s')\in\Left'$ can be similarly defined as $e=e'\wedge s\cong s'$.
-Thus equivalence between $\rho\in\Right$ and $\rho'\in\Right'$ is defined, as either $\rho\in\Left$ or $\rho\in\Result$.
+We also define equivalence between results $(V,\mem.t)\in\Result$ and $(V',\mem',t')\in\Result'$ by the conjunction of the equality between the expression parts of $V$ and $V'$ and equivalence between the context parts.
+Also, equivalence between $\ell=(e,s)\in\Left$ and $\ell'=(e',s')\in\Left'$ can be similarly defined as $e=e'\text{ and } s\equivalent s'$.
 
-Then the equivalence between elements of $D$ and $D'$, the CPOs, can be defined as:
-\begin{definition}[Equivalence between Elements of $D$ and $D'$]
-  Let $A\in D$ and $A'\in D'$. We say that $A$ and $A'$ are equivalent and write $A\cong A'$ iff:
-  \begin{enumerate}
-    \item $\forall\ell,\rho:\ell\semarrow\rho\in A\Rightarrow\exists\ell',\rho':\ell'\semarrow\rho'\in A'\wedge\ell\cong\ell'\wedge\rho\cong\rho'$
-    \item $\forall\ell',\rho':\ell'\semarrow\rho'\in A'\Rightarrow\exists\ell,\rho:\ell\semarrow\rho\in A\wedge\ell\cong\ell'\wedge\rho\cong\rho'$
-    \item $\forall\rho:\rho\in A\Rightarrow\exists\rho':\rho'\in A'\wedge\rho\cong\rho'$
-    \item $\forall\rho':\rho'\in A'\Rightarrow\exists\rho:\rho\in A\wedge\rho\cong\rho'$
-  \end{enumerate}
-\end{definition}
-
-Likewise, we can define equivalence between elements of $\Abs{D}$ and $\Abs{D'}$.
-\begin{definition}[Equivalence between Elements of $\Abs{D}$ and $\Abs{D'}$]
-  Let $\Abs{A}\in\Abs{D}$ and $\Abs{A'}\in\Abs{D'}$. We say that $\Abs{A}$ and $\Abs{A'}$ are equivalent and write $\Abs{A}\Abs\cong \Abs{A'}$ iff:
-  \begin{enumerate}
-    \item $\forall\A\ell,\A\rho:\A\ell\A\semarrow\A\rho\in \Abs{A}\Rightarrow\exists\A\ell',\A\rho':\A\ell'\semarrow\A\rho'\in \Abs{A'}\wedge\A\ell\A\cong\A\ell'\wedge\A\rho\A\cong\A\rho'$
-    \item $\forall\A\ell',\A\rho':\A\ell'\A\semarrow\A\rho'\in \Abs{A'}\Rightarrow\exists\A\ell,\A\rho:\A\ell\semarrow\A\rho\in \Abs{A}\wedge\A\ell\A\cong\A\ell'\wedge\A\rho\A\cong\A\rho'$
-    \item $\forall\A\rho:\A\rho\in \Abs{A}\Rightarrow\exists\A\rho':\A\rho'\in A'\wedge\A\rho\A\cong\A\rho'$
-    \item $\forall\A\rho':\A\rho'\in \Abs{A'}\Rightarrow\exists\A\rho:\A\rho\in A\wedge\A\rho\A\cong\A\rho'$
-  \end{enumerate}
-\end{definition}
+Then the equivalence between elements of $D$ and $D'$, the CPOs, can be defined by lifting the definition of $\equivalent$.
+That is, when $A\in D$ and $A'\in D'$, $A$ and $A'$ are defined to be equivalent iff for each element of $A$, there exists an equivalent element of $A'$ and vice versa.
+Equivalence between $\A{A}\in\A{D}$ and $\A{A'}\in\A{D'}$ can be defined analogously.
 \subsection{Proof Sketches}
 \subsubsection{Evaluation Preserves Equivalence}
 To prove if we actually did define equivalence sensibly, we must show that the operational semantics preserves equivalence.
 That is, we need to prove that starting from equivalent configurations, we end up in equivalent configurations.
 \begin{clm}[Evaluation Preserves Equivalence]
   For all $\ell\in\Left$, $\rho\in\Right$, $\ell'\in\Left'$,
-  \[\ell\semarrow\rho\wedge\ell\cong\ell'\Rightarrow\exists\rho':\ell'\semarrow\rho'\wedge\rho\cong\rho'\]
-  Thus, if $S\subseteq\State$ and $S'\subseteq\State'$ are equivalent, $\sembracket{e}S\cong\sembracket{e}S'$.
+  \[\ell\semarrow\rho\text{ and }\ell\equivalent\ell'\Rightarrow\exists\rho':\ell'\semarrow\rho'\text{ and }\rho\equivalent\rho'\]
+  Thus, if $S\subseteq\State$ and $S'\subseteq\State'$ are equivalent, $\sembracket{e}S\equivalent\sembracket{e}S'$.
 \end{clm}
 \begin{proof}[Sketch]
   To perform induction on $\semarrow$, we need to strengthen the claim.
-  For convenience, we write $(\rho,\varphi)\cong(\rho',\varphi^{-1})$ to emphasize that the equivalence is given by $\varphi$.
+  For convenience, we write $(\rho,\varphi)\equivalent(\rho',\varphi^{-1})$ to emphasize that the equivalence is given by $\varphi$.
 
   Then we can strengthen the claim.
   \[
     \begin{array}{l}
-      \forall\ell,\rho,\ell',\varphi,\varphi^{-1}:\ell\semarrow\rho\wedge(\ell,\varphi)\cong(\ell',\varphi^{-1})\Rightarrow              \\
-      \exists\rho',\phi,\phi^{-1}:\ell'\semarrow\rho'\wedge(\rho,\phi)\cong(\rho',\phi^{-1})\wedge\varphi|_{\le t}=\phi|_{\le t} \\
+      \forall\ell,\rho,\ell',\varphi,\varphi^{-1}:\ell\semarrow\rho\text{ and }(\ell,\varphi)\equivalent(\ell',\varphi^{-1})\Rightarrow              \\
+      \exists\rho',\phi,\phi^{-1}:\ell'\semarrow\rho'\text{ and }(\rho,\phi)\equivalent(\rho',\phi^{-1})\text{ and }\varphi|_{\le t}=\phi|_{\le t} \\
       \text{when }t\text{ is the time component of }\ell
     \end{array}
   \]
@@ -1672,20 +1671,20 @@ That is, we need to prove that starting from equivalent configurations, we end u
 
 \subsubsection{Concretization Preserves Equivalence}
 For the definition of equivalence to be compatible with analysis, we want to show that if the abstract initial states are equivalent, so are the concretization of those states.
-If this is true, we can obtain an overapproximation of an equivalent semantics by $\sembracket{e}\gamma(\Abs{S})\cong\sembracket{e}\gamma'(\Abs{S'})\subseteq\gamma'(\Abs{\sembracket{e}}\Abs{S'})$ from $\Abs{S}\Abs\cong\Abs{S'}$.
-The first $\cong$ is from the fact that evaluation preserves equivalence and concretization preserves equivalence.
+If this is true, we can obtain an overapproximation of an equivalent semantics by $\sembracket{e}\gamma(\Abs{S})\equivalent\sembracket{e}\gamma'(\Abs{S'})\subseteq\gamma'(\Abs{\sembracket{e}}\Abs{S'})$ from $\Abs{S}\Abs\equivalent\Abs{S'}$.
+The first $\equivalent$ is from the fact that evaluation preserves equivalence and concretization preserves equivalence.
 The second $\subseteq$ is from the fact that $\Abs\Step$ is a sound approximation of $\Step$.
-The claim we want to prove is: If $\Abs{S}\Abs\cong\Abs{S'}$, then $\gamma(\Abs{S})\cong\gamma'(\Abs{S'})$.
 
 \begin{clm}[Concretization Preserves Equivalence]
-  For all $\Abs{S}\subseteq\AState$ and $\Abs{S'}\subseteq\AState'$, $\Abs{S}\Abs\cong\Abs{S'}$ implies $\gamma(\Abs{S})\cong\gamma'(\Abs{S'})$.
+  For all $\Abs{S}\subseteq\AState$ and $\Abs{S'}\subseteq\AState'$, 
+  \[\Abs{S}\Abs\equivalent\Abs{S'}\Rightarrow\gamma(\Abs{S})\equivalent\gamma'(\Abs{S'})\]
 \end{clm}
 \begin{proof}[Sketch]
   We want to prove:
-  \[\forall s\in\State,\A{s}'\in\AState':\A\alpha(s)\A\cong\A{s}'\Rightarrow\exists s'\in\AState':s\cong s'\wedge\A\alpha'(s')=\A{s}'\]
-  If this is true, $\forall s\in\gamma(\Abs{s}):\exists s'\in\gamma(\Abs{s'}):s\cong s'$.
+  \[\forall s\in\State,\A{s}'\in\AState':\A\alpha(s)\A\equivalent\A{s}'\Rightarrow\exists s'\in\AState':s\equivalent s'\text{ and }\A\alpha'(s')=\A{s}'\]
+  If this is true, $\forall s\in\gamma(\Abs{s}):\exists s'\in\gamma(\Abs{s'}):s\equivalent s'$.
 
-  Proving the same statement in the opposite side leads to $\forall s'\in\gamma(\Abs{s'}):\exists s\in\gamma(\Abs{s}):s\cong s'$, so that $\gamma(\Abs{S})\cong\gamma'(\Abs{S'})$.
+  Proving the same statement in the opposite side leads to $\forall s'\in\gamma(\Abs{s'}):\exists s\in\gamma(\Abs{s}):s\equivalent s'$, so that $\gamma(\Abs{S})\equivalent\gamma'(\Abs{S'})$.
   The proof of the above statement involves constructing such a $s'$ by traversal over reachable subparts $n$ of $s$, (1) translating $n$ to a reachable part $\A{n}'$ of $\A{s}'$ by $\A\varphi\circ\A\alpha$(when $\A\varphi$ gives the equivalence between $\A\alpha(s)$ and $\A{s}'$) and (2) lifting $\A{n}'$ to a reachable part $n'$ of $s'$ while tabulating the graph isomorphism $\varphi$ between $s$ and $s'$.
   Finally, (3) the unreachable parts of $s'$ are filled in with dummy values that translate to the unfilled parts of $\A{s}'$.
 \end{proof}

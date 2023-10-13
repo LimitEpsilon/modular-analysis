@@ -276,7 +276,7 @@ Fixpoint st_ctx_M (C : st_ctx) (M : ID) :=
     if eqb_ID M M' then Some CM' else st_ctx_M C' M
   end.
 
-(* collect all static contexts reachable from the current configuration *)
+(* collect all signatures reachable from the current configuration *)
 Fixpoint collect_ctx C e :=
   match e with
   | e_var x => (None, [C])
@@ -550,6 +550,48 @@ Arguments Px {T}.
 Arguments PM {T}.
 Arguments Pv {T}.
 
+Fixpoint Inp {T} (t : T) (p : path T) :=
+  match p with
+  | Pnil => False
+  | Px x tx p =>
+    t = tx \/ Inp t p
+  | PM M p => Inp t p
+  | Pv v p => Inp t p
+  end.
+
+Fixpoint Inpb {T} `{Eq T} (t : T) (p : path T) :=
+  match p with
+  | Pnil => false
+  | Px x tx p =>
+    eqb t tx || Inpb t p
+  | PM M p => Inpb t p
+  | Pv v p => Inpb t p
+  end.
+
+Lemma Inpb_In {T} `{Eq T} :
+  forall p t,
+    Inpb t p = true <-> Inp t p.
+Proof.
+  induction p; ii; ss;
+  split; intros IN;
+  des; repeat des_hyp; clarify.
+  rewrite eqb_eq in *. clarify. eauto.
+  rewrite IHp in IN. eauto.
+  rewrite t_refl. eauto.
+  des_goal. eauto. rewrite IHp. eauto.
+Qed.
+
+Lemma Inpb_nIn {T} `{Eq T} :
+  forall p t,
+    Inpb t p = false <-> ~ Inp t p.
+Proof.
+  ii. destruct (Inpb t p) eqn:CASE.
+  split; ii; clarify.
+  rewrite Inpb_In in *. contradict.
+  split; ii; clarify.
+  rewrite <- Inpb_In in *. rewrite CASE in *. clarify.
+Qed.
+
 (* path map *)
 Fixpoint pmap {T T'} (f : T -> T') (p : path T) :=
   match p with
@@ -583,6 +625,9 @@ Fixpoint valid_path {T} `{Eq T}
   | _, _ => False
   end.
 
+Definition reachable {T} `{Eq T} (r : root T) (m : memory T) (t : T) :=
+  exists p, valid_path r m p /\ Inp t p.
+
 Definition iso {T T'} `{Eq T} `{Eq T'}
   (r : root T) (m : memory T) (r' : root T') (m' : memory T') f f' :=
   (forall p (VALp : valid_path r m p),
@@ -593,18 +638,18 @@ Definition iso {T T'} `{Eq T} `{Eq T'}
     valid_path r m p /\ pmap f p = p').
 
 Definition equiv {T T'} `{Eq T} `{Eq T'}
-  (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T') :=
+  (V : dy_value T) (m : memory T) f (V' : dy_value T') (m' : memory T') f' :=
   match V, V' with
   | MVal C, MVal C' =>
-    exists f f', iso (Ctx C) m (Ctx C') m' f f'
+    iso (Ctx C) m (Ctx C') m' f f'
   | EVal (Closure x e C), EVal (Closure x' e' C') =>
     x = x' /\ e = e' /\
-    exists f f', iso (Ctx C) m (Ctx C') m' f f'
+    iso (Ctx C) m (Ctx C') m' f f'
   | _, _ => False
   end.
 
-Notation "'<|' V1 m1 '≃' V2 m2 '|>'" :=
-  (equiv V1 m1 V2 m2)
+Notation "'<|' V1 m1 f1 '≃' V2 m2 f2 '|>'" :=
+  (equiv V1 m1 f1 V2 m2 f2)
   (at level 10, V1 at next level, m1 at next level, V2 at next level, m2 at next level).
 
 Fixpoint avalid_path {T} `{Eq T}
@@ -630,7 +675,11 @@ Fixpoint avalid_path {T} `{Eq T}
     end
   | _, _ => False
   end.
+  
+Definition areachable {T} `{Eq T} (r : root T) (m : memory T) (t : T) :=
+  exists p, avalid_path r m p /\ Inp t p.
 
+(* weak equivalence *)
 Definition aiso {T T'} `{Eq T} `{Eq T'}
   (r : root T) (m : memory T) (r' : root T') (m' : memory T') f f' :=
   (forall p (VALp : avalid_path r m p),
@@ -640,14 +689,32 @@ Definition aiso {T T'} `{Eq T} `{Eq T'}
     let p := pmap f' p' in
     avalid_path r m p /\ pmap f p = p').
 
+(* equivalence *)
+Definition aIso {T T'} `{Eq T} `{Eq T'}
+  (r : root T) (m : memory T) (r' : root T') (m' : memory T') f f' :=
+  aiso r m r' m' f f' /\
+  (forall t v (REACH : areachable r m t) (IN : In v (aread m t)),
+    exists v', In v' (aread m' (f t)) /\
+      match v, v' with
+      | Closure x e C, Closure x' e' C' =>
+        x = x' /\ e = e' /\ aiso (Ctx C) [] (Ctx C') [] f f'
+      end) /\
+  (forall t' v' (REACH : areachable r' m' t') (IN : In v' (aread m' t')),
+    exists v, In v (aread m (f' t')) /\
+      match v, v' with
+      | Closure x e C, Closure x' e' C' =>
+        x = x' /\ e = e' /\ aiso (Ctx C) [] (Ctx C') [] f f'
+      end)
+.
+  
 Definition aequiv {T T'} `{Eq T} `{Eq T'}
   (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T') :=
   match V, V' with
   | MVal C, MVal C' =>
-    exists f f', aiso (Ctx C) m (Ctx C') m' f f'
+    exists f f', aIso (Ctx C) m (Ctx C') m' f f'
   | EVal (Closure x e C), EVal (Closure x' e' C') =>
     x = x' /\ e = e' /\
-    exists f f', aiso (Ctx C) m (Ctx C') m' f f'
+    exists f f', aIso (Ctx C) m (Ctx C') m' f f'
   | _, _ => False
   end.
 
@@ -1157,7 +1224,6 @@ Proof.
       assert (eq_C eqb C C = true) as RR;
       try rewrite H; eauto; rewrite RR
     end
-  | _ => idtac
   end.
 Qed.
 
