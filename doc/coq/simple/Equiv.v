@@ -2265,9 +2265,51 @@ Proof.
       ii. s. rw; eauto.
 Qed.
 
-Lemma extend_mem_equiv `{TotalOrder T} :
-  forall r r' m m' t t' f f'
-    (ISO : )
+Lemma extend_mem_equiv `{TotalOrder T} `{TotalOrder TT} :
+  forall r r' m m_ext m' m_ext' (t : T) (t' : TT) f f'
+    (BOUNDr : match r with Ctx C => time_bound_C C t | Ptr addr => leb addr t = true end)
+    (BOUNDm : time_bound_m m t)
+    (EQm : forall addr, leb addr t = true -> read m addr = read m_ext addr)
+    (BOUNDr' : match r' with Ctx C' => time_bound_C C' t' | Ptr addr' => leb addr' t' = true end)
+    (BOUNDm' : time_bound_m m' t')
+    (EQm' : forall addr', leb addr' t' = true -> read m' addr' = read m_ext' addr')
+    (ISO : iso r m r' m' f f'),
+  iso r m_ext r' m_ext' f f'.
+Proof.
+  intros. split; ii.
+  - subst p'. destruct ISO as [ISO ?].
+    rewrite <- vpath_root_bound; eauto.
+    apply ISO. rewrite vpath_root_bound; eauto.
+  - subst p. destruct ISO as [? ISO].
+    rewrite <- vpath_root_bound; eauto.
+    apply ISO. rewrite vpath_root_bound; eauto.
+Qed.
+
+Lemma extend_iso_equiv `{TotalOrder T} `{TotalOrder TT} :
+  forall r r' m m' (t : T) (t' : TT) f f' f_ext f_ext'
+    (BOUNDr : match r with Ctx C => time_bound_C C t | Ptr addr => leb addr t = true end)
+    (BOUNDm : time_bound_m m t)
+    (EQm : forall addr, leb addr t = true -> f addr = f_ext addr)
+    (BOUNDr' : match r' with Ctx C' => time_bound_C C' t' | Ptr addr' => leb addr' t' = true end)
+    (BOUNDm' : time_bound_m m' t')
+    (EQm' : forall addr', leb addr' t' = true -> f' addr' = f_ext' addr')
+    (ISO : iso r m r' m' f f'),
+  iso r m r' m' f_ext f_ext'.
+Proof.
+  intros. split; ii.
+  - subst p'. destruct ISO as [ISO ?].
+    erewrite <- pmap_root_bound; eauto.
+    exploit ISO; eauto. ii; ss; des.
+    erewrite <- pmap_root_bound; eauto.
+    split; eauto. erewrite pmap_root_bound; eauto.
+    ii; symmetry; eauto.
+  - subst p. destruct ISO as [? ISO].
+    erewrite <- vpath_root_bound; eauto.
+    exploit ISO; eauto. ii; ss; des.
+    erewrite <- pmap_root_bound; eauto.
+    split; eauto. erewrite pmap_root_bound; eauto.
+    ii; symmetry; eauto.
+Qed.
 
 Theorem operational_equivalence `{time T} `{time TT} :
   forall e (C : dy_ctx T) m t cf_r (C' : dy_ctx TT) m' t' f f'
@@ -2308,15 +2350,17 @@ Proof.
     eexists. split; eauto. s. eauto.
     ii; ss; repeat des_hyp; des; clarify.
     des_hyp; des; clarify.
-    rewrite <- x2 in x5. clarify.
+    match goal with
+    | RR : Some _ = read ?m ?t, H : Some _ = read ?m ?t |- _ =>
+      rewrite <- RR in H; clarify
+    end.
     ii. subst p.
     exploit (ISO' (Px x (f addr) (Pv (v_fn x0 e) p'))).
     s. repeat rw. split; eauto.
     rrw. eexists. split; eauto. s. eauto.
     ii; ss; repeat des_hyp; des; clarify.
     des_hyp; des; clarify.
-    rewrite H7 in x5. rewrite <- x5 in ACCESS.
-    clarify.
+    revert x5. repeat rw. ii; clarify.
   - exists (Rs (EVal (Closure x e C')) m' t').
     exists f. exists f'. repeat (split; eauto).
   - exists (Cf e1 C' m' t').
@@ -2325,7 +2369,60 @@ Proof.
     repeat des_hyp; des; clarify.
     gen_time_bound TT.
     exists (Cf e2 C' m t). exists g. exists g'.
-    repeat (split; eauto). 
+    split. eauto. split. eauto. split. eauto. split. eauto.
+    ss. des.
+    eapply extend_mem_equiv with (t := t0); eauto.
+    exploit (@extend_mem T); eauto. s. eauto. s.
+    ii. symmetry. eauto.
+    exploit (@extend_mem TT); eauto. s. eauto. s.
+    ii. symmetry. eauto.
+    eapply extend_iso_equiv with (t := t0); eauto.
+  - exploit IHEVAL1; eauto. ii; des.
+    repeat des_hyp; des; clarify.
+    gen_time_bound TT.
+    exploit (IHEVAL2 _ _ _ _ _ C0 _ _ C' m t); eauto.
+    ss; des. eauto using relax_ctx_bound.
+    instantiate (1 := g'). instantiate (1 := g).
+    eapply extend_mem_equiv with (t := t0); eauto.
+    exploit (@extend_mem T); eauto. s. eauto. s.
+    ii. symmetry. eauto.
+    exploit (@extend_mem TT); eauto. s. eauto. s.
+    ii. symmetry. eauto.
+    eapply extend_iso_equiv with (t := t0); eauto.
+    ii; des. repeat des_hyp; des; clarify.
+    gen_time_bound TT.
+    match goal with
+    | E1 : @step TT _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Closure ?x ?e ?Cv)) ?m' ?t'),
+      E2 : @step TT _ _ _ (Cf _ ?C ?m' ?t') (Rs (EVal ?v) ?m'' ?t''),
+      ISO : iso _ ?m_up _ _ ?f ?f' |-
+      context [iso (Ctx (dy_binde ?x ?t_up ?Cv')) (?t_up !-> ?v'; ?m_up) _ _ _ _] =>
+      exists (Cf e (dy_binde x (tick C m'' t'' x v) Cv) 
+        ((tick C m'' t'' x v) !-> v; m'') (tick C m'' t'' x v));
+      exploit (update_equiv _ t_up _ (tick C m'' t'' x v) v' v Cv' Cv m_up m'' f f' x);
+      try solve [apply tick_lt | ss; des; eauto using relax_ctx_bound]
+    end.
+    ss. des. eapply relax_ctx_bound; eauto.
+    s.
+    eapply extend_mem_equiv with (t := t_f) (m := m_f) (m' := m) (t' := t);
+    ss; des; eauto.
+    exploit (@extend_mem T _ _ _ _ _ m_f); eauto. s; eauto. s.
+    ii. symmetry. eauto.
+    exploit (@extend_mem TT _ _ _ _ _ m); eauto. s; eauto. s.
+    ii. symmetry. eauto.
+    eapply extend_iso_equiv with (t := t_f) (t' := t); eauto.
+    ii.
+    match goal with
+    | _ : iso _ _ _ _ ?f ?f' |- _ =>
+      exists f; exists f'
+    end.
+    repeat (split; eauto); ii;
+    match goal with
+    | |- context [eqb ?a (tick ?C ?m ?t ?x ?v)] =>
+      exploit (leb_t_neq_tick C m x v a t);
+      try solve_leb
+    end; ii; repeat rw;
+    solve [reflexivity | solve_leb].
+  - 
 
 (*
 
