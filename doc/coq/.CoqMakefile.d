@@ -19,6 +19,9 @@ simple/Equiv.vos simple/Equiv.vok simple/Equiv.required_vos: simple/Equiv.v simp
 simple/Linking.vo simple/Linking.glob simple/Linking.v.beautified simple/Linking.required_vo: simple/Linking.v simple/Concrete.vo
 simple/Linking.vio: simple/Linking.v simple/Concrete.vio
 simple/Linking.vos simple/Linking.vok simple/Linking.required_vos: simple/Linking.v simple/Concrete.vos
+simple/OperationalEquivalence.vo simple/OperationalEquivalence.glob simple/OperationalEquivalence.v.beautified simple/OperationalEquivalence.required_vo: simple/OperationalEquivalence.v simple/Bound.vo
+simple/OperationalEquivalence.vio: simple/OperationalEquivalence.v simple/Bound.vio
+simple/OperationalEquivalence.vos simple/OperationalEquivalence.vok simple/OperationalEquivalence.required_vos: simple/OperationalEquivalence.v simple/Bound.vos
 simple/Sound.vo simple/Sound.glob simple/Sound.v.beautified simple/Sound.required_vo: simple/Sound.v simple/Bound.vo simple/ALinking.vo simple/Linking.vo
 simple/Sound.vio: simple/Sound.v simple/Bound.vio simple/ALinking.vio simple/Linking.vio
 simple/Sound.vos simple/Sound.vok simple/Sound.required_vos: simple/Sound.v simple/Bound.vos simple/ALinking.vos simple/Linking.vos
