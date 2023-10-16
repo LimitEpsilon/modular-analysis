@@ -123,6 +123,20 @@ Proof.
   ii. unfold same in *. rewrite SAME. rewrite SAME'. eauto.
 Qed.
 
+Lemma asame_comm `{Eq T} :
+  forall m m',
+  asame m m' <-> asame m' m.
+Proof.
+  intros; unfold asame; split; ii; rw; eauto.
+Qed.
+
+Lemma asame_trans `{Eq T} :
+  forall m m' m'' (SAME : asame m m') (SAME' : asame m' m''),
+  asame m m''.
+Proof.
+  ii. unfold asame in *. rewrite SAME. rewrite SAME'. eauto.
+Qed.
+
 Definition eq_val (v v' : value) :=
   match v, v' with
   | v_fn x e, v_fn x' e' => eqb x x' && eqb e e'
@@ -1593,11 +1607,12 @@ Lemma remove_t_strict_dec `{Eq T} :
   forall (m : memory T) t (READ : None <> read m t),
   (List.length (remove_t m t)) < (List.length m).
 Proof.
-  induction m; intros; simpl; eauto; clarify;
+  induction m; intros; simpl; eauto; clarify.
+  des_goal. rewrite eqb_comm.
   repeat des_goal; repeat des_hyp; clarify;
   try rewrite eqb_eq in *; subst.
-  pose proof (remove_t_dec m t0). nia.
-  ss. rewrite eqb_comm in GDES0.
+  pose proof (remove_t_dec m t). nia.
+  ss.
   revert READ. rw. ii. exploit IHm; eauto.
   nia.
 Qed.
@@ -1630,6 +1645,28 @@ Proof.
   rewrite read_top. rewrite <- VAL. eauto.
 Qed.
 
+Lemma avpath_less_then_avpath_more `{Eq T} :
+  forall a b p r (VAL : avalid_path r a p),
+  avalid_path r (a ++ b) p.
+Proof.
+  ii.
+  ginduction p; ii; ss;
+  repeat des_hyp; des; clarify; eauto.
+  des_hyp; des; clarify.
+  exists (Closure x e C).
+  rewrite aread_in in *. rewrite in_app_iff. eauto.
+Qed.
+
+Lemma avpath_trans_empty `{Eq T} `{Eq TT} (φ : T -> TT) :
+  forall p C C' m' (VAL : avalid_path (Ctx C) [] p)
+    (VAL' : avalid_path (Ctx C') m' (pmap φ p)),
+  avalid_path (Ctx C') [] (pmap φ p).
+Proof.
+  induction p; ii; ss; repeat des_hyp; des; clarify.
+  - destruct p; ss; des; clarify.
+  - eapply IHp; eauto.
+Qed.
+
 Fixpoint plen {T} (p : path T) :=
   match p with
   | Pnil => 0
@@ -1637,147 +1674,6 @@ Fixpoint plen {T} (p : path T) :=
   | Pv _ p
   | Px _ _ p => S (plen p)
   end.
-
-Lemma separate_vpath `{Eq T} :
-  forall n p C m t tr
-    (LE : plen p <= n)
-    (VAL : valid_path (Ctx C) m p)
-    (NIN : ~ Inp tr p)
-    (IN : Inp t p),
-  exists p' t',
-    valid_path (Ctx C) [] p' /\
-    ~ Inp tr p' /\
-    Inp t' p' /\
-    (t' = t \/
-    exists p'', 
-      ~ Inp tr p'' /\ valid_path (Ptr t') m p'' /\ Inp t p'' /\
-      plen p' + plen p'' <= n).
-Proof.
-  induction n; ii; ss.
-  destruct p; ss; nia.
-  destruct p; ss; repeat des_hyp; des; clarify.
-  - exists (Px x t0 Pnil). exists t0.
-    s. rw. repeat (split; eauto).
-    red; ii; des; clarify. apply NIN. eauto.
-  - exists (Px x t0 Pnil). exists t0.
-    s. rw. repeat (split; eauto).
-    red; ii; des; clarify. apply NIN. eauto.
-    right. exists p. repeat (split; eauto).
-  - exploit IHn; eauto. nia.
-    ii; des; clarify.
-    exists (PM M p'). exists t. s. rw. eauto.
-    exists (PM M p'). exists t'. s. rw.
-    repeat (split; eauto).
-    right. exists p''. repeat (split; eauto).
-    nia.
-Qed.
-
-Lemma reachable_remove_aux `{Eq T} :
-  forall n p r m tr (* time to be removed *) t
-    (LE : plen p <= n)
-    (VAL : valid_path r m p)
-    (IN : Inp t p)
-    (NEQ : t <> tr),
-  (exists p', ~ Inp tr p' /\ valid_path r m p' /\ Inp t p' /\ plen p' <= n) \/
-  match read m tr with
-  | Some (Closure _ _ C) =>
-    exists p' t',
-      valid_path (Ctx C) [] p' /\
-      Inp t' p' /\
-      ~ Inp tr p' /\
-      (t' = t \/
-      exists p'',
-        ~ Inp tr p'' /\ valid_path (Ptr t') m p'' /\ Inp t p'' /\
-        plen p' + plen p'' <= n)
-  | None => False
-  end.
-Proof.
-  induction n.
-  ii. destruct p; ss; nia.
-  ii. destruct p; ss; repeat des_hyp; des; clarify.
-  - left. exists (Px x t0 Pnil). s. rw.
-    repeat (split; eauto). red; ii; des; clarify.
-    nia.
-  - destruct (eqb t0 tr) eqn:CASE.
-    rewrite eqb_eq in *. clarify.
-    destruct p; ss. des. des_hyp. des. clarify.
-    rrw. right.
-    exploit IHn; eauto. nia. rrw.
-    ii; des; clarify.
-    exploit separate_vpath; eauto.
-    ii; des; clarify.
-    eexists. eexists. eauto.
-    eexists. eexists. repeat (split; eauto).
-    right. exists p''. eauto.
-    exists p'. exists t. eauto.
-    exists p'. exists t'. repeat split; eauto.
-    right. exists p''. eauto.
-    rewrite eqb_neq in *.
-    exploit IHn; eauto. nia. ii. des; eauto.
-    left. exists (Px x t0 p').
-    s. rw. repeat (split; eauto).
-    red; ii; des; clarify. nia. right.
-    repeat des_hyp; des; clarify.
-    exists p'. exists t. eauto.
-    exists p'. exists t'. repeat split; eauto.
-    right. exists p''. eauto.
-  - exploit IHn; eauto. nia.
-    ii. des; eauto.
-    left. exists (PM M p'). s. rw. repeat (split; eauto). nia.
-    repeat des_hyp; des; clarify.
-    right. exists p'. exists t. eauto.
-    right. exists p'. exists t'. repeat (split; eauto).
-    right. exists p''. eauto.
-  - des_hyp; des; clarify.
-    destruct (eqb t0 tr) eqn:CASE.
-    rewrite eqb_eq in *. clarify.
-    rrw. right.
-    exploit IHn; eauto. nia.
-    ii. des; clarify.
-    exploit separate_vpath; eauto.
-    ii. des; clarify.
-    eexists. eexists. eauto.
-    eexists. eexists. repeat (split; eauto).
-    right. exists p''. eauto.
-    rewrite <- VAL in *. des; clarify.
-    exists p'. exists t. eauto.
-    exists p'. exists t'. repeat (split; eauto).
-    right. exists p''. eauto.
-    rewrite eqb_neq in *.
-    exploit IHn; eauto. nia.
-    ii. des; clarify.
-    left. exists (Pv (v_fn x e) p').
-    s. repeat (split; eauto).
-    exists (Closure x e C). eauto.
-    nia.
-    repeat des_hyp; des; clarify.
-    right. exists p'. exists t. eauto.
-    right. exists p'. exists t'. repeat (split; eauto).
-    right. exists p''. eauto.
-Qed.
-
-Lemma reachable_remove `{Eq T} :
-  forall r m tr (* time to be removed *) t
-    (REACH : reachable r m t)
-    (NEQ : t <> tr),
-  (exists p', ~ Inp tr p' /\ valid_path r m p' /\ Inp t p') \/
-  match read m tr with
-  | Some (Closure _ _ C) =>
-    exists p' t',
-      valid_path (Ctx C) [] p' /\
-      Inp t' p' /\
-      ~ Inp tr p' /\
-      (t' = t \/
-      exists p'',
-        ~ Inp tr p'' /\ valid_path (Ptr t') m p'' /\ Inp t p'')
-  | None => False
-  end.
-Proof.
-  ii. unfold reachable in REACH. des.
-  exploit reachable_remove_aux; eauto.
-  ii; des. eauto.
-  right. repeat des_hyp; des; clarify; eauto 10.
-Qed.
 
 Inductive trans_res T TT :=
   | Unchanged
@@ -2263,6 +2159,20 @@ Proof.
   rewrite HDES in *. clarify.
 Qed.
 
+Lemma same_valid `{Eq T} :
+  forall p r m1 m2 (SAME : same m1 m2),
+    valid_path r m1 p <-> valid_path r m2 p.
+Proof.
+  induction p; ii; ss; split; ii; repeat des_hyp; des; clarify.
+  rw; eauto. unfold same in *. ii. rw. eauto.
+  rw; eauto. rw; eauto. unfold same in *; ii; rw; eauto.
+  rw; eauto.
+  des_hyp; des; clarify. unfold same in SAME. rewrite SAME in *.
+  eexists. split; eauto. s. rw; eauto. ii. rw. eauto.
+  des_hyp; des; clarify. unfold same in SAME. rewrite <- SAME in *.
+  eexists. split; eauto. s. rw; eauto.
+Qed.
+
 Lemma asame_avalid `{Eq T} :
   forall p r m1 m2 (SAME : asame m1 m2),
     avalid_path r m1 p <-> avalid_path r m2 p.
@@ -2304,8 +2214,7 @@ Lemma trans_m_iso_pre_post `{Eq TT} `{Eq aTT} `{TotalOrder T} `{Eq aT}
   | Fix m2' m' m1' ϕ' tϕ' =>
     (trans_iso_m_pre α' inv_α α φ φ' ϕ' tϕ' C2 C1 am m1' m2' m') /\
     same (m2 ++ m) (m2' ++ m') /\
-    (forall t' (IN : None <> read_fst ϕ' t'),
-      None = read m' t')
+    (forall t' (IN : None <> read_fst ϕ' t'), None = read m' t')
   | Unfix => False
   end.
 Proof.
@@ -2343,9 +2252,9 @@ Proof.
     des_goal. rewrite eqb_eq in *. clarify. repeat rw. eauto.
     rewrite remove_t_read_some; eauto. rewrite eqb_neq in *. eauto.
   }
-  assert (trans_iso_m_pre α' inv_α α φ φ' (ϕ' ++ ϕ) tϕ0 C2 C1 am
-    ((t', Closure x0 e0 C0) :: m1) ((t, Closure x0 e0 C) :: m2)
-    (remove_t m t)).
+  exploit (IHn TT _ aTT _ T _ _ aT _ α' inv_α α φ φ' (ϕ' ++ ϕ) tϕ0 C2 C1 am ((t', Closure x0 e0 C0) :: m1) ((t, Closure x0 e0 C) :: m2) (remove_t m t)); eauto.
+  exploit (remove_t_strict_dec m t).
+  repeat rrw. rw. ii; clarify. nia.
   split. ii; ss. des_hyp. rewrite eqb_eq in *; clarify.
   erewrite remove_t_read; eauto.
   exploit PRE; eauto. erewrite remove_t_read_some; eauto.
@@ -2449,15 +2358,237 @@ Proof.
     rw. eexists. split; eauto.
   - eauto.
   - eauto.
-  - assert (asame (trans_m α' ((t, Closure x0 e0 C) :: m2 ++ remove_t m t)) (trans_m α' (m2 ++ m))).
-    { apply trans_m_asame; eauto. }
-    eapply asame_aIso; eauto.
+  - eapply asame_aIso with (m2 := trans_m α' (m2 ++ m)); eauto.
+    apply trans_m_asame; eauto.
   - ii; ss. des_hyp; eauto.
     rewrite eqb_eq in *. clarify.
-  - exploit (IHn TT _ aTT _ T _ _ aT _ α' inv_α α φ φ' (ϕ' ++ ϕ) tϕ0 C2 C1 am ((t', Closure x0 e0 C0) :: m1) ((t, Closure x0 e0 C) :: m2) (remove_t m t)); eauto.
-    exploit (remove_t_strict_dec m t).
-    repeat rrw. rw. ii; clarify. nia.
-    ii. des_hyp; des. split; eauto. split; eauto.
+  - ii. des_hyp; des. split; eauto. split; eauto.
     eapply same_trans; eauto.
     rewrite same_comm. eauto.
+Qed.
+
+Lemma separate_mem `{Eq T} (P : T -> Prop) :
+  forall p r m1 m2 
+    (M1 : forall t, (r = Ptr t \/ reachable r m1 t) -> P t)
+    (M2 : forall t, P t -> read m2 t = None)
+    (VAL : valid_path r (m1 ++ m2) p),
+  valid_path r m1 p.
+Proof.
+  induction p; ii; ss;
+  repeat des_hyp; des; clarify.
+  - split; eauto. eapply IHp; eauto.
+    intros t' [? | [p' [VALp INp]]]; clarify; apply M1; right.
+    exists (Px x t' Pnil). s. rw. eauto.
+    exists (Px x t p'). s. rw. eauto.
+  - eapply IHp; eauto.
+    intros ? [? | [p' [VALp INp]]]; clarify; apply M1; right.
+    exists (PM M p'). s. rw. eauto.
+  - des_hyp; des; clarify.
+    assert (P t).
+    apply M1. eauto.
+    exploit M2; eauto. ii.
+    rewrite read_top in *.
+    repeat des_hyp; clarify.
+    eexists. split; eauto. s. split; eauto.
+    eapply IHp; eauto.
+    intros t' [? | [p' [VALp INp]]]; clarify; apply M1; right.
+    exists (Pv (v_fn x e) p'). s. split; eauto.
+    eexists. split; eauto. s. eauto.
+    rewrite <- VAL in *. clarify.
+Qed.
+
+Fixpoint lift_m `{TotalOrder T} `{Eq aT}
+  (inv_α : (T * aT) -> T) (t : T) (m : memory aT) :=
+  match m with
+  | [] => []
+  | (t', Closure x e C) :: m' =>
+    let t' := inv_α (t, t') in
+    (t', Closure x e (lift_C inv_α t C)) ::
+    lift_m inv_α t' m'
+  end.
+
+Lemma lift_m_lower_aux `{TotalOrder T} `{Eq aT} 
+  (α : T -> aT) (inv_α : (T * aT) -> T) (SPECα : inv_α_spec α inv_α) :
+  forall m t seen (LE : forall t', In t' seen -> leb t' t = true),
+  trans_m_aux α (lift_m inv_α t m) seen = m.
+Proof.
+  induction m; ii; ss.
+  repeat des_goal; clarify.
+  - rewrite Inb_eq in *.
+    exploit LE; eauto.
+    specialize (SPECα t a0). des.
+    rewrite <- not_le_lt in *.
+    rewrite SPECα. ii; clarify.
+  - specialize (SPECα t a0) as RR. des.
+    rrw. rewrite lift_C_lower; eauto.
+    rewrite IHm. reflexivity.
+    ii; ss; des; clarify. solve_leb.
+    lebt t. eauto. apply RR.
+Qed.
+
+Lemma lift_m_lower `{TotalOrder T} `{Eq aT} 
+  (α : T -> aT) (inv_α : (T * aT) -> T) (SPECα : inv_α_spec α inv_α) :
+  forall m t, trans_m α (lift_m inv_α t m) = m.
+Proof.
+  ii. apply lift_m_lower_aux; eauto.
+Qed.
+
+Lemma lift_m_disj `{TotalOrder T} `{Eq aT}
+  (α : T -> aT) (inv_α : (T * aT) -> T) (SPECα : inv_α_spec α inv_α) :
+  forall m t t', None <> read (lift_m inv_α t m) t' -> t << t'.
+Proof.
+  induction m; ii; ss.
+  repeat des_hyp; clarify.
+  - rewrite eqb_eq in *; clarify. apply SPECα.
+  - exploit IHm; eauto.
+    intros LT. rewrite <- not_le_lt.
+    refl_bool. intros LE.
+    assert (leb t t' = true).
+    lebt (inv_α (t, a0)). apply SPECα. apply LT.
+    assert (t = t'). apply leb_sym; eauto.
+    clarify. destruct LT.
+    assert (leb t' (inv_α (t', a0)) = true).
+    apply SPECα.
+    assert (t' = inv_α (t', a0)) as RR. apply leb_sym; eauto.
+    rewrite <- RR in *. rewrite t_refl in *. clarify.
+Qed.
+
+Lemma app_disj_asame `{Eq T} `{Eq aT} (α : T -> aT) :
+  forall m m' (DISJ : forall t, None <> read m t -> None = read m' t),
+  asame (trans_m α (m ++ m')) (trans_m α m ++ trans_m α m').
+Proof.
+  ii.
+  repeat rewrite aread_in. rewrite in_app_iff.
+  repeat rewrite <- aread_in.
+  repeat rewrite trans_m_aread.
+  split; intros IN; des; clarify.
+  rewrite read_top in *.
+  des_hyp; clarify.
+  - left. eexists. eexists. repeat (split; eauto).
+  - right. eexists. eexists. repeat (split; eauto).
+  - exists t'. exists v'. rewrite read_top.
+    rrw. eauto.
+  - exists t'. exists v'. rewrite read_top.
+    rewrite disj_reflect in DISJ.
+    exploit (DISJ t'). rrw. ii; clarify.
+    ii. rrw. eauto.
+Qed.
+
+Definition trans_iso `{Eq TT} `{Eq aTT} `{TotalOrder T} `{Eq aT}
+  (α' : TT -> aTT) (inv_α : (T * aT) -> T) (init : T) φ φ'
+  (C : dy_ctx TT) (m : memory TT) (aC : dy_ctx aT) (am : memory aT) :=
+  match trans_iso_C inv_α C [] init ([||]) aC with
+  | Some (CC, ϕ, tϕ) =>
+    match trans_iso_m_aux α' inv_α φ φ' ϕ tϕ am [] [] m (length m) with
+    | Fix m2' m' m1' ϕ' tϕ' =>
+      Some (CC, m1' ++ lift_m inv_α tϕ' am, ϕ')
+    | Unfix => None
+    end
+  | None => None
+  end.
+
+Lemma trans_iso_pre_post `{Eq TT} `{Eq aTT} `{TotalOrder T} `{Eq aT}
+  (α' : TT -> aTT) (inv_α : (T * aT) -> T) (α : T -> aT) (SPECα : inv_α_spec α inv_α)
+  (init : T) φ φ' (C : dy_ctx TT) (m : memory TT) 
+  (aC : dy_ctx aT) (am : memory aT) 
+  (ISO : aIso (Ctx (trans_C α' C)) (trans_m α' m) (Ctx aC) am φ φ') :
+  match trans_iso α' inv_α init φ φ' C m aC am with
+  | Some (CC, mm, ϕ) =>
+    (forall t t' (IN : In (t, t') ϕ),
+      Some t' = read_fst ϕ t /\
+      Some t = read_snd ϕ t') /\
+    trans_C α CC = aC /\
+    asame (trans_m α mm) am /\
+    (forall p (VALp : valid_path (Ctx C) m p),
+      match pmap_fst ϕ p with
+      | Some p' => valid_path (Ctx CC) mm p'
+      | None => False
+      end) /\
+    (forall p (VALp : valid_path (Ctx CC) mm p),
+      match pmap_snd ϕ p with
+      | Some p' => valid_path (Ctx C) m p'
+      | None => False
+      end)
+  | None => False
+  end.
+Proof.
+  unfold trans_iso.
+  assert (trans_iso_C_pre α' α φ φ' [] C ([||]) aC) as PREC.
+  {
+    split. s. destruct ISO as [ISO ELSE]. clear ELSE.
+    rewrite <- check_iso_iso. rewrite iso_C_is_aiso_C.
+    rewrite check_aiso_aiso.
+    destruct ISO as [ISO ISO'].
+    split; ss.
+    ii. exploit (ISO p).
+    eapply avpath_less_then_avpath_more with (a := []); eauto.
+    ii; des. exploit (avpath_trans_empty φ p); eauto.
+    ii. exploit (ISO' p').
+    eapply avpath_less_then_avpath_more with (a := []); eauto.
+    ii; des. exploit (avpath_trans_empty φ' p'); eauto.
+    ii. destruct p; ss.
+  }
+  exploit (@trans_iso_C_pre_post TT _ aTT _ T _ _ aT); eauto.
+  instantiate (1 := init). ii. ss.
+  intros POSTC.
+  unfold trans_iso_C_post in POSTC.
+  des_hyp. repeat des_hyp; des; clarify.
+  rewrite app_nil_r in *.
+  assert (trans_iso_m_pre α' inv_α α φ φ' ϕ'' t C Cin' am [] [] m) as PREm.
+  {
+    split. ii; ss. split.
+    ii. split; intros REACH; eauto.
+    destruct REACH as [p [VALp INp]].
+    exploit POSTC4; eauto. ii. des_hyp.
+    exploit (@pmap_fst_read TT _ T); eauto.
+    repeat (split; try solve [ii; ss | eauto]).
+  }
+  exploit (@trans_m_iso_pre_post TT _ aTT _ T _ _ aT); eauto.
+  intros POSTm; ss. unfold trans_iso_m_pre in POSTm.
+  des_hyp; des.
+  split. ii. exploit POSTm7; eauto. ii; des. eauto.
+  split; eauto.
+  split. eapply asame_trans. apply app_disj_asame.
+  - rewrite <- disj_reflect. ii.
+    exploit lift_m_disj; eauto. intros LT.
+    unfold equiv_snd_ϕ_m in *.
+    destruct (read m' t0) eqn:CASE; eauto.
+    destruct e as [xv ev Cv].
+    symmetry in CASE.
+    exploit (POSTm6 t0 Pnil xv ev Cv CASE); ss.
+    des_goal; ss. symmetry in GDES.
+    apply read_snd_in in GDES.
+    exploit (POSTm7 t1 t0); eauto. ii; des.
+    rewrite <- not_le_lt in *.
+    rewrite LT in *. clarify.
+  - rewrite lift_m_lower; eauto.
+    split; ii; rewrite aread_in in *;
+    rewrite in_app_iff in *; des; eauto.
+    rewrite <- aread_in in *.
+    rewrite trans_m_aread in *. des.
+    exploit POSTm10; eauto. repeat rw. eauto.
+  - split; ii.
+    erewrite same_valid in VALp; eauto.
+    exploit (separate_mem (fun t' => None <> read_fst ϕ t') p (Ctx C) m0 mbot).
+    ii; des; clarify. rewrite POSTm2 in *. eauto.
+    ii. symmetry. eauto. eauto.
+    ii.
+    exploit (@equiv_fst_ϕ_aux TT _ T); eauto.
+    des_goal; ss. ii. apply vpath_less_then_vpath_more; eauto.
+    exploit (separate_mem (fun t' => leb t' tϕ = true) p (Ctx Cin') m' (lift_m inv_α tϕ am)).
+    intros t' [? | [p' [VALp' INp']]]; clarify.
+    exploit (@equiv_snd_ϕ_aux TT _ T); eauto.
+    des_goal; ss. ii.
+    pose proof (@pmap_snd_read TT _ T _ ϕ p' p0 t' GDES INp').
+    destruct (read_snd ϕ t') eqn:READ; ss.
+    symmetry in READ. apply read_snd_in in READ.
+    exploit (POSTm7 t0 t'); eauto. ii; des. eauto.
+    ii. destruct (read (lift_m inv_α tϕ am) t0) eqn:READ; eauto.
+    exploit lift_m_disj; eauto. rw. ii; clarify. intros LT.
+    rewrite <- not_le_lt in *. rewrite LT in *. clarify. eauto.
+    ii.
+    exploit (@equiv_snd_ϕ_aux TT _ T); eauto.
+    ii. des_hyp; clarify.
+    rewrite same_valid. instantiate (1 := m0 ++ mbot).
+    apply vpath_less_then_vpath_more. eauto. eauto.
 Qed.
