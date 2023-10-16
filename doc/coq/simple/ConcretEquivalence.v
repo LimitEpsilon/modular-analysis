@@ -2592,3 +2592,58 @@ Proof.
     rewrite same_valid. instantiate (1 := m0 ++ mbot).
     apply vpath_less_then_vpath_more. eauto. eauto.
 Qed.
+
+Definition derived_fst `{Eq T} `{Eq TT} (ϕ : list (T * TT)) (init' : TT) t :=
+  match read_fst ϕ t with
+  | Some t' => t'
+  | None => init'
+  end.
+
+Definition derived_snd `{Eq T} `{Eq TT} (ϕ : list (T * TT)) (init : T) t' :=
+  match read_snd ϕ t' with
+  | Some t => t
+  | None => init
+  end.
+
+Lemma derived_fst_map `{Eq T} `{Eq TT} (ϕ : list (T * TT)) (init' : TT) :
+  forall p p' (MAP : pmap_fst ϕ p = Some p'),
+  pmap (derived_fst ϕ init') p = p'.
+Proof.
+  induction p; ii; 
+  unfold derived_fst in *; ss; repeat des_hyp; des; clarify;
+  erewrite IHp; eauto.
+Qed.
+
+Lemma derived_snd_map `{Eq T} `{Eq TT} (ϕ : list (T * TT)) (init : T) :
+  forall p p' (MAP : pmap_snd ϕ p = Some p'),
+  pmap (derived_snd ϕ init) p = p'.
+Proof.
+  induction p; ii; 
+  unfold derived_snd in *; ss; repeat des_hyp; des; clarify;
+  erewrite IHp; eauto.
+Qed.
+
+Theorem concretization_preserves_equivalence `{Eq T} `{Eq aT} `{TotalOrder TT} `{Eq aTT}
+  (α : T -> aT) (inv_α' : (TT * aTT) -> TT) (α' : TT -> aTT) (SPECα' : inv_α_spec α' inv_α')
+  (init : T) (init' : TT) φ φ' 
+  (C : dy_ctx T) (m : memory T) (aC : dy_ctx aTT) (am : memory aTT)
+  (ISO : aIso (Ctx (trans_C α C)) (trans_m α m) (Ctx aC) am φ φ') :
+  exists C' m' f f',
+    trans_C α' C' = aC /\ asame (trans_m α' m') am /\
+    iso (Ctx C) m (Ctx C') m' f f'.
+Proof.
+  exploit (@trans_iso_pre_post T _ aT _ TT _ _ aTT); eauto.
+  instantiate (1 := init').
+  intros HINT. repeat des_hyp; des.
+  exists d. exists l0. exists (derived_fst l init'). exists (derived_snd l init).
+  split; eauto. split; eauto.
+  split; ss ;ii.
+  - exploit HINT2; eauto. ii; des_hyp.
+    erewrite derived_fst_map; eauto.
+    split; eauto. erewrite derived_snd_map; eauto.
+    symmetry. rewrite <- pmap_ϕ_bij; eauto.
+  - exploit HINT3; eauto. ii; des_hyp.
+    erewrite derived_snd_map; eauto.
+    split; eauto. erewrite derived_fst_map; eauto.
+    symmetry. rewrite pmap_ϕ_bij; eauto.
+Qed.

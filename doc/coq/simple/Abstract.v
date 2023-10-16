@@ -263,7 +263,7 @@ Proof.
 Qed.
 
 (* Finite state space *)
-Theorem expr_ctx_bound `{time T} :
+Lemma expr_ctx_bound `{time T} :
   forall e C m t cf'
          (REACH : {|(Cf e C m t) ~#>* cf'|}),
   ctx_bound_cf ((snd (collect_ctx (dy_to_st C) e)) ++ (collect_ctx_mem m)) cf'.
@@ -278,4 +278,27 @@ Proof.
   { apply finite_m_then_bound; eauto. }
   apply HINT.
   intros. rewrite in_app_iff. eauto.
+Qed.
+
+Theorem abstract_finite `{time T} :
+  forall e C m t,
+  exists X,
+    forall cf (REACH : {|(Cf e C m t) ~#>* cf|}),
+    match cf with
+    | Cf _ C m _ 
+    | Rs (EVal (Closure _ _ C)) m _
+    | Rs (MVal C) m _ =>
+      (forall t x e C, In (Closure x e C) (aread m t) ->
+        In (dy_to_st C) X) /\
+      In (dy_to_st C) X
+    end.
+Proof.
+  ii. exists ((snd (collect_ctx (dy_to_st C) e)) ++ (collect_ctx_mem m)).
+  ii. exploit expr_ctx_bound; eauto. unfold ctx_bound_cf. unfold ctx_bound_m.
+  intros BOUND. repeat des_hyp; des; clarify; split;
+  match goal with
+  | H : context [aread] |- _ =>
+    intro; ii; eapply H
+  | H : context [aread], H' : _ |- _ => apply H'
+  end; eauto using collect_ctx_refl.
 Qed.

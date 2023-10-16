@@ -10,12 +10,12 @@ simple/Abstract.vos simple/Abstract.vok simple/Abstract.required_vos: simple/Abs
 simple/Bound.vo simple/Bound.glob simple/Bound.v.beautified simple/Bound.required_vo: simple/Bound.v simple/Abstract.vo simple/Concrete.vo
 simple/Bound.vio: simple/Bound.v simple/Abstract.vio simple/Concrete.vio
 simple/Bound.vos simple/Bound.vok simple/Bound.required_vos: simple/Bound.v simple/Abstract.vos simple/Concrete.vos
+simple/ConcretEquivalence.vo simple/ConcretEquivalence.glob simple/ConcretEquivalence.v.beautified simple/ConcretEquivalence.required_vo: simple/ConcretEquivalence.v simple/Bound.vo
+simple/ConcretEquivalence.vio: simple/ConcretEquivalence.v simple/Bound.vio
+simple/ConcretEquivalence.vos simple/ConcretEquivalence.vok simple/ConcretEquivalence.required_vos: simple/ConcretEquivalence.v simple/Bound.vos
 simple/Concrete.vo simple/Concrete.glob simple/Concrete.v.beautified simple/Concrete.required_vo: simple/Concrete.v simple/Syntax.vo
 simple/Concrete.vio: simple/Concrete.v simple/Syntax.vio
 simple/Concrete.vos simple/Concrete.vok simple/Concrete.required_vos: simple/Concrete.v simple/Syntax.vos
-simple/Equiv.vo simple/Equiv.glob simple/Equiv.v.beautified simple/Equiv.required_vo: simple/Equiv.v simple/Bound.vo
-simple/Equiv.vio: simple/Equiv.v simple/Bound.vio
-simple/Equiv.vos simple/Equiv.vok simple/Equiv.required_vos: simple/Equiv.v simple/Bound.vos
 simple/Linking.vo simple/Linking.glob simple/Linking.v.beautified simple/Linking.required_vo: simple/Linking.v simple/Concrete.vo
 simple/Linking.vio: simple/Linking.v simple/Concrete.vio
 simple/Linking.vos simple/Linking.vok simple/Linking.required_vos: simple/Linking.v simple/Concrete.vos
