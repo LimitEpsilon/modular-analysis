@@ -2,18 +2,6 @@ From Simple Require Export Bound.
 
 Generalizable Variables T TT aT aTT.
 
-Lemma same_top_app {T} :
-  forall (a b c : list T) (EQ : a ++ b = a ++ c), b = c.
-Proof.
-  induction a; ii; ss; clarify; eauto.
-Qed.
-
-Lemma same_top_capp {T} :
-  forall (a b c : dy_ctx T) (EQ : a +++ b = a +++ c), b = c.
-Proof.
-  induction a; ii; ss; clarify; eauto.
-Qed.
-
 Lemma capp_nil_r {T} :
   forall (C : dy_ctx T), C +++ ([||]) = C.
 Proof.
@@ -2637,7 +2625,7 @@ Proof.
   intros HINT. repeat des_hyp; des.
   exists d. exists l0. exists (derived_fst l init'). exists (derived_snd l init).
   split; eauto. split; eauto.
-  split; ss ;ii.
+  split; ss; ii.
   - exploit HINT2; eauto. ii; des_hyp.
     erewrite derived_fst_map; eauto.
     split; eauto. erewrite derived_snd_map; eauto.
