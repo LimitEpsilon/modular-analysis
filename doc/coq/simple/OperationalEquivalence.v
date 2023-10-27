@@ -327,13 +327,11 @@ Proof.
   - subst p'. destruct ISO as [ISO ?].
     erewrite <- pmap_root_bound; eauto.
     exploit ISO; eauto. ii; ss; des.
-    erewrite <- pmap_root_bound; eauto.
     split; eauto. erewrite pmap_root_bound; eauto.
     ii; symmetry; eauto.
   - subst p. destruct ISO as [? ISO].
-    erewrite <- vpath_root_bound; eauto.
-    exploit ISO; eauto. ii; ss; des.
     erewrite <- pmap_root_bound; eauto.
+    exploit ISO; eauto. ii; ss; des.
     split; eauto. erewrite pmap_root_bound; eauto.
     ii; symmetry; eauto.
 Qed.

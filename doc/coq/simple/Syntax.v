@@ -483,6 +483,19 @@ Fixpoint read {T} `{Eq T} (m : memory T) (t : T) :=
     if eqb t' t then Some v else read m' t
   end.
 
+Lemma read_top {T }`{Eq T} :
+  forall a b t,
+  read (a ++ b) t = 
+  match read a t with
+  | None => read b t
+  | Some _ => read a t
+  end.
+Proof.
+  induction a; ii; ss;
+  repeat des_goal; repeat des_hyp; clarify;
+  repeat rw; reflexivity.
+Qed.
+
 Definition same {T} `{Eq T} (m : memory T) (m' : memory T) :=
   forall t v, Some v = read m t <-> Some v = read m' t.
 
@@ -1161,6 +1174,13 @@ Definition delete_v {T} eqb (Cout : dy_ctx T) (v : expr_value T) :=
   | Closure x t C => Closure x t (delete eqb Cout C)
   end.
 
+Lemma inject_assoc {T} :
+  forall (C1 C2 C3 : dy_ctx T),
+    C1 [|(C2 [|C3|])|] = (C1 [|C2|] [|C3|]).
+Proof.
+  induction C1; ii; ss; repeat rw; reflexivity.
+Qed.
+
 Lemma inject_ctx_M :
   forall {T} `{Eq T} M (Cout Cin : dy_ctx T),
     ctx_M (Cin [| Cout |]) M =
@@ -1521,6 +1541,93 @@ Definition link_mem `{Eq BT} `{Eq AT}
   (amem : memory AT) : (memory (link BT AT)) :=
   (inject_ctx_mem (lift_ctx_bf Cout) (lift_mem_af amem)) ++ 
   (lift_mem_bf bmem).
+
+Fixpoint map_m {T1 T2} (f : T1 -> T2) (m : memory T1) :=
+  match m with
+  | [] => []
+  | (t, Closure x e C) :: tl =>
+    (f t, Closure x e (trans_C f C)) :: map_m f tl
+  end.
+
+Lemma inject_ctx_mem_app `{Eq T} :
+  forall a b (C : dy_ctx T),
+  inject_ctx_mem C (a ++ b) = inject_ctx_mem C a ++ inject_ctx_mem C b.
+Proof.
+  induction a; ii; ss. des_goal. rw. eauto.
+Qed.
+
+Lemma lift_mem_bf_app `{Eq BT} `{Eq AT} :
+  forall a b,
+  (lift_mem_bf (a ++ b) : memory (link BT AT)) =
+  lift_mem_bf a ++ lift_mem_bf b.
+Proof.
+  induction a; ii; ss. des_goal. rw. eauto.
+Qed.
+
+Lemma lift_mem_af_app `{Eq BT} `{Eq AT} :
+  forall a b,
+  (lift_mem_af (a ++ b) : memory (link BT AT)) =
+  lift_mem_af a ++ lift_mem_af b.
+Proof.
+  induction a; ii; ss. des_goal. rw. eauto.
+Qed.
+
+Lemma link_ctx_assoc `{Eq T1} `{Eq T2} `{Eq T3} :
+  forall C3 C2 C1,
+  let f (t : link T1 (link T2 T3)) : link (link T1 T2) T3 :=
+    match t with
+    | BF t1 => BF (BF t1)
+    | AF (BF t2) => BF (AF t2)
+    | AF (AF t3) => AF t3
+    end in
+  trans_C f
+    (lift_ctx_af (lift_ctx_af C3 [|lift_ctx_bf C2|]) [|lift_ctx_bf C1|]) =
+  (lift_ctx_af C3 [|lift_ctx_bf (lift_ctx_af C2 [|lift_ctx_bf C1|])|]).
+Proof.
+  induction C3; ii; ss; repeat rw; eauto.
+  revert C2 C1.
+  induction C2; ii; ss; repeat rw; eauto.
+  induction C1; ii; ss; repeat rw; eauto.
+Qed.
+
+Ltac des_v :=
+  match goal with
+  | v : expr_value _ |- _ => destruct v; ss; clarify
+  end.
+
+Lemma link_mem_assoc `{Eq T1} `{Eq T2} `{Eq T3} :
+  forall m1 C1 m2 C2 m3,
+  let f (t : link T1 (link T2 T3)) : link (link T1 T2) T3 :=
+    match t with
+    | BF t1 => BF (BF t1)
+    | AF (BF t2) => BF (AF t2)
+    | AF (AF t3) => AF t3
+    end in
+  map_m f (link_mem m1 C1 (link_mem m2 C2 m3)) =
+  link_mem (link_mem m1 C1 m2) ((lift_ctx_af C2)[|lift_ctx_bf C1|]) m3.
+Proof.
+  ii.
+  unfold link_mem.
+  repeat (rewrite lift_mem_af_app 
+  || rewrite inject_ctx_mem_app 
+  || rewrite lift_mem_bf_app
+  || rewrite <- app_assoc).
+  revert m3 m2 C2 m1 C1.
+  induction m3; ii; ss.
+  revert m2 m1 C1.
+  induction m2; ii; ss.
+  - induction m1; ii; ss.
+    repeat des_goal; clarify. des_v.
+    rw. repeat f_equal.
+    subst f.
+    pose proof (@link_ctx_assoc T1 _ T2 _ T3 _ ([||]) ([||]) C0). ss.
+  - repeat des_goal; clarify. des_v.
+    rw. repeat f_equal.
+    subst f. pose proof (link_ctx_assoc ([||]) C0 C1). ss.
+  - repeat des_goal; clarify. des_v.
+    rw. repeat f_equal.
+    subst f. rewrite link_ctx_assoc. eauto.
+Qed.
 
 Lemma filter_lift_eq_af {BT AT} :
   forall (C : dy_ctx AT),

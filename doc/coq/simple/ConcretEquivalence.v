@@ -8,19 +8,6 @@ Proof.
   induction C; ii; ss; rw; exact eq_refl.
 Qed.
 
-Lemma read_top `{Eq T} :
-  forall a b t,
-  read (a ++ b) t = 
-  match read a t with
-  | None => read b t
-  | Some _ => read a t
-  end.
-Proof.
-  induction a; ii; ss;
-  repeat des_goal; repeat des_hyp; clarify;
-  repeat rw; reflexivity.
-Qed.
-
 Lemma app_same `{Eq T} :
   forall l l' m m'
     (SAMEl : same l l')
