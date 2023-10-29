@@ -79,19 +79,15 @@ let rec addr_x (c : 't ctx) (x : string) =
   match c with
   | Chole -> None
   | Cbinde (x', tx', c') ->
-    (match addr_x c' x with
-    | None -> if x = x' then (Some tx') else None
-    | addr -> addr)
+    if x = x' then (Some tx') else addr_x c' x
   | Cbindm (_, _, c') -> addr_x c' x
 
 let rec ctx_M (c : 't ctx) (m : string) =
   match c with
   | Chole -> None
   | Cbinde (_, _, c') -> ctx_M c' m
-  | Cbindm (m', cm', c') -> (
-    match ctx_M c' m with
-    | None -> if m = m' then Some cm' else None
-    | cm -> cm)
+  | Cbindm (m', cm', c') ->
+    if m = m' then (Some cm') else ctx_M c' m
 
 let rec map_inject (cout : 't ctx) (cin : 't ctx) =
   match cin with

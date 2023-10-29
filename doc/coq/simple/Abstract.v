@@ -246,7 +246,7 @@ Fixpoint collect_ctx_mem `{time T} (m : memory T) :=
   | (_, v) :: tl => (collect_ctx_val v) ++ (collect_ctx_mem tl)
   end.
 
-Lemma finite_m_then_bound `{time T} :
+Lemma finite_m_then_ctx_bound `{time T} :
   forall (m : memory T),
     ctx_bound_m (collect_ctx_mem m) m.
 Proof.
@@ -275,13 +275,12 @@ Proof.
   rewrite in_app_iff. right.
   revert addr x body C_v INvl sC IN.
   assert (ctx_bound_m (collect_ctx_mem m) m) as HINT.
-  { apply finite_m_then_bound; eauto. }
+  { apply finite_m_then_ctx_bound; eauto. }
   apply HINT.
   intros. rewrite in_app_iff. eauto.
 Qed.
 
-Theorem abstract_finite `{time T} :
-  forall e C m t,
+Theorem abstract_sig_finite `{time T} e C m t:
   exists X,
     forall cf (REACH : {|(Cf e C m t) ~#>* cf|}),
     match cf with
@@ -293,7 +292,7 @@ Theorem abstract_finite `{time T} :
       In (dy_to_st C) X
     end.
 Proof.
-  ii. exists ((snd (collect_ctx (dy_to_st C) e)) ++ (collect_ctx_mem m)).
+  exists ((snd (collect_ctx (dy_to_st C) e)) ++ (collect_ctx_mem m)).
   ii. exploit expr_ctx_bound; eauto. unfold ctx_bound_cf. unfold ctx_bound_m.
   intros BOUND. repeat des_hyp; des; clarify; split;
   match goal with
@@ -301,4 +300,149 @@ Proof.
     intro; ii; eapply H
   | H : context [aread], H' : _ |- _ => apply H'
   end; eauto using collect_ctx_refl.
+Qed.
+
+Fixpoint collect_expr (e : tm) :=
+  match e with
+  | e_var _
+  | m_var _
+  | m_empty => [e]
+  | e_lam _ body => e :: collect_expr body
+  | e_app e1 e2
+  | e_link e1 e2
+  | m_lete _ e1 e2
+  | m_letm _ e1 e2 => e :: collect_expr e1 ++ collect_expr e2
+  end.
+
+Definition expr_bound_m `{Eq T} ub (m : memory T) :=
+  forall t x e C_v (INvl : In (Closure x e C_v) (aread m t))
+         ee (IN : In ee (collect_expr (e_lam x e))),
+  In ee ub.
+
+Definition expr_bound_cf `{Eq T} ub (cf : config T) :=
+  match cf with
+  | Cf e C m t =>
+    expr_bound_m ub m /\
+    forall ee (IN : In ee (collect_expr e)), In ee ub
+  | Rs (EVal (Closure x e C)) m t =>
+    expr_bound_m ub m /\
+    forall ee (IN : In ee (collect_expr (e_lam x e))), In ee ub
+  | Rs (MVal C) m t =>
+    expr_bound_m ub m
+  end.
+
+Lemma step_expr_bound `{time T} :
+  forall ub e (C : dy_ctx T) m t cf'
+         (INIT : expr_bound_cf ub (Cf e C m t))
+         (STEP : {|(Cf e C m t) ~#> cf'|}),
+    expr_bound_cf ub cf'.
+Proof.
+  intros. remember (Cf e C m t) as cf eqn:CF.
+  ginduction STEP; ii; ss; clarify;
+  repeat des_goal; des; clarify; eauto;
+  try (split; ii; eauto);
+  repeat match goal with
+  | IH : forall _ e C m t, _ -> _ -> _ |- _ =>
+    specialize (IH ub)
+  | IH : forall e C m t, _ -> _ -> ?P |- _ =>
+    let BD := fresh "BD" in
+    assert P as BD;
+    [eapply IH; eauto; split; eauto; intros;
+    match goal with
+    | H : _ |- _ => apply H; fail
+    | H : _ |- _ => 
+      apply H; simpl; repeat des_goal;
+      try rewrite in_app_iff;
+      first [try left; eauto; fail | try right; eauto; fail]
+    end | clear IH]
+  end;
+  try (exploit IHSTEP3; eauto;
+    first [split; ii | ii; des]);
+  try (exploit IHSTEP2; eauto;
+    first [split; ii | ii; des]);
+  ss; repeat des_hyp; des; clarify;
+  match goal with
+  | H : _ |- _ =>
+    solve [eapply H; try rewrite in_app_iff; s; eauto]
+  | _ => idtac
+  end; eauto.
+Qed.
+
+Fixpoint collect_expr_mem `{time T} (m : memory T) :=
+  match m with
+  | [] => []
+  | (_, Closure x e _) :: tl =>
+    (collect_expr (e_lam x e)) ++ (collect_expr_mem tl)
+  end.
+
+Lemma finite_m_then_expr_bound `{time T} :
+  forall (m : memory T),
+    expr_bound_m (collect_expr_mem m) m.
+Proof.
+  induction m; intros; simpl; ss.
+  repeat des_goal; ss; clarify;
+  ii; ss; repeat des_hyp; des; clarify; eauto;
+  rewrite in_app_iff; eauto;
+  repeat right; eapply IHm; eauto; s; eauto.
+Qed.
+
+Lemma reach_expr_bound `{time T} :
+  forall ub e (C : dy_ctx T) m t cf'
+         (INIT : expr_bound_cf ub (Cf e C m t))
+         (REACH : {| (Cf e C m t) ~#>* cf' |}),
+    expr_bound_cf ub cf'.
+Proof.
+  intros.
+  remember (Cf e C m t) as cf.
+  ginduction REACH; eauto; intros.
+  destruct cf; try inv_rs.
+  eapply step_expr_bound in REACHl; eauto.
+  destruct cf'; try (eapply IHREACH; eauto; fail).
+  inversion REACH; eauto.
+  inv_rs.
+Qed.
+
+(* Finite state space *)
+Lemma expr_expr_bound `{time T} :
+  forall e C m t cf'
+         (REACH : {|(Cf e C m t) ~#>* cf'|}),
+  expr_bound_cf (collect_expr e ++ collect_expr_mem m) cf'.
+Proof.
+  intros.
+  eapply reach_expr_bound; eauto.
+  split; simpl; eauto.
+  red. intros addr x body C_v INvl sC IN.
+  rewrite in_app_iff. right.
+  revert addr x body C_v INvl sC IN.
+  assert (expr_bound_m (collect_expr_mem m) m) as HINT.
+  { apply finite_m_then_expr_bound; eauto. }
+  apply HINT.
+  intros. rewrite in_app_iff. eauto.
+Qed.
+
+Lemma collect_expr_refl e : In e (collect_expr e).
+Proof.
+  destruct e; ss; eauto.
+Qed.
+
+Theorem abstract_expr_finite `{time T} e C m t:
+  exists X,
+    forall cf (REACH : {|(Cf e C m t) ~#>* cf|}),
+    let m := match cf with
+    | Cf _ _ m _
+    | Rs _ m _ => m
+    end in
+    (forall t x e C, In (Closure x e C) (aread m t) ->
+      In (e_lam x e) X) /\
+    match cf with
+    | Cf e _ _ _ => In e X
+    | Rs (EVal (Closure x e _)) _ _ => In (e_lam x e) X
+    | Rs (MVal C) m _ => True
+    end.
+Proof.
+  exists (collect_expr e ++ collect_expr_mem m).
+  ii. exploit expr_expr_bound; eauto. unfold expr_bound_cf. unfold expr_bound_m.
+  intros BOUND.
+  repeat des_hyp; des; clarify; split;
+  eauto using collect_expr_refl.
 Qed.

@@ -98,9 +98,9 @@ let update_mem t vs (m : 't memory) =
           changed := true;
           Some vs
         | Some vals ->
-          let diff = Set.diff vs vals in
-          changed := not (Set.is_empty diff);
-          Some (Set.union diff vals))
+          let vals' = Set.union vs vals in
+          changed := (Set.cardinal vals' <> Set.cardinal vals);
+          Some vals')
       m
   in
   (updated, !changed)
