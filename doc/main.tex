@@ -265,7 +265,7 @@ If the implementation of \texttt{x} is changed, it will not trigger re-analysis 
 
 \section{Uncovering Modularity in Operational Semantics}
 First we introduce our model language.
-The language is basically an extension of untyped lambda calculus with modules and the linking construct.
+The language is an extension of untyped lambda calculus with modules and the linking construct.
 
 \begin{figure}[htb]
   \centering
@@ -281,14 +281,14 @@ The language is basically an extension of untyped lambda calculus with modules a
   \caption{Abstract syntax of the simple module language.}
   \label{fig:syntax}
 \end{figure}
-\subsection{Expressivity of the simple language}
+
+The language is expressive enough to encode simple imports and exports that use module names as interfaces.
 \begin{align*}
   m_1 & \triangleq\text{\texttt{let x = 1 in }}\varepsilon                                                                                                                                                                                     \\
   m_2 & \triangleq\text{\texttt{let fact = fix }}\lambda\text{\texttt{fact.}}\lambda\text{\texttt{n.if0 n 1 (* n (fact (- n 1))) in }}\varepsilon                                                                                              \\
   e   & \triangleq(\text{\texttt{let M = }}m_1\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{let F = }}m_2\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{+ (F}}\synlink\text{\texttt{fact 100) (M}}\synlink\text{\texttt{x)}})
 \end{align*}
 Above is how the example in the introduction is translated into the simple module language in Figure \ref{fig:syntax}, assuming that the definitions for arithmetic and the fixpoint combinator \texttt{fix} are given.
-The language is expressive enough to encode simple imports and exports that use module names as interfaces.
 
 \subsection{Operational Semantics}
 \begin{figure}[h!]
@@ -1273,12 +1273,12 @@ Assume that we have a cached analysis result of a program fragment $e$ under an 
 We want to analyze $e$ under another initial state $\A{s'}$ that uses abstract timestamps in $\{a,b\}$.
 The problem is: what is the criteria for reusing the cached analysis results?
 
-Based on the previous section, we want to find a $s''$ that satisfies $\inject{\A{s''}}{\A{s}}=\A{s'}$, so that linking $\A{s''}$ into the cached results result in the semantics that started from $\A{s'}$.
+Based on the previous section, we want to find a $\A{s''}$ that satisfies $\inject{\A{s''}}{\A{s}}=\A{s'}$, so that linking $\A{s''}$ into the cached results result in the semantics that started from $\A{s'}$.
 However, equality is not possible because the timestamps that are used are different.
 Thus, in this section, we define what it means for semantics that use different timestamps to be \emph{equivalent}.
 The definition of equivalence need to satisfy two desired properties, namely:
 \begin{enumerate}
-  \item If $\A{s}$ and $\A{s'}$ are equivalent, all $s\in\gamma(\{\A{s}\})\Rightarrow$ must have an equivalent $s'\in\gamma'(\{\A{s'}\})$.
+  \item If $\A{s}$ and $\A{s'}$ are equivalent, all $s\in\gamma(\{\A{s}\})$ must have an equivalent $s'\in\gamma'(\{\A{s'}\})$.
   \item If $s$ and $s'$ are equivalent, $(e,s)$ and $(e,s')$ must step to equivalent states.
 \end{enumerate}
 These two properties ensure that if we find a $\A{s''}$ such that $\inject{\A{s''}}{\A{s}}$ is \emph{equivalent} to $\A{s'}$, linking $\A{s''}$ with the cached results will result in an overapproximation of something \emph{equivalent} to the semantics that started from $\gamma'(\{\A{s'}\})$.
@@ -1297,7 +1297,7 @@ Also, given a $\varphi\in\Time\rightarrow\Time'$, we can define how access paths
 %The definitions are given in Figure \ref{fig:accpath}.
 \begin{center}
   %\centering
-  \begin{tabular}{rclcrrcl}
+  \begin{tabular}{rclrcrcl}
     $p$ & $\rightarrow$ & $\epsilon$                   & empty path     & $\qquad$ & $\varphi(\epsilon)$                   & \hspace{-2em} & $\triangleq\epsilon$                              \\
         & $|$           & $\xrightarrow{x}t\:p$        & address access & $\qquad$ & $\varphi(\xrightarrow{x}t\:p)$        & \hspace{-2em} & $\triangleq\xrightarrow{x}\varphi(t)\:\varphi(p)$ \\
         & $|$           & $\xrightarrow{M}p$           & module access  & $\qquad$ & $\varphi(\xrightarrow{M}p)$           & \hspace{-2em} & $\triangleq\xrightarrow{M}\varphi(p)$             \\
@@ -1315,7 +1315,7 @@ $\A\valid(\A{r},\A\mem,\A{p})$ is true iff starting from $\A{r}$, all access edg
 %\vspace{-1em}
 \begin{figure}[h!]
   \centering
-  \begin{minipage}{0.4\linewidth}
+  \begin{minipage}{0.45\linewidth}
     \scriptsize
     \begin{align*}
       \valid(\_,\mem,\epsilon)                  & \triangleq\mathsf{True}                                                        \\
@@ -1325,7 +1325,7 @@ $\A\valid(\A{r},\A\mem,\A{p})$ is true iff starting from $\A{r}$, all access edg
       \valid(\text{otherwise})                  & \triangleq\mathsf{False}
     \end{align*}
   \end{minipage}
-  \begin{minipage}{0.4\linewidth}
+  \begin{minipage}{0.54\linewidth}
     \scriptsize
     \begin{align*}
       \A\valid(\_,\A\mem,\epsilon)                          & \triangleq\mathsf{True}                                                                                \\
@@ -1345,16 +1345,16 @@ Now we can give straightforward definitions of equivalence.
   Let $s=(C,\mem,\_)\in\State$ and $s'=(C',\mem',\_)\in\State'$.
   We say $s$ is \emph{equivalent} to $s'$ and write $s\equivalent s'$ when there exists a $\varphi:\Time\rightarrow\Time'$ and $\varphi':\Time'\rightarrow\Time$ such that:
   \begin{enumerate}
-    \item $\forall p\in\Path:$ if $\valid(C,\mem,p)$ then $\valid(C',\mem',\varphi(p))$ and $p=\varphi'(\varphi(p))$.
-    \item $\forall p'\in\Path':$ if $\valid(C',\mem',p')$ then $\valid(C,\mem,\varphi'(p'))$ and $p'=\varphi(\varphi'(p'))$.
+    \item $\forall p\in\Path:$ If $\valid(C,\mem,p)$, $\valid(C',\mem',\varphi(p))$ and $p=\varphi'(\varphi(p))$.
+    \item $\forall p'\in\Path':$ If $\valid(C',\mem',p')$, $\valid(C,\mem,\varphi'(p'))$ and $p'=\varphi(\varphi'(p'))$.
   \end{enumerate}
 \end{defn}
 \begin{defn}[Weakly Equivalent Abstract States]\label{def:weakequiv}
   Let $\A{s}=(\A{C},\A\mem,\_)\in\AState$ and $\A{s}'=(\A{C}',\A\mem',\_)\in\AState'$.
   We say $\A{s}$ is \emph{weakly equivalent} to $\A{s}'$ when there exists a $\A\varphi:\ATime\rightarrow\ATime'$ and $\A\varphi':\ATime'\rightarrow\ATime$ such that:
   \begin{enumerate}
-    \item $\forall\A{p}\in\A\Path:$ if $\A\valid(\A{C},\A\mem,\A{p})$ then $\A\valid(\A{C'},\A{\mem'},\A\varphi(\A{p}))$ and $\A{p}=\A\varphi'(\A\varphi(\A{p}))$.
-    \item $\forall\A{p'}\in\A{\Path'}:$ if $\A\valid(\A{C'},\A{\mem'},\A{p'})$ then $\valid(\A{C},\A{\mem},\A\varphi'(\A{p'}))$ and $\A{p'}=\A\varphi(\A\varphi'(\A{p'}))$.
+    \item $\forall\A{p}\in\A\Path:$ If $\A\valid(\A{C},\A\mem,\A{p})$, $\A\valid(\A{C'},\A{\mem'},\A\varphi(\A{p}))$ and $\A{p}=\A\varphi'(\A\varphi(\A{p}))$.
+    \item $\forall\A{p'}\in\A{\Path'}:$ If $\A\valid(\A{C'},\A{\mem'},\A{p'})$, $\valid(\A{C},\A{\mem},\A\varphi'(\A{p'}))$ and $\A{p'}=\A\varphi(\A\varphi'(\A{p'}))$.
   \end{enumerate}
 \end{defn}
 The reason that the above definition is called ``weak equivalence'' is because it is not sufficient to guarantee equivalence after concretization.
