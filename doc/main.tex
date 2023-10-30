@@ -237,7 +237,7 @@ let fix fact n =
 (* Client code *)
 Include M
 Include F
-let ret = (F.fact 100) + M.x
+(F.fact 100) + M.x
     \end{lstlisting}
     \end{minipage}
   \end{tabular}
@@ -279,22 +279,16 @@ The language is basically an extension of untyped lambda calculus with modules a
                 &       & $\vbar$       & $\Let$ $M$ $e$ $e$                        & module binding             \\
   \end{tabular}
   \caption{Abstract syntax of the simple module language.}
+  \label{fig:syntax}
 \end{figure}
-\subsection{Rationale for the design of the simple language}
-
-There are no recursive modules, first-class modules, or functors in the simple language that is defined.
-Also, note that modules and expressions are not separated in the syntax.
-Why is this so?
-
-The rationale for the exclusion of recursive modules/first-class modules/functors is because we want to be able to determine the \emph{shape} of the environment at every program point before running the program.
-To enforce this property when function applications might return modules, we need to employ signatures to project the dynamically computed modules onto a statically known shape.
-Concretely, we need to define signatures $X$ to resolve (1) the variable $M$ in the body of $\lambda M\project X.e$, and (2) the result of a dynamically computed $(e_1\:e_2)\project X$.
-To simplify the presentation, we first consider the case that does not require signatures.
-
-The rationale for not separating modules and expressions in the syntax is because we want to utilize the linking construct to link both modules to expressions and modules to modules.
-That is, we want expressions to be parsed as $\link{(\link{m_1}{m_2})}{e}$.
-$\link{m_1}{m_2}$ links a module with a module, and $\link{(\link{m_1}{m_2})}{e}$ links a module with an expression.
-Why this is convenient will be clear when we explain separate analysis; we want to link modules with modules as well as expressions.
+\subsection{Expressivity of the simple language}
+\begin{align*}
+  m_1 & \triangleq\text{\texttt{let x = 1 in }}\varepsilon                                                                                                                                                                                     \\
+  m_2 & \triangleq\text{\texttt{let fact = fix }}\lambda\text{\texttt{fact.}}\lambda\text{\texttt{n.if0 n 1 (* n (fact (- n 1))) in }}\varepsilon                                                                                              \\
+  e   & \triangleq(\text{\texttt{let M = }}m_1\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{let F = }}m_2\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{+ (F}}\synlink\text{\texttt{fact 100) (M}}\synlink\text{\texttt{x)}})
+\end{align*}
+Above is how the example in the introduction is translated into the simple module language in Figure \ref{fig:syntax}, assuming that the definitions for arithmetic and the fixpoint combinator \texttt{fix} are given.
+The language is expressive enough to encode simple imports and exports that use module names as interfaces.
 
 \subsection{Operational Semantics}
 \begin{figure}[h!]
@@ -612,8 +606,7 @@ This does indeed ``fill in the blanks'', since:
 Moreover, filling in the blanks preserves the evaluation relation $\semarrow$.
 When we define $\inject{C_1}{\ell}$ for $C_1\in\Ctx,\ell=(e,C_2)\in\Left$ as $(e,\inject{C_1}{C_2})$, we have:
 \begin{lem}[Injection Preserves Evaluation]
-  For all $\ell\in\Left$, $\rho\in\Right$, $\ell\semarrow\rho\Rightarrow\inject{C}{\ell}\semarrow\inject{C}{\rho}$. More explicity,
-  \[(\ell,\rho)\in\Sigma\Rightarrow(\inject{C}{\ell},\inject{C}{\rho})\in\Sigma\]
+  For all $\ell\in\Left$, $\rho\in\Right$, $\ell\semarrow\rho\Rightarrow\inject{C}{\ell}\semarrow\inject{C}{\rho}$.
 \end{lem}
 \begin{proof}[Sketch]
   Induction on $\semarrow$.
@@ -859,8 +852,8 @@ Now, to allow only such valid transitions, we define:
   \State\triangleq\{(C,\mem,t)|C\le t\text{ and }\mem\le t\}\qquad
   \Result\triangleq\{(V,\mem,t)|V\le t\text{ and }\mem\le t\}
 \]
-as the set of \emph{valid} states that enable $\tick$ to generate fresh timestamps.
-It is almost trivial that the set $\Left\times\Right$, when $\Left\triangleq\Expr\times\State$ and $\Right\triangleq\Left\uplus\Result$, is \emph{closed} under the inductive definition of $\semarrow$.
+as the set of valid states that enable $\tick$ to generate fresh timestamps.
+It is almost trivial that the set $\Left\times\Right$, when $\Left\triangleq\Expr\times\State$ and $\Right\triangleq\Left\uplus\Result$, is closed under the inductive definition of $\semarrow$.
 That is,
 \begin{lem}[Valid States Transition to Valid States]
   For all $\ell\in\Left$ and $\rho$, if $\ell\semarrow\rho$ according to the inductive rules, $\rho\in\Right$.
@@ -1131,7 +1124,7 @@ The answer to this question is ``yes''.
   \[\forall \A\rho\in\A\Right:(e,\A{s})\A\semarrow^*\A\rho\Rightarrow\A\rho\in X\]
   Note that $\A\rho$ is of the form $(\langle\lambda x.e',\A{C}\rangle,\A\mem,\A{t})$ or $(\A{C},\A\mem,\A{t})$ or $(e',\A{C},\A\mem,\A{t})$.
   Since there is a finite number of abstract timestamps, we only have to show that there is a finite number of \emph{shapes} of $\A\rho$ that is stripped of the timestamps.
-  This is proven in Coq (in \texttt{Abstract.v}).
+  This is proven in Coq (\texttt{Abstract.v}).
 \end{proof}
 
 \section{Linking in the Instrumented Semantics}
@@ -1232,7 +1225,9 @@ Thus we can define $\rhd$ and $\semlink$ that satisfies the desired property.
 \end{thm}
 \subsection{Abstract Linking}
 We can define injection and linking in the abstract semantics in the same way as the concrete semantics.
-Only the definition of $\inject{\A{C}_1}{\A\mem_2}$ in Figure \ref{fig:concinject} has to be adapted to account for the fact that $\A\mem_2(\A{t})$ is now a \emph{set} of closures and thus injection of $\A{C}_1$ must be mapped over all elements.
+Only the definition of $\inject{\A{C}_1}{\A\mem_2}$ has to be adapted to account for the fact that $\A\mem_2(\A{t})$ is now a \emph{set} of closures.
+This means that $\inject{\A{C}_1}{\A\mem_2}$ must be defined as:
+\[\inject{\A{C}_1}{\A\mem_2}\triangleq\lambda\A{t}.\{\inject{\A{C}_1}{\A{v}_2}|\A{v}_2\in\A\mem_2(\A{t})\}\]
 Then we can show that:
 \begin{lem}[Injection Preserves Abstract Evaluation]
   For all $\A{s}_1\in\A\State_1$, $\A\ell_2\in\A\Left_2$ and $\A\rho_2\in\A\Right_2$, if $\A\ell_2\A\semarrow\A\rho_2$ under $\A\tick_2$,
@@ -1317,7 +1312,7 @@ Then given an access path, we can define a predicate $\valid\in(\Ctx\uplus\Time)
 $\valid(r,\mem,p)$ is true iff starting from $r$, all accesses edges in $p$ are valid.
 Likewise, we can define a predicate $\A\valid\in(\A\Ctx\uplus\A\Time)\times\A\Mem\times\A\Path\rightarrow\mathsf{Prop}$.
 $\A\valid(\A{r},\A\mem,\A{p})$ is true iff starting from $\A{r}$, all access edges in $\A{p}$ are valid.
-\vspace{-1em}
+%\vspace{-1em}
 \begin{figure}[h!]
   \centering
   \begin{minipage}{0.4\linewidth}
@@ -1449,7 +1444,7 @@ we have a concrete time $\Time_+$ that is connected to $\ATime_1+\ATime_2$ by $\
 Thus:
 \begin{align*}
   \sembracket{e}\gamma(\Abs{S}) & \subseteq\sembracket{e}\gamma(\ovbar{\Abs{S}})                      & (\because\Abs{S}\subseteq\ovbar{\Abs{S}}\text{ and }\gamma\text{ monotonic}) \\
-                                & \equivalent\sembracket{e}\gamma_+(\Abs{S}_1\Abs\rhd\Abs{S}_2)       & (\because\text{Concretization preserves equivalence})                        \\
+                                & \equivalent\sembracket{e}\gamma_+(\Abs{S}_1\Abs\rhd\Abs{S}_2)       & (\because\gamma,\semarrow\text{ preserves equivalence})                      \\
                                 & \subseteq\gamma_+(\Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_2)) & (\because\text{Soundness})                                                   \\
                                 & =\gamma_+(\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2)       & (\because\text{Abstract advance})
 \end{align*}
