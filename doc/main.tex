@@ -909,7 +909,7 @@ For this purpose, we choose a finite \emph{abstract time} domain $\A\Time$ that 
 Since the policy to update the timestamp must also be compatible with respect to $\A\alpha$, we require the $\A\tick:\A\Time\rightarrow\A\Time$ function to satisfy $\A\alpha\circ\tick=\A\tick\circ\A\alpha$.
 
 Then the operational semantics can be abstracted directly, with modifications only in the \emph{update} of the memory and \emph{reads} from the memory.
-The memory update operation now a weak update, that is:
+The memory update operation is now a weak update:
 \[
   \A{\mem}[\A{t}\A{\mapsto}\A{v}](\A{t'})\triangleq
   \begin{cases}
@@ -917,7 +917,7 @@ The memory update operation now a weak update, that is:
     \A{\mem}(\A{t'})             & (\text{otherwise})
   \end{cases}
 \]
-and the read from the memory returns a set of closures with abstract addresses, allowing transitions to any value within that set.
+and a read from the memory returns a set of closures with abstract addresses, allowing transitions to any value within that set.
 An excerpt for the abstract version of the operational semantics $\A\semarrow\subseteq\A{\Config}\times\A{\Right}$ is in Figure \ref{fig:absreach}.
 
 \begin{figure}[t!]
@@ -1003,7 +1003,7 @@ We have:
 \end{proof}
 
 Then if we define:
-\[\A\Sigma\triangleq\A\Right+\A\semarrow\qquad\Abs{\Trace}\triangleq\pset(\A\Sigma)\A\Sigma\triangleq\A\Right+\A\semarrow\]
+\[\A\Sigma\triangleq\A\Right+\A\semarrow\qquad\Abs{\Trace}\triangleq\pset(\A\Sigma)\]
 we can establish a Galois connection between $\Trace$ and $\Abs{\Trace}$.
 The abstraction and concretization functions are given by:
 \begin{definition}[Abstraction and Concretization]
@@ -1176,7 +1176,7 @@ Then we can show that:
 \end{proof}
 and thus we can define:
 \begin{definition}[Abstract Injection]
-  For $\Abs{S}_1\subseteq\A\State_1$ and $\Abs{A}_2\subseteq\A{\sigma}_2$, define:
+  For $\Abs{S}_1\subseteq\A\State_1$ and $\Abs{A}_2\subseteq\A{\Sigma}_2$, define:
   \[
     \Abs{S}_1\Abs\rhd\Abs{A}_2\triangleq\{\inject{\A{s}_1}{\A\rightst_2}|\A{s}_1\in\Abs{S}_1,\A\rightst_2\in\Abs{A}_2\}\cup\{\inject{\A{s}_1}{\A\config_2}\A\semarrow\inject{\A{s}_1}{\A\rightst_2}|\A{s}_1\in\Abs{S}_1,\A\config_2\A\semarrow\A\rightst_2\in\Abs{A}_2\}
   \]
