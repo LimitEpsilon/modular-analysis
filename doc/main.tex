@@ -1,6 +1,5 @@
 %! TEX program = xelatex
 \documentclass[acmsmall,screen,review]{acmart}\settopmatter{printfolios=true,printccs=false,printacmref=false}
-\usepackage{subfigure}
 
 %%% Typesetting for listings
 \usepackage{listings}
@@ -283,9 +282,9 @@ The language is an extension of untyped lambda calculus with modules and the lin
 
 The language is expressive enough to encode simple imports and exports that use module names as interfaces.
 \begin{align*}
-  m_1 & \triangleq\text{\texttt{let x = 1 in }}\varepsilon                                                                                                                                                                                     \\
-  m_2 & \triangleq\text{\texttt{let fact = fix }}\lambda\text{\texttt{fact.}}\lambda\text{\texttt{n.if0 n 1 (* n (fact (- n 1))) in }}\varepsilon                                                                                              \\
-  e   & \triangleq(\text{\texttt{let M = }}m_1\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{let F = }}m_2\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{+ (F}}\synlink\text{\texttt{fact 100) (M}}\synlink\text{\texttt{x)}})
+  e_1 & \triangleq\text{\texttt{let x = 1 in }}\varepsilon                                                                                                                                                                                     \\
+  e_2 & \triangleq\text{\texttt{let fact = fix }}\lambda\text{\texttt{fact.}}\lambda\text{\texttt{n.if0 n 1 (* n (fact (- n 1))) in }}\varepsilon                                                                                              \\
+  e   & \triangleq(\text{\texttt{let M = }}e_1\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{let F = }}e_2\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{+ (F}}\synlink\text{\texttt{fact 100) (M}}\synlink\text{\texttt{x)}})
 \end{align*}
 Above is how the example in the introduction is translated into the simple module language in Figure \ref{fig:syntax}, assuming that the definitions for arithmetic and the fixpoint combinator \texttt{fix} are given.
 
@@ -573,7 +572,7 @@ Now, because of Tarski's fixpoint theorem, we can formulate the collecting seman
     \sembracket{e}C\triangleq\lfp(\lambda X.\mathsf{Step}(X)\cup\{(e,\ctx)|\ctx\in C\})
   \]
 \end{definition}
-Note that the above definition can be defined without qualms for situations when the $\ctx$ in $(e,\ctx)$ does not close $e$.
+Note that the above definition can be defined even when the $\ctx$ in $(e,\ctx)$ does not close $e$.
 Then the collecting semantics will store the proof tree only up to the point the first free variable is evaluated.
 
 \subsection{Semantic Linking}
@@ -588,7 +587,7 @@ We first define what it means to \emph{fill in the blanks} of an individual $r_2
     (x, \inject{\ctx_1}{v})\cons\inject{\ctx_{1}}{\ctx}            & r_{2}=(x,v)\cons \ctx              \\
     (\modid, \inject{\ctx_{1}}{\ctx})\cons\inject{\ctx_{1}}{\ctx'} & r_{2}=(\modid,\ctx)\cons \ctx'     \\
     \langle\lambda x.e,\inject{\ctx_1}{\ctx}\rangle                & r_2=\langle\lambda x.e,\ctx\rangle \\
-    (e,\inject{\ctx_1}{\ctx_2})                                    & r_2 = (e, \ctx_2)
+    (e,\inject{\ctx_1}{\ctx})                                      & r_2 = (e, \ctx)
   \end{cases}
 \]
 This does indeed ``fill in the blanks'', since:
@@ -836,8 +835,8 @@ The \emph{type} of $\tick$ can be freely chosen, since it may choose to record a
 
 An excerpt of the instrumented operational semantics is given in Figure \ref{fig:concreach}.
 One must first note that there is a problem with the definition of $\semarrow$ as it is.
-There are no restrictions on $\tick$ and the states $(\ctx,\mem,t)$, thus a write to the address $t$ may overwrite an existing value that may be used for future computations.
-That is, $\tick(t)\not\in\mathsf{supp}(\ctx,\mem)$ must be guaranteed, when $\mathsf{supp}(\ctx,\mem)$ is the set of timestamps reachable from $(\ctx,\mem)$.
+There are no restrictions on $\tick$ and the states $(\ctx,\mem,t)$, thus a write to the address $\tick(t)$ may overwrite an existing value that may be used for future computations.
+Thus, $\tick(t)\not\in\mathsf{supp}(\ctx,\mem)$ must be guaranteed, when $\mathsf{supp}(\ctx,\mem)$ is the set of timestamps reachable from $(\ctx,\mem)$.
 To enforce this invariant upon all \emph{valid} concrete executions defined by the relation $\semarrow$, we enforce that there be a \emph{total order} on $\Time$.
 Then our criteria can be guaranteed by first enforcing that $\ctx\le t$ and $\mem\le t$, where $\ctx\le t$ means that all timestamps in $\ctx$ are bound by $t$, and $\mem\le t$ means that all timestamps allocated in the memory are bound by $t$.
 
@@ -1023,9 +1022,9 @@ Then it is straightforward to see that:
   Straightforward from the definitions of $\alpha$ and $\gamma$.
 \end{proof}
 
-The definition for the abstract fixpoint semantics is naturally connected soundly with the collecting semantics.
+The definition for the abstract semantics is naturally connected soundly with the collecting semantics.
 \begin{definition}[Abstract transfer function]
-  Given $\Abs{A}\subseteq\A{\Sigma}$, define
+  Given $\Abs{A}\subseteq\A{\Sigma}$, define:
   \[
     \Abs{\mathsf{Step}}(\Abs{A})\triangleq
     \left\{\A\config\A\semarrow\A\rightst, \A\rightst\middle|
@@ -1111,7 +1110,7 @@ Then if we define:
 it is easy to check that all requirements are satisfied.
 
 \subsection{Concrete Linking}
-Now we define injection between $s_1=(\ctx_1,\mem_1,t_1)\in\State_1$ and $r_2=(V_2,\mem_2,t_2)\in\Outcome_2$:
+Now we define injection between $s_1=(\ctx_1,\mem_1,t_1)\in\State_1$ and $o_2=(V_2,\mem_2,t_2)\in\Outcome_2$:
 \[
   \begin{array}{cc}
     \inject{\ctx_{1}}{V_{2}}\triangleq
@@ -1123,17 +1122,17 @@ Now we define injection between $s_1=(\ctx_1,\mem_1,t_1)\in\State_1$ and $r_2=(V
     \end{cases} &
     \begin{array}{l}
       \inject{\ctx_1}{\mem_2}\triangleq
-      \displaystyle\bigcup_{t\in\mathsf{dom}(\mem_2)}[t\mapsto\inject{\ctx_1}{\mem_2(t)}] \\ \\
-      \inject{s_1}{r_2}\triangleq
+      \displaystyle\bigcup_{t\in\mathsf{dom}(\mem_2)}\{t\mapsto\inject{\ctx_1}{\mem_2(t)}\} \\ \\
+      \inject{s_1}{o_2}\triangleq
       (\inject{\ctx_1}{V_2},\mem_1\cup\inject{\ctx_1}{\mem_2},t_2)
     \end{array}
   \end{array}
 \]
 
-As is expected, injecting $s_1$ into $r_2$ involves injecting $\ctx_1$ in every context in $r_2$ and merging the memories.
+As is expected, injecting $s_1$ into $o_2$ involves injecting $\ctx_1$ in every context in $o_2$ and merging the memories.
 This definition is exactly what we were searching for, since it respects all requirements laid out in the introduction to this section.
-First, $\inject{s_1}{r_2}\in\Outcome_+$ with respect to the ordering $\le_+$.
-Also, if we define $\inject{s_1}{\config_2}$ when $\config_2=(e,s_2)$ by $(e,\inject{s_1}{s_2})$, we can show that injection preserves valid transitions. That is,
+First, $\inject{s_1}{o_2}\in\Outcome_+$ with respect to the ordering $\le_+$.
+Also, if we define $\inject{s_1}{(e,s_2)}\triangleq(e,\inject{s_1}{s_2})$, we can show that injection preserves valid transitions.
 \begin{lemma}[Injection Preserves Evaluation]
   For all $s_1\in\State_1$ and $\config_2\in\Config_2$,
   if $\config_2\semarrow\rightst_2$ under $\tick_2$, then $\inject{s_1}{\config_2}\semarrow\inject{s_1}{\rightst_2}$ under $\tick_+$.
