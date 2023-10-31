@@ -1,5 +1,6 @@
 %! TEX program = xelatex
-\documentclass[acmsmall,review]{acmart}\settopmatter{printfolios=true,printccs=false,printacmref=false}
+\documentclass[acmsmall,screen,review]{acmart}\settopmatter{printfolios=true,printccs=false,printacmref=false}
+\usepackage{subfigure}
 
 %%% Typesetting for listings
 \usepackage{listings}
@@ -115,14 +116,7 @@
 \citestyle{acmauthoryear}
 
 %%% Math settings
-\usepackage{amsthm,mathtools}
-\theoremstyle{definition}
-\newtheorem{defn}{Definition}[section]
-\newtheorem{example}{Example}[section]
-\theoremstyle{plain}
-\newtheorem{lem}{Lemma}[section]
-\newtheorem{thm}{Theorem}[section]
-\newtheorem{cor}{Corollary}[section]
+\usepackage{mathtools}
 
 %%% PL constructs
 \usepackage{galois}
@@ -167,15 +161,15 @@
 \newcommand*{\Tick}{\mathsf{Tick}}
 \newcommand*{\lfp}{\mathsf{lfp}}
 \newcommand*{\Step}{\mathsf{Step}}
-\newcommand*{\semarrow}{\rightsquigarrow}
-\newcommand*{\asemarrow}{\A{\rightsquigarrow}}
+\newcommand*{\semarrow}{\hookrightarrow}
+\newcommand*{\asemarrow}{\A{\hookrightarrow}}
 \newcommand*{\synlink}{\rtimes}
 \newcommand*{\semlink}{\mathbin{\rotatebox[origin=c]{180}{$\propto$}}}
 \newcommand*{\link}[2]{{#1}\rtimes{#2}}
 \newcommand*{\mt}{\mathsf{empty}}
-\newcommand*{\valid}{\mathsf{valid}}
+\newcommand*{\valid}{\checkmark}
 \newcommand*{\Path}{\mathsf{Path}}
-\newcommand*{\equivalent}[1][black]{\textcolor{#1}{\sim}}
+\newcommand*{\equivalent}{\sim}
 
 \newcommand*{\doubleplus}{\ensuremath{\mathbin{+\mkern-3mu+}}}
 \newcommand*{\project}{\text{\texttt{:>} }}
@@ -266,8 +260,8 @@ If the implementation of \texttt{x} is changed, it will not trigger re-analysis 
 \section{Uncovering Modularity in Operational Semantics}
 First we introduce our model language.
 The language is an extension of untyped lambda calculus with modules and the linking construct.
-
-\begin{figure}[htb]
+\begin{figure}[h!]
+  \footnotesize
   \centering
   \begin{tabular}{rrcll}
     Identifiers & $x,M$ & $\in$         & $\ExprVar$                                                             \\
@@ -292,6 +286,7 @@ Above is how the example in the introduction is translated into the simple modul
 
 \subsection{Operational Semantics}
 \begin{figure}[h!]
+  \footnotesize
   \centering
   \begin{tabular}{rrcll}
     Environment/Context          & $C$ & $\in$         & $\Ctx$                                                      \\
@@ -549,7 +544,7 @@ In our case, $D\triangleq\pset(\Sigma)$ when $\Sigma\triangleq\semarrow\uplus\Ri
 The semantics of an expression $e$ starting from initial states in $S\subseteq\Ctx$ is the collection of $\ell\semarrow\rho$ and $\rho$ derivable from initial configurations $(e,C)$ with $C\in S$.
 Defining the transfer function is straightforward from the definition of the transition relation.
 
-\begin{defn}[Transfer function]
+\begin{definition}[Transfer function]
   Given $A\in D$, define
   \[
     \mathsf{Step}(A)\triangleq
@@ -560,17 +555,17 @@ Defining the transfer function is straightforward from the definition of the tra
     A'\subseteq A\text{ and }\ell\in A
     \right\}
   \]
-\end{defn}
+\end{definition}
 
 The $\mathsf{Step}$ function is naturally monotonic, as a ``cache'' $A$ that remembers more about the intermediate proof tree will derive more results than a cache that remembers less.
 In fact, we can prove that it is continuous, as it preserves the least upper bound of chains.
 Now, because of Tarski's fixpoint theorem, we can formulate the collecting semantics in fixpoint form.
-\begin{defn}[Collecting semantics]
+\begin{definition}[Collecting semantics]
   Given $e\in\Expr$ and $S\subseteq\Ctx$, define:
   \[
     \sembracket{e}S\triangleq\lfp(\lambda X.\mathsf{Step}(X)\cup\{(e,C)|C\in S\})
   \]
-\end{defn}
+\end{definition}
 Note that the above definition can be defined without qualms for situations when the $C$ in $(e,C)$ does not close $e$.
 Then the collecting semantics will store the proof tree only up to the point the first free variable is evaluated.
 
@@ -589,7 +584,7 @@ We first define what it means to \emph{fill in the blanks} of an individual $V_2
   \end{cases}
 \]
 This does indeed ``fill in the blanks'', since:
-\begin{lem}[Fill in the Blanks]
+\begin{lemma}[Fill in the Blanks]
   For all $C_1,C_2\in\Ctx$, for each expression variable $x$,
   \[
     C_2(x)=v\Rightarrow\inject{C_1}{C_2}(x)=\inject{C_1}{v}\text{ and }C_2(x)=\bot\Rightarrow\inject{C_1}{C_2}(x)=C_1(x)
@@ -598,35 +593,35 @@ This does indeed ``fill in the blanks'', since:
   \[
     C_2(M)=C\Rightarrow\inject{C_1}{C_2}(x)=\inject{C_1}{C}\text{ and }C_2(M)=\bot\Rightarrow\inject{C_1}{C_2}(M)=C_1(M)
   \]
-\end{lem}
+\end{lemma}
 \begin{proof}[Sketch]
   Induction on $C_2$.
 \end{proof}
 
 Moreover, filling in the blanks preserves the evaluation relation $\semarrow$.
 When we define $\inject{C_1}{\ell}$ for $C_1\in\Ctx,\ell=(e,C_2)\in\Left$ as $(e,\inject{C_1}{C_2})$, we have:
-\begin{lem}[Injection Preserves Evaluation]
+\begin{lemma}[Injection Preserves Evaluation]
   For all $\ell\in\Left$, $\rho\in\Right$, $\ell\semarrow\rho\Rightarrow\inject{C}{\ell}\semarrow\inject{C}{\rho}$.
-\end{lem}
+\end{lemma}
 \begin{proof}[Sketch]
   Induction on $\semarrow$.
 \end{proof}
 
 Thus, we can define $\rhd$ that injects a \emph{set} of contexts $S$ into an element $A$ of $D$ and a semantic linking operation $\semlink$ that does the rest of the computation:
-\begin{defn}[Injection]
+\begin{definition}[Injection]
   For $S\subseteq\Ctx$ and $A\in D$, define:
   \[S\rhd A\triangleq\{\inject{C}{\rho}|C\in S,\rho\in A\}\cup\{\inject{C}{\ell}\semarrow\inject{C}{\rho}|C\in S,\ell\semarrow\rho\in A\}\]
-\end{defn}
-\begin{defn}[Semantic Linking]
+\end{definition}
+\begin{definition}[Semantic Linking]
   For $S\subseteq\Ctx$ and $A\in D$, define:
   \[S\semlink A\triangleq\lfp(\lambda X.\Step(X)\cup(S\rhd A))\]
-\end{defn}
+\end{definition}
 
 Thus we reach the main theorem that allows ``fractional closures'' to be soundly defined:
-\begin{thm}[Advance]
+\begin{theorem}[Advance]
   For all $e\in\Expr$ and $S_1,S_2\subseteq\Ctx$,
   \[\sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2\]
-\end{thm}
+\end{theorem}
 \begin{proof}
   Let $A$ be $\{(e,C)|C\in S_1\rhd S_2\}$, and let $B$ be $S_1\rhd\sembracket{e}S_2$.
   Note that $A\subseteq B$ by the definition of $\sembracket{e}S_2$.
@@ -678,7 +673,8 @@ To break this recursive structure, we employ the common technique of introducing
 Thus, we extend the operational semantics of the previous section to a sematics that involve choosing a \emph{time} domain $\Time$ to use as addresses.
 
 \subsection{Semantic Domains}
-\begin{figure}[h!]
+\begin{figure}[t!]
+  \footnotesize
   \centering
   \begin{tabular}{rrcll}
     Time                         & $t$    & $\in$         & $\Time$                                                                  \\
@@ -709,7 +705,7 @@ We name this policy $\tick$ in our framework.
 The \emph{type} of $\tick$ can be freely chosen, since it may choose to record any event that occurs during execution, but in this section we choose the type $\Time\rightarrow\Time$, the simplest possible option.
 
 \subsection{Operational Semantics}
-\begin{figure}[h!]
+\begin{figure}[t!]
   \scriptsize
   \begin{flushright}
     \fbox{$(e,C,\mem,t)\semarrow(V,\mem',t')\text{ or }(e',C',\mem',t')$}
@@ -855,9 +851,9 @@ Now, to allow only such valid transitions, we define:
 as the set of valid states that enable $\tick$ to generate fresh timestamps.
 It is almost trivial that the set $\Left\times\Right$, when $\Left\triangleq\Expr\times\State$ and $\Right\triangleq\Left\uplus\Result$, is closed under the inductive definition of $\semarrow$.
 That is,
-\begin{lem}[Valid States Transition to Valid States]
+\begin{lemma}[Valid States Transition to Valid States]
   For all $\ell\in\Left$ and $\rho$, if $\ell\semarrow\rho$ according to the inductive rules, $\rho\in\Right$.
-\end{lem}
+\end{lemma}
 \begin{proof}[Sketch]
   Induction on $\semarrow$.
 \end{proof}
@@ -865,7 +861,7 @@ That is,
 \subsection{Collecting Semantics}
 The definition for the collecting semantics of the language is identical to the collecting semantics in the previous section.
 That is, when we let $D\triangleq\pset(\Sigma)$ where $\Sigma\triangleq\Right\uplus\semarrow$,
-\begin{defn}[Transfer function]
+\begin{definition}[Transfer function]
   Given $A\in D$, define
   \[
     \mathsf{Step}(A)\triangleq
@@ -876,16 +872,17 @@ That is, when we let $D\triangleq\pset(\Sigma)$ where $\Sigma\triangleq\Right\up
     A'\subseteq A\text{ and }\ell\in A
     \right\}
   \]
-\end{defn}
+\end{definition}
 and
-\begin{defn}[Collecting semantics]
+\begin{definition}[Collecting semantics]
   Given $e\in\Expr$ and $S\subseteq\State$, define:
   \[
     \sembracket{e}S\triangleq\lfp(\lambda X.\mathsf{Step}(X)\cup\{(e,s)|s\in S\})
   \]
-\end{defn}
+\end{definition}
 \section{Abstract Semantics}
-\begin{figure}[h!]
+\begin{figure}[t!]
+  \footnotesize
   \centering
   \begin{tabular}{rrcll}
     Abstract Time                & $\A{t}$    & $\in$         & $\A{\Time}$                                                                               \\
@@ -908,7 +905,7 @@ For this purpose, we choose a finite \emph{abstract time} domain $\A\Time$ that 
 Since the policy to update the timestamp must also be compatible with respect to $\A\alpha$, we require the $\A\tick:\A\Time\rightarrow\A\Time$ function to satisfy $\A\alpha\circ\tick=\A\tick\circ\A\alpha$.
 
 Then the operational semantics can be abstracted directly, with modifications only in the \emph{update} of the memory and \emph{reads} from the memory.
-The memory update operation is defined as a weak update, that is:
+The memory update operation now a weak update, that is:
 \[
   \A{\mem}[\A{t}\A{\mapsto}\A{v}](\A{t'})\triangleq
   \begin{cases}
@@ -920,7 +917,7 @@ and the read from the memory returns a set of closures with abstract addresses, 
 An excerpt for the abstract version of the operational semantics $\A\semarrow$ is in Figure \ref{fig:absreach}.
 $\A\semarrow\subseteq\A\Left\times\A\Right$, when $\A\Left\triangleq\Expr\times\A\State$ and $\A\Right\triangleq\A\Left\uplus\A\Result$.
 
-\begin{figure}[h!]
+\begin{figure}[t!]
   \scriptsize
   \begin{flushright}
     \fbox{$(e,\A{C},\A\mem,\A{t})\A\semarrow(\A{V},\A{\mem'},\A{t'})\text{ or }(e',\A{C'},\A{\mem'},\A{t'})$}
@@ -1045,47 +1042,45 @@ $\A\semarrow\subseteq\A\Left\times\A\Right$, when $\A\Left\triangleq\Expr\times\
   \caption{Excerpt of the abstract operational semantics, corresponding to the big-step evaluation rules.}
   \label{fig:absreach}
 \end{figure}
-We note that the abstract operational semantics is a sound approximation of the concrete semantics in the operational sense, since if we extend $\A\alpha$ as:
+We note that the abstract semantics is a sound approximation of the concrete semantics in the operational sense, since if we extend $\A\alpha$ as:
 \begin{align*}
-  \A\alpha([])                          & \triangleq []                                                                                    \\
-  \A\alpha((x,t_x)\cons C)              & \triangleq(x,\A\alpha(t_x))\cons\A\alpha(C)                                                      \\
-  \A\alpha((M,C_M)\cons C)              & \triangleq(M,\A\alpha(C_M))\cons\A\alpha(C)                                                      \\
-  \A\alpha(\langle\lambda x.e,C\rangle) & \triangleq\langle\lambda x.e,\A\alpha(C)\rangle                                                  \\
-  \A\alpha(\mem)                        & \triangleq\lambda\A{t}.\{\A\alpha(\mem(t))|\A\alpha(t)=\A{t}\text{ and }t\in\mathsf{dom}(\mem)\} \\
-  \A\alpha(e,C,\mem,t)                  & \triangleq(e,\A\alpha(C),\A\alpha(\mem),\A\alpha(t))                                             \\
+  \A\alpha([])                          & \triangleq []                                                  \\
+  \A\alpha((x,t_x)\cons C)              & \triangleq(x,\A\alpha(t_x))\cons\A\alpha(C)                    \\
+  \A\alpha((M,C_M)\cons C)              & \triangleq(M,\A\alpha(C_M))\cons\A\alpha(C)                    \\
+  \A\alpha(\langle\lambda x.e,C\rangle) & \triangleq\langle\lambda x.e,\A\alpha(C)\rangle                \\
+  \A\alpha(\mem)                        & \triangleq\lambda\A{t}.\{\A\alpha(\mem(t))|\A\alpha(t)=\A{t}\} \\
+  \A\alpha(e,C,\mem,t)                  & \triangleq(e,\A\alpha(C),\A\alpha(\mem),\A\alpha(t))           \\
   \A\alpha(V,\mem,t)                    & \triangleq(\A\alpha(V),\A\alpha(\mem),\A\alpha(t))
 \end{align*}
 We have:
-\begin{lem}[Operational Soundness]
+\begin{lemma}[Operational Soundness]
   For all $\ell\in\Left$ and $\rho\in\Right$, if $\ell\semarrow\rho$ then $\A\alpha(\ell)\A\semarrow\A\alpha(\rho)$.
-\end{lem}
+\end{lemma}
 \begin{proof}[Sketch]
   Induction on $\semarrow$.
 \end{proof}
 
 Then if we define $\Abs{D}\triangleq\pset(\A\Sigma)$, when $\A\Sigma\triangleq\A\Right\uplus\A\semarrow$, we can establish a Galois connection between $D$ and $\Abs{D}$.
 The abstraction and concretization functions are given by:
-\begin{defn}[Abstraction and Concretization]
+\begin{definition}[Abstraction and Concretization]
   Define $\alpha:D\rightarrow\Abs{D}$ and $\gamma:\Abs{D}\rightarrow D$ by:
-  \[
-    \alpha(A)\triangleq\{\A\alpha(\ell)\asemarrow\A\alpha(\rho)|\ell\semarrow\rho\in A\}\cup\{\A\alpha(\rho)|\rho\in A\}
-  \]
-  \[
-    \gamma(\Abs{A})\triangleq\{\ell\semarrow\rho|\A\alpha(\ell)\asemarrow\A\alpha(\rho)\in\Abs{A}\}\cup\{\rho|\A\alpha(\rho)\in\Abs{A}\}
-  \]
-\end{defn}
+  \begin{align*}
+    \alpha(A)       & \triangleq\{\A\alpha(\ell)\asemarrow\A\alpha(\rho)|\ell\semarrow\rho\in A\}\cup\{\A\alpha(\rho)|\rho\in A\}           \\
+    \gamma(\Abs{A}) & \triangleq\{\ell\semarrow\rho|\A\alpha(\ell)\asemarrow\A\alpha(\rho)\in\Abs{A}\}\cup\{\rho|\A\alpha(\rho)\in\Abs{A}\}
+  \end{align*}
+\end{definition}
 
 Then it is straightforward to see that:
-\begin{lem}[Galois Connection]
+\begin{lemma}[Galois Connection]
   $\pset(\Sigma)=D\galois{\alpha}{\gamma}\Abs{D}=\pset(\A\Sigma)$. That is:
   \[\forall A\in D,\Abs{A}\in\Abs{D}:\alpha(A)\subseteq\Abs{A}\Leftrightarrow A\subseteq\gamma(\Abs{A})\]
-\end{lem}
+\end{lemma}
 \begin{proof}[Sketch]
   Straightforward from the definitions of $\alpha$ and $\gamma$.
 \end{proof}
 
 The definition for the abstract fixpoint semantics is naturally connected soundly with the collecting semantics.
-\begin{defn}[Abstract transfer function]
+\begin{definition}[Abstract transfer function]
   Given $\Abs{A}\in\Abs{D}$, define
   \[
     \Abs{\mathsf{Step}}(\Abs{A})\triangleq
@@ -1096,17 +1091,17 @@ The definition for the abstract fixpoint semantics is naturally connected soundl
     \Abs{A'}\subseteq \Abs{A}\text{ and }\A\ell\in\Abs{A}
     \right\}
   \]
-\end{defn}
-\begin{defn}[Abstract semantics]
+\end{definition}
+\begin{definition}[Abstract semantics]
   Given $e\in\Expr$ and $\Abs{S}\subseteq\A\State$, define:
   \[
     \Abs{\sembracket{e}}\Abs{S}\triangleq\lfp(\lambda \Abs{X}.\Abs{\mathsf{Step}}(\Abs{X})\cup\{(e,\A{s})|\A{s}\in \Abs{S}\})
   \]
-\end{defn}
+\end{definition}
 Then we can prove that:
-\begin{thm}[Soundness]
+\begin{theorem}[Soundness]
   For all $e\in\Expr$, $\sembracket{e}\circ\gamma\subseteq\gamma\circ\Abs{\sembracket{e}}$.
-\end{thm}
+\end{theorem}
 \begin{proof}
   From operational soundness, we have that $\alpha\circ\Step\subseteq\Abs\Step\circ\alpha$.
   Then by the fixpoint transfer theorem and Galois connection, we have our desired result.
@@ -1116,9 +1111,9 @@ Now we can say that $\Abs{\sembracket{e}}\alpha(S)$ is a sound abstraction of $\
 However, is it true that $\Abs{\sembracket{e}}\alpha(S)$ is finitely computable?
 The answer to this question is ``yes''.
 
-\begin{thm}[Finiteness]
+\begin{theorem}[Finiteness]
   For all $e\in\Expr$ and $\Abs{S}\subseteq\A\Ctx$, if $\Abs{S}$ is finite, $\Abs{\sembracket{e}}\Abs{S}$ is finite.
-\end{thm}
+\end{theorem}
 \begin{proof}[Sketch]
   Given $\A{s}\in\Abs{S}$, we want to prove that there is some finite set $X$ satisfying:
   \[\forall \A\rho\in\A\Right:(e,\A{s})\A\semarrow^*\A\rho\Rightarrow\A\rho\in X\]
@@ -1138,15 +1133,14 @@ It is at this point that a problem occurs.
 When merging the two memories $\mem$ and $\mem'$, we may encounter overlapping addresses.
 Thus, we must require that all reachable addresses from $(C,\mem)$ does not overlap with reachable addresses in $(C',\mem')$.
 Then again, this requirement may be lifted if we allow linking of semantics that use \emph{different} time domains as addresses.
-After all, we can only \emph{read} values from $C$ in $\inject{C}{V}$; why not preserve addresses that were used in $s$ before injection and never allow writing to those addresses?
-Thus, in this section we first define $\inject{s_1}{r_2}$, when $s_1$ uses $\Time_1$ as addresses and $r_2$ uses $\Time_2$ as addresses.
-Then $\inject{s_1}{r_2}$ must live in a version of $\Result$ that uses $\Time_1+\Time_2$ as addresses.
+Note that we can only \emph{read} values from $C$ in $\inject{C}{V}$; we should preserve addresses that were used in $s$ before injection and never allow writing to those addresses.
+Thus, in this section we first define $\inject{s_1}{r_2}$, when $s_1$ uses $\Time_1$ and $r_2$ uses $\Time_2$.
+Then $\inject{s_1}{r_2}$ must live in a version of $\Result$ that uses $\Time_1+\Time_2$.
 From now on, variables with subscripts $1$ or $2$ are to be understood to be using $\Time_i(i=1,2)$ as addresses, and variables with the subscript $+$ are to be understood to be the linked version.
 
 Defining linking between different time domains demand that $\tick$, $\A\Time$, $\A\alpha$, and $\A\tick$ also be linked.
 Concretely, we demand that the linked $\tick_+$ preserves the condition that $\A\alpha_+\circ\tick_+=\A\tick_+\circ\A\alpha_+$.
 Also, we need to link $\tick$ well so that for all valid transitions $\ell_2\semarrow\rho_2$ under $\tick_2$, $\inject{s_1}{\ell_2}\semarrow\inject{s_1}{\rho_2}$ is also a valid transition under $\tick_+$.
-This is to ensure that injection into the collecting semantics is well-defined.
 For the rest of this section, we define linking for all semantic domains and prove that the requirements laid out in the skeleton for static analysis hold.
 
 \subsection{$\tick_+$, $\A\alpha_+$, $\A\tick$}
@@ -1196,66 +1190,66 @@ As is expected, injecting $s_1$ into $r_2$ involves injecting $C_1$ in every con
 This definition is exactly what we were searching for, since it respects all requirements laid out in the introduction to this section.
 First, $\inject{s_1}{r_2}\in\Result_+$ with respect to the ordering $\le_+$.
 Also, if we define $\inject{s_1}{\ell_2}$ when $\ell_2=(e,s_2)$ by $(e,\inject{s_1}{s_2})$, we can show that injection preserves valid transitions. That is,
-\begin{lem}[Injection Preserves Evaluation]
+\begin{lemma}[Injection Preserves Evaluation]
   For all $s_1\in\State_1$, $\ell_2\in\Left_2$ and $\rho_2\in\Right_2$,
   if $\ell_2\semarrow\rho_2$ under $\tick_2$, then $\inject{s_1}{\ell_2}\semarrow\inject{s_1}{\rho_2}$ under $\tick_+$.
-\end{lem}
+\end{lemma}
 \begin{proof}[Sketch]
   Induction on $\semarrow$ under $\tick_2$.
 \end{proof}
 
 Thus we can define $\rhd$ and $\semlink$ that satisfies the desired property.
-\begin{defn}[Injection]
+\begin{definition}[Injection]
   For $S_1\subseteq\State_1$ and $A_2\in D_2$, define:
   \[
     S_1\rhd A_2\triangleq\{\inject{s_1}{\rho_2}|s_1\in S_1,\rho_2\in A_2\}\cup\{\inject{s_1}{\ell_2}\semarrow\inject{s_1}{\rho_2}|s_1\in S_1,\ell_2\semarrow\rho_2\in A_2\}
   \]
-\end{defn}
-\begin{defn}[Semantic Linking]
+\end{definition}
+\begin{definition}[Semantic Linking]
   For $S_1\subseteq\State_1$ and $A_2\in D_2$, define:
   \[
     S_1\semlink A_2\triangleq\lfp(\lambda X.\Step(X)\cup(S_1\rhd A_2))
   \]
-\end{defn}
-\begin{thm}[Advance]
+\end{definition}
+\begin{theorem}[Advance]
   For all $e\in\Expr$ and $S_1\subseteq\State_1$, $S_2\subseteq\State_2$,
   \[
     \sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2
   \]
-\end{thm}
+\end{theorem}
 \subsection{Abstract Linking}
 We can define injection and linking in the abstract semantics in the same way as the concrete semantics.
 Only the definition of $\inject{\A{C}_1}{\A\mem_2}$ has to be adapted to account for the fact that $\A\mem_2(\A{t})$ is now a \emph{set} of closures.
 This means that $\inject{\A{C}_1}{\A\mem_2}$ must be defined as:
 \[\inject{\A{C}_1}{\A\mem_2}\triangleq\lambda\A{t}.\{\inject{\A{C}_1}{\A{v}_2}|\A{v}_2\in\A\mem_2(\A{t})\}\]
 Then we can show that:
-\begin{lem}[Injection Preserves Abstract Evaluation]
+\begin{lemma}[Injection Preserves Abstract Evaluation]
   For all $\A{s}_1\in\A\State_1$, $\A\ell_2\in\A\Left_2$ and $\A\rho_2\in\A\Right_2$, if $\A\ell_2\A\semarrow\A\rho_2$ under $\A\tick_2$,
   then $\inject{\A{s}_1}{\A\ell_2}\A\semarrow\inject{\A{s}_1}{\A\rho_2}$ under $\A\tick_+$.
-\end{lem}
+\end{lemma}
 \begin{proof}[Sketch]
   Induction on $\A\semarrow$ under $\A\tick_2$.
 \end{proof}
 and thus we can define:
-\begin{defn}[Abstract Injection]
+\begin{definition}[Abstract Injection]
   For $\Abs{S}_1\subseteq\A\State_1$ and $\Abs{A}_2\in\Abs{D}_2$, define:
   \[
     \Abs{S}_1\Abs\rhd\Abs{A}_2\triangleq\{\inject{\A{s}_1}{\A\rho_2}|\A{s}_1\in\Abs{S}_1,\A\rho_2\in\Abs{A}_2\}\cup\{\inject{\A{s}_1}{\A\ell_2}\A\semarrow\inject{\A{s}_1}{\A\rho_2}|\A{s}_1\in\Abs{S}_1,\A\ell_2\A\semarrow\A\rho_2\in\Abs{A}_2\}
   \]
-\end{defn}
-\begin{defn}[Abstract Linking]
+\end{definition}
+\begin{definition}[Abstract Linking]
   For $\Abs{S}_1\subseteq\A\State_1$ and $\Abs{A}_2\in\Abs{D}_2$, define:
   \[
     \Abs{S}_1\Abs\semlink\Abs{A}_2\triangleq\lfp(\lambda\Abs{X}.\Abs\Step(\Abs{X})\cup(\Abs{S}_1\Abs\rhd\Abs{A}_2))
   \]
-\end{defn}
+\end{definition}
 so that the \emph{best possible result} is achieved:
-\begin{thm}[Abstract Advance]
+\begin{theorem}[Abstract Advance]
   For all $e\in\Expr$ and $\Abs{S}_1\subseteq\A\State_1$, $\Abs{S}_2\subseteq\A\State_2$,
   \[
     \Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_2)=\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2
   \]
-\end{thm}
+\end{theorem}
 Since we have that
 \[
   \alpha_+(S_1\rhd A_2)=\alpha_1(S_1)\Abs\rhd\alpha_2(A_2)
@@ -1312,11 +1306,10 @@ Then given an access path, we can define a predicate $\valid\in(\Ctx\uplus\Time)
 $\valid(r,\mem,p)$ is true iff starting from $r$, all accesses edges in $p$ are valid.
 Likewise, we can define a predicate $\A\valid\in(\A\Ctx\uplus\A\Time)\times\A\Mem\times\A\Path\rightarrow\mathsf{Prop}$.
 $\A\valid(\A{r},\A\mem,\A{p})$ is true iff starting from $\A{r}$, all access edges in $\A{p}$ are valid.
-%\vspace{-1em}
-\begin{figure}[h!]
+\begin{figure}[t!]
   \centering
-  \begin{minipage}{0.45\linewidth}
-    \scriptsize
+  \begin{minipage}{0.4\linewidth}
+    \footnotesize
     \begin{align*}
       \valid(\_,\mem,\epsilon)                  & \triangleq\mathsf{True}                                                        \\
       \valid(C,\mem,\xrightarrow{x}t\:p)        & \triangleq t=C(x)\wedge\valid(t,\mem,p)                                        \\
@@ -1325,8 +1318,8 @@ $\A\valid(\A{r},\A\mem,\A{p})$ is true iff starting from $\A{r}$, all access edg
       \valid(\text{otherwise})                  & \triangleq\mathsf{False}
     \end{align*}
   \end{minipage}
-  \begin{minipage}{0.54\linewidth}
-    \scriptsize
+  \begin{minipage}{0.4\linewidth}
+    \footnotesize
     \begin{align*}
       \A\valid(\_,\A\mem,\epsilon)                          & \triangleq\mathsf{True}                                                                                \\
       \A\valid(\A{C},\A\mem,\xrightarrow{x}\A{t}\:\A{p})    & \triangleq\A{t}=\A{C}(x)\wedge\A\valid(\A{t},\A\mem,\A{p})                                             \\
@@ -1341,22 +1334,22 @@ $\A\valid(\A{r},\A\mem,\A{p})$ is true iff starting from $\A{r}$, all access edg
 \end{figure}
 
 Now we can give straightforward definitions of equivalence.
-\begin{defn}[Equivalent Concrete States]
+\begin{definition}[Equivalent Concrete States]
   Let $s=(C,\mem,\_)\in\State$ and $s'=(C',\mem',\_)\in\State'$.
-  We say $s$ is \emph{equivalent} to $s'$ and write $s\equivalent s'$ when there exists a $\varphi:\Time\rightarrow\Time'$ and $\varphi':\Time'\rightarrow\Time$ such that:
+  $s\equivalent s'$ ($s$ is equivalent to $s'$) when $\exists\varphi\in\Time\rightarrow\Time',\varphi'\in\Time'\rightarrow\Time:$
   \begin{enumerate}
-    \item $\forall p\in\Path:$ If $\valid(C,\mem,p)$, $\valid(C',\mem',\varphi(p))$ and $p=\varphi'(\varphi(p))$.
-    \item $\forall p'\in\Path':$ If $\valid(C',\mem',p')$, $\valid(C,\mem,\varphi'(p'))$ and $p'=\varphi(\varphi'(p'))$.
+    \item $\forall p\in\Path:\valid(C,\mem,p)\Rightarrow(\valid(C',\mem',\varphi(p))\land p=\varphi'(\varphi(p)))$
+    \item $\forall p'\in\Path':\valid(C',\mem',p')\Rightarrow(\valid(C,\mem,\varphi'(p'))\land p'=\varphi(\varphi'(p')))$
   \end{enumerate}
-\end{defn}
-\begin{defn}[Weakly Equivalent Abstract States]\label{def:weakequiv}
+\end{definition}
+\begin{definition}[Weakly Equivalent Abstract States]\label{def:weakequiv}
   Let $\A{s}=(\A{C},\A\mem,\_)\in\AState$ and $\A{s}'=(\A{C}',\A\mem',\_)\in\AState'$.
-  We say $\A{s}$ is \emph{weakly equivalent} to $\A{s}'$ when there exists a $\A\varphi:\ATime\rightarrow\ATime'$ and $\A\varphi':\ATime'\rightarrow\ATime$ such that:
+  $\A{s}$ is weakly equivalent to $\A{s}'$ when $\exists\A\varphi\in\ATime\rightarrow\ATime',\A\varphi'\in\ATime'\rightarrow\ATime:$
   \begin{enumerate}
-    \item $\forall\A{p}\in\A\Path:$ If $\A\valid(\A{C},\A\mem,\A{p})$, $\A\valid(\A{C'},\A{\mem'},\A\varphi(\A{p}))$ and $\A{p}=\A\varphi'(\A\varphi(\A{p}))$.
-    \item $\forall\A{p'}\in\A{\Path'}:$ If $\A\valid(\A{C'},\A{\mem'},\A{p'})$, $\valid(\A{C},\A{\mem},\A\varphi'(\A{p'}))$ and $\A{p'}=\A\varphi(\A\varphi'(\A{p'}))$.
+    \item $\forall\A{p}\in\A\Path:\A\valid(\A{C},\A\mem,\A{p})\Rightarrow(\A\valid(\A{C'},\A{\mem'},\A\varphi(\A{p}))\land\A{p}=\A\varphi'(\A\varphi(\A{p})))$
+    \item $\forall\A{p'}\in\A{\Path'}:\A\valid(\A{C'},\A{\mem'},\A{p'})\Rightarrow(\A\valid(\A{C},\A{\mem},\A\varphi'(\A{p'}))\land\A{p'}=\A\varphi(\A\varphi'(\A{p'})))$
   \end{enumerate}
-\end{defn}
+\end{definition}
 The reason that the above definition is called ``weak equivalence'' is because it is not sufficient to guarantee equivalence after concretization.
 Consider
 \[
@@ -1373,40 +1366,33 @@ Before going into the definition, we introduce some terminology.
 First, we say that two states are \emph{weakly equivalent by} $\A\varphi,\A\varphi'$ when $\A\varphi,\A\varphi'$ are the functions that translate between abstract timestamps in Definition \ref{def:weakequiv}.
 Second, we say that $\A{t}$ is \emph{reachable from} $\A{s}$ when there is some valid access path $\A{p}$ from $\A{s}$ containing $\A{t}$.
 Now we actually give the definition:
-\begin{defn}[Equivalent Abstract States]
+\begin{definition}[Equivalent Abstract States]
   Let $\A{s}=(\_,\A\mem,\_)\in\AState$ and $\A{s}'=(\_,\A\mem',\_)\in\AState'$.
-  We say $\A{s}$ is \emph{equivalent} to $\A{s}'$ and write $\A{s}\A\equivalent\A{s'}$ when there exists a $\A\varphi:\ATime\rightarrow\ATime'$ and $\A\varphi':\ATime'\rightarrow\ATime$ such that:
+  $\A{s}\A\equivalent\A{s'}$ ($\A{s}$ is equivalent to $\A{s'}$) when $\exists\A\varphi\in\ATime\rightarrow\ATime',\A\varphi'\in\ATime'\rightarrow\ATime:$
   \begin{enumerate}
     \item $\A{s}$ and $\A{s'}$ are weakly equivalent by $\A\varphi,\A\varphi'$.
-    \item For each $\A{t}$ reachable from $\A{s}$, if $\langle\lambda x.e,\A{C}\rangle\in\A\mem(\A{t})$, there exists a $\A{C'}$ such that $\langle\lambda x.e,\A{C'}\rangle\in\A\mem'(\A\varphi(\A{t}))$ and $\A{C}$, $\A{C'}$ are weakly equivalent by $\A\varphi,\A\varphi'$ under the empty memory.
+    \item For each $\A{t}$ reachable from $\A{s}$ and for each $\langle\lambda x.e,\A{C}\rangle\in\A\mem(\A{t})$, $\langle\lambda x.e,\prexists{\A{C'}}\rangle\in\A\mem'(\A\varphi(\A{t}))$ such that $\A{C}$, $\A{C'}$ are weakly equivalent by $\A\varphi,\A\varphi'$ under the empty memory.
     \item The same holds for each $\A{t'}$ reachable from $\A{s'}$.
   \end{enumerate}
-\end{defn}
+\end{definition}
 
-We extend the definition of equivalence between elements of $\Sigma$ and $\Sigma'$:
-\begin{align*}
-  (\langle\lambda x.e,C\rangle,\mem,t)\equivalent(\langle\lambda x.e,C'\rangle,\mem',t')                       & \triangleq(C,\mem,t)\equivalent(C',\mem',t')                       \\
-  (e,s)\equivalent(e,s')                                                                                       & \triangleq s\equivalent s'                                         \\
-  (\langle\lambda x.e,\A{C}\rangle,\A\mem,\A{t})\A\equivalent(\langle\lambda x.e,\A{C}'\rangle,\A\mem',\A{t}') & \triangleq(\A{C},\A\mem,\A{t})\A\equivalent(\A{C}',\A\mem',\A{t}') \\
-  (e,\A{s})\A\equivalent(e,\A{s}')                                                                             & \triangleq\A{s}\A\equivalent\A{s}
-\end{align*}
-Then we can extend the definition of equivalence between the elements of $D$ and $D'$:
-\begin{align*}
-  A\equivalent A'\triangleq                 & (\forall\ell\semarrow\rho,\rho\in A:\exists\ell'\semarrow\rho',\rho'\in A':\ell\equivalent\ell'\land\rho\equivalent\rho')\land                                       \\
-                                            & (\forall\ell'\semarrow\rho',\rho'\in A':\exists\ell\semarrow\rho,\rho\in A:\ell\equivalent\ell'\land\rho\equivalent\rho')                                            \\
-  \Abs{A}\Abs\equivalent \Abs{A'}\triangleq & (\forall\A\ell\A\semarrow\A\rho,\A\rho\in\Abs{A}:\exists\A\ell'\A\semarrow\A\rho',\A\rho'\in\Abs{A'}:\A\ell\A\equivalent\A\ell'\land\A\rho\A\equivalent\A\rho')\land \\
-                                            & (\forall\A\ell'\A\semarrow\A\rho',\A\rho'\in\Abs{A'}:\exists\A\ell\A\semarrow\A\rho,\A\rho\in\Abs{A}:\A\ell\A\equivalent\A\ell'\land\A\rho\A\equivalent\A\rho')
-\end{align*}
+We extend the definition of equivalence between elements of $\Right$ and $\Right'$ as the conjunction of the syntactic equality in the expression parts and the equivalence in the context and memory parts.
+Then we can extend the definition of equivalence between $A\in D$ and $A'\in D'$ by requiring all elements $\ell\semarrow\rho,\rho$ of $A$ to have an equivalent counterpart in $A'$, and vice versa.
+Likewise, we can extend the definition for equivalent abstract states as well.
+
+When $A\in D$ and $A'\in D'$ are equivalent, we override the symbol for equivalence between individual states and write $A\equivalent A'$.
+When $\Abs{A}\in\Abs{D}$ and $\Abs{A'}\in\Abs{D'}$ are equivalent, we write $\Abs{A}\Abs\equivalent\Abs{A'}$.
+
 \subsection{Propeties of Equivalence}
 We first note that the relations $\equivalent$ and $\A\equivalent$ are actually equivalence relations.
 That is, they are reflexive, transitive, and commutative.
 We must also show that equivalence is well-behaved under the step relation and concretization.
 That is, we must show that concretizing equivalent abstract states lead to equivalent states, and that equivalence preserves the step relation.
-\begin{lem}[Concretization Preserves Equivalence]\label{lem:concreteqiuv}
+\begin{lemma}[Concretization Preserves Equivalence]\label{lem:concreteqiuv}
   Assume that each $\A{t},\A{t'}$ in $\ATime,\ATime'$ corresponds to an infinite set of concrete timestamps.
   Then for all $\Abs{S}\subseteq\AState$ and $\Abs{S'}\subseteq\AState'$,
   \[\Abs{S}\Abs\equivalent\Abs{S'}\Rightarrow\gamma(\Abs{S})\equivalent\gamma'(\Abs{S'})\]
-\end{lem}
+\end{lemma}
 \begin{proof}[Sketch]
   We want to prove:
   \[\forall s\in\State,\A{s}'\in\AState':\A\alpha(s)\A\equivalent\A{s}'\Rightarrow\exists s'\in\State':s\equivalent s'\land\A\alpha'(s')=\A{s}'\]
@@ -1415,11 +1401,11 @@ That is, we must show that concretizing equivalent abstract states lead to equiv
 
   This is proven in Coq (\texttt{ConcretEquivalence.v}).
 \end{proof}
-\begin{lem}[Evaluation Preserves Equivalence]
+\begin{lemma}[Evaluation Preserves Equivalence]
   For all $\ell\in\Left$, $\rho\in\Right$, $\ell'\in\Left'$,
   \[\ell\semarrow\rho\text{ and }\ell\equivalent\ell'\Rightarrow\exists\rho':\ell'\semarrow\rho'\text{ and }\rho\equivalent\rho'\]
   Thus, if $S\subseteq\State$ and $S'\subseteq\State'$ are equivalent, $\sembracket{e}S\equivalent\sembracket{e}S'$.
-\end{lem}
+\end{lemma}
 \begin{proof}[Sketch]
   This is proven in Coq (\texttt{OperationalEquivalence.v}).
 \end{proof}
