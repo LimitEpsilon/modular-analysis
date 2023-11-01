@@ -661,9 +661,9 @@ which, by definition and Tarski's fixpoint theorem satisfies:
 \[\sembracket{e}\circ\gamma\subseteq\gamma\circ\Abs{\sembracket{e}}\qquad\semlink\circ(\gamma,\gamma)\subseteq\gamma\circ\Abs\semlink\]
 Then we can soundly approximate fractional specifications by:
 \begin{align*}
-  S_1\semlink\sembracket{e}S_2 & \subseteq S_1\semlink\gamma(\Abs{\sembracket{e}}\alpha(S_2))                 & (\because\sembracket{e}\subseteq\gamma\circ\Abs{\sembracket{e}}\circ\alpha\text{ and monotonicity of }\semlink) \\
-                               & \subseteq \gamma(\alpha(S_1))\semlink\gamma(\Abs{\sembracket{e}}\alpha(S_2)) & (\because\text{id}\subseteq\gamma\circ\alpha\text{ and monotonicity of }\semlink)                               \\
-                               & \subseteq\gamma(\alpha(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha(S_2))      & (\because\semlink\circ(\gamma,\gamma)\subseteq\gamma\circ\Abs\semlink)
+  C_1\semlink\sembracket{e}C_2 & \subseteq C_1\semlink\gamma(\Abs{\sembracket{e}}\alpha(C_2))                 & (\because\sembracket{e}\subseteq\gamma\circ\Abs{\sembracket{e}}\circ\alpha\text{ and monotonicity of }\semlink) \\
+                               & \subseteq \gamma(\alpha(C_1))\semlink\gamma(\Abs{\sembracket{e}}\alpha(C_2)) & (\because\text{id}\subseteq\gamma\circ\alpha\text{ and monotonicity of }\semlink)                               \\
+                               & \subseteq\gamma(\alpha(C_1)\Abs\semlink\Abs{\sembracket{e}}\alpha(C_2))      & (\because\semlink\circ(\gamma,\gamma)\subseteq\gamma\circ\Abs\semlink)
 \end{align*}
 \section{Instrumented Semantics}
 All that is left is to present an abstraction for the semantics in the previous section.
@@ -882,7 +882,96 @@ and
     \sembracket{e}S\triangleq\lfp(\lambda X.\mathsf{Step}(X)\cup\{(e,s)|s\in S\})
   \]
 \end{definition}
-\section{Abstract Semantics}
+\subsection{Semantic Linking}
+Now we need to define an injection operation that fills in the blanks of a $o\texteq{let}(V,\mem,t)\in\Outcome$ with a $s\texteq{let}(\ctx',\mem',t')\in\State$.
+Recall the definition for injection in the semantics without memory.
+$\inject{\ctx}{V}$ enables access to values that were previously not available in $V$ by filling in the bottom of the stack with $\ctx$.
+Thus, we must mimic this by filling in all contexts in $r$ with the context part of $s$.
+Also, to retain all information stored in the memory, the memory part of $r$ must be merged with the memory of $s$.
+
+It is at this point that a problem occurs.
+When merging the two memories $\mem$ and $\mem'$, we may encounter overlapping addresses.
+Thus, we must require that all reachable addresses from $(\ctx,\mem)$ does not overlap with reachable addresses in $(\ctx',\mem')$.
+Then again, this requirement may be lifted if we allow linking of semantics that use \emph{different} time domains as addresses.
+Note that we can only \emph{read} values from $\ctx$ in $\inject{\ctx}{V}$; we should preserve addresses that were used in $s$ before injection and never allow writing to those addresses.
+Thus, in this section we first define $\inject{s_1}{r_2}$, when $s_1$ uses $\Time_1$ and $r_2$ uses $\Time_2$.
+Then $\inject{s_1}{r_2}$ must live in a version of $\Outcome$ that uses $\Time_1+\Time_2$.
+
+\subsubsection{Linking the Semantic Domains}
+Assume that we have two concrete time domains $(\Time_1,\le_1,\tick_1)$ and $(\Time_2,\le_2,\tick_2)$.
+We first need to define what it means to link the time domains.
+\[
+  \Time_{\semlink}\triangleq\Time_1+\Time_2\quad
+  \le_{\semlink}\triangleq\text{lexicographic order}\quad
+  \tick_{\semlink}(t)\triangleq
+  \begin{cases}
+    \tick_1(t) & t\in\Time_1 \\
+    \tick_2(t) & t\in\Time_2
+  \end{cases}
+\]
+Then we can define different versions of semantic operators.
+\begin{definition}[Versions of $\semarrow$, $\Step$]$\:$
+
+  \begin{enumerate}
+    \item $\semarrow_1$, $\semarrow_2$, $\semarrow_{\semlink}$ are versions of $\semarrow$ that each use $(\Time_1,\tick_1)$, $(\Time_2,\tick_1)$, $(\Time_{\semlink},\tick_{\semlink})$.
+    \item $\Step_1$, $\Step_2$, $\Step_{\semlink}$ are versions of $\Step$ that each use $\semarrow_1$, $\semarrow_2$, $\semarrow_{\semlink}$.
+  \end{enumerate}
+\end{definition}
+
+\subsubsection{Injection and Linking}
+Now we define injection between $s_1\texteq{let}(\ctx_1,\mem_1,t_1)\in\State_1$ and $o_2\texteq{let}(V_2,\mem_2,t_2)\in\Outcome_2$:
+\[
+  \begin{array}{cc}
+    \inject{\ctx_{1}}{V_{2}}\triangleq
+    \begin{cases}
+      \ctx_1                                                         & V_{2}=[]                               \\
+      (x, t)\cons\inject{\ctx_{1}}{\ctx}                             & V_{2}=(x,t)\cons \ctx                  \\
+      (\modid, \inject{\ctx_{1}}{\ctx})\cons\inject{\ctx_{1}}{\ctx'} & V_{2}=(\modid,\ctx)\cons \ctx'         \\
+      \langle\lambda x.e,\inject{\ctx_1}{\ctx_2}\rangle              & V_{2}=\langle\lambda x.e,\ctx_2\rangle
+    \end{cases} &
+    \begin{array}{l}
+      \inject{\ctx_1}{\mem_2}\triangleq
+      \displaystyle\bigcup_{t\in\mathsf{dom}(\mem_2)}\{t\mapsto\inject{\ctx_1}{\mem_2(t)}\} \\ \\
+      \inject{s_1}{o_2}\triangleq
+      (\inject{\ctx_1}{V_2},\mem_1\cup\inject{\ctx_1}{\mem_2},t_2)
+    \end{array}
+  \end{array}
+\]
+
+As is expected, injecting $s_1$ into $o_2$ involves injecting $\ctx_1$ in every context in $o_2$ and merging the memories.
+This definition is exactly what we were searching for, since it respects all requirements laid out in the introduction to this section.
+First, $\inject{s_1}{o_2}\in\Outcome_{\semlink}$ with respect to the ordering $\le_{\semlink}$.
+Also, if we define $\inject{s_1}{(e,s_2)}\triangleq(e,\inject{s_1}{s_2})$, we can show that injection preserves valid transitions.
+\begin{lemma}[Injection Preserves $\semarrow$]
+  For all $s_1\in\State_1$, $\config_2\in\Config_2$, $\rightst_2\in\Right_2$,
+  \[\config_2\semarrow_2\rightst_2\Rightarrow\inject{s_1}{\config_2}\semarrow_{\semlink}\inject{s_1}{\rightst_2}\]
+\end{lemma}
+\begin{proof}[Sketch]
+  Induction on $\semarrow_2$.
+\end{proof}
+
+Thus we can define $\rhd$ and $\semlink$ that satisfies the desired property.
+\begin{definition}[Injection]
+  For $S_1\subseteq\State_1$ and $A_2\subseteq\Sigma_2$, define:
+  \[
+    S_1\rhd A_2\triangleq\{\inject{s_1}{\rightst_2}|s_1\in S_1,\rightst_2\in A_2\}\cup\{\inject{s_1}{\config_2}\semarrow_{\semlink}\inject{s_1}{\rightst_2}|s_1\in S_1,\config_2\semarrow_2\rightst_2\in A_2\}
+  \]
+\end{definition}
+\begin{definition}[Semantic Linking]
+  For $S_1\subseteq\State_1$ and $A_2\subseteq\Sigma_2$, define:
+  \[
+    S_1\semlink A_2\triangleq\lfp(\lambda X.\Step_{\semlink}(X)\cup(S_1\rhd A_2))
+  \]
+\end{definition}
+\begin{theorem}[Advance]
+  For all $e\in\Expr$ and $S_1\subseteq\State_1$, $S_2\subseteq\State_2$,
+  \[
+    \sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2
+  \]
+\end{theorem}
+
+\section{Abstracting the Instrumented Semantics}
+\subsection{Abstract Semantics}
 \begin{figure}[h!]
   \footnotesize
   \centering
@@ -996,7 +1085,7 @@ We note that the abstract semantics is a sound approximation of the concrete sem
 \end{align*}
 We have:
 \begin{lemma}[Operational Soundness]\label{lem:opsound}
-  For all $\config\in\Config$ and $\rightst\in\Right$, 
+  For all $\config\in\Config$ and $\rightst\in\Right$,
   \[\config\semarrow\rightst\Rightarrow\A\alpha(\config)\A\semarrow\A\alpha(\rightst)\]
 \end{lemma}
 \begin{proof}[Sketch]
@@ -1066,103 +1155,33 @@ The answer to this question is ``yes''.
   Since there is a finite number of abstract timestamps, we only have to show that there is a finite number of \emph{shapes} of $\A\rightst$ that is stripped of the timestamps.
   This is proven in Coq (\texttt{Abstract.v}).
 \end{proof}
-
-\section{Linking in the Instrumented Semantics}
-Now we need to define an injection operation that fills in the blanks of a $o\texteq{let}(V,\mem,t)\in\Outcome$ with a $s\texteq{let}(\ctx',\mem',t')\in\State$.
-Recall the definition for injection in the semantics without memory.
-$\inject{\ctx}{V}$ enables access to values that were previously not available in $V$ by filling in the bottom of the stack with $\ctx$.
-Thus, we must mimic this by filling in all contexts in $r$ with the context part of $s$.
-Also, to retain all information stored in the memory, the memory part of $r$ must be merged with the memory of $s$.
-
-It is at this point that a problem occurs.
-When merging the two memories $\mem$ and $\mem'$, we may encounter overlapping addresses.
-Thus, we must require that all reachable addresses from $(\ctx,\mem)$ does not overlap with reachable addresses in $(\ctx',\mem')$.
-Then again, this requirement may be lifted if we allow linking of semantics that use \emph{different} time domains as addresses.
-Note that we can only \emph{read} values from $\ctx$ in $\inject{\ctx}{V}$; we should preserve addresses that were used in $s$ before injection and never allow writing to those addresses.
-Thus, in this section we first define $\inject{s_1}{r_2}$, when $s_1$ uses $\Time_1$ and $r_2$ uses $\Time_2$.
-Then $\inject{s_1}{r_2}$ must live in a version of $\Outcome$ that uses $\Time_1+\Time_2$.
-From now on, variables with subscripts $1$ or $2$ are to be understood to be using $\Time_i(i=1,2)$ as addresses, and variables with the subscript $+$ are to be understood to be the linked version.
-
-Defining linking between different time domains demand that $\tick$, $\A\Time$, $\A\alpha$, and $\A\tick$ also be linked.
-Concretely, we demand that the linked $\tick_+$ preserves the condition that $\A\alpha_+\circ\tick_+=\A\tick_+\circ\A\alpha_+$.
-Also, we need to link $\tick$ well so that for all valid transitions $\config_2\semarrow\rightst_2$ under $\tick_2$, $\inject{s_1}{\config_2}\semarrow\inject{s_1}{\rightst_2}$ is also a valid transition under $\tick_+$.
-For the rest of this section, we define linking for all semantic domains and prove that the requirements laid out in the skeleton for static analysis hold.
-
-\subsection{$\tick_+$, $\A\alpha_+$, $\A\tick$}
-We must first define $\tick_+$, $\A\alpha_+$, and $\A\tick_+$ that satisfies the condition that $t_+<\tick_+(t_+)$ and $\A\alpha_+\circ\tick_+=\A\tick_+\circ\A\alpha_+$.
-We define $\le_+$ to be the \emph{lexicographic} order on $\Time_1+\Time_2$, when an element $t_1$ of $\Time_1$ is lifted to $(0,t_1)$ and an element $t_2$ of $\Time_2$ is lifted to $(1,t_2)$.
-Then if we define:
+\subsection{Abstract Linking}
+\subsubsection{Linking the Semantic Domains}
+As in the concrete semantics, we assume two abstract time domains $(\A\Time_1,\A\tick_1)$ and $(\A\Time_2,\A\tick_2)$ and define how the time domains should be linked.
+Moreover, we need to define how the auxiliary abstraction functions $\A\alpha_1$ and $\A\alpha_2$ are linked.
 \[
-  \tick_+(t)\triangleq
-  \begin{cases}
-    \tick_1(t) & t\in\Time_1 \\
-    \tick_2(t) & t\in\Time_2
-  \end{cases}\quad
-  \A\alpha_+(t)\triangleq
-  \begin{cases}
-    \A\alpha_1(t) & t\in\Time_1 \\
-    \A\alpha_2(t) & t\in\Time_2
-  \end{cases}\quad
-  \A\tick_+(\A{t})\triangleq
+  \A\Time_{\semlink}\triangleq\A\Time_1+\A\Time_2\quad
+  \A\tick_{\semlink}(\A{t})\triangleq
   \begin{cases}
     \A\tick_1(\A{t}) & \A{t}\in\A\Time_1 \\
     \A\tick_2(\A{t}) & \A{t}\in\A\Time_2
+  \end{cases}\quad
+  \A\alpha_{\semlink}(t)\triangleq
+  \begin{cases}
+    \A\alpha_1(t) & t\in\Time_1 \\
+    \A\alpha_2(t) & t\in\Time_2
   \end{cases}
 \]
-it is easy to check that all requirements are satisfied.
+Then we can define different versions of semantic operators.
+\begin{definition}[Versions of $\A\semarrow$, $\Abs\Step$]$\:$
 
-\subsection{Concrete Linking}
-Now we define injection between $s_1=(\ctx_1,\mem_1,t_1)\in\State_1$ and $o_2=(V_2,\mem_2,t_2)\in\Outcome_2$:
-\[
-  \begin{array}{cc}
-    \inject{\ctx_{1}}{V_{2}}\triangleq
-    \begin{cases}
-      \ctx_1                                                         & V_{2}=[]                               \\
-      (x, t)\cons\inject{\ctx_{1}}{\ctx}                             & V_{2}=(x,t)\cons \ctx                  \\
-      (\modid, \inject{\ctx_{1}}{\ctx})\cons\inject{\ctx_{1}}{\ctx'} & V_{2}=(\modid,\ctx)\cons \ctx'         \\
-      \langle\lambda x.e,\inject{\ctx_1}{\ctx_2}\rangle              & V_{2}=\langle\lambda x.e,\ctx_2\rangle
-    \end{cases} &
-    \begin{array}{l}
-      \inject{\ctx_1}{\mem_2}\triangleq
-      \displaystyle\bigcup_{t\in\mathsf{dom}(\mem_2)}\{t\mapsto\inject{\ctx_1}{\mem_2(t)}\} \\ \\
-      \inject{s_1}{o_2}\triangleq
-      (\inject{\ctx_1}{V_2},\mem_1\cup\inject{\ctx_1}{\mem_2},t_2)
-    \end{array}
-  \end{array}
-\]
-
-As is expected, injecting $s_1$ into $o_2$ involves injecting $\ctx_1$ in every context in $o_2$ and merging the memories.
-This definition is exactly what we were searching for, since it respects all requirements laid out in the introduction to this section.
-First, $\inject{s_1}{o_2}\in\Outcome_+$ with respect to the ordering $\le_+$.
-Also, if we define $\inject{s_1}{(e,s_2)}\triangleq(e,\inject{s_1}{s_2})$, we can show that injection preserves valid transitions.
-\begin{lemma}[Injection Preserves $\semarrow$]
-  For all $s_1\in\State_1$, $\config_2\in\Config_2$, $\rightst_2\in\Right_2$,
-  \[\config_2\semarrow\rightst_2\Rightarrow\inject{s_1}{\config_2}\semarrow\inject{s_1}{\rightst_2}\]
-\end{lemma}
-\begin{proof}[Sketch]
-  Induction on $\semarrow$ under $\tick_2$.
-\end{proof}
-
-Thus we can define $\rhd$ and $\semlink$ that satisfies the desired property.
-\begin{definition}[Injection]
-  For $S_1\subseteq\State_1$ and $A_2\subseteq\Sigma_2$, define:
-  \[
-    S_1\rhd A_2\triangleq\{\inject{s_1}{\rightst_2}|s_1\in S_1,\rightst_2\in A_2\}\cup\{\inject{s_1}{\config_2}\semarrow\inject{s_1}{\rightst_2}|s_1\in S_1,\config_2\semarrow\rightst_2\in A_2\}
-  \]
+  \begin{enumerate}
+    \item $\A\semarrow_1$, $\A\semarrow_2$, $\A\semarrow_{\semlink}$ are versions of $\A\semarrow$ that each use $(\A\Time_1,\A\tick_1)$, $(\A\Time_2,\A\tick_2)$, $(\A\Time_{\semlink},\A\tick_{\semlink})$.
+    \item $\Abs\Step_1$, $\Abs\Step_2$, $\Abs\Step_{\semlink}$ are versions of $\Abs\Step$ that each use $\A\semarrow_1$, $\A\semarrow_2$, $\A\semarrow_{\semlink}$.
+  \end{enumerate}
 \end{definition}
-\begin{definition}[Semantic Linking]
-  For $S_1\subseteq\State_1$ and $A_2\subseteq\Sigma_2$, define:
-  \[
-    S_1\semlink A_2\triangleq\lfp(\lambda X.\Step(X)\cup(S_1\rhd A_2))
-  \]
-\end{definition}
-\begin{theorem}[Advance]
-  For all $e\in\Expr$ and $S_1\subseteq\State_1$, $S_2\subseteq\State_2$,
-  \[
-    \sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2
-  \]
-\end{theorem}
-\subsection{Abstract Linking}
+
+\subsubsection{Injection and Linking}
 We define injection and linking in the abstract semantics in the same way as the concrete semantics.
 Only the definition of $\inject{\A{\ctx}_1}{\A\mem_2}$ has to be adapted to account for the fact that $\A\mem_2(\A{t})$ is now a \emph{set} of closures.
 This means that $\inject{\A{\ctx}_1}{\A\mem_2}$ must be defined as:
@@ -1170,7 +1189,7 @@ This means that $\inject{\A{\ctx}_1}{\A\mem_2}$ must be defined as:
 Then we can show that:
 \begin{lemma}[Injection Preserves $\A\semarrow$]
   For all $\A{s}_1\in\A\State_1$, $\A\config_2\in\A\Config_2$, $\A\rightst\in\A\Right_2$,
-  \[\A\config_2\A\semarrow\A\rightst_2\Rightarrow\inject{\A{s}_1}{\A\config_2}\A\semarrow\inject{\A{s}_1}{\A\rightst_2}\]
+  \[\A\config_2\A\semarrow_2\A\rightst_2\Rightarrow\inject{\A{s}_1}{\A\config_2}\A\semarrow_{\semlink}\inject{\A{s}_1}{\A\rightst_2}\]
 \end{lemma}
 \begin{proof}[Sketch]
   Induction on $\A\semarrow$ under $\A\tick_2$.
@@ -1179,13 +1198,13 @@ and thus we can define:
 \begin{definition}[Abstract Injection]
   For $\Abs{S}_1\subseteq\A\State_1$ and $\Abs{A}_2\subseteq\A{\Sigma}_2$, define:
   \[
-    \Abs{S}_1\Abs\rhd\Abs{A}_2\triangleq\{\inject{\A{s}_1}{\A\rightst_2}|\A{s}_1\in\Abs{S}_1,\A\rightst_2\in\Abs{A}_2\}\cup\{\inject{\A{s}_1}{\A\config_2}\A\semarrow\inject{\A{s}_1}{\A\rightst_2}|\A{s}_1\in\Abs{S}_1,\A\config_2\A\semarrow\A\rightst_2\in\Abs{A}_2\}
+    \Abs{S}_1\Abs\rhd\Abs{A}_2\triangleq\{\inject{\A{s}_1}{\A\rightst_2}|\A{s}_1\in\Abs{S}_1,\A\rightst_2\in\Abs{A}_2\}\cup\{\inject{\A{s}_1}{\A\config_2}\A\semarrow_{\semlink}\inject{\A{s}_1}{\A\rightst_2}|\A{s}_1\in\Abs{S}_1,\A\config_2\A\semarrow_2\A\rightst_2\in\Abs{A}_2\}
   \]
 \end{definition}
 \begin{definition}[Abstract Linking]
   For $\Abs{S}_1\subseteq\A\State_1$ and $\Abs{A}_2\subseteq\A{\Sigma}_2$, define:
   \[
-    \Abs{S}_1\Abs\semlink\Abs{A}_2\triangleq\lfp(\lambda\Abs{X}.\Abs\Step(\Abs{X})\cup(\Abs{S}_1\Abs\rhd\Abs{A}_2))
+    \Abs{S}_1\Abs\semlink\Abs{A}_2\triangleq\lfp(\lambda\Abs{X}.\Abs\Step_{\semlink}(\Abs{X})\cup(\Abs{S}_1\Abs\rhd\Abs{A}_2))
   \]
 \end{definition}
 so that the \emph{best possible result} is achieved:
@@ -1197,14 +1216,14 @@ so that the \emph{best possible result} is achieved:
 \end{theorem}
 Since we have that
 \[
-  \alpha_+(S_1\rhd A_2)=\alpha_1(S_1)\Abs\rhd\alpha_2(A_2)
+  \alpha_{\semlink}(S_1\rhd A_2)=\alpha_1(S_1)\Abs\rhd\alpha_2(A_2)
 \]
-due to $\alpha_+(\inject{s_1}{r_2})=\inject{\alpha_1(s_1)}{\alpha_2(r_2)}$, the above theorem directly leads to overapproximation by:
+due to $\alpha_{\semlink}(\inject{s_1}{r_2})=\inject{\alpha_1(s_1)}{\alpha_2(r_2)}$, the above theorem directly leads to overapproximation by:
 \begin{align*}
-  S_1\semlink\sembracket{e}S_2 & =\sembracket{e}(S_1\rhd S_2)                                          & (\because\text{Advance})                                           \\
-                               & \subseteq\gamma_+(\Abs{\sembracket{e}}\alpha_+(S_1\rhd S_2))          & (\because\text{Galois connection})                                 \\
-                               & =\gamma_+(\Abs{\sembracket{e}}(\alpha_1(S_1)\Abs\rhd\alpha_2(S_2)))   & (\because\alpha_+(S_1\rhd A_2)=\alpha_1(S_1)\Abs\rhd\alpha_2(A_2)) \\
-                               & =\gamma_+(\alpha_1(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha_2(S_2)) & (\because\text{Abstract advance})
+  S_1\semlink\sembracket{e}S_2 & =\sembracket{e}(S_1\rhd S_2)                                                   & (\because\text{Advance})                                                    \\
+                               & \subseteq\gamma_{\semlink}(\Abs{\sembracket{e}}\alpha_{\semlink}(S_1\rhd S_2)) & (\because\text{Galois connection})                                          \\
+                               & =\gamma_{\semlink}(\Abs{\sembracket{e}}(\alpha_1(S_1)\Abs\rhd\alpha_2(S_2)))   & (\because\alpha_{\semlink}(S_1\rhd A_2)=\alpha_1(S_1)\Abs\rhd\alpha_2(A_2)) \\
+                               & =\gamma_{\semlink}(\alpha_1(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha_2(S_2)) & (\because\text{Abstract advance})
 \end{align*}
 \section{Equivalence Between Initial States}
 \subsection{Motivation}
@@ -1355,7 +1374,7 @@ That is, we must show that concretizing equivalent abstract states lead to equiv
   This is proven in Coq (\texttt{OperationalEquivalence.v}).
 \end{proof}
 Note that there is a caveat in Lemma \ref{lem:concreteqiuv}.
-We have required that all partitions $\A{\alpha^{-1}}(\A{t})$ of $\Time$ to be infinite.
+We have required that all partitions ${\A\alpha}^{-1}(\A{t})$ of $\Time$ to be infinite.
 This is natural, since if an abstract address that concretizes to a finite set corresponds to an abstract address that concretizes to an infinite set, the concretization might no longer be equivalent.
 This constraint is not as restrictive as it seems, as widely used abstractions such as \emph{k}-CFA already satisfy this criterion.
 
@@ -1370,14 +1389,14 @@ The goal is to overapproximate something equivalent to $\sembracket{e}\gamma(\Ab
   \item[Result] Then $\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2$ overapproximates an equivalent superset of $\sembracket{e}\gamma(\Abs{S})$.
 \end{description}
 $\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2$ overapproximates an equivalent superset of $\sembracket{e}\gamma(\Abs{S})$, since if we let:
-\[\Time_+\triangleq(\ATime_1+\ATime_2)\times\mathbb{Z}\quad\tick_+(\A{t},n)\triangleq(\A\tick_+(\A{t}),n+1)\quad\A\alpha_+(\A{t},n)\triangleq\A{t}\]
-we have a concrete time $\Time_+$ that is connected to $\ATime_1+\ATime_2$ by $\A\alpha_+$ such that all abstract timestamps correspond to infinitely many concrete timestamps.
+\[\Time_{\semlink}\triangleq(\ATime_1+\ATime_2)\times\mathbb{Z}\quad\tick_{\semlink}(\A{t},n)\triangleq(\A\tick_{\semlink}(\A{t}),n+1)\quad\A\alpha_{\semlink}(\A{t},n)\triangleq\A{t}\]
+we have a concrete time $\Time_{\semlink}$ that is connected to $\ATime_1+\ATime_2$ by $\A\alpha_{\semlink}$ such that all abstract timestamps correspond to infinitely many concrete timestamps.
 Thus:
 \begin{align*}
-  \sembracket{e}\gamma(\Abs{S}) & \subseteq\sembracket{e}\gamma(\ovbar{\Abs{S}})                      & (\because\Abs{S}\subseteq\ovbar{\Abs{S}}\text{ and }\gamma\text{ monotonic}) \\
-                                & \equivalent\sembracket{e}\gamma_+(\Abs{S}_1\Abs\rhd\Abs{S}_2)       & (\because\gamma,\semarrow\text{ preserves equivalence})                      \\
-                                & \subseteq\gamma_+(\Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_2)) & (\because\text{Soundness})                                                   \\
-                                & =\gamma_+(\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2)       & (\because\text{Abstract advance})
+  \sembracket{e}\gamma(\Abs{S}) & \subseteq\sembracket{e}\gamma(\ovbar{\Abs{S}})                               & (\because\Abs{S}\subseteq\ovbar{\Abs{S}}\text{ and }\gamma\text{ monotonic}) \\
+                                & \equivalent\sembracket{e}\gamma_{\semlink}(\Abs{S}_1\Abs\rhd\Abs{S}_2)       & (\because\gamma,\semarrow\text{ preserves equivalence})                      \\
+                                & \subseteq\gamma_{\semlink}(\Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_2)) & (\because\text{Soundness})                                                   \\
+                                & =\gamma_{\semlink}(\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2)       & (\because\text{Abstract advance})
 \end{align*}
 %\begin{center}
 %  \begin{tabular}{ccc}
