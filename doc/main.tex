@@ -606,8 +606,9 @@ This does indeed ``fill in the blanks'', since:
 \end{proof}
 
 Moreover, filling in the blanks preserves the evaluation relation $\semarrow$.
-\begin{lemma}[Injection Preserves Evaluation]
-  For all $\config\in\Config$, $\rightst\in\Right$, $\config\semarrow\rightst\Rightarrow\inject{\ctx}{\config}\semarrow\inject{\ctx}{\rightst}$.
+\begin{lemma}[Injection Preserves $\semarrow$]\label{lem:injpreseval}
+  For all $\config\in\Config$, $\rightst\in\Right$, $\ctx\in\Ctx$,
+  \[\config\semarrow\rightst\Rightarrow\inject{\ctx}{\config}\semarrow\inject{\ctx}{\rightst}\]
 \end{lemma}
 \begin{proof}[Sketch]
   Induction on $\semarrow$.
@@ -632,7 +633,7 @@ Thus we reach the main theorem that allows ``fractional closures'' to be soundly
   Let $A$ be $\{(e,\ctx)|\ctx\in C_1\rhd C_2\}$, and let $B$ be $C_1\rhd\sembracket{e}C_2$.
   Note that $A\subseteq B$ by the definition of $\sembracket{e}C_2$.
   Also, let $X_A$ be $\lfp(\lambda X.\Step(X)\cup A)=\sembracket{e}(C_1\rhd C_2)$ and let $X_B$ be $\lfp(\lambda X.\Step(X)\cup B)=C_1\semlink\sembracket{e}C_2$.
-  Since injection preserves evaluation, we have that $B\subseteq X_A$.
+  By Lemma \ref{lem:injpreseval}, we have that $B\subseteq X_A$.
 
   Then first, $X_A$ is a fixed point of $\lambda X.\Step(X)\cup B$, since:
   \[X_A=X_A\cup B=(\Step(X_A)\cup A)\cup B=\Step(X_A)\cup(A\cup B)=\Step(X_A)\cup B\]
@@ -995,7 +996,8 @@ We note that the abstract semantics is a sound approximation of the concrete sem
 \end{align*}
 We have:
 \begin{lemma}[Operational Soundness]\label{lem:opsound}
-  For all $\config\in\Config$ and $\rightst\in\Right$, if $\config\semarrow\rightst$ then $\A\alpha(\config)\A\semarrow\A\alpha(\rightst)$.
+  For all $\config\in\Config$ and $\rightst\in\Right$, 
+  \[\config\semarrow\rightst\Rightarrow\A\alpha(\config)\A\semarrow\A\alpha(\rightst)\]
 \end{lemma}
 \begin{proof}[Sketch]
   Induction on $\semarrow$.
@@ -1133,9 +1135,9 @@ As is expected, injecting $s_1$ into $o_2$ involves injecting $\ctx_1$ in every 
 This definition is exactly what we were searching for, since it respects all requirements laid out in the introduction to this section.
 First, $\inject{s_1}{o_2}\in\Outcome_+$ with respect to the ordering $\le_+$.
 Also, if we define $\inject{s_1}{(e,s_2)}\triangleq(e,\inject{s_1}{s_2})$, we can show that injection preserves valid transitions.
-\begin{lemma}[Injection Preserves Evaluation]
-  For all $s_1\in\State_1$ and $\config_2\in\Config_2$,
-  if $\config_2\semarrow\rightst_2$ under $\tick_2$, then $\inject{s_1}{\config_2}\semarrow\inject{s_1}{\rightst_2}$ under $\tick_+$.
+\begin{lemma}[Injection Preserves $\semarrow$]
+  For all $s_1\in\State_1$, $\config_2\in\Config_2$, $\rightst_2\in\Right_2$,
+  \[\config_2\semarrow\rightst_2\Rightarrow\inject{s_1}{\config_2}\semarrow\inject{s_1}{\rightst_2}\]
 \end{lemma}
 \begin{proof}[Sketch]
   Induction on $\semarrow$ under $\tick_2$.
@@ -1166,9 +1168,9 @@ Only the definition of $\inject{\A{\ctx}_1}{\A\mem_2}$ has to be adapted to acco
 This means that $\inject{\A{\ctx}_1}{\A\mem_2}$ must be defined as:
 \[\inject{\A{\ctx}_1}{\A\mem_2}\triangleq\lambda\A{t}.\{\inject{\A{\ctx}_1}{\A{v}_2}|\A{v}_2\in\A\mem_2(\A{t})\}\]
 Then we can show that:
-\begin{lemma}[Injection Preserves Abstract Evaluation]
-  For all $\A{s}_1\in\A\State_1$ and $\A\config_2\in\A\Config_2$, if $\A\config_2\A\semarrow\A\rightst_2$ under $\A\tick_2$,
-  then $\inject{\A{s}_1}{\A\config_2}\A\semarrow\inject{\A{s}_1}{\A\rightst_2}$ under $\A\tick_+$.
+\begin{lemma}[Injection Preserves $\A\semarrow$]
+  For all $\A{s}_1\in\A\State_1$, $\A\config_2\in\A\Config_2$, $\A\rightst\in\A\Right_2$,
+  \[\A\config_2\A\semarrow\A\rightst_2\Rightarrow\inject{\A{s}_1}{\A\config_2}\A\semarrow\inject{\A{s}_1}{\A\rightst_2}\]
 \end{lemma}
 \begin{proof}[Sketch]
   Induction on $\A\semarrow$ under $\A\tick_2$.
