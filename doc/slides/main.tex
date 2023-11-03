@@ -13,8 +13,12 @@
 \UseTblrLibrary{counter}
 
 %%% Math settings
-\usepackage{amssymb,amsmath,mathtools} % Before unicode-math
+\usepackage{amssymb,amsmath,amsthm,mathtools} % Before unicode-math
 \usepackage[math-style=TeX,bold-style=TeX]{unicode-math}
+\theoremstyle{definition}
+\newtheorem*{definition*}{Definition}
+\newtheorem*{lemma*}{Lemma}
+\newtheorem*{theorem*}{Theorem}
 
 %%% Font settings
 \setmainfont{Libertinus Serif}
@@ -42,50 +46,61 @@
 \newcommand*{\finto}{\xrightarrow{\text{\textrm{fin}}}}
 \newcommand*{\istype}{\mathrel{⩴}}
 \newcommand*{\ortype}{\mathrel{|}}
-\newcommand*{\cons}{::}
+\newcommand*{\cons}{:{\hspace{-0.7em}}:}
+\newcommand*{\pset}{\mathcal{P}}
+\newcommand*{\preall}[2][black]{\prescript{\textcolor{#1}{\forall}}{}{#2}}
+\newcommand*{\prexists}[2][black]{\prescript{\textcolor{#1}{\exists}}{}{#2}}
 
 \def\ovbarw{1.2mu}
 \def\ovbarh{1}
+\def\equivadjust{-1em}
 \newcommand*{\ovbar}[1]{\mkern \ovbarw\overline{\mkern-\ovbarw{\smash{#1}\scalebox{1}[\ovbarh]{\vphantom{i}}}\mkern-\ovbarw}\mkern \ovbarw}
-\newcommand*{\A}[1]{{#1}^{\#}}
-\newcommand*{\Expr}{\text{Expr}}
-\newcommand*{\ExprVar}{\text{Var}}
-\newcommand*{\Module}{\text{Module}}
-\newcommand*{\ModVar}{\text{ModVar}}
+\newcommand*{\A}[1]{\overset{\,_{\mbox{\Large .}}}{#1}}
+\newcommand*{\Abs}[1]{{#1}^{\#}}
+\newcommand*{\Expr}{\mathsf{Expr}}
+\newcommand*{\ExprVar}{\mathsf{Var}}
+\newcommand*{\Module}{\mathsf{Module}}
+\newcommand*{\ModVar}{\mathsf{ModVar}}
+\newcommand*{\modid}{d}
 \newcommand*{\Time}{\mathbb{T}}
 \newcommand*{\ATime}{\A{\Time}}
-\newcommand*{\Ctx}{\text{Ctx}}
-\newcommand*{\Value}{\text{Val}}
-\newcommand*{\Mem}{\text{Mem}}
-\newcommand*{\Left}{\text{L}}
-\newcommand*{\Right}{\text{R}}
+\newcommand*{\ctx}{\sigma}
+\newcommand*{\Ctx}{\mathsf{Ctx}}
+\newcommand*{\Value}{\mathsf{Val}}
+\newcommand*{\Mem}{\mathsf{Mem}}
+\newcommand*{\Sig}{\mathsf{Sig}}
 \newcommand*{\mem}{m}
-\newcommand*{\AMem}{\A{\text{Mem}}}
-\newcommand*{\State}{\text{State}}
-\newcommand*{\AState}{\A{\text{State}}}
-\newcommand*{\Result}{\text{Result}}
-\newcommand*{\AResult}{\A{\text{Result}}}
-\newcommand*{\Tick}{\text{Tick}}
-\newcommand*{\semarrow}{\rightsquigarrow}
+\newcommand*{\Trace}{\mathsf{Trace}}
+\newcommand*{\AMem}{\A{\mathsf{Mem}}}
+\newcommand*{\Config}{\mathsf{Config}}
+\newcommand*{\config}{c}
+\newcommand*{\Right}{\mathsf{Right}}
+\newcommand*{\rightst}{r}
+\newcommand*{\texteq}[1]{\stackrel{\mathclap{\tiny\normalfont\mbox{#1}}}{=}}
+\newcommand*{\State}{\mathsf{State}}
+\newcommand*{\AState}{\A{\mathsf{State}}}
+\newcommand*{\Outcome}{\mathsf{Outcome}}
+\newcommand*{\Tick}{\mathsf{Tick}}
+\newcommand*{\lfp}{\mathsf{lfp}}
+\newcommand*{\Step}{\mathsf{Step}}
+\newcommand*{\semarrow}{\hookrightarrow}
+\newcommand*{\asemarrow}{\A{\hookrightarrow}}
+\newcommand*{\synlink}{\rtimes}
 \newcommand*{\semlink}{\mathbin{\rotatebox[origin=c]{180}{$\propto$}}}
-\newcommand*{\link}[2]{{#1}\semlink{#2}}
-\newcommand*{\mt}{\mathsf{empty}}
+\newcommand*{\link}[2]{{#1}\rtimes{#2}}
+\newcommand*{\mt}{\mathsf{emp}}
+\newcommand*{\valid}{\checkmark}
+\newcommand*{\Path}{\mathsf{Path}}
+\newcommand*{\equivalent}{\sim}
 
 \newcommand*{\doubleplus}{\ensuremath{\mathbin{+\mkern-3mu+}}}
 \newcommand*{\project}{\text{\texttt{:>} }}
-\newcommand*{\Exp}{\mathsf{Exp}}
-\newcommand*{\Imp}{\mathsf{Imp}}
-\newcommand*{\Fin}{\mathsf{Fin}}
-\newcommand*{\Link}{\mathsf{Link}}
 \newcommand*{\sembracket}[1]{\lBrack{#1}\rBrack}
 \newcommand*{\fin}[2]{{#1}\xrightarrow{\text{fin}}{#2}}
 \newcommand*{\addr}{\mathsf{addr}}
 \newcommand*{\tick}{\mathsf{tick}}
 \newcommand*{\modctx}{\mathsf{ctx}}
-\newcommand*{\mapinject}[2]{{#2}[{#1}]}
 \newcommand*{\inject}[2]{{#2}\langle{#1}\rangle}
-\newcommand*{\deletepre}[2]{{#2}\overline{\doubleplus}{#1}}
-\newcommand*{\deletemap}[2]{{#1}\overline{[{#2}]}}
 \newcommand*{\delete}[2]{{#2}{\langle{#1}\rangle}^{-1}}
 \newcommand*{\filter}{\mathsf{filter}}
 \newcommand*{\Let}{\mathtt{let}}
@@ -102,10 +117,112 @@
 \setbeamertemplate{itemize subsubitem}[circle]
 
 \usepackage{listings}
-\lstdefinestyle{mystyle}{
-    basicstyle=\ttfamily\footnotesize
-}
-\lstset{style=mystyle}
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{ltblue}{rgb}{0,0.4,0.4}
+\definecolor{dkviolet}{rgb}{0.3,0,0.5}
+
+%%% lstlisting coq style (inspired from a file of Assia Mahboubi)
+\lstdefinelanguage{Coq}{
+    % To insert blank lines, write %
+    escapechar=\%,
+    % Anything betweeen $ becomes LaTeX math mode
+    mathescape=true,
+    % Comments may or not include Latex commands
+    texcl=false, 
+    % Vernacular commands
+    morekeywords=[1]{Section, Module, End, Require, Import, Export, Include,
+        Variable, Variables, Parameter, Parameters, Axiom, Hypothesis,
+        Hypotheses, Notation, Local, Tactic, Reserved, Scope, Open, Close,
+        Bind, Delimit, Definition, Let, Ltac, Fixpoint, CoFixpoint, Add,
+        Morphism, Relation, Implicit, Arguments, Unset, Contextual,
+        Strict, Prenex, Implicits, Inductive, CoInductive, Record,
+        Structure, Canonical, Coercion, Context, Class, Global, Instance,
+        Program, Infix, Theorem, Lemma, Corollary, Proposition, Fact,
+        Remark, Example, Proof, Goal, Save, Qed, Defined, Hint, Resolve,
+        Rewrite, View, Search, Show, Print, Printing, All, Eval, Check,
+        Projections, inside, outside, Def},
+    % Gallina
+    morekeywords=[2]{forall, exists, exists2, fun, fix, cofix, struct,
+        match, with, end, as, in, return, let, if, is, then, else, for, of,
+        nosimpl, when},
+    % Sorts
+    morekeywords=[3]{Type, Prop, Set, true, false, option},
+    % Various tactics, some are std Coq subsumed by ssr, for the manual purpose
+    morekeywords=[4]{pose, set, move, case, elim, apply, clear, hnf,
+        intro, intros, generalize, rename, pattern, after, destruct,
+        induction, using, refine, inversion, injection, rewrite, congr,
+        unlock, compute, ring, field, fourier, replace, fold, unfold,
+        change, cutrewrite, simpl, have, suff, wlog, suffices, without,
+        loss, nat_norm, assert, cut, trivial, revert, bool_congr, nat_congr,
+        symmetry, transitivity, auto, split, left, right, autorewrite},
+    % Terminators
+    morekeywords=[5]{by, done, exact, reflexivity, tauto, romega, omega,
+        assumption, solve, contradiction, discriminate},
+    % Control
+    morekeywords=[6]{do, last, first, try, idtac, repeat},
+    % Comments delimiters, we do turn this off for the manual
+    morecomment=[s]{(*}{*)},
+    % Spaces are not displayed as a special character
+    showstringspaces=false,
+    % String delimiters
+    morestring=[b]",
+    morestring=[d],
+    % Size of tabulations
+    tabsize=3,
+    % Enables ASCII chars 128 to 255
+    extendedchars=false,
+    % Case sensitivity
+    sensitive=true,
+    % Automatic breaking of long lines
+    breaklines=false,
+    % Default style fors listings
+    basicstyle=\footnotesize,
+    % Position of captions is bottom
+    captionpos=b,
+    % flexible columns
+    columns=[l]flexible,
+    % Style for (listings') identifiers
+    identifierstyle={\ttfamily\color{black}},
+    % Style for declaration keywords
+    keywordstyle=[1]{\ttfamily\color{dkviolet}},
+    % Style for gallina keywords
+    keywordstyle=[2]{\ttfamily\color{dkgreen}},
+    % Style for sorts keywords
+    keywordstyle=[3]{\ttfamily\color{ltblue}},
+    % Style for tactics keywords
+    keywordstyle=[4]{\ttfamily\color{dkblue}},
+    % Style for terminators keywords
+    keywordstyle=[5]{\ttfamily\color{dkred}},
+    %Style for iterators
+    %keywordstyle=[6]{\ttfamily\color{dkpink}},
+    % Style for strings
+    stringstyle=\ttfamily,
+    % Style for comments
+    commentstyle={\ttfamily\color{dkgreen}},
+    %moredelim=**[is][\ttfamily\color{red}]{/&}{&/},
+    literate=
+    {\\forall}{{\color{dkgreen}{$\forall\;$}}}1
+    {\\exists}{{$\exists\;$}}1
+    {<-}{{$\leftarrow\;$}}1
+    {=>}{{$\Rightarrow\;$}}1
+    {==}{{\code{==}\;}}1
+    {==>}{{\code{==>}\;}}1
+    %    {:>}{{\code{:>}\;}}1
+    {->}{{$\rightarrow\;$}}1
+    {<->}{{$\leftrightarrow\;$}}1
+    {<==}{{$\leq\;$}}1
+    {\#}{{$^\star$}}1 
+    {\\o}{{$\circ\;$}}1 
+    {\@}{{$\cdot$}}1 
+    {\/\\}{{$\wedge\;$}}1
+    {\\\/}{{$\vee\;$}}1
+    {++}{{\code{++}}}1
+    {~}{{\ }}1
+    {\@\@}{{$@$}}1
+    {\\mapsto}{{$\mapsto\;$}}1
+    {\\hline}{{\rule{\linewidth}{0.5pt}}}1
+    %
+}[keywords,comments,strings]
 
 \usepackage{pgfplots}
 \usetikzlibrary{shapes,arrows}
@@ -115,8 +232,8 @@
 
 \title{프로그램 조각별 따로분석의 이론적 틀}
 \author{이준협}
-\date{2023년 8월 23일}
-\institute{SIGPL 2023 여름학교}
+\date{2023년 11월 3일}
+\institute{ROPAS{@}SNU}
 
 \titlegraphic{%
   \begin{tikzpicture}[overlay,remember picture]
@@ -131,13 +248,43 @@
 
 \begin{document}
 \maketitle
-\begin{frame}[c]
+\begin{frame}[c,fragile]
   \frametitle{풀고자 한 문제}
   프로그램 전체를 분석하지 않고, 일부만 미리 분석해놓고 싶다!
+
+  \begin{tabular}{ccc}
+    \begin{minipage}{0.3\linewidth}
+      \begin{lstlisting}[language=Coq]
+(* Module M *)
+let x = 1
+%
+%
+%
+      \end{lstlisting}
+    \end{minipage} &
+    \begin{minipage}{0.3\linewidth}
+      \begin{lstlisting}[language=Coq]
+(* Module F *)
+let fix fact n =
+  if n $<$ 1 then 1
+  else n * fact (n - 1)
+      \end{lstlisting}
+    \end{minipage}  &
+    \begin{minipage}{0.3\linewidth}
+      \begin{lstlisting}[language=Coq]
+(* Client code *)
+Include M
+Include F
+(F.fact 100) + M.x
+      \end{lstlisting}
+    \end{minipage}
+  \end{tabular}
+
   \begin{itemize}
-    \item 상황 1: 외부 모듈에 대한 가정 없이 분석 후 재사용
-    \item 상황 2: 예전에 다른 모듈과 합쳐서 분석했던 결과를 재사용
+    \item \texttt{F}에 대한 가정만 가지고 분석 ($100!+$?)
+    \item 이후 \texttt{M}에 대한 정보를 끼워넣음.
   \end{itemize}
+
   \pause
   \begin{center}
     \fbox{가정이 부족한 분석?}
@@ -163,63 +310,398 @@
   \begin{figure}[h!]
     \centering
     \begin{tabular}{rrcll}
-      Identifiers & $x,M$ & $\in$         & $\ExprVar$                                         \\
-      Expression  & $e$   & $\rightarrow$ & $x$                & value identifier              \\
-                  &       & $\vbar$       & $\lambda x.e$      & function                      \\
-                  &       & $\vbar$       & $e$ $e$            & application                   \\
-                  &       & $\vbar$       & $\link{e}{e}$      & \underline{linked expression} \\
-                  &       & $\vbar$       & $\varepsilon$      & empty module                  \\
-                  &       & $\vbar$       & $M$                & \underline{module identifier} \\
-                  &       & $\vbar$       & $\Let$ $x$ $e$ $e$ & binding expression            \\
-                  &       & $\vbar$       & $\Let$ $M$ $e$ $e$ & binding module                \\
+      Identifiers & $x,\modid$ & $\in$         & $\ExprVar$                                                             \\
+      Expression  & $e$        & $\rightarrow$ & $x$ $\vbar$ $\lambda x.e$ $\vbar$ $e$ $e$ & untyped $\lambda$-calculus \\
+                  &            & $\vbar$       & $\link{e}{e}$                             & linked expression          \\
+                  &            & $\vbar$       & $\varepsilon$                             & empty module               \\
+                  &            & $\vbar$       & $\modid$                                  & module identifier          \\
+                  &            & $\vbar$       & $\Let$ $x$ $e$ $e$                        & expression binding         \\
+                  &            & $\vbar$       & $\Let$ $\modid$ $e$ $e$                   & module binding             \\
     \end{tabular}
   \end{figure}
 \end{frame}
-\begin{frame}[c,fragile]
-  \frametitle{예시}
-  \begin{tcolorbox}[sidebyside, sidebyside align=top, fontupper=\scriptsize, fontlower=\scriptsize]
-    \begin{lstlisting}[basicstyle=\ttfamily,escapeinside={/*}{*/}]
-(* A.ml *)
-let true x y = x
-
-(* main.ml *)
-open A
-let id x = x
-;;
-id true
-\end{lstlisting}
-    \tcblower
-    \begin{lstlisting}[basicstyle=\ttfamily,escapeinside={/*}{*/}]
-(* In our language *)
-(let A =
-  let true = \x.\y.x in/* $\varepsilon$ */
-in/* $\varepsilon$ */)/* $\semlink$ */
-  (A/* $\semlink$ */
-    ((let id = \x.x
-    in/* $\varepsilon$ */)/* $\semlink$ */
-      (id true)))
-\end{lstlisting}
-  \end{tcolorbox}
+\begin{frame}[c]
+  \frametitle{의미구조 부품들}
+  \begin{figure}[h!]
+    \footnotesize
+    \centering
+    \begin{tabular}{rrcll}
+      Environment/Context          & $\ctx$     & $\in$         & $\Ctx$                                            \\
+      Value of expressions         & $v$        & $\in$         & $\Value \triangleq \ExprVar\times\Expr\times\Ctx$ \\
+      Value of expressions/modules & $V$        & $\in$         & $\Value+\Ctx$                                     \\
+      Configuration (left)         & $\config$  & $\in$         & $\Config\triangleq\Expr\times\Ctx$                \\
+      Configuration (right)        & $\rightst$ & $\in$         & $\Right\triangleq\Config+\Value+\Ctx$             \\
+      Context                      & $\ctx$     & $\rightarrow$ & []                                                \\
+                                   &            & $\vbar$       & $(x,v)\cons \ctx$                                 \\
+                                   &            & $\vbar$       & $(\modid,\ctx)\cons \ctx$                         \\
+      Value of expressions         & $v$        & $\rightarrow$ & $\langle \lambda x.e, \ctx \rangle$\end{tabular}
+  \end{figure}
 \end{frame}
-\section{주요 정리}
+\begin{frame}[c]
+  \frametitle{실행 의미구조 ($\lambda$ 부분)}
+  \begin{figure}[t!]
+    \scriptsize
+    \begin{flushright}
+      \fbox{$(e,\ctx)\semarrow V\text{ or }(e',\ctx')$}
+    \end{flushright}
+    \centering
+    \vspace{0pt} % -0.75em}
+    \[
+      \begin{prooftree}
+        \hypo{v=\ctx(x)}
+        \infer[left label=ExprID]1{
+        (x, \ctx)
+        \semarrow
+        v
+        }
+      \end{prooftree}\qquad
+      \begin{prooftree}
+        \infer[left label=Fn]0{
+        (\lambda x.e, \ctx)
+        \semarrow
+        \langle\lambda x.e, \ctx\rangle
+        }
+      \end{prooftree}\qquad
+      \begin{prooftree}
+        \infer[left label={AppL}]0{
+        (e_{1}\:e_{2}, \ctx)
+        \semarrow
+        (e_{1},\ctx)
+        }
+      \end{prooftree}
+    \]
+    \[
+      \begin{prooftree}
+        \hypo{
+          \begin{matrix}
+            (e_{1}, \ctx)
+            \semarrow
+            \langle\lambda x.e_{\lambda}, \ctx_{\lambda}\rangle
+          \end{matrix}
+        }
+        \infer[left label={AppR}]1{
+        (e_{1}\:e_{2}, \ctx)
+        \semarrow
+        (e_{2}, \ctx)
+        }
+      \end{prooftree}\qquad
+      \begin{prooftree}
+        \hypo{
+          \begin{matrix}
+            (e_{1}, \ctx)
+            \semarrow
+            \langle\lambda x.e_{\lambda}, \ctx_{\lambda}\rangle \\
+            (e_{2}, \ctx)
+            \semarrow
+            v
+          \end{matrix}
+        }
+        \infer[left label={AppBody}]1{
+        (e_{1}\:e_{2}, \ctx)
+        \semarrow
+        (e_{\lambda}, (x, v)\cons \ctx_{\lambda})
+        }
+      \end{prooftree}
+    \]
+    \[
+      \begin{prooftree}
+        \hypo{
+          \begin{matrix}
+            (e_{1}, \ctx)
+            \semarrow
+            \langle\lambda x.e_{\lambda}, \ctx_{\lambda}\rangle \\
+            (e_{2}, \ctx)
+            \semarrow
+            v                                                   \\
+            (e_{\lambda}, (x, v)\cons \ctx_{\lambda})
+            \semarrow
+            v'
+          \end{matrix}
+        }
+        \infer[left label={App}]1{
+        (e_{1}\:e_{2}, \ctx)
+        \semarrow
+        v'
+        }
+      \end{prooftree}
+    \]
+  \end{figure}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{실행 의미구조 (모듈 부분)}
+  \begin{figure}[h!]
+    \centering
+    \scriptsize
+    \begin{flushright}
+      \fbox{$(e,\ctx)\semarrow V\text{ or }(e',\ctx')$}
+    \end{flushright}
+    \[
+      \begin{prooftree}
+        \infer[left label=Empty]0{
+        (\varepsilon, \ctx)
+        \semarrow
+        \ctx
+        }
+      \end{prooftree}\qquad
+      \begin{prooftree}
+        \hypo{\ctx'=\ctx(\modid)}
+        \infer[left label=ModID]1{
+        (\modid, \ctx)
+        \semarrow
+        \ctx'
+        }
+      \end{prooftree}
+    \]
+    \[
+      \begin{prooftree}
+        \infer[left label=LetEL]0{
+        (\mathtt{let}\:x\:e_1\:e_2, \ctx)
+        \semarrow
+        (e_{1}, \ctx)
+        }
+      \end{prooftree}\quad
+      \begin{prooftree}
+        \hypo{
+          \begin{matrix}
+            (e_{1}, \ctx)
+            \semarrow
+            v
+          \end{matrix}
+        }
+        \infer[left label=LetER]1{
+        (\mathtt{let}\:x\:e_1\:e_2, \ctx)
+        \semarrow
+        (e_{2}, (x, v)\cons \ctx)
+        }
+      \end{prooftree}
+    \]
+    \[
+      \begin{prooftree}
+        \infer[left label=LetML]0{
+        (\mathtt{let}\:\modid\:e_{1}\:e_{2}, \ctx)
+        \semarrow
+        (e_{1}, \ctx)
+        }
+      \end{prooftree}\quad
+      \begin{prooftree}
+        \hypo{
+          \begin{matrix}
+            (e_{1}, \ctx)
+            \semarrow
+            \ctx'
+          \end{matrix}
+        }
+        \infer[left label=LetMR]1{
+        (\mathtt{let}\:\modid\:e_{1}\:e_{2}, \ctx)
+        \semarrow
+        (e_{2}, (\modid, \ctx')\cons \ctx)
+        }
+      \end{prooftree}
+    \]
+    \[
+      \begin{prooftree}
+        \hypo{
+          \begin{matrix}
+            (e_{1}, \ctx)
+            \semarrow
+            v \\
+            (e_{2}, (x, v)\cons \ctx)
+            \semarrow
+            \ctx'
+          \end{matrix}
+        }
+        \infer[left label=LetE]1{
+        (\mathtt{let}\:x\:e_1\:e_2, \ctx)
+        \semarrow
+        \ctx'
+        }
+      \end{prooftree}\quad
+      \begin{prooftree}
+        \hypo{
+          \begin{matrix}
+            (e_{1}, \ctx)
+            \semarrow
+            \ctx' \\
+            (e_{2}, (\modid, \ctx')\cons \ctx)
+            \semarrow
+            \ctx''
+          \end{matrix}
+        }
+        \infer[left label=LetM]1{
+        (\mathtt{let}\:\modid\:e_{1}\:e_{2}, \ctx)
+        \semarrow
+        \ctx''
+        }
+      \end{prooftree}
+    \]
+  \end{figure}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{실행 의미구조 (링킹 부분)}
+  \begin{figure}[h!]
+    \centering
+    \scriptsize
+    \begin{flushright}
+      \fbox{$(e,\ctx)\semarrow V\text{ or }(e',\ctx')$}
+    \end{flushright}
+    \[
+      \begin{prooftree}
+        \infer[left label=LinkL]0{
+        (\link{e_{1}}{e_{2}}, \ctx)
+        \semarrow
+        (e_{1}, \ctx)
+        }
+      \end{prooftree}\quad
+      \begin{prooftree}
+        \hypo{
+          \begin{matrix}
+            (e_{1}, \ctx)
+            \semarrow
+            \ctx'
+          \end{matrix}
+        }
+        \infer[left label=LinkR]1{
+        (\link{e_{1}}{e_{2}}, \ctx)
+        \semarrow
+        (e_{2}, \ctx')
+        }
+      \end{prooftree}\quad
+      \begin{prooftree}
+        \hypo{
+          \begin{matrix}
+            (e_{1}, \ctx)
+            \semarrow
+            \ctx' \\
+            (e_{2}, \ctx')
+            \semarrow
+            V
+          \end{matrix}
+        }
+        \infer[left label=Link]1{
+        (\link{e_{1}}{e_{2}}, \ctx)
+        \semarrow
+        V
+        }
+      \end{prooftree}
+    \]
+  \end{figure}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{미리 실행시켜도 문제 없다}
+  \begin{lemma*}[Injection Preserves $\semarrow$]\label{lem:injpreseval}
+    $\forall\config\in\Config$, $\rightst\in\Right$, $\ctx\in\Ctx$,
+    $\config\semarrow\rightst\Rightarrow\inject{\ctx}{\config}\semarrow\inject{\ctx}{\rightst}$
+  \end{lemma*}
+
+  \pause
+
+  {\footnotesize
+    \[
+      \inject{\ctx_{1}}{r_{2}}\triangleq
+      \begin{cases}
+        \ctx_1                                                         & r_{2}=[]                           \\
+        (x, \inject{\ctx_1}{v})\cons\inject{\ctx_{1}}{\ctx}            & r_{2}=(x,v)\cons \ctx              \\
+        (\modid, \inject{\ctx_{1}}{\ctx})\cons\inject{\ctx_{1}}{\ctx'} & r_{2}=(\modid,\ctx)\cons \ctx'     \\
+        \langle\lambda x.e,\inject{\ctx_1}{\ctx}\rangle                & r_2=\langle\lambda x.e,\ctx\rangle \\
+        (e,\inject{\ctx_1}{\ctx})                                      & r_2 = (e, \ctx)
+      \end{cases}
+    \]}%
+  일 때.
+\end{frame}
+%\begin{frame}[c,fragile]
+%  \frametitle{예시}
+%  \begin{tcolorbox}[sidebyside, sidebyside align=top, fontupper=\scriptsize, fontlower=\scriptsize]
+%    \begin{lstlisting}[basicstyle=\ttfamily,escapeinside={/*}{*/}]
+%(* A.ml *)
+%let true x y = x
+%
+%(* main.ml *)
+%open A
+%let id x = x
+%;;
+%id true
+%\end{lstlisting}
+%    \tcblower
+%    \begin{lstlisting}[basicstyle=\ttfamily,escapeinside={/*}{*/}]
+%(* In our language *)
+%(let A =
+%  let true = \x.\y.x in/* $\varepsilon$ */
+%in/* $\varepsilon$ */)/* $\semlink$ */
+%  (A/* $\semlink$ */
+%    ((let id = \x.x
+%    in/* $\varepsilon$ */)/* $\semlink$ */
+%      (id true)))
+%\end{lstlisting}
+%  \end{tcolorbox}
+%\end{frame}
+\section{의미구조끼리 합치기}
+\begin{frame}[c]
+  \frametitle{모듬 의미구조}
+  \[\Sigma\triangleq\Right\:+\:\semarrow\qquad\Trace\triangleq\pset(\Sigma)\]
+  \begin{definition*}[Transfer function]
+    Given $A\subseteq\Sigma$, define:
+    \[
+      \mathsf{Step}(A)\triangleq
+      \left\{\config\semarrow\rightst, \rightst\middle|
+      \begin{prooftree}[center=true]
+        \hypo{A'}\infer1{\config\semarrow\rightst}
+      \end{prooftree}\text{ and }
+      A'\subseteq A\text{ and }\config\in A
+      \right\}
+    \]
+  \end{definition*}
+  \begin{definition*}[Collecting semantics]
+    Given $e\in\Expr$ and $C\subseteq\Ctx$, define:
+    \[
+      \sembracket{e}C\triangleq\lfp(\lambda X.\mathsf{Step}(X)\cup\{(e,\ctx)|\ctx\in C\})
+    \]
+  \end{definition*}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{합치기}
+  \begin{definition*}[Injection]
+    For $C\subseteq\Ctx$ and $A\subseteq\Sigma$, define:
+    \[C\rhd A\triangleq\{\inject{\ctx}{\rightst}|\ctx\in C,\rightst\in A\}\cup\{\inject{\ctx}{\config}\semarrow\inject{\ctx}{\rightst}|\ctx\in C,\config\semarrow\rightst\in A\}\]
+  \end{definition*}
+  \begin{definition*}[Semantic Linking]
+    For $C\subseteq\Ctx$ and $A\subseteq \Sigma$, define:
+    \[C\semlink A\triangleq\lfp(\lambda X.\Step(X)\cup(C\rhd A))\]
+  \end{definition*}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{잘 합쳐진다}
+  \begin{theorem}[Advance]
+    For all $e\in\Expr$ and $C_1,C_2\subseteq\Ctx$,
+    \[\sembracket{e}(C_1\rhd C_2)=C_1\semlink\sembracket{e}C_2\]
+  \end{theorem}
+\end{frame}
 \begin{frame}[c]
   \frametitle{따로분석이란?}
-  최종목표: $S$에서 출발한 $\link{e_1}{e_2}$ 의 결과 : $|\sembracket{\link{e_1}{e_2}}S|$
-  \pause
-  \begin{itemize}
-    \item 원래는, 먼저 $S$에서 출발해 $e_1$의 결과를 계산 : $|\sembracket{e_1}S|$
-    \item $e_1$의 결과에서 출발해 $e_2$의 결과를 계산 : $|\sembracket{e_2}|\sembracket{e_1}S||$
-          \[|\sembracket{\link{e_1}{e_2}}S|=|\sembracket{e_2}|\sembracket{e_1}S||\]
-          \pause
-    \item 대신, \textbf{가정된} $S_2$에서 출발해 $e_2$을 가능한 곳까지 계산 : $\sembracket{e_2}S_2$
-    \item \textbf{이후}, $e_1$의 결과가 $S_2$와 나머지로 분리되나 확인 : $|\sembracket{e_1}S|\cong S_1\rhd S_2$
-    \item 부족했던 부분인 $S_1$을 합쳐서 최종 결과 계산 : $S_1\semlink\sembracket{e_2}S_2$
-          \begin{center}
-            \fbox{$|\sembracket{\link{e_1}{e_2}}S|\cong|S_1\semlink\sembracket{e_2}S_2|$}
-          \end{center}
-  \end{itemize}
+  { \footnotesize
+    \begin{align*}
+      e_1          & \triangleq\text{\texttt{let x = 1 in }}\varepsilon                                                                                                   \\
+                   & (\text{module \texttt{M}})                                                                                                                           \\
+      e_2          & \triangleq\text{\texttt{let fact = fix }}\lambda\text{\texttt{fact.}}\lambda\text{\texttt{n.if0 n 1 (* n (fact (- n 1))) in }}\varepsilon            \\
+                   & (\text{module \texttt{F}})                                                                                                                           \\
+      e            & \triangleq(\text{\texttt{+ (F}}\synlink\text{\texttt{fact 100) (M}}\synlink\text{\texttt{x)}})                                                       \\
+                   & (\text{client code})                                                                                                                                 \\
+      e_{\synlink} & \triangleq(\text{\texttt{let M = }}e_1\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{let F = }}e_2\text{\texttt{ in }}\varepsilon)\synlink e \\
+                   & (\text{whole program after linking})
+    \end{align*}}%
+
 \end{frame}
-\section{분석을 위해 신경 쓸 것}
+\begin{frame}[c]
+  \frametitle{따로분석이란?}
+  분석 목표: $e_{\synlink}$ 실행 중 $e$가 어떤 환경 아래에서 어떻게 동작할 것인가?
+  \begin{align*}
+    \sigma_2 & \triangleq[(\mathtt{F},[(\mathtt{fact},\langle\text{body of \texttt{fact}}\rangle)])] \\
+    \sigma_1 & \triangleq[(\mathtt{M},[(\mathtt{x},1)])]
+  \end{align*}
+  가정: 적어도 $\sigma_2$는 있을 것이다: $\sembracket{e}\{\sigma_2\}$를 근사.
+
+  실제: $\underbrace{\{\inject{\sigma_1}{\sigma_2}\}\text{에서 실행되었다}}_{\onslide<2->e_\synlink\text{ 분석하는 중에 }e\text{를 만나면}}$: $\{\sigma_1\}\semlink\sembracket{e}\{\sigma_2\}$를 근사.
+\end{frame}
+\section{분석을 위한 의미구조}
 \begin{frame}[c]
   \frametitle{$\Time$와 $\tick$}
   실행의미는 $\Time$(Time)이라는 집합과 $\tick$이라는 함수로 매개화되어있다.
@@ -227,25 +709,78 @@ in/* $\varepsilon$ */)/* $\semlink$ */
     \item $\Time$: 실행중 프로그램 지점을 구별해줌, 메모리 주소로도 쓰임.
     \item $\tick$: 현재 환경을 받아서, 증가된(지금껏 안 쓰인) 시간을 줌.
   \end{itemize}
+
+  {\footnotesize\[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \ctx, \mem, t)
+          \semarrow
+          (\langle\lambda x.e_{\lambda}, \ctx_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
+          (e_{2}, \ctx, \mem_{\lambda}, t_{\lambda})
+          \semarrow
+          (v, \mem_{a}, t_{a})                                                               \\
+          (e_{\lambda}, (x, \tick(t_{a}))\cons \ctx_{\lambda}, \mem_{a}[\tick(t_{a})\mapsto v], \tick(t_a))
+          \semarrow
+          (v', \mem',t')
+        \end{matrix}
+      }
+      \infer[left label={App}]1{
+      (e_{1}\:e_{2}, \ctx, \mem, t)
+      \semarrow
+      (v', \mem',t')
+      }
+    \end{prooftree}
+  \]}
 \end{frame}
 \begin{frame}[c]
   \frametitle{분석}
-  요구사항: $\alpha:\Time\rightarrow\A\Time$
+  요구사항: $\A\alpha:\Time\rightarrow\A\Time$
   \begin{enumerate}
-    \item $\A\tick\circ\alpha=\alpha\circ\tick$인 $\A\tick$ 사용.
-    \item $\forall\A{t}:\alpha^{-1}(\A{t})$는 $\Time$의 순서에 대해 윗뚜껑이 없다.
+    \item $\A\tick\circ\A\alpha=\A\alpha\circ\tick$인 $\A\tick$ 사용.
+    \item $\forall\A{t}:\alpha^{-1}(\A{t})$는 무한집합.
   \end{enumerate}
-  분석 방법: $|\A{\sembracket{\link{e_1}{e_2}}}\A{S}|$ 어림잡기
-  \begin{enumerate}
-    \item 가정($\A{S}_2$)하고 분석($\A{\sembracket{e_2}}\A{S}_2$)하라
-    \item 가정이 성립($\A{S}_1\A\rhd\A{S}_2\A\cong|\A{\sembracket{e_1}}\A{S}|$)하면, 합쳐라($\A{S}_1\A\semlink\A{\sembracket{e_2}}\A{S}_2$)
-  \end{enumerate}
+  {\footnotesize\[
+    \begin{prooftree}
+      \hypo{\A{t_x}=\A{\ctx}(x)}
+      \hypo{\A{v}\in\A\mem(\A{t_x})}
+      \infer[left label=ExprID]2{
+      (x, \A{\ctx}, \A\mem, \A{t})
+      \A\semarrow
+      (\A{v}, \A\mem, \A{t})
+      }
+    \end{prooftree}
+  \]
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \A{\ctx}, \A\mem, \A{t})
+          \A\semarrow
+          (\langle\lambda x.e_{\lambda}, \A{\ctx}_{\lambda}\rangle, \A\mem_{\lambda}, \A{t_\lambda}) \\
+          (e_{2}, \A{\ctx}, \A\mem_{\lambda}, \A{t_\lambda})
+          \A\semarrow
+          (\A{v}, \A\mem_{a}, \A{t_a})                                                               \\
+          (e_{\lambda}, (x, \A\tick(\A{t_a}))\cons \A{\ctx}_{\lambda}, \A\mem_{a}[\A\tick(\A{t_a})\A\mapsto \A{v}], \A\tick(\A{t_a}))
+          \A\semarrow
+          (\A{v'}, \A{\mem'},\A{t'})
+        \end{matrix}
+      }
+      \infer[left label={App}]1{
+      (e_{1}\:e_{2}, \A{\ctx}, \A\mem, \A{t})
+      \A\semarrow
+      (\A{v'}, \A{\mem'},\A{t'})
+      }
+    \end{prooftree}
+  \]}
 \end{frame}
 \begin{frame}[c]
-  \frametitle{홍보}
-  \begin{center}
-    포스터에 언어의 실행의미 등 더 자세한 설명이 적혀있습니다!
-  \end{center}
+  \frametitle{따로분석}
+  분석 방법: $\Abs{\sembracket{e}}\Abs{S}$ 어림잡기
+  \begin{enumerate}
+    \item 가정($\Abs{S}_2$)하고 분석($\Abs{\sembracket{e}}\Abs{S}_2$)하라
+    \item 가정이 성립($\prexists{\Abs{S}_1}\Abs\rhd\Abs{S}_2\Abs\equivalent\Abs{S}$)하면, 합쳐라($\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2$)
+  \end{enumerate}
 \end{frame}
 \begin{frame}[c]
   \centering\LARGE

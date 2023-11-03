@@ -845,3 +845,59 @@ Proof.
     end
   end.
 Qed.
+
+Section InterpExample.
+  Import String.
+  #[local] Instance NatEq : Eq nat :=
+    { eqb := Nat.eqb; eqb_eq := Nat.eqb_eq }.
+
+  #[local, refine] Instance NatOrder : TotalOrder nat :=
+    { leb := Nat.leb }.
+  Proof.
+    all:(intros; try (rewrite Nat.leb_le in *; nia)).
+    des_goal; try reflexivity.
+    assert ((t <=? t')%nat <> true). refl_bool. eauto.
+    rewrite Nat.leb_le in *. nia.
+  Defined.
+
+  #[local, refine] Instance NatTime : @time nat _ _ :=
+    { tick _ _ t _ _ := S t }.
+  Proof.
+    all:(intros; eauto).
+    red. s. split; try refl_bool; try rewrite Nat.leb_le;
+    try rewrite Nat.eqb_eq; nia.
+  Defined.
+
+  Open Scope string_scope.
+  Definition x : ID := "x".
+  Definition temp := e_lam x (e_var x).
+  Definition fact : ID := "fact".
+  Definition M : ID := "M".
+  Definition F : ID := "F".
+
+  Definition e1 := m_lete x temp m_empty.
+  Definition e2 := m_lete fact temp m_empty.
+  Definition e := e_app (e_app temp (e_app (e_link (m_var F) (e_var fact)) temp)) (e_link (m_var M) (e_var x)).
+  Definition linked1 := e_link (e_link (m_letm M e1 m_empty) (m_letm F e2 m_empty)) e.
+  Definition linked2 := e_link (m_letm M e1 m_empty) (e_link (m_letm F e2 m_empty) e).
+
+  Definition ev1 := 
+    match eval linked1 ([||]) [] 0 [] 10 with
+    | Resolved V m t _ => Some (V, m, t) 
+    | _ => None 
+    end.
+  
+  Definition ev2 := 
+    match eval linked2 ([||]) [] 0 [] 10 with 
+    | Resolved V m t _ => Some (V, m, t) 
+    | _ => None 
+    end.
+  Example eval_assoc : ev1 = ev2. reflexivity. Qed.
+
+  Compute eval linked1 ([||]) [] 0 [] 5.
+  (*(dy_bindm F
+      (dy_binde fact 2 (dy_bindm M (dy_binde x 1 ([| |])) ([| |])))
+      (dy_bindm M (dy_binde x 1 ([| |])) ([| |])))
+    [(2, Closure x (e_var x) (dy_bindm M (dy_binde x 1 ([| |])) ([| |])));
+     (1, Closure x (e_var x) ([| |]))]*)
+End InterpExample.

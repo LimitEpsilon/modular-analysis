@@ -116,6 +116,8 @@
 
 %%% Math settings
 \usepackage{mathtools}
+\theoremstyle{acmdefinition}
+\newtheorem*{notation*}{Notation}
 
 %%% PL constructs
 \usepackage{galois}
@@ -170,7 +172,7 @@
 \newcommand*{\synlink}{\rtimes}
 \newcommand*{\semlink}{\mathbin{\rotatebox[origin=c]{180}{$\propto$}}}
 \newcommand*{\link}[2]{{#1}\rtimes{#2}}
-\newcommand*{\mt}{\mathsf{empty}}
+\newcommand*{\mt}{\mathsf{emp}}
 \newcommand*{\valid}{\checkmark}
 \newcommand*{\Path}{\mathsf{Path}}
 \newcommand*{\equivalent}{\sim}
@@ -280,12 +282,14 @@ The language is an extension of untyped lambda calculus with modules and the lin
   \label{fig:syntax}
 \end{figure}
 
-The language is expressive enough to encode simple imports and exports that use module names as interfaces.
+The language is expressive enough to encode simple imports and exports:
+{ \footnotesize
 \begin{align*}
-  e_1 & \triangleq\text{\texttt{let x = 1 in }}\varepsilon                                                                                                                                                                                     \\
-  e_2 & \triangleq\text{\texttt{let fact = fix }}\lambda\text{\texttt{fact.}}\lambda\text{\texttt{n.if0 n 1 (* n (fact (- n 1))) in }}\varepsilon                                                                                              \\
-  e   & \triangleq(\text{\texttt{let M = }}e_1\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{let F = }}e_2\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{+ (F}}\synlink\text{\texttt{fact 100) (M}}\synlink\text{\texttt{x)}})
-\end{align*}
+  e_1          & \triangleq\text{\texttt{let x = 1 in }}\varepsilon                                                                                                   & (\text{module \texttt{M}})           \\
+  e_2          & \triangleq\text{\texttt{let fact = fix }}\lambda\text{\texttt{fact.}}\lambda\text{\texttt{n.if0 n 1 (* n (fact (- n 1))) in }}\varepsilon            & (\text{module \texttt{F}})           \\
+  e            & \triangleq(\text{\texttt{+ (F}}\synlink\text{\texttt{fact 100) (M}}\synlink\text{\texttt{x)}})                                                       & (\text{client code})                 \\
+  e_{\synlink} & \triangleq(\text{\texttt{let M = }}e_1\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{let F = }}e_2\text{\texttt{ in }}\varepsilon)\synlink e & (\text{whole program after linking})
+\end{align*}}%
 Above is how the example in the introduction is translated into the simple module language in Figure \ref{fig:syntax}, assuming that the definitions for arithmetic and the fixpoint combinator \texttt{fix} are given.
 
 \subsection{Operational Semantics}
@@ -546,12 +550,12 @@ Why it is defined as such is because defining a \emph{collecting semantics} beco
 
 \subsection{Collecting Semantics}
 To define a semantics that is computable, we must formulate the collecting semantics as a least fixed point of a monotonic function that maps an element of some CPO $\Trace$ to $\Trace$, when:
-\[\Sigma\triangleq\Right+\semarrow\qquad\Trace\triangleq\pset(\Sigma)\]
+\[\Sigma\triangleq\Right\:+\:\semarrow\qquad\Trace\triangleq\pset(\Sigma)\]
 The semantics of an expression $e$ starting from initial states in $C\subseteq\Ctx$ is the collection of $\config\semarrow\rightst$ and $\rightst$ derivable from initial configurations $(e,\ctx)$ with $\ctx\in C$.
 Defining the transfer function is straightforward from the definition of the transition relation.
 
 \begin{definition}[Transfer function]
-  Given $A\subseteq\Sigma$, define
+  Given $A\subseteq\Sigma$, define:
   \[
     \mathsf{Step}(A)\triangleq
     \left\{\config\semarrow\rightst, \rightst\middle|
@@ -862,7 +866,7 @@ That is,
 \subsection{Collecting Semantics}
 The definition for the collecting semantics of the language is identical to the collecting semantics in the previous section.
 That is, when we write:
-\[\Sigma\triangleq\Right+\semarrow\qquad\Trace\triangleq\pset(\Sigma)\]
+\[\Sigma\triangleq\Right\:+\:\semarrow\qquad\Trace\triangleq\pset(\Sigma)\]
 \begin{definition}[Transfer function]
   Given $A\subseteq \Sigma$, define
   \[
@@ -909,12 +913,16 @@ We first need to define what it means to link the time domains.
     \tick_2(t) & t\in\Time_2
   \end{cases}
 \]
+
+\begin{notation*}
+  All sets with the subscript $i(i=1,2)$ is assumed to be using $\Time_i$ as timestamps, and all sets with the subscript $\semlink$ is assumed to be using $\Time_{\semlink}$ as timestamps.
+\end{notation*}
 Then we can define different versions of semantic operators.
 \begin{definition}[Versions of $\semarrow$, $\Step$]$\:$
 
   \begin{enumerate}
-    \item $\semarrow_1$, $\semarrow_2$, $\semarrow_{\semlink}$ are versions of $\semarrow$ that each use $(\Time_1,\tick_1)$, $(\Time_2,\tick_1)$, $(\Time_{\semlink},\tick_{\semlink})$.
-    \item $\Step_1$, $\Step_2$, $\Step_{\semlink}$ are versions of $\Step$ that each use $\semarrow_1$, $\semarrow_2$, $\semarrow_{\semlink}$.
+    \item $\semarrow_1$, $\semarrow_2$, $\semarrow_{\semlink}$ are the same as $\semarrow$ except that each use $(\Time_1,\tick_1)$, $(\Time_2,\tick_1)$, $(\Time_{\semlink},\tick_{\semlink})$.
+    \item $\Step_1$, $\Step_2$, $\Step_{\semlink}$ are the same as $\Step$ except that each use $\semarrow_1$, $\semarrow_2$, $\semarrow_{\semlink}$.
   \end{enumerate}
 \end{definition}
 
@@ -978,7 +986,7 @@ Thus we can define $\rhd$ and $\semlink$ that satisfies the desired property.
   \begin{tabular}{rrcll}
     Abstract Time                  & $\A{t}$        & $\in$         & $\A{\Time}$                                                                                      \\
     Environment/Context            & $\A{\ctx}$     & $\in$         & $\A{\Ctx}$                                                                                       \\
-    Value of expressions           & $\A{v}$        & $\in$         & $\A{\Value} \subseteq \ExprVar\times\Expr\times\A{\Ctx}$                                         \\
+    Value of expressions           & $\A{v}$        & $\in$         & $\A{\Value} \triangleq \ExprVar\times\Expr\times\A{\Ctx}$                                        \\
     Value of expressions/modules   & $\A{V}$        & $\in$         & $\A{\Value}+\A{\Ctx}$                                                                            \\
     Abstract Memory                & $\A{\mem}$     & $\in$         & $\A{\Mem} \triangleq \fin{\A{\Time}}{\pset(\A{\Value})}$                                         \\
     Abstract State                 & $\A{s}$        & $\in$         & $\A{\State} \triangleq \A{\Ctx}\times\A{\Mem}\times\A{\Time}$                                    \\
@@ -993,19 +1001,13 @@ Thus we can define $\rhd$ and $\semlink$ that satisfies the desired property.
   \caption{Definition of the semantic domains in the abstract case.}
   \label{fig:absdom}
 \end{figure}
-Now we present a way to simply abstract the concrete semantics via a finite abstraction of the time component.
-For this purpose, we choose a finite \emph{abstract time} domain $\A\Time$ that is connected to the concrete time domain via an auxiliary function $\A\alpha:\Time\rightarrow\A\Time$.
-Since the policy to update the timestamp must also be compatible with respect to $\A\alpha$, we require the $\A\tick:\A\Time\rightarrow\A\Time$ function to satisfy $\A\alpha\circ\tick=\A\tick\circ\A\alpha$.
+Now we present a way to simply abstract the concrete semantics via an abstraction of the time component.
+For this purpose, we choose an \emph{abstract time} domain $\A\Time$ that is connected to the concrete time domain via an auxiliary function $\A\alpha:\Time\rightarrow\A\Time$.
+Since the policy to update the timestamp must also be compatible with respect to $\A\alpha$, we require:
+\[\A\tick\in\A\Time\rightarrow\A\Time\qquad\A\alpha\circ\tick=\A\tick\circ\A\alpha\]
 
 Then the operational semantics can be abstracted directly, with modifications only in the \emph{update} of the memory and \emph{reads} from the memory.
-The memory update operation is now a weak update:
-\[
-  \A{\mem}[\A{t}\A{\mapsto}\A{v}](\A{t'})\triangleq
-  \begin{cases}
-    \A{\mem}(\A{t})\cup\{\A{v}\} & (\A{t'}=\A{t})     \\
-    \A{\mem}(\A{t'})             & (\text{otherwise})
-  \end{cases}
-\]
+The memory update operation is now a weak update $\A{\mem}[\A{t}\A{\mapsto}\A{v}]$,
 and a read from the memory returns a set of closures with abstract addresses, allowing transitions to any value within that set.
 An excerpt for the abstract version of the operational semantics $\A\semarrow\subseteq\A{\Config}\times\A{\Right}$ is in Figure \ref{fig:absreach}.
 
@@ -1075,13 +1077,10 @@ An excerpt for the abstract version of the operational semantics $\A\semarrow\su
 
 We note that the abstract semantics is a sound approximation of the concrete semantics in the operational sense, since if we extend $\A\alpha$ as:
 \begin{align*}
-  \A\alpha([])                             & \triangleq []                                                  \\
-  \A\alpha((x,t_x)\cons \ctx)              & \triangleq(x,\A\alpha(t_x))\cons\A\alpha(\ctx)                 \\
-  \A\alpha((\modid,\ctx_\modid)\cons \ctx) & \triangleq(\modid,\A\alpha(\ctx_\modid))\cons\A\alpha(\ctx)    \\
-  \A\alpha(\langle\lambda x.e,\ctx\rangle) & \triangleq\langle\lambda x.e,\A\alpha(\ctx)\rangle             \\
-  \A\alpha(\mem)                           & \triangleq\lambda\A{t}.\{\A\alpha(\mem(t))|\A\alpha(t)=\A{t}\} \\
-  \A\alpha(e,\ctx,\mem,t)                  & \triangleq(e,\A\alpha(\ctx),\A\alpha(\mem),\A\alpha(t))        \\
-  \A\alpha(V,\mem,t)                       & \triangleq(\A\alpha(V),\A\alpha(\mem),\A\alpha(t))
+  \A\alpha([])                             & \triangleq []                                               &  &  & \A\alpha(\mem)        & \triangleq\lambda\A{t}.\{\A\alpha(\mem(t))|\A\alpha(t)=\A{t}\} \\
+  \A\alpha((x,t_x)\cons \ctx)              & \triangleq(x,\A\alpha(t_x))\cons\A\alpha(\ctx)              &  &  & \A\alpha(\ctx,\mem,t) & \triangleq(\A\alpha(\ctx),\A\alpha(\mem),\A\alpha(t))          \\
+  \A\alpha((\modid,\ctx_\modid)\cons \ctx) & \triangleq(\modid,\A\alpha(\ctx_\modid))\cons\A\alpha(\ctx) &  &  & \A\alpha(v,\mem,t)    & \triangleq(\A\alpha(v),\A\alpha(\mem),\A\alpha(t))             \\
+  \A\alpha(\langle\lambda x.e,\ctx\rangle) & \triangleq\langle\lambda x.e,\A\alpha(\ctx)\rangle          &  &  & \A\alpha(e,s)         & \triangleq (e,\A\alpha(s))
 \end{align*}
 We have:
 \begin{lemma}[Operational Soundness]\label{lem:opsound}
@@ -1093,10 +1092,10 @@ We have:
 \end{proof}
 
 Then if we define:
-\[\A\Sigma\triangleq\A\Right+\A\semarrow\qquad\Abs{\Trace}\triangleq\pset(\A\Sigma)\]
+\[\A\Sigma\triangleq\A\Right\:+\:\A\semarrow\qquad\Abs{\Trace}\triangleq\pset(\A\Sigma)\]
 we can establish a Galois connection between $\Trace$ and $\Abs{\Trace}$.
 The abstraction and concretization functions are given by:
-\begin{definition}[Abstraction and Concretization]
+\begin{definition}
   Define $\alpha:\Trace\rightarrow\Abs{\Trace}$ and $\gamma:\Abs{\Trace}\rightarrow \Trace$ by:
   \begin{align*}
     \alpha(A)       & \triangleq\{\A\alpha(\config)\asemarrow\A\alpha(\rightst)|\config\semarrow\rightst\in A\}\cup\{\A\alpha(\rightst)|\rightst\in A\}           \\
@@ -1142,11 +1141,17 @@ Then we can prove that:
 \end{proof}
 
 Now we can say that $\Abs{\sembracket{e}}\alpha(S)$ is a sound abstraction of $\sembracket{e}S$.
-However, is it true that $\Abs{\sembracket{e}}\alpha(S)$ is finitely computable?
-The answer to this question is ``yes''.
+However, how can we make $\Abs{\sembracket{e}}\alpha(S)$ finitely computable?
 
+Observe that even for infinite computations such as $\omega\:\omega$ when $\omega=\lambda x.x\:x$,
+the shape of the \emph{context} is limited.
+Each time an application occurs, a new address is allocated in the memory and that address is pushed into the context.
+For the term $\omega\:\omega$, the context that is being modified is \emph{always} the empty context $[]$ that was stored in the memory as a closure $\langle\lambda x.x\:x,[]\rangle$.
+Thus, the only part in the configuration that makes computations infinite is the domain of the memory.
+
+Therefore, we may show that finitizing $\A\Time$ is enough to guarantee finite termination.
 \begin{theorem}[Finiteness]
-  For all $e\in\Expr$ and $\Abs{S}\subseteq\A\State$, if $\Abs{S}$ is finite, $\Abs{\sembracket{e}}\Abs{S}$ is finite.
+  For all $e\in\Expr$, if $\A\Time$ and $\Abs{S}\subseteq\A\State$ is finite, $\Abs{\sembracket{e}}\Abs{S}$ is finite.
 \end{theorem}
 \begin{proof}[Sketch]
   Given $\A{s}\in\Abs{S}$, we want to prove that there is some finite set $X$ satisfying:
@@ -1172,12 +1177,15 @@ Moreover, we need to define how the auxiliary abstraction functions $\A\alpha_1$
     \A\alpha_2(t) & t\in\Time_2
   \end{cases}
 \]
+\begin{notation*}
+  All sets with the subscript $i(i=1,2)$ is assumed to be using $\Time_i$ as timestamps, and all sets with the subscript $\semlink$ is assumed to be using $\Time_{\semlink}$ as timestamps.
+\end{notation*}
 Then we can define different versions of semantic operators.
 \begin{definition}[Versions of $\A\semarrow$, $\Abs\Step$]$\:$
 
   \begin{enumerate}
-    \item $\A\semarrow_1$, $\A\semarrow_2$, $\A\semarrow_{\semlink}$ are versions of $\A\semarrow$ that each use $(\A\Time_1,\A\tick_1)$, $(\A\Time_2,\A\tick_2)$, $(\A\Time_{\semlink},\A\tick_{\semlink})$.
-    \item $\Abs\Step_1$, $\Abs\Step_2$, $\Abs\Step_{\semlink}$ are versions of $\Abs\Step$ that each use $\A\semarrow_1$, $\A\semarrow_2$, $\A\semarrow_{\semlink}$.
+    \item $\A\semarrow_1$, $\A\semarrow_2$, $\A\semarrow_{\semlink}$ are the same as $\A\semarrow$ except that each use $(\A\Time_1,\A\tick_1)$, $(\A\Time_2,\A\tick_2)$, $(\A\Time_{\semlink},\A\tick_{\semlink})$.
+    \item $\Abs\Step_1$, $\Abs\Step_2$, $\Abs\Step_{\semlink}$ are the same as $\Abs\Step$ except that each use $\A\semarrow_1$, $\A\semarrow_2$, $\A\semarrow_{\semlink}$.
   \end{enumerate}
 \end{definition}
 
@@ -1192,7 +1200,7 @@ Then we can show that:
   \[\A\config_2\A\semarrow_2\A\rightst_2\Rightarrow\inject{\A{s}_1}{\A\config_2}\A\semarrow_{\semlink}\inject{\A{s}_1}{\A\rightst_2}\]
 \end{lemma}
 \begin{proof}[Sketch]
-  Induction on $\A\semarrow$ under $\A\tick_2$.
+  Induction on $\A\semarrow_2$.
 \end{proof}
 and thus we can define:
 \begin{definition}[Abstract Injection]
@@ -1214,32 +1222,47 @@ so that the \emph{best possible result} is achieved:
     \Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_2)=\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2
   \]
 \end{theorem}
-Since we have that
-\[
-  \alpha_{\semlink}(S_1\rhd A_2)=\alpha_1(S_1)\Abs\rhd\alpha_2(A_2)
-\]
-due to $\alpha_{\semlink}(\inject{s_1}{r_2})=\inject{\alpha_1(s_1)}{\alpha_2(r_2)}$, the above theorem directly leads to overapproximation by:
-\begin{align*}
-  S_1\semlink\sembracket{e}S_2 & =\sembracket{e}(S_1\rhd S_2)                                                   & (\because\text{Advance})                                                    \\
-                               & \subseteq\gamma_{\semlink}(\Abs{\sembracket{e}}\alpha_{\semlink}(S_1\rhd S_2)) & (\because\text{Galois connection})                                          \\
-                               & =\gamma_{\semlink}(\Abs{\sembracket{e}}(\alpha_1(S_1)\Abs\rhd\alpha_2(S_2)))   & (\because\alpha_{\semlink}(S_1\rhd A_2)=\alpha_1(S_1)\Abs\rhd\alpha_2(A_2)) \\
-                               & =\gamma_{\semlink}(\alpha_1(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha_2(S_2)) & (\because\text{Abstract advance})
-\end{align*}
-\section{Equivalence Between Initial States}
+\begin{corollary}[Correctness of $\Abs{\semlink}$]
+  For all $e\in\Expr$ and $S_1\subseteq\State_1$, $S_2\subseteq\State_2$,
+  \[S_1\semlink\sembracket{e}S_2\subseteq\gamma_{\semlink}(\alpha_1(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha_2(S_2))\]
+\end{corollary}
+\begin{proof}
+  $\alpha_{\semlink}(S_1\rhd A_2)=\alpha_1(S_1)\Abs\rhd\alpha_2(A_2)$
+  since $\alpha_{\semlink}(\inject{s_1}{r_2})=\inject{\alpha_1(s_1)}{\alpha_2(r_2)}$(induction on $r_2$). Thus:
+  \begin{align*}
+    S_1\semlink\sembracket{e}S_2 & =\sembracket{e}(S_1\rhd S_2)                                                   & (\because\text{Advance})                                                    \\
+                                 & \subseteq\gamma_{\semlink}(\Abs{\sembracket{e}}\alpha_{\semlink}(S_1\rhd S_2)) & (\because\text{Galois connection})                                          \\
+                                 & =\gamma_{\semlink}(\Abs{\sembracket{e}}(\alpha_1(S_1)\Abs\rhd\alpha_2(S_2)))   & (\because\alpha_{\semlink}(S_1\rhd A_2)=\alpha_1(S_1)\Abs\rhd\alpha_2(A_2)) \\
+                                 & =\gamma_{\semlink}(\alpha_1(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha_2(S_2)) & (\because\text{Abstract advance})
+  \end{align*}
+\end{proof}
+\section{How to Use the Separately Analyzed Results}
 \subsection{Motivation}
-Assume that we have a cached analysis result of a program fragment $e$ under an abstract state $\A{s}$ that uses timestamps in $\{0,1\}$.
-We want to analyze $e$ under another initial state $\A{s'}$ that uses abstract timestamps in $\{a,b\}$.
-The problem is: what is the criteria for reusing the cached analysis results?
+Now that we have defined abstract linking that overapproximates concrete linking, let us try to use it to analyze the factorial example.
+The theorem that we have to utilize is:
+\[\sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2\subseteq\gamma_{\semlink}(\alpha_1(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha_2(S_2))\]
+In the factorial example, $e$ is the client code that adds $100!$ to \texttt{M.x}, $S_2$ is the context and memory including the module \texttt{F}, and $S_1$ is the piece of state that includes the module \texttt{M}.
+By separately analyzing $\Abs{\sembracket{e}}\alpha_2(S_2)$ and linking $\alpha_1(S_1)$, we overapproximate $\sembracket{e}(S_1\rhd S_2)$.
+But what is this $S_1\rhd S_2$ that is given as the initial state to $e$?
 
-Based on the previous section, we want to find a $\A{s''}$ that satisfies $\inject{\A{s''}}{\A{s}}=\A{s'}$, so that linking $\A{s''}$ into the cached results result in the semantics that started from $\A{s'}$.
-However, equality is not possible because the timestamps that are used are different.
-Thus, in this section, we define what it means for semantics that use different timestamps to be \emph{equivalent}.
-The definition of equivalence need to satisfy two desired properties, namely:
+The concrete execution that is being modelled is that of the \emph{linked} program $e_{\synlink}$ under the initial state $\mt\texteq{let}\{([],\{\},0)\}$.
+When $e_\synlink$ is executing under $\mt$, $e$ starts evaluation under what
+{\small\[(\text{\texttt{let M = }}e_1\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{let F = }}e_2\text{\texttt{ in }}\varepsilon)\]}%
+evaluates to.
+Call this $S$.
+We expect that $S_1\rhd S_2=S$.
+However, this is not true, since $S$ uses only one timestamp, yet $S_1\rhd S_2$ uses two versions.
+Therefore, we want to define a notion of equivalence between states to make executions that use different timestamps compatible.
+
+Moreover, note that $S$ will not be given in its concrete form directly, but will be given in its abstract form $\alpha(S)\subseteq\Abs{S}$, to ensure termination.
+Thus, we also need to define a notion of equivalence between abstract states that concretizes to equivalent concrete states.
+
+The definition of equivalence thus need to satisfy two desired properties, namely:
 \begin{enumerate}
-  \item If $\A{s}$ and $\A{s'}$ are equivalent, all $s\in\gamma(\{\A{s}\})$ must have an equivalent $s'\in\gamma'(\{\A{s'}\})$.
-  \item If $s$ and $s'$ are equivalent, $(e,s)$ and $(e,s')$ must step to equivalent states.
+  \item If $\Abs{S}$ and $\Abs{S'}$ are equivalent, all $s\in\gamma(\Abs{S})$ must have an equivalent $s'\in\gamma'(\Abs{S'})$.
+  \item If $s\in S$ and $s'\in S'$ are equivalent, $(e,s)$ and $(e,s')$ must step to equivalent states.
 \end{enumerate}
-These two properties ensure that if we find a $\A{s''}$ such that $\inject{\A{s''}}{\A{s}}$ is \emph{equivalent} to $\A{s'}$, linking $\A{s''}$ with the cached results will result in an overapproximation of something \emph{equivalent} to the semantics that started from $\gamma'(\{\A{s'}\})$.
+These two properties ensure that if we find a $\Abs{S}_1$ such that ${\Abs{S}_1}\rhd{\Abs{S}_2}$ is \emph{equivalent} to $\Abs{S}$, linking $\Abs{S}_1$ with the cached results will overapproximate something \emph{equivalent} to the original execution.
 
 \subsection{Definitions}
 In this section, we assume a pair of semantics using $(\Time,\le,\ATime,\A\alpha)$ and $(\Time',\le',\A{\Time'},\A{\alpha'})$.
@@ -1275,32 +1298,70 @@ The definitions for $\valid$, $\A\valid$ are given in Figure \ref{fig:valid}.
   \centering
   \begin{minipage}{0.4\linewidth}
     \footnotesize
-    \begin{align*}
-      \valid(\_,\mem,\epsilon)                  & \triangleq\mathsf{True}                                                              \\
-      \valid(\ctx,\mem,\xrightarrow{x}t\:p)     & \triangleq t=\ctx(x)\wedge\valid(t,\mem,p)                                           \\
-      \valid(\ctx,\mem,\xrightarrow{\modid}p)   & \triangleq\valid(\ctx(\modid),\mem,p)                                                \\
-      \valid(t,\mem,\xrightarrow{\lambda x.e}p) & \triangleq\langle\lambda x.e,\prexists{\ctx}\rangle=\mem(t)\wedge\valid(\ctx,\mem,p) \\
-      \valid(\text{otherwise})                  & \triangleq\mathsf{False}
-    \end{align*}
+    \[
+      \begin{prooftree}
+        \infer0{\valid(\_,\mem,\epsilon)}
+      \end{prooftree}
+    \]
+
+    \[
+      \begin{prooftree}
+        \hypo{t=\ctx(x)\qquad\valid(t,\mem,p)}
+        \infer1{\valid(\ctx,\mem,\xrightarrow{x}t\:p)}
+      \end{prooftree}
+    \]
+
+    \[
+      \begin{prooftree}
+        \hypo{\ctx'=\ctx(\modid)\qquad\valid(\ctx',\mem,p)}
+        \infer1{\valid(\ctx,\mem,\xrightarrow{\modid}p)}
+      \end{prooftree}
+    \]
+
+    \[
+      \begin{prooftree}
+        \hypo{\langle\lambda x.e,{\ctx}\rangle=\mem(t)\qquad\valid(\ctx,\mem,p)}
+        \infer1{\valid(t,\mem,\xrightarrow{\lambda x.e}p)}
+      \end{prooftree}
+    \]
   \end{minipage}
   \begin{minipage}{0.4\linewidth}
     \footnotesize
-    \begin{align*}
-      \A\valid(\_,\A\mem,\epsilon)                          & \triangleq\mathsf{True}                                                                                      \\
-      \A\valid(\A{\ctx},\A\mem,\xrightarrow{x}\A{t}\:\A{p}) & \triangleq\A{t}=\A{\ctx}(x)\wedge\A\valid(\A{t},\A\mem,\A{p})                                                \\
-      \A\valid(\A{\ctx},\A\mem,\xrightarrow{\modid}\A{p})   & \triangleq\A\valid(\A{\ctx}(\modid),\A\mem,\A{p})                                                            \\
-      \A\valid(\A{t},\A\mem,\xrightarrow{\lambda x.e}\A{p}) & \triangleq\langle\lambda x.e,\prexists{\A{\ctx}}\rangle\in\A\mem(\A{t})\wedge\A\valid(\A{\ctx},\A\mem,\A{p}) \\
-      \A\valid(\text{otherwise})                            & \triangleq\mathsf{False}
-    \end{align*}
+    \[
+      \begin{prooftree}
+        \infer0{\A\valid(\_,\A\mem,\epsilon)}
+      \end{prooftree}
+    \]
+
+    \[
+      \begin{prooftree}
+        \hypo{\A{t}=\A\ctx(x)\qquad\A\valid(\A{t},\A\mem,\A{p})}
+        \infer1{\A\valid(\A\ctx,\A\mem,\xrightarrow{x}\A{t}\:\A{p})}
+      \end{prooftree}
+    \]
+
+    \[
+      \begin{prooftree}
+        \hypo{\A\ctx'=\A\ctx(\modid)\qquad\A\valid(\A\ctx',\A\mem,\A{p})}
+        \infer1{\A\valid(\A\ctx,\A\mem,\xrightarrow{\modid}\A{p})}
+      \end{prooftree}
+    \]
+
+    \[
+      \begin{prooftree}
+        \hypo{\langle\lambda x.e,{\A\ctx}\rangle\in\A\mem(\A{t})\qquad\A\valid(\A\ctx,\A\mem,\A{p})}
+        \infer1{\A\valid(\A{t},\A\mem,\xrightarrow{\lambda x.e}\A{p})}
+      \end{prooftree}
+    \]
   \end{minipage}
   \caption{Definitions for the $\valid$ and $\A\valid$ predicates.}
   \label{fig:valid}
 \end{figure}
 
 Now we can give straightforward definitions of equivalence.
-\begin{definition}[Equivalent Concrete States]
+\begin{definition}[Equivalent Concrete States: $\equivalent$]
   Let $s=(\ctx,\mem,\_)\in\State$ and $s'=(\ctx',\mem',\_)\in\State'$.
-  $s\equivalent s'$ ($s$ is equivalent to $s'$) when $\exists\varphi\in\Time\rightarrow\Time',\varphi'\in\Time'\rightarrow\Time:$
+  $s\equivalent s'$ ($s$ is equivalent to $s'$) iff $\exists\varphi\in\Time\rightarrow\Time',\varphi'\in\Time'\rightarrow\Time:$
   \begin{enumerate}
     \item $\forall p\in\Path:\valid(\ctx,\mem,p)\Rightarrow(\valid(\ctx',\mem',\varphi(p))\land p=\varphi'(\varphi(p)))$
     \item $\forall p'\in\Path':\valid(\ctx',\mem',p')\Rightarrow(\valid(\ctx,\mem,\varphi'(p'))\land p'=\varphi(\varphi'(p')))$
@@ -1308,7 +1369,7 @@ Now we can give straightforward definitions of equivalence.
 \end{definition}
 \begin{definition}[Weakly Equivalent Abstract States]\label{def:weakequiv}
   Let $\A{s}=(\A{\ctx},\A\mem,\_)\in\AState$ and $\A{s'}=(\A{\ctx'},\A{\mem'},\_)\in\A{\State'}$.
-  $\A{s}$ is weakly equivalent to $\A{s'}$ when $\exists\A\varphi\in\ATime\rightarrow\A{\Time'},\A{\varphi'}\in\A{\Time'}\rightarrow\A\Time:$
+  $\A{s}$ is weakly equivalent to $\A{s'}$ iff $\exists\A\varphi\in\ATime\rightarrow\A{\Time'},\A{\varphi'}\in\A{\Time'}\rightarrow\A\Time:$
   \begin{enumerate}
     \item $\forall\A{p}\in\A\Path:\A\valid(\A{\ctx},\A\mem,\A{p})\Rightarrow(\A\valid(\A{\ctx'},\A{\mem'},\A\varphi(\A{p}))\land\A{p}=\A{\varphi'}(\A\varphi(\A{p})))$
     \item $\forall\A{p'}\in\A{\Path'}:\A\valid(\A{\ctx'},\A{\mem'},\A{p'})\Rightarrow(\A\valid(\A{\ctx},\A{\mem},\A{\varphi'}(\A{p'}))\land\A{p'}=\A\varphi(\A{\varphi'}(\A{p'})))$
@@ -1330,9 +1391,9 @@ Before going into the definition, we introduce some terminology.
 First, we say that two states are \emph{weakly equivalent by} $\A\varphi,\A{\varphi'}$ when $\A\varphi,\A{\varphi'}$ are the functions that translate between abstract timestamps in Definition \ref{def:weakequiv}.
 Second, we say that $\A{t}$ is \emph{reachable from} $\A{s}$ when there is some valid access path $\A{p}$ from $\A{s}$ containing $\A{t}$.
 Now we actually give the definition:
-\begin{definition}[Equivalent Abstract States]
+\begin{definition}[Equivalent Abstract States: $\A\equivalent$]
   Let $\A{s}=(\_,\A\mem,\_)\in\AState$ and $\A{s'}=(\_,\A{\mem'},\_)\in\A{\State'}$.
-  $\A{s}\A\equivalent\A{s'}$ ($\A{s}$ is equivalent to $\A{s'}$) when $\exists\A\varphi\in\ATime\rightarrow\A{\Time'},\A{\varphi'}\in\A{\Time'}\rightarrow\ATime:$
+  $\A{s}\A\equivalent\A{s'}$ ($\A{s}$ is equivalent to $\A{s'}$) iff $\exists\A\varphi\in\ATime\rightarrow\A{\Time'},\A{\varphi'}\in\A{\Time'}\rightarrow\ATime:$
   \begin{enumerate}
     \item $\A{s}$ and $\A{s'}$ are weakly equivalent by $\A\varphi,\A{\varphi'}$.
     \item For each $\A{t}$ reachable from $\A{s}$ and for each $\langle\lambda x.e,\A{\ctx}\rangle\in\A\mem(\A{t})$, $\langle\lambda x.e,\prexists{\A{\ctx'}}\rangle\in\A{\mem'}(\A\varphi(\A{t}))$ such that $\A{\ctx}$, $\A{\ctx'}$ are weakly equivalent by $\A\varphi,\A{\varphi'}$ under the empty memory.

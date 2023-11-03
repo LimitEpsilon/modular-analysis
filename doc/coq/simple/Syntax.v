@@ -186,15 +186,15 @@ Definition lt {T} `{TotalOrder T} (t1 t2 : T) :=
 Notation "t1 '<<' t2" := (lt t1 t2) (at level 71).
 
 (** Syntax of our language *)
-Definition ID := nat.
+Definition ID := String.string.
 
-Definition eqb_ID := Nat.eqb.
+Definition eqb_ID := String.eqb.
 
-Definition eqb_ID_eq := Nat.eqb_eq.
+Definition eqb_ID_eq := String.eqb_eq.
 
 #[export] Instance EqID : Eq ID := { eqb:= eqb_ID; eqb_eq := eqb_ID_eq; }.
 
-Definition eqb_ID_neq := Nat.eqb_neq.
+Definition eqb_ID_neq := String.eqb_neq.
 
 Lemma ID_refl : forall x, eqb_ID x x = true.
 Proof. intros; apply eqb_ID_eq; eauto. Qed.
