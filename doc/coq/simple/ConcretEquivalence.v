@@ -122,7 +122,7 @@ Lemma eq_val_eq :
 Proof.
   ii. unfold eq_val.
   repeat des_goal; try rewrite eqb_ID_eq in *; clarify.
-  rewrite eq_tm_eq. split; ii; clarify.
+  rewrite eqb_tm_eq. split; ii; clarify.
   rewrite eqb_ID_neq in *.
   split; ii; clarify.
 Qed.
@@ -1551,7 +1551,7 @@ Fixpoint find_iso `{Eq aTT} `{Eq aT}
   | v' :: vl' =>
     match v, v' with
     | Closure x e C, Closure x' e' C' =>
-      if eqb_ID x x' && eq_tm e e' && iso_C C C' φ φ'
+      if eqb_ID x x' && eqb_tm e e' && iso_C C C' φ φ'
       then Some v'
       else find_iso v vl' φ φ'
     end
@@ -1749,14 +1749,14 @@ Proof.
   induction vl; ii; des; repeat des_hyp; clarify.
   ss; des; clarify.
   - rewrite <- check_iso_iso in *. rw.
-    rewrite ID_refl. assert (eq_tm = eqb) as RR. eauto.
+    rewrite ID_refl. assert (eqb_tm = eqb) as RR. eauto.
     rewrite RR. rewrite t_refl. s.
     eexists. split. reflexivity.
     rewrite check_iso_iso in *.
     eauto.
   - repeat des_goal; repeat des_hyp.
     rewrite eqb_ID_eq in *;
-    rewrite eq_tm_eq in *;
+    rewrite eqb_tm_eq in *;
     rewrite check_iso_iso in *; clarify.
     eexists. split. reflexivity. s. eauto.
     all:(exploit IHvl);

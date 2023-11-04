@@ -1,6 +1,6 @@
 -docroot modular
--R tactics sflib
-tactics
+-R basics Basics
+basics
 -R simple Simple
 simple
 -R signature Signature

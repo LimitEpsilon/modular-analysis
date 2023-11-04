@@ -135,6 +135,100 @@ Proof.
   induction C; simpl; repeat rw; eauto.
 Qed.
 
+Lemma trans_ctx_distribute
+  `{Concrete.time BCT} `{Abstract.time BAT}
+  `{Concrete.time ACT} `{Abstract.time AAT}
+  (αbf : BCT -> BAT) (αaf : ACT -> AAT) :
+  forall Caf Cbf,
+    trans_C (link_abs αbf αaf) (lift_ctx_af Caf [|lift_ctx_bf Cbf|]) =
+    (lift_ctx_af (trans_C αaf Caf) [|lift_ctx_bf (trans_C αbf Cbf)|]).
+Proof.
+  induction Caf; ii; ss; repeat rw; eauto.
+  induction Cbf; ii; ss; repeat rw; eauto.
+Qed.
+
+Lemma trans_m_not_seen `{Eq CT} `{Eq AT} (α : CT -> AT) :
+  forall (m : memory CT) (nseen seen : list CT)
+    (NSEEN : forall t (IN : In t nseen), read m t = None),
+  trans_m_aux α m (seen ++ nseen) = trans_m_aux α m seen.
+Proof.
+  induction m; ii; ss.
+  des_goal. des_v. des_goal.
+  - rewrite Inb_eq in *.
+    rewrite in_app_iff in *.
+    rewrite <- Inb_eq in *.
+    des. rw. apply IHm. ii. exploit NSEEN; eauto.
+    ii. des_hyp; clarify.
+    exploit NSEEN; eauto. rewrite t_refl. clarify.
+  - rewrite Inb_neq in *.
+    assert (~In c seen /\ ~In c nseen).
+    { split; ii; eauto; apply GDES; rewrite in_app_iff; eauto. }
+    des. rewrite <- Inb_neq in *.
+    rw. f_equal.
+    apply (IHm nseen (c :: seen)).
+    ii. exploit NSEEN; eauto.
+    ii. des_hyp; clarify.
+Qed.
+
+Lemma trans_m_lift
+  `{Concrete.time BCT} `{Abstract.time BAT}
+  `{Concrete.time ACT} `{Abstract.time AAT}
+  (αbf : BCT -> BAT) (αaf : ACT -> AAT) :
+  forall bmem seen,
+    trans_m_aux (link_abs αbf αaf) (lift_mem_bf bmem) (map (fun t => BF t) seen) =
+    lift_mem_bf (trans_m_aux αbf bmem seen).
+Proof.
+  induction bmem; ii; ss.
+  des_goal. des_v.
+  assert (forall x, Inb x seen = Inb (BF x) (map (fun t => BF t : link BCT ACT) seen)).
+  { induction seen; ss; ii. rw. eauto. }
+  rw. des_goal. eauto.
+  repeat f_equal. apply trans_ctx_lift.
+  specialize (IHbmem (b :: seen)). ss.
+Qed.
+
+Lemma trans_m_distribute
+  `{Concrete.time BCT} `{Abstract.time BAT}
+  `{Concrete.time ACT} `{Abstract.time AAT}
+  (αbf : BCT -> BAT) (αaf : ACT -> AAT) (Cbf : dy_ctx BCT) :
+  forall amem bmem seen,
+    trans_m_aux (link_abs αbf αaf) (link_mem bmem Cbf amem) (map (fun t => AF t) seen) =
+    link_mem (trans_m αbf bmem) (trans_C αbf Cbf) (trans_m_aux αaf amem seen).
+Proof.
+  unfold link_mem.
+  induction amem; ii; ss.
+  - pose proof (trans_m_not_seen (link_abs αbf αaf) (lift_mem_bf bmem) (map (fun t => AF t) seen) []) as RR.
+    ss. rw. pose proof (trans_m_lift αbf αaf bmem []). ss.
+    clear RR. induction seen; ss.
+    ii; des; clarify; eauto.
+    clear seen IHseen. induction bmem; ss. des_goal; ss.
+  - des_goal. des_v. s.
+    assert (forall x, Inb x seen = Inb (AF x) (map (fun t => AF t : link BCT ACT) seen)).
+    { induction seen; ss; ii. rw. eauto. }
+    rw. des_goal. eauto.
+    repeat f_equal.
+    apply trans_ctx_distribute.
+    specialize (IHamem bmem (a0 :: seen)). ss.
+Qed.
+
+Theorem inject_cf_distribute 
+  `{Concrete.time BCT} `{Abstract.time BAT}
+  `{Concrete.time ACT} `{Abstract.time AAT}
+  (αbf : BCT -> BAT) (αaf : ACT -> AAT) (Cout : dy_ctx BCT) 
+  (bmem : memory BCT) (cf : config ACT) :
+  trans_ρ (link_abs αbf αaf) (inject_cf Cout bmem cf) =
+    inject_cf (trans_C αbf Cout) (trans_m αbf bmem) (trans_ρ αaf cf).
+Proof.
+  destruct cf; s; repeat des_goal; ss;
+  repeat f_equal;
+  match goal with
+  | |- trans_C _ _ = _ =>
+    apply (trans_ctx_distribute αbf αaf)
+  | |- trans_m _ _ = link_mem _ _ (trans_m _ ?m) =>
+    apply (trans_m_distribute αbf αaf Cout m bmem [])
+  end.
+Qed.
+  
 Lemma trans_ctx_filter
   `{Concrete.time BCT} `{Abstract.time BAT}
   `{Concrete.time ACT} `{Abstract.time AAT}

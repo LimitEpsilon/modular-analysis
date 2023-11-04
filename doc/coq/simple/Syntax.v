@@ -1,189 +1,4 @@
-From Coq Require Export Bool.Bool.
-From Coq Require Export Init.Nat.
-From Coq Require Export Arith.Arith.
-From Coq Require Export Arith.EqNat.
-From Coq Require Export Lia.
-From Coq Require Export Lists.List.
-From sflib Require Export sflib.
-
-Notation "x :: y" := (cons x y)
-                     (at level 60, right associativity).
-Notation "[ ]" := nil.
-Notation "[ x ; .. ; y ]" := (cons x .. (cons y []) ..).
-Notation "x ++ y" := (app x y)
-                     (at level 60, right associativity).
-
-(* First, some basic definitions*)
-Ltac contradict :=
-  let contra := fresh "contra" in
-  assert False as contra; eauto 3; inversion contra.
-
-Local Lemma __R__ : forall b, b = false <-> b <> true.
-Proof.
-  intros; split; intros; subst.
-  red; intros contra. inversion contra.
-  destruct b. contradict. eauto.
-Qed.
-
-Ltac refl_bool :=
-  match goal with
-  | |- _ = false => rewrite __R__; unfold "<>"
-  | |- _ <> true => rewrite <- __R__
-  | _ => idtac
-  end.
-
-Ltac rw :=
-  match goal with
-  | RR : _ |- _ => 
-    lazymatch type of RR with
-    | ?a = ?b =>
-      lazymatch b with
-      | context [a] => fail
-      | _ => rewrite RR
-      end
-    | _ => rewrite RR
-    end
-  end.
-
-Ltac rrw :=
-  match goal with
-  | RR : _ |- _ =>
-    lazymatch type of RR with
-    | ?a = ?b =>
-      lazymatch a with
-      | context [b] => fail
-      | _ => rewrite <- RR
-      end
-    | _ => rewrite <- RR
-    end
-  end.
-
-Ltac des_hyp :=
-  let DES := fresh "HDES" in
-  match goal with
-  | [H : context [?E || _] |- _] =>
-    destruct E eqn:DES; simpl in H;
-    try (inversion H; fail)
-  | [H : context [?E && _] |- _] =>
-    destruct E eqn:DES; simpl in H;
-    try (inversion H; fail)
-  | [H : context [match ?E with | _ => _ end] |- _] =>
-    destruct E eqn:DES; simpl in H;
-    try (inversion H; fail)
-  end.
-
-Ltac des_goal :=
-  let DES := fresh "GDES" in
-  match goal with
-  | [|- context [?E || _]] =>
-    destruct E eqn:DES; simpl
-  | [|- context [?E && _]] =>
-    destruct E eqn:DES; simpl
-  | [|- context [match ?E with | _ => _ end]] =>
-    destruct E eqn:DES; simpl
-  end.
-
-(* Types with decidable equality *)
-Class Eq T : Type :=
-{
-  eqb : T -> T -> bool;
-  eqb_eq : forall (t t' : T), eqb t t' = true <-> t = t';
-}.
-
-Lemma eqb_comm {T} `{Eq T} :
-  forall x x', eqb x x' = eqb x' x.
-Proof.
-  intros.
-  destruct (eqb x x') eqn:EQ; destruct (eqb x' x) eqn:EQ';
-  try reflexivity;
-  try rewrite eqb_eq in *; subst;
-  try rewrite <- EQ; try rewrite <- EQ';
-  match goal with
-  | |- true = _ => symmetry
-  | _ => idtac
-  end; rewrite eqb_eq; eauto.
-Qed.
-
-Lemma eqb_neq {T} `{Eq T} : 
-  forall x x', eqb x x' = false <-> x <> x'.
-Proof.
-  intros; split; intros contra.
-  - red; intros RR. rewrite <- eqb_eq in *.
-    rewrite RR in contra. inversion contra.
-  - destruct (eqb x x') eqn:EQ; try reflexivity.
-    exfalso. apply contra. rewrite <- eqb_eq. eauto.
-Qed.
-
-Lemma t_refl {T} `{Eq T} : forall t, eqb t t = true.
-Proof. intros; apply eqb_eq; eauto. Qed.
-
-Fixpoint Inb {T} `{Eq T} t (l : list T) :=
-  match l with
-  | [] => false
-  | hd :: tl => eqb hd t || Inb t tl
-  end.
-
-Lemma Inb_eq {T} `{Eq T} :
-  forall (l : list T) (t : T),
-    Inb t l = true <-> In t l.
-Proof.
-  induction l; intros; simpl in *;
-  split; intros EQ; try contradict.
-  - repeat des_hyp;
-    simpl in *; try (inversion EQ; fail);
-    match goal with
-    | _ => left; rewrite <- eqb_eq; eauto; fail
-    | _ => right; rewrite <- IHl; eauto; fail
-    end.
-  - destruct EQ as [EQhd | EQtl].
-    subst. rewrite t_refl. eauto.
-    rewrite <- IHl in EQtl. rewrite EQtl.
-    des_goal; eauto.
-Qed.
-
-Lemma Inb_neq {T} `{Eq T} :
-  forall (l : list T) (t : T),
-    Inb t l = false <-> ~ (In t l).
-Proof.
-  induction l; intros; simpl in *;
-  split; intros NEQ; eauto.
-  - red; intros EQ.
-    destruct (eqb a t) eqn:NEQhd;
-    destruct (Inb t l) eqn:NEQtl;
-    try (inversion NEQ; fail).
-    rewrite eqb_neq in NEQhd.
-    rewrite IHl in NEQtl.
-    destruct EQ as [EQhd | EQtl];
-    match goal with
-    | _ => apply NEQhd; eauto; fail
-    | _ => apply NEQtl; eauto; fail
-    end.
-  - destruct (eqb a t) eqn:NEQhd;
-    destruct (Inb t l) eqn:NEQtl; simpl;
-    match goal with
-    | _ => reflexivity; fail
-    | [H : eqb _ _ = true |- _] =>
-      rewrite eqb_eq in H
-    | [H : Inb _ _ = true |- _] =>
-      rewrite Inb_eq in H
-    end;
-    exfalso; apply NEQ; eauto.
-Qed.
-
-(* Total order *)
-Class TotalOrder (T : Type) `{Eq T} : Type :=
-{
-  leb : T -> T -> bool;
-  leb_refl : forall t, leb t t = true;
-  leb_trans : forall t t' t'' (LE : leb t t' = true) (LE' : leb t' t'' = true), leb t t'' = true;
-  leb_sym : forall t t' (LE : leb t t' = true) (LE' : leb t' t = true), t = t';
-  leb_or : forall t t', leb t t' || leb t' t = true
-}.
-
-Definition lt {T} `{TotalOrder T} (t1 t2 : T) :=
-  leb t1 t2 = true /\ eqb t1 t2 = false.
-
-Notation "t1 '<<' t2" := (lt t1 t2) (at level 71).
+From Basics Require Export Basics.
 
 (** Syntax of our language *)
 Definition ID := String.string.
@@ -210,20 +25,20 @@ Inductive tm :=
   | m_letm (M : ID) (m1 : tm) (m2 : tm)
 .
 
-Fixpoint eq_tm e e' :=
+Fixpoint eqb_tm e e' :=
   match e, e' with
   | e_var x, e_var x' => eqb_ID x x'
-  | e_lam x e, e_lam x' e' => eqb_ID x x' && eq_tm e e'
-  | e_app e1 e2, e_app e1' e2' => eq_tm e1 e1' && eq_tm e2 e2'
-  | e_link m e, e_link m' e' => eq_tm m m' && eq_tm e e'
+  | e_lam x e, e_lam x' e' => eqb_ID x x' && eqb_tm e e'
+  | e_app e1 e2, e_app e1' e2' => eqb_tm e1 e1' && eqb_tm e2 e2'
+  | e_link m e, e_link m' e' => eqb_tm m m' && eqb_tm e e'
   | m_empty, m_empty => true
   | m_var M, m_var M' => eqb_ID M M'
-  | m_lete x e m, m_lete x' e' m' => eqb_ID x x' && eq_tm e e' && eq_tm m m'
-  | m_letm M m1 m2, m_letm M' m1' m2' => eqb_ID M M' && eq_tm m1 m1' && eq_tm m2 m2'
+  | m_lete x e m, m_lete x' e' m' => eqb_ID x x' && eqb_tm e e' && eqb_tm m m'
+  | m_letm M m1 m2, m_letm M' m1' m2' => eqb_ID M M' && eqb_tm m1 m1' && eqb_tm m2 m2'
   | _, _ => false
   end.
 
-Lemma eq_tm_eq : forall e e', eq_tm e e' = true <-> e = e'.
+Lemma eqb_tm_eq : forall e e', eqb_tm e e' = true <-> e = e'.
 Proof.
   induction e; intros; split; intros EQ; simpl in *;
   destruct e'; try (inversion EQ; fail);
@@ -231,9 +46,9 @@ Proof.
   repeat match goal with
   | [H : eqb_ID _ _ = true |- _] =>
     rewrite eqb_ID_eq in H
-  | [H : eq_tm _ _ = true |- _] =>
+  | [H : eqb_tm _ _ = true |- _] =>
     repeat match goal with
-    | [RR : context [eq_tm _ _ = true <-> _] |- _] =>
+    | [RR : context [eqb_tm _ _ = true <-> _] |- _] =>
       rewrite RR in H
     end
   | _ => idtac
@@ -241,19 +56,19 @@ Proof.
   inversion EQ; subst;
   try rewrite ID_refl; simpl; try reflexivity;
   repeat match goal with
-  | [H : context [eq_tm ?e _ = _] |- _] =>
+  | [H : context [eqb_tm ?e _ = _] |- _] =>
     match goal with
-    | [_ : eq_tm e e = true |- _] => fail
+    | [_ : eqb_tm e e = true |- _] => fail
     | _ =>
       let RR := fresh "RR" in
-      assert (eq_tm e e = true) as RR;
+      assert (eqb_tm e e = true) as RR;
       try apply H; eauto; rewrite RR
     end
   | _ => fail
   end.
 Qed.
 
-#[export] Instance Eqtm : Eq tm := { eqb := eq_tm; eqb_eq := eq_tm_eq; }.
+#[export] Instance Eqtm : Eq tm := { eqb := eqb_tm; eqb_eq := eqb_tm_eq; }.
 
 (** Statics *)
 Inductive value :=

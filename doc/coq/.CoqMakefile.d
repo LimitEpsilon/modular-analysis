@@ -1,6 +1,9 @@
-tactics/sflib.vo tactics/sflib.glob tactics/sflib.v.beautified tactics/sflib.required_vo: tactics/sflib.v 
-tactics/sflib.vio: tactics/sflib.v 
-tactics/sflib.vos tactics/sflib.vok tactics/sflib.required_vos: tactics/sflib.v 
+basics/Basics.vo basics/Basics.glob basics/Basics.v.beautified basics/Basics.required_vo: basics/Basics.v basics/tactics.vo
+basics/Basics.vio: basics/Basics.v basics/tactics.vio
+basics/Basics.vos basics/Basics.vok basics/Basics.required_vos: basics/Basics.v basics/tactics.vos
+basics/tactics.vo basics/tactics.glob basics/tactics.v.beautified basics/tactics.required_vo: basics/tactics.v 
+basics/tactics.vio: basics/tactics.v 
+basics/tactics.vos basics/tactics.vok basics/tactics.required_vos: basics/tactics.v 
 simple/ALinking.vo simple/ALinking.glob simple/ALinking.v.beautified simple/ALinking.required_vo: simple/ALinking.v simple/Abstract.vo
 simple/ALinking.vio: simple/ALinking.v simple/Abstract.vio
 simple/ALinking.vos simple/ALinking.vok simple/ALinking.required_vos: simple/ALinking.v simple/Abstract.vos
@@ -25,9 +28,9 @@ simple/OperationalEquivalence.vos simple/OperationalEquivalence.vok simple/Opera
 simple/Sound.vo simple/Sound.glob simple/Sound.v.beautified simple/Sound.required_vo: simple/Sound.v simple/Bound.vo simple/ALinking.vo simple/Linking.vo
 simple/Sound.vio: simple/Sound.v simple/Bound.vio simple/ALinking.vio simple/Linking.vio
 simple/Sound.vos simple/Sound.vok simple/Sound.required_vos: simple/Sound.v simple/Bound.vos simple/ALinking.vos simple/Linking.vos
-simple/Syntax.vo simple/Syntax.glob simple/Syntax.v.beautified simple/Syntax.required_vo: simple/Syntax.v tactics/sflib.vo
-simple/Syntax.vio: simple/Syntax.v tactics/sflib.vio
-simple/Syntax.vos simple/Syntax.vok simple/Syntax.required_vos: simple/Syntax.v tactics/sflib.vos
+simple/Syntax.vo simple/Syntax.glob simple/Syntax.v.beautified simple/Syntax.required_vo: simple/Syntax.v basics/Basics.vo
+simple/Syntax.vio: simple/Syntax.v basics/Basics.vio
+simple/Syntax.vos simple/Syntax.vok simple/Syntax.required_vos: simple/Syntax.v basics/Basics.vos
 signature/ALinking.vo signature/ALinking.glob signature/ALinking.v.beautified signature/ALinking.required_vo: signature/ALinking.v signature/Abstract.vo
 signature/ALinking.vio: signature/ALinking.v signature/Abstract.vio
 signature/ALinking.vos signature/ALinking.vok signature/ALinking.required_vos: signature/ALinking.v signature/Abstract.vos
@@ -37,6 +40,6 @@ signature/Abstract.vos signature/Abstract.vok signature/Abstract.required_vos: s
 signature/Concrete.vo signature/Concrete.glob signature/Concrete.v.beautified signature/Concrete.required_vo: signature/Concrete.v signature/Syntax.vo
 signature/Concrete.vio: signature/Concrete.v signature/Syntax.vio
 signature/Concrete.vos signature/Concrete.vok signature/Concrete.required_vos: signature/Concrete.v signature/Syntax.vos
-signature/Syntax.vo signature/Syntax.glob signature/Syntax.v.beautified signature/Syntax.required_vo: signature/Syntax.v 
-signature/Syntax.vio: signature/Syntax.v 
-signature/Syntax.vos signature/Syntax.vok signature/Syntax.required_vos: signature/Syntax.v 
+signature/Syntax.vo signature/Syntax.glob signature/Syntax.v.beautified signature/Syntax.required_vo: signature/Syntax.v basics/Basics.vo
+signature/Syntax.vio: signature/Syntax.v basics/Basics.vio
+signature/Syntax.vos signature/Syntax.vok signature/Syntax.required_vos: signature/Syntax.v basics/Basics.vos

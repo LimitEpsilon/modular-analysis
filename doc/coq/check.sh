@@ -1,1 +1,1 @@
-coqchk -silent -o -R tactics sflib -R simple Simple tactics/*.vo simple/*.vo
+coqchk -silent -o -R basics tactics -R simple Simple basics/*.vo simple/*.vo

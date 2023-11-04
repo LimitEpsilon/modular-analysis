@@ -1149,7 +1149,7 @@ Each time an application occurs, a new address is allocated in the memory and th
 For the term $\omega\:\omega$, the context that is being modified is \emph{always} the empty context $[]$ that was stored in the memory as a closure $\langle\lambda x.x\:x,[]\rangle$.
 Thus, the only part in the configuration that makes computations infinite is the domain of the memory.
 
-Therefore, we may show that finitizing $\A\Time$ is enough to guarantee finite termination.
+Therefore, we may show that finitizing $\A\Time$ is enough to guarantee termination.
 \begin{theorem}[Finiteness]
   For all $e\in\Expr$, if $\A\Time$ and $\Abs{S}\subseteq\A\State$ is finite, $\Abs{\sembracket{e}}\Abs{S}$ is finite.
 \end{theorem}
@@ -1227,8 +1227,7 @@ so that the \emph{best possible result} is achieved:
   \[S_1\semlink\sembracket{e}S_2\subseteq\gamma_{\semlink}(\alpha_1(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha_2(S_2))\]
 \end{corollary}
 \begin{proof}
-  $\alpha_{\semlink}(S_1\rhd A_2)=\alpha_1(S_1)\Abs\rhd\alpha_2(A_2)$
-  since $\alpha_{\semlink}(\inject{s_1}{r_2})=\inject{\alpha_1(s_1)}{\alpha_2(r_2)}$(induction on $r_2$). Thus:
+  First, we prove $\alpha_{\semlink}(\inject{s_1}{r_2})=\inject{\alpha_1(s_1)}{\alpha_2(r_2)}$(\texttt{Sound.v}). Then:
   \begin{align*}
     S_1\semlink\sembracket{e}S_2 & =\sembracket{e}(S_1\rhd S_2)                                                   & (\because\text{Advance})                                                    \\
                                  & \subseteq\gamma_{\semlink}(\Abs{\sembracket{e}}\alpha_{\semlink}(S_1\rhd S_2)) & (\because\text{Galois connection})                                          \\
