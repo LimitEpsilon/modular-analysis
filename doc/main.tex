@@ -178,7 +178,7 @@
 \newcommand*{\equivalent}{\sim}
 
 \newcommand*{\doubleplus}{\ensuremath{\mathbin{+\mkern-3mu+}}}
-\newcommand*{\project}{\text{\texttt{:>} }}
+\newcommand*{\project}{\text{{:>}}}
 \newcommand*{\sembracket}[1]{\lBrack{#1}\rBrack}
 \newcommand*{\fin}[2]{{#1}\xrightarrow{\text{fin}}{#2}}
 \newcommand*{\addr}{\mathsf{addr}}
@@ -1235,7 +1235,7 @@ so that the \emph{best possible result} is achieved:
                                  & =\gamma_{\semlink}(\alpha_1(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha_2(S_2)) & (\because\text{Abstract advance})
   \end{align*}
 \end{proof}
-\section{How to Use the Separately Analyzed Results}
+\section{Reconciling Linked Timestamps with Timestamps Before Linking}
 \subsection{Motivation}
 Now that we have defined abstract linking that overapproximates concrete linking, let us try to use it to analyze the factorial example.
 The theorem that we have to utilize is:
@@ -1246,11 +1246,11 @@ But what is this $S_1\rhd S_2$ that is given as the initial state to $e$?
 
 The concrete execution that is being modelled is that of the \emph{linked} program $e_{\synlink}$ under the initial state $\mt\texteq{let}\{([],\{\},0)\}$.
 When $e_\synlink$ is executing under $\mt$, $e$ starts evaluation under what
-{\small\[(\text{\texttt{let M = }}e_1\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{let F = }}e_2\text{\texttt{ in }}\varepsilon)\]}%
+  {\small\[(\text{\texttt{let M = }}e_1\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{let F = }}e_2\text{\texttt{ in }}\varepsilon)\]}%
 evaluates to.
 Call this $S$.
 We expect that $S_1\rhd S_2=S$.
-However, this is not true, since $S$ uses only one timestamp, yet $S_1\rhd S_2$ uses two versions.
+However, this is not true, since $S$ uses only one time domain, yet $S_1\rhd S_2$ uses two versions.
 Therefore, we want to define a notion of equivalence between states to make executions that use different timestamps compatible.
 
 Moreover, note that $S$ will not be given in its concrete form directly, but will be given in its abstract form $\alpha(S)\subseteq\Abs{S}$, to ensure termination.
@@ -1261,7 +1261,7 @@ The definition of equivalence thus need to satisfy two desired properties, namel
   \item If $\Abs{S}$ and $\Abs{S'}$ are equivalent, all $s\in\gamma(\Abs{S})$ must have an equivalent $s'\in\gamma'(\Abs{S'})$.
   \item If $s\in S$ and $s'\in S'$ are equivalent, $(e,s)$ and $(e,s')$ must step to equivalent states.
 \end{enumerate}
-These two properties ensure that if we find a $\Abs{S}_1$ such that ${\Abs{S}_1}\rhd{\Abs{S}_2}$ is \emph{equivalent} to $\Abs{S}$, linking $\Abs{S}_1$ with the cached results will overapproximate something \emph{equivalent} to the original execution.
+These two properties ensure that if we find a $\Abs{S}_1$ such that ${\Abs{S}_1}\Abs\rhd{\Abs{S}_2}$ is \emph{equivalent} to $\Abs{S}$, linking $\Abs{S}_1$ with the cached results will overapproximate something \emph{equivalent} to the original execution.
 
 \subsection{Definitions}
 In this section, we assume a pair of semantics using $(\Time,\le,\ATime,\A\alpha)$ and $(\Time',\le',\A{\Time'},\A{\alpha'})$.
@@ -1458,6 +1458,92 @@ Thus:
                                 & \subseteq\gamma_{\semlink}(\Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_2)) & (\because\text{Soundness})                                                   \\
                                 & =\gamma_{\semlink}(\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2)       & (\because\text{Abstract advance})
 \end{align*}
+\section{Extensions}
+\subsection{Extending the Lanuguage}
+\subsubsection{Supporting Functors and First-Class Modules}
+\begin{figure}[h!]
+  \footnotesize
+  \centering
+  \begin{tabular}{rrcll}
+    Identifiers & $x,\modid$ & $\in$         & $\ExprVar$                                                                                                           \\
+    Signatures  & $s$        & $\rightarrow$ & $[]$ $\vbar$ $x\cons s$ $\vbar$ $(\modid,s)\cons s$                                                                  \\
+    Expression  & $e$        & $\rightarrow$ & $x$ $\vbar$ $\lambda x.e$ $\vbar$ $e$ $e$                               & untyped $\lambda$-calculus                 \\
+                &            & $\vbar$       & $\modid$ $\vbar$ $\lambda\modid\project s.e$ $\vbar$ $(e\:e)\project s$ & module calculus, constrained by signatures \\
+                &            & $\vbar$       & $\link{e}{e}$                                                           & linked expression                          \\
+                &            & $\vbar$       & $\varepsilon$                                                           & empty module
+  \end{tabular}
+  \caption{Abstract syntax of the module language, extended with signatures.}
+  \label{fig:extsyntax}
+\end{figure}
+In Figure \ref{fig:extsyntax}, we introduce the syntax for a variant of the module language that introduces functors (higher-order modules) and first-class modules.
+We say that modules are first-class, since functions may return modules and functors may return closures.
+To support functors, 
+
+\subsubsection{Supporting Multiple Evaluation Orders}
+\begin{figure}[h!]
+  \scriptsize
+  \begin{flushright}
+    \fbox{$(e,\ctx,\mem,t)\semarrow(V,\mem',t')\text{ or }(e',\ctx',\mem',t')$}
+  \end{flushright}
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{2}, \ctx, \mem, t)
+          \semarrow
+          (v, \mem_{a}, t_{a})                                                               \\
+          (e_{1}, \ctx, \mem_{a}, t_{a})
+          \semarrow
+          (\langle\lambda x.e_{\lambda}, \ctx_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
+          (e_{\lambda}, (x, \tick(t_{\lambda}))\cons \ctx_{\lambda}, \mem_{\lambda}[\tick(t_{\lambda})\mapsto v], \tick(t_{\lambda}))
+          \semarrow
+          (v', \mem',t')
+        \end{matrix}
+      }
+      \infer[left label={App$\prime$}]1{
+      (e_{1}\:e_{2}, \ctx, \mem, t)
+      \semarrow
+      (v', \mem',t')
+      }
+    \end{prooftree}
+  \]
+  \caption{Extension of the instrumented operational semantics to allow non-deterministic evaluation order.}
+  \label{fig:cbvorder}
+\end{figure}
+
+\subsection{Extending the Precision}
+\begin{figure}[h!]
+  \scriptsize
+  \begin{flushright}
+    \fbox{$(e,\ctx,\mem,t)\semarrow(V,\mem',t')\text{ or }(e',\ctx',\mem',t')$}
+  \end{flushright}
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \ctx, \mem, t)
+          \semarrow
+          (\langle\lambda x.e_{\lambda}, \ctx_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
+          (e_{2}, \ctx, \mem_{\lambda}, t_{\lambda})
+          \semarrow
+          (v, \mem_{a}, t_{a})                                                               \\
+          t'=\tick(\sigma,\mem_{a},t_{a},x,v)                                                \\
+          (e_{\lambda}, (x, t')\cons \ctx_{\lambda}, \mem_{a}[t'\mapsto v], t')
+          \semarrow
+          (v', \mem',t'')
+        \end{matrix}
+      }
+      \infer[left label={App}]1{
+      (e_{1}\:e_{2}, \ctx, \mem, t)
+      \semarrow
+      (v', \mem',t'')
+      }
+    \end{prooftree}
+  \]
+  \caption{One example of how the type of $\tick$ can be extended for precision.}
+  \label{fig:highprecision}
+\end{figure}
+
 %\begin{center}
 %  \begin{tabular}{ccc}
 %    \begin{minipage}{0.3\linewidth}
@@ -1506,7 +1592,7 @@ Thus:
 %    \hline
 %    $(C_i,\mem_i)\equivalent[red](C_1,\mem_1)$                                             & $(C_1,\mem_{\lambda,1})$                                                        & \multicolumn{1}{l}{\hspace{\equivadjust}$\equivalent[red](C_2,\mem_{\lambda,2})$}                             \\
 %                                                                                           & $(C_{\lambda,1},\mem_{\lambda,1})$                                              & \multicolumn{1}{l}{\hspace{\equivadjust}$\equivalent[red](\prexists[blue]{C_{\lambda,2}},\mem_{\lambda,2})$}  \\
-%                                                                                           & $((x,\prexists[blue]{t})::C_{\lambda,2},\mem_{a,2}[t\mapsto v_a])$              & \multicolumn{1}{l}{\hspace{\equivadjust}$\equivalent[red](C_\lambda,\mem_{a,\lambda})$}
+%                                                                                           & $((x,\prexists[blue]{t}\cons C_{\lambda,2},\mem_{a,2}[t\mapsto v_a])$              & \multicolumn{1}{l}{\hspace{\equivadjust}$\equivalent[red](C_\lambda,\mem_{a,\lambda})$}
 %  \end{tabular}
 %  \caption{How the application $e_1\:e_2$ can be analyzed by composing pre-analyzed results. The table should be read column by column. $((e,\prexists{s})\semarrow\preall{r}\in A)P(s,r)$ means $(\exists s)(\forall r)((e,s)\semarrow r\in A\Rightarrow P(s,r))$}
 %\end{figure}
