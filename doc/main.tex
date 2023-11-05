@@ -1150,7 +1150,7 @@ For the term $\omega\:\omega$, the context that is being modified is \emph{alway
 Thus, the only part in the configuration that makes computations infinite is the domain of the memory.
 
 Therefore, we may show that finitizing $\A\Time$ is enough to guarantee termination.
-\begin{theorem}[Finiteness]
+\begin{theorem}[Finiteness]\label{thm:absfinite}
   For all $e\in\Expr$, if $\A\Time$ and $\Abs{S}\subseteq\A\State$ is finite, $\Abs{\sembracket{e}}\Abs{S}$ is finite.
 \end{theorem}
 \begin{proof}[Sketch]
@@ -1195,7 +1195,7 @@ Only the definition of $\inject{\A{\ctx}_1}{\A\mem_2}$ has to be adapted to acco
 This means that $\inject{\A{\ctx}_1}{\A\mem_2}$ must be defined as:
 \[\inject{\A{\ctx}_1}{\A\mem_2}\triangleq\lambda\A{t}.\{\inject{\A{\ctx}_1}{\A{v}_2}|\A{v}_2\in\A\mem_2(\A{t})\}\]
 Then we can show that:
-\begin{lemma}[Injection Preserves $\A\semarrow$]
+\begin{lemma}[Injection Preserves $\A\semarrow$]\label{lem:injpresaval}
   For all $\A{s}_1\in\A\State_1$, $\A\config_2\in\A\Config_2$, $\A\rightst\in\A\Right_2$,
   \[\A\config_2\A\semarrow_2\A\rightst_2\Rightarrow\inject{\A{s}_1}{\A\config_2}\A\semarrow_{\semlink}\inject{\A{s}_1}{\A\rightst_2}\]
 \end{lemma}
@@ -1274,17 +1274,13 @@ Thus, the notion of equivalence is defined by how $\ctx$ and $\mem$ components `
 Note that information in $\ctx$ and $\mem$ is only accessed through a sequence of names $x$ and $\modid$.
 Thus, one may imagine access ``paths'' with names on the edges and reachable timestamps on the vertices as representing the way that $(\ctx,\mem)$ is \emph{viewed}.
 Also, given a $\varphi\in\Time\rightarrow\Time'$, we can define how access paths that use timestamps in $\Time$ are translated to access paths in $\Time'$.
-%The definitions are given in Figure \ref{fig:accpath}.
 \begin{center}
-  %\centering
   \begin{tabular}{rclrcrcl}
     $p$ & $\rightarrow$ & $\epsilon$                   & empty path     & $\qquad$ & $\varphi(\epsilon)$                   & \hspace{-2em} & $\triangleq\epsilon$                              \\
         & $|$           & $\xrightarrow{x}t\:p$        & address access & $\qquad$ & $\varphi(\xrightarrow{x}t\:p)$        & \hspace{-2em} & $\triangleq\xrightarrow{x}\varphi(t)\:\varphi(p)$ \\
         & $|$           & $\xrightarrow{\modid}p$      & module access  & $\qquad$ & $\varphi(\xrightarrow{\modid}p)$      & \hspace{-2em} & $\triangleq\xrightarrow{\modid}\varphi(p)$        \\
         & $|$           & $\xrightarrow{\lambda x.e}p$ & value access   & $\qquad$ & $\varphi(\xrightarrow{\lambda x.e}p)$ & \hspace{-2em} & $\triangleq\xrightarrow{\lambda x.e}\varphi(p)$
   \end{tabular}
-  %\caption{Definition for access paths and how translation of timestamps are mapped over access paths.}
-  %\label{fig:accpath}
 \end{center}
 
 From now on, we shall write $\Path$ for the set of access paths that use timestamps in $\Time$, and $\Path'$ for the set of access paths that use timestamps in $\Time'$.
@@ -1466,7 +1462,8 @@ Thus:
   \centering
   \begin{tabular}{rrcll}
     Identifiers & $x,\modid$ & $\in$         & $\ExprVar$                                                                                                           \\
-    Signatures  & $s$        & $\rightarrow$ & $[]$ $\vbar$ $x\cons s$ $\vbar$ $(\modid,s)\cons s$                                                                  \\
+    Signature   & $s$        & $\in$         & $\Sig$                                                                                                               \\
+    Signature   & $s$        & $\rightarrow$ & $[]$ $\vbar$ $x\cons s$ $\vbar$ $(\modid,s)\cons s$                                                                  \\
     Expression  & $e$        & $\rightarrow$ & $x$ $\vbar$ $\lambda x.e$ $\vbar$ $e$ $e$                               & untyped $\lambda$-calculus                 \\
                 &            & $\vbar$       & $\modid$ $\vbar$ $\lambda\modid\project s.e$ $\vbar$ $(e\:e)\project s$ & module calculus, constrained by signatures \\
                 &            & $\vbar$       & $\link{e}{e}$                                                           & linked expression                          \\
@@ -1477,7 +1474,15 @@ Thus:
 \end{figure}
 In Figure \ref{fig:extsyntax}, we introduce the syntax for a variant of the module language that introduces functors (higher-order modules) and first-class modules.
 We say that modules are first-class, since functions may return modules and functors may return closures.
-To support functors, 
+
+To support functors, we added signatures $s\in\Sig$ to enforce static scoping.
+That is, we preserve the property that we know what variables are in scope before execution, from the syntax of the program.
+Note that signatures are shaped exactly like the environments used to define the operational semantics previously, except that bindings for $x$ are omitted.
+During execution, the bindings from the dynamically computed environments are \emph{projected} onto the signatures.
+
+In Coq, we formalized the instrumented operational semantics for this language, along with a reference interpreter proven to be equivalent with the operational semantics.
+Using this formalism, we proved that Lemma \ref{lem:injpresaval} holds with respect to \emph{another} injection operator.
+Moreover, we proved that finitizing the abstract timestamp is again sufficient to guarantee termination of analysis (Theorem \ref{thm:absfinite}).
 
 \subsubsection{Supporting Multiple Evaluation Orders}
 \begin{figure}[h!]
@@ -1510,6 +1515,12 @@ To support functors,
   \caption{Extension of the instrumented operational semantics to allow non-deterministic evaluation order.}
   \label{fig:cbvorder}
 \end{figure}
+We note that according to the operational semantics, the amount of information that is cached depends on whether an open term is on the \emph{left} or the \emph{right}.
+In languages like OCaml, where the order of evaluation is deliberately non-deterministic, this behavior is undesirable.
+Intuitively, results of ``sensible'' programs must not depend on whether the function or the argument is evaluated first.
+
+To address this, we suggest that the operational semantics be extended to support non-deterministic evaluation orders, as in Figure \ref{fig:cbvorder}.
+By adding the same rules both in the concrete and abstract semantics, we believe it will be simple to obtain the same lemmas and theorems.
 
 \subsection{Extending the Precision}
 \begin{figure}[h!]
@@ -1543,6 +1554,27 @@ To support functors,
   \caption{One example of how the type of $\tick$ can be extended for precision.}
   \label{fig:highprecision}
 \end{figure}
+The precision of the analysis directly depends on the $\tick$ function, which decides what events should be recorded by the time component.
+Thus, the type of $\tick$ is essential to improving the precision.
+Taking this to the extreme, we may choose the type $\State\times\ExprVar\times\Value\rightarrow\Time$, as illustrated in Figure \ref{fig:highprecision}.
+
+Allowing the $\tick$ function to generate timestamps depending on the state of execution complicates linking.
+To justify that all theoretical results still hold after extending $\tick$, the type of $\tick$ in the Coq mechanization is exactly as in Figure \ref{fig:highprecision}.
+
+Using this extension, we may recover well-known analysis techniques such as \emph{k}-CFA.
+Note that the notion of \emph{call-site} corresponds to the \emph{context} $\ctx$ at the function application site.
+Thus, the concrete $\tick$ function may be defined as:
+\[\tick(\ctx,\_,(l,\_),x,\_)\triangleq(|\ctx|\cons l, x)\]
+when $|\cdot|:\Ctx\rightarrow\Sig$ removes the timestamps from the dynamic context.
+To be thorough, the total order on $\Time=(\Sig)^*\times\ExprVar$ is defined as the lexicographic order.
+Also, the order on $(\Sig)^*$ is given as the lexicographic order of the \emph{reverse} of the list, with respect to some arbitrary total order on $\Sig$.
+With this ordering, $\tick$ always produces strictly larger timestamps.
+
+Then the $\A\tick$ function corresponding to \emph{k}-CFA may be given as:
+\[\A\tick(\A\ctx,\_,(l,\_),x,\_)\triangleq(\lfloor|\A\ctx|\cons l\rfloor_k, x)\quad\A\alpha(l,x)\triangleq(\lfloor l\rfloor_k,x)\]
+when $\lfloor\cdot\rfloor_k$ takes the $k$ top elements of a list.
+It can be shown that $\A\alpha\circ\tick=\A\tick\circ\A\alpha$, thus \emph{k}-CFA is a sound abstraction.
+Also, since each abstract timestamp corresponds to infinitely many concrete timestamps, the lemma for abstract equivalence can be applied as well.
 
 %\begin{center}
 %  \begin{tabular}{ccc}
