@@ -108,27 +108,13 @@ Proof.
   end;
   match goal with
   | ADDR : addr_x ?Cin ?x = Some ?addr,
-    ACCESS : In (Fun ?x_lam ?e ?C) (aread ?m ?addr)
+    ACCESS : In ?v (aread ?m ?addr)
     |- context[ (lift_ctx_af ?Cin) [|lift_ctx_bf ?Cout|] ] =>
     let RR := fresh "RR" in
     pose proof (inject_addr_x x (lift_ctx_bf Cout) (lift_ctx_af Cin));
     pose proof (@lift_addr_x BT AT Cin x) as RR;
     rewrite ADDR in *; rewrite RR in *;
-    assert (In (Fun x_lam e (lift_ctx_af C [|lift_ctx_bf Cout|])) 
-      (aread (link_mem bmem Cout m) (AF addr)));
-    first[
-      unfold link_mem; rewrite aread_in; rewrite aread_in in ACCESS;
-      rewrite in_app_iff; left;
-      induction m; ss; des; des_goal; clarify; ss; eauto
-      | eauto]
-  | ADDR : addr_x ?Cin ?x = Some ?addr,
-    ACCESS : In (Func ?M ?s ?e ?C) (aread ?m ?addr)
-    |- context[ (lift_ctx_af ?Cin) [|lift_ctx_bf ?Cout|] ] =>
-    let RR := fresh "RR" in
-    pose proof (inject_addr_x x (lift_ctx_bf Cout) (lift_ctx_af Cin));
-    pose proof (@lift_addr_x BT AT Cin x) as RR;
-    rewrite ADDR in *; rewrite RR in *;
-    assert (In (Func M s e (lift_ctx_af C [|lift_ctx_bf Cout|])) 
+    assert (In (inject_v (lift_ctx_bf Cout) (lift_v_af v)) 
       (aread (link_mem bmem Cout m) (AF addr)));
     first[
       unfold link_mem; rewrite aread_in; rewrite aread_in in ACCESS;

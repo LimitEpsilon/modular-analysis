@@ -1481,8 +1481,7 @@ Note that signatures are shaped exactly like the environments used to define the
 During execution, the bindings from the dynamically computed environments are \emph{projected} onto the signatures.
 
 In Coq, we formalized the instrumented operational semantics for this language, along with a reference interpreter proven to be equivalent with the operational semantics.
-Using this formalism, we proved that Lemma \ref{lem:injpresaval} holds with respect to \emph{another} injection operator.
-Moreover, we proved that finitizing the abstract timestamp is again sufficient to guarantee termination of analysis (Theorem \ref{thm:absfinite}).
+Using this formalism, we ported all proofs from the simple language, except proofs about equivalence.
 
 \subsubsection{Supporting Multiple Evaluation Orders}
 \begin{figure}[h!]

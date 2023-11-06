@@ -119,9 +119,9 @@ Qed.
 #[export] Instance Eqtm : Eq tm := { eqb := eqb_tm; eqb_eq := eqb_tm_eq; }.
 
 (** Statics *)
-Inductive value : tm -> Prop :=
-  | v_fn x e : value (e_lam x e)
-  | v_ft M s e : value (m_lam M s e)
+Inductive value :=
+  | v_fn (x : ID) (e : tm)
+  | v_ft (M : ID) (s : st_ctx) (e : tm)
 .
 
 Fixpoint st_ctx_M (C : st_ctx) (M : ID) :=
@@ -434,6 +434,215 @@ Definition supp_ρ {T} (ρ : config T) (t : T) :=
   | Cf _ C m time => supp_C C t \/ supp_m m t \/ time = t
   | Rs V m time => supp_V V t \/ supp_m m t \/ time = t
   end.
+
+(** Graph isomorphism between (C, m) and (C', m') *)
+Inductive root T :=
+  | Ptr (t : T)
+  | Ctx (C : dy_ctx T)
+.
+
+Arguments Ptr {T}.
+Arguments Ctx {T}.
+
+Inductive path T :=
+  | Pnil
+  | Px (x : ID) (tx : T) (tl : path T)
+  | PM (M : ID) (tl : path T)
+  | Pv (v : value) (tl : path T)
+.
+
+Arguments Pnil {T}.
+Arguments Px {T}.
+Arguments PM {T}.
+Arguments Pv {T}.
+
+Fixpoint Inp {T} (t : T) (p : path T) :=
+  match p with
+  | Pnil => False
+  | Px x tx p =>
+    t = tx \/ Inp t p
+  | PM M p => Inp t p
+  | Pv v p => Inp t p
+  end.
+
+Fixpoint Inpb {T} `{Eq T} (t : T) (p : path T) :=
+  match p with
+  | Pnil => false
+  | Px x tx p =>
+    eqb t tx || Inpb t p
+  | PM M p => Inpb t p
+  | Pv v p => Inpb t p
+  end.
+
+Lemma Inpb_In {T} `{Eq T} :
+  forall p t,
+    Inpb t p = true <-> Inp t p.
+Proof.
+  induction p; ii; ss;
+  split; intros IN;
+  des; repeat des_hyp; clarify.
+  rewrite eqb_eq in *. clarify. eauto.
+  rewrite IHp in IN. eauto.
+  rewrite t_refl. eauto.
+  des_goal. eauto. rewrite IHp. eauto.
+Qed.
+
+Lemma Inpb_nIn {T} `{Eq T} :
+  forall p t,
+    Inpb t p = false <-> ~ Inp t p.
+Proof.
+  ii. destruct (Inpb t p) eqn:CASE.
+  split; ii; clarify.
+  rewrite Inpb_In in *. contradict.
+  split; ii; clarify.
+  rewrite <- Inpb_In in *. rewrite CASE in *. clarify.
+Qed.
+
+(* path map *)
+Fixpoint pmap {T T'} (f : T -> T') (p : path T) :=
+  match p with
+  | Pnil => Pnil
+  | Px x tx tl => Px x (f tx) (pmap f tl)
+  | PM M tl => PM M (pmap f tl)
+  | Pv v tl => Pv v (pmap f tl)
+  end.
+
+Fixpoint valid_path {T} `{Eq T}
+  (r : root T) (m : memory T) (p : path T) :=
+  match p, r with
+  | Pnil, _ => True
+  | Px x tx tl, Ctx C =>
+    match addr_x C x with
+    | Some t => 
+      tx = t /\ valid_path (Ptr tx) m tl
+    | _ => False
+    end
+  | PM M tl, Ctx C =>
+    match ctx_M C M with
+    | Some CM => valid_path (Ctx CM) m tl
+    | _ => False
+    end
+  | Pv v tl, Ptr t =>
+    exists ev, Some ev = read m t /\
+    match ev with
+    | Fun x e Cv =>
+      v = v_fn x e /\ valid_path (Ctx Cv) m tl
+    | Func M s e Cv =>
+      v = v_ft M s e /\ valid_path (Ctx Cv) m tl
+    end
+  | _, _ => False
+  end.
+
+Definition reachable {T} `{Eq T} (r : root T) (m : memory T) (t : T) :=
+  exists p, valid_path r m p /\ Inp t p.
+
+Definition iso {T T'} `{Eq T} `{Eq T'}
+  (r : root T) (m : memory T) (r' : root T') (m' : memory T') f f' :=
+  (forall p (VALp : valid_path r m p),
+    let p' := pmap f p in
+    valid_path r' m' p' /\ pmap f' p' = p) /\
+  (forall p' (VALp' : valid_path r' m' p'),
+    let p := pmap f' p' in
+    valid_path r m p /\ pmap f p = p').
+
+Definition equiv {T T'} `{Eq T} `{Eq T'}
+  (V : dy_value T) (m : memory T) f (V' : dy_value T') (m' : memory T') f' :=
+  match V, V' with
+  | MVal C, MVal C' =>
+    iso (Ctx C) m (Ctx C') m' f f'
+  | EVal (Fun x e C), EVal (Fun x' e' C') =>
+    x = x' /\ e = e' /\
+    iso (Ctx C) m (Ctx C') m' f f'
+  | EVal (Func M s e C), EVal (Func M' s' e' C') =>
+    M = M' /\ s = s' /\ e = e' /\
+    iso (Ctx C) m (Ctx C') m' f f'
+  | _, _ => False
+  end.
+
+Notation "'<|' V1 m1 f1 '≃' V2 m2 f2 '|>'" :=
+  (equiv V1 m1 f1 V2 m2 f2)
+  (at level 10, V1 at next level, m1 at next level, V2 at next level, m2 at next level).
+
+Fixpoint avalid_path {T} `{Eq T}
+  (r : root T) (m : memory T) (p : path T) :=
+  match p, r with
+  | Pnil, _ => True
+  | Px x tx tl, Ctx C =>
+    match addr_x C x with
+    | Some t =>
+      tx = t /\ avalid_path (Ptr tx) m tl
+    | _ => False
+    end
+  | PM M tl, Ctx C =>
+    match ctx_M C M with
+    | Some CM => avalid_path (Ctx CM) m tl
+    | _ => False
+    end
+  | Pv v tl, Ptr t =>
+    exists ev, In ev (aread m t) /\
+    match ev with
+    | Fun x e Cv =>
+      v = v_fn x e /\ avalid_path (Ctx Cv) m tl
+    | Func M s e Cv =>
+      v = v_ft M s e /\ avalid_path (Ctx Cv) m tl
+    end
+  | _, _ => False
+  end.
+  
+Definition areachable {T} `{Eq T} (r : root T) (m : memory T) (t : T) :=
+  exists p, avalid_path r m p /\ Inp t p.
+
+(* weak equivalence *)
+Definition aiso {T T'} `{Eq T} `{Eq T'}
+  (r : root T) (m : memory T) (r' : root T') (m' : memory T') f f' :=
+  (forall p (VALp : avalid_path r m p),
+    let p' := pmap f p in
+    avalid_path r' m' p' /\ pmap f' p' = p) /\
+  (forall p' (VALp' : avalid_path r' m' p'),
+    let p := pmap f' p' in
+    avalid_path r m p /\ pmap f p = p').
+
+(* equivalence *)
+Definition aIso {T T'} `{Eq T} `{Eq T'}
+  (r : root T) (m : memory T) (r' : root T') (m' : memory T') f f' :=
+  aiso r m r' m' f f' /\
+  (forall t v (REACH : areachable r m t) (IN : In v (aread m t)),
+    exists v', In v' (aread m' (f t)) /\
+      match v, v' with
+      | Fun x e C, Fun x' e' C' =>
+        x = x' /\ e = e' /\ aiso (Ctx C) [] (Ctx C') [] f f'
+      | Func M s e C, Func M' s' e' C' =>
+        M = M' /\ s = s' /\ e = e' /\ aiso (Ctx C) [] (Ctx C') [] f f'
+      | _, _ => False
+      end) /\
+  (forall t' v' (REACH : areachable r' m' t') (IN : In v' (aread m' t')),
+    exists v, In v (aread m (f' t')) /\
+      match v, v' with
+      | Fun x e C, Fun x' e' C' =>
+        x = x' /\ e = e' /\ aiso (Ctx C) [] (Ctx C') [] f f'
+      | Func M s e C, Func M' s' e' C' =>
+        M = M' /\ s = s' /\ e = e' /\ aiso (Ctx C) [] (Ctx C') [] f f'
+      | _, _ => False
+      end)
+.
+  
+Definition aequiv {T T'} `{Eq T} `{Eq T'}
+  (V : dy_value T) (m : memory T) (V' : dy_value T') (m' : memory T') :=
+  match V, V' with
+  | MVal C, MVal C' =>
+    exists f f', aIso (Ctx C) m (Ctx C') m' f f'
+  | EVal (Fun x e C), EVal (Fun x' e' C') =>
+    x = x' /\ e = e' /\
+    exists f f', aIso (Ctx C) m (Ctx C') m' f f'
+  | EVal (Func M s e C), EVal (Func M' s' e' C') =>
+    M = M' /\ s = s' /\ e = e' /\
+    exists f f', aIso (Ctx C) m (Ctx C') m' f f'
+  | _, _ => False
+  end.
+
+Notation "'<|' V1 m1 '≃#' V2 m2 '|>'" :=
+  (aequiv V1 m1 V2 m2)
+  (at level 10, V1 at next level, m1 at next level, V2 at next level, m2 at next level).
 
 (* Translation of timestamps *)
 Fixpoint trans_C {T T'} (α : T -> T') (C : dy_ctx T) :=

@@ -1,1 +1,1 @@
-coqchk -silent -o -R basics tactics -R simple Simple basics/*.vo simple/*.vo
+coqchk -silent -o -R basics Basics -R simple Simple -R signature Signature basics/*.vo simple/*.vo signature/*.vo
