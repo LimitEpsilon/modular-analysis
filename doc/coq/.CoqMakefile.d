@@ -40,12 +40,18 @@ signature/Abstract.vos signature/Abstract.vok signature/Abstract.required_vos: s
 signature/Bound.vo signature/Bound.glob signature/Bound.v.beautified signature/Bound.required_vo: signature/Bound.v signature/Abstract.vo signature/Concrete.vo
 signature/Bound.vio: signature/Bound.v signature/Abstract.vio signature/Concrete.vio
 signature/Bound.vos signature/Bound.vok signature/Bound.required_vos: signature/Bound.v signature/Abstract.vos signature/Concrete.vos
+signature/ConcretEquivalence.vo signature/ConcretEquivalence.glob signature/ConcretEquivalence.v.beautified signature/ConcretEquivalence.required_vo: signature/ConcretEquivalence.v signature/Bound.vo
+signature/ConcretEquivalence.vio: signature/ConcretEquivalence.v signature/Bound.vio
+signature/ConcretEquivalence.vos signature/ConcretEquivalence.vok signature/ConcretEquivalence.required_vos: signature/ConcretEquivalence.v signature/Bound.vos
 signature/Concrete.vo signature/Concrete.glob signature/Concrete.v.beautified signature/Concrete.required_vo: signature/Concrete.v signature/Syntax.vo
 signature/Concrete.vio: signature/Concrete.v signature/Syntax.vio
 signature/Concrete.vos signature/Concrete.vok signature/Concrete.required_vos: signature/Concrete.v signature/Syntax.vos
 signature/Linking.vo signature/Linking.glob signature/Linking.v.beautified signature/Linking.required_vo: signature/Linking.v signature/Concrete.vo
 signature/Linking.vio: signature/Linking.v signature/Concrete.vio
 signature/Linking.vos signature/Linking.vok signature/Linking.required_vos: signature/Linking.v signature/Concrete.vos
+signature/OperationalEquivalence.vo signature/OperationalEquivalence.glob signature/OperationalEquivalence.v.beautified signature/OperationalEquivalence.required_vo: signature/OperationalEquivalence.v signature/Bound.vo
+signature/OperationalEquivalence.vio: signature/OperationalEquivalence.v signature/Bound.vio
+signature/OperationalEquivalence.vos signature/OperationalEquivalence.vok signature/OperationalEquivalence.required_vos: signature/OperationalEquivalence.v signature/Bound.vos
 signature/Sound.vo signature/Sound.glob signature/Sound.v.beautified signature/Sound.required_vo: signature/Sound.v signature/Bound.vo signature/ALinking.vo signature/Linking.vo
 signature/Sound.vio: signature/Sound.v signature/Bound.vio signature/ALinking.vio signature/Linking.vio
 signature/Sound.vos signature/Sound.vok signature/Sound.required_vos: signature/Sound.v signature/Bound.vos signature/ALinking.vos signature/Linking.vos

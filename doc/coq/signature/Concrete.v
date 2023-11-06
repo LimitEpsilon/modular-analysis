@@ -18,38 +18,38 @@ Inductive step `{time T} : (config T) -> (config T) -> Prop :=
     : step (Cf (e_var x) C m t) (Rs (EVal v) m t)
 
   | Fn x e C m t
-    : step (Cf (e_lam x e) C m t) (Rs (EVal (Fun x e C)) m t)
+    : step (Cf (e_lam x e) C m t) (Rs (EVal (Closure (v_fn x e) C)) m t)
   
   | EAppL e1 e2 C m t
     : step (Cf (e_app e1 e2) C m t) (Cf e1 C m t)
 
   | FnEAppR e1 e2 C m t x e C_f m_f t_f
-    (FN : step (Cf e1 C m t) (Rs (EVal (Fun x e C_f)) m_f t_f))
+    (FN : step (Cf e1 C m t) (Rs (EVal (Closure (v_fn x e) C_f)) m_f t_f))
     : step (Cf (e_app e1 e2) C m t) (Cf e2 C m_f t_f)
 
   | FtEAppR e1 e2 C m t M s_M e C_f m_f t_f
-    (FT : step (Cf e1 C m t) (Rs (EVal (Func M s_M e C_f)) m_f t_f))
+    (FT : step (Cf e1 C m t) (Rs (EVal (Closure (v_ft M s_M e) C_f)) m_f t_f))
     : step (Cf (e_app e1 e2) C m t) (Cf e2 C m_f t_f)
   
   | FnEAppBody e1 e2 C m t x e C_f m_f t_f v m_a t_a
-    (FN : step (Cf e1 C m t) (Rs (EVal (Fun x e C_f)) m_f t_f))
+    (FN : step (Cf e1 C m t) (Rs (EVal (Closure (v_fn x e) C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (EVal v) m_a t_a))
     : step (Cf (e_app e1 e2) C m t) (Cf e (dy_binde x (tick C m_a t_a x v) C_f) ((tick C m_a t_a x v) !-> v; m_a) (tick C m_a t_a x v))
 
   | FtEAppBody e1 e2 C m t M s_M e C_f m_f t_f C_v m_a t_a C_M
-    (FT : step (Cf e1 C m t) (Rs (EVal (Func M s_M e C_f)) m_f t_f))
+    (FT : step (Cf e1 C m t) (Rs (EVal (Closure (v_ft M s_M e) C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (MVal C_v) m_a t_a))
     (PROJ : project C_v s_M = Some C_M)
     : step (Cf (e_app e1 e2) C m t) (Cf e (dy_bindm M C_M C_f) m_a t_a)
   
   | FnEApp e1 e2 C m t x e C_f m_f t_f v m_a t_a v' m' t'
-    (FN : step (Cf e1 C m t) (Rs (EVal (Fun x e C_f)) m_f t_f))
+    (FN : step (Cf e1 C m t) (Rs (EVal (Closure (v_fn x e) C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (EVal v) m_a t_a))
     (BODY : step (Cf e (dy_binde x (tick C m_a t_a x v) C_f) ((tick C m_a t_a x v) !-> v; m_a) (tick C m_a t_a x v)) (Rs (EVal v') m' t'))
     : step (Cf (e_app e1 e2) C m t) (Rs (EVal v') m' t')
   
   | FtEApp e1 e2 C m t M s_M e C_f m_f t_f C_v m_a t_a C_M v' m' t'
-    (FN : step (Cf e1 C m t) (Rs (EVal (Func M s_M e C_f)) m_f t_f))
+    (FN : step (Cf e1 C m t) (Rs (EVal (Closure (v_ft M s_M e) C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (MVal C_v) m_a t_a))
     (PROJ : project C_v s_M = Some C_M)
     (BODY : step (Cf e (dy_bindm M C_M C_f) m_a t_a) (Rs (EVal v') m' t'))
@@ -75,39 +75,39 @@ Inductive step `{time T} : (config T) -> (config T) -> Prop :=
     : step (Cf (m_var M) C m t) (Rs (MVal (C_M[|C|])) m t)
   
   | Ft M e s_M C m t
-    : step (Cf (m_lam M s_M e) C m t) (Rs (EVal (Func M s_M e C)) m t)
+    : step (Cf (m_lam M s_M e) C m t) (Rs (EVal (Closure (v_ft M s_M e) C)) m t)
 
   | MAppL e1 e2 s C m t
     : step (Cf (m_app e1 e2 s) C m t) (Cf e1 C m t)
 
   | FnMAppR e1 e2 s C m t x e C_f m_f t_f
-    (FN : step (Cf e1 C m t) (Rs (EVal (Fun x e C_f)) m_f t_f))
+    (FN : step (Cf e1 C m t) (Rs (EVal (Closure (v_fn x e) C_f)) m_f t_f))
     : step (Cf (m_app e1 e2 s) C m t) (Cf e2 C m_f t_f)
 
   | FtMAppR e1 e2 s C m t M s_M e C_f m_f t_f
-    (FT : step (Cf e1 C m t) (Rs (EVal (Func M s_M e C_f)) m_f t_f))
+    (FT : step (Cf e1 C m t) (Rs (EVal (Closure (v_ft M s_M e) C_f)) m_f t_f))
     : step (Cf (m_app e1 e2 s) C m t) (Cf e2 C m_f t_f)
   
   | FnMAppBody e1 e2 s C m t x e C_f m_f t_f v m_a t_a
-    (FN : step (Cf e1 C m t) (Rs (EVal (Fun x e C_f)) m_f t_f))
+    (FN : step (Cf e1 C m t) (Rs (EVal (Closure (v_fn x e) C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (EVal v) m_a t_a))
     : step (Cf (m_app e1 e2 s) C m t) (Cf e (dy_binde x (tick C m_a t_a x v) C_f) ((tick C m_a t_a x v) !-> v; m_a) (tick C m_a t_a x v))
 
   | FtMAppBody e1 e2 s C m t M s_M e C_f m_f t_f C_v m_a t_a C_M
-    (FT : step (Cf e1 C m t) (Rs (EVal (Func M s_M e C_f)) m_f t_f))
+    (FT : step (Cf e1 C m t) (Rs (EVal (Closure (v_ft M s_M e) C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (MVal C_v) m_a t_a))
     (PROJ : project C_v s_M = Some C_M)
     : step (Cf (m_app e1 e2 s) C m t) (Cf e (dy_bindm M C_M C_f) m_a t_a)
   
   | FnMApp e1 e2 s C m t x e C_f m_f t_f v m_a t_a C' m' t' C_s
-    (FN : step (Cf e1 C m t) (Rs (EVal (Fun x e C_f)) m_f t_f))
+    (FN : step (Cf e1 C m t) (Rs (EVal (Closure (v_fn x e) C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (EVal v) m_a t_a))
     (BODY : step (Cf e (dy_binde x (tick C m_a t_a x v) C_f) ((tick C m_a t_a x v) !-> v; m_a) (tick C m_a t_a x v)) (Rs (MVal C') m' t'))
     (PROJs : project C' s = Some C_s)
     : step (Cf (m_app e1 e2 s) C m t) (Rs (MVal (C_s[|C|])) m' t')
   
   | FtMApp e1 e2 s C m t M s_M e C_f m_f t_f C_v m_a t_a C_M C' m' t' C_s
-    (FN : step (Cf e1 C m t) (Rs (EVal (Func M s_M e C_f)) m_f t_f))
+    (FN : step (Cf e1 C m t) (Rs (EVal (Closure (v_ft M s_M e) C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (MVal C_v) m_a t_a))
     (PROJ : project C_v s_M = Some C_M)
     (BODY : step (Cf e (dy_bindm M C_M C_f) m_a t_a) (Rs (MVal C') m' t'))
@@ -157,11 +157,11 @@ Fixpoint eval `{time T} e C m t (reached : list (@config T)) (FUEL : nat) :=
         end
       end
     | e_lam x e =>
-      let v := Fun x e C in
+      let v := Closure (v_fn x e) C in
       Resolved (EVal v) m t ((Rs (EVal v) m t) :: reached)
     | e_app e1 e2 =>
       match eval e1 C m t reached FUEL' with
-      | Resolved (EVal (Fun x e C_f)) m_f t_f reached' =>
+      | Resolved (EVal (Closure (v_fn x e) C_f)) m_f t_f reached' =>
         match eval e2 C m_f t_f reached' FUEL' with
         | Resolved (EVal v) m_a t_a reached'' =>
           match eval e (dy_binde x (tick C m_a t_a x v) C_f) ((tick C m_a t_a x v) !-> v; m_a) (tick C m_a t_a x v) reached'' FUEL' with
@@ -172,7 +172,7 @@ Fixpoint eval `{time T} e C m t (reached : list (@config T)) (FUEL : nat) :=
         | Resolved _ _ _ reached'' => Error reached''
         | other => other
         end
-      | Resolved (EVal (Func M s_M e C_f)) m_f t_f reached' =>
+      | Resolved (EVal (Closure (v_ft M s_M e) C_f)) m_f t_f reached' =>
         match eval e2 C m_f t_f reached' FUEL' with
         | Resolved (MVal C_v) m_a t_a reached'' =>
           match project C_v s_M with
@@ -206,11 +206,11 @@ Fixpoint eval `{time T} e C m t (reached : list (@config T)) (FUEL : nat) :=
       | Some C_M => Resolved (MVal (C_M[|C|])) m t ((Rs (MVal (C_M[|C|])) m t) :: reached)
       end
     | m_lam M s e =>
-      let v := Func M s e C in
+      let v := Closure (v_ft M s e) C in
       Resolved (EVal v) m t ((Rs (EVal v) m t) :: reached)
     | m_app e1 e2 s =>
       match eval e1 C m t reached FUEL' with
-      | Resolved (EVal (Fun x e C_f)) m_f t_f reached' =>
+      | Resolved (EVal (Closure (v_fn x e) C_f)) m_f t_f reached' =>
         match eval e2 C m_f t_f reached' FUEL' with
         | Resolved (EVal v) m_a t_a reached'' =>
           match eval e (dy_binde x (tick C m_a t_a x v) C_f) ((tick C m_a t_a x v) !-> v; m_a) (tick C m_a t_a x v) reached'' FUEL' with
@@ -226,7 +226,7 @@ Fixpoint eval `{time T} e C m t (reached : list (@config T)) (FUEL : nat) :=
         | Resolved _ _ _ reached'' => Error reached''
         | other => other
         end
-      | Resolved (EVal (Func M s_M e C_f)) m_f t_f reached' =>
+      | Resolved (EVal (Closure (v_ft M s_M e) C_f)) m_f t_f reached' =>
         match eval e2 C m_f t_f reached' FUEL' with
         | Resolved (MVal C_v) m_a t_a reached'' =>
           match project C_v s_M with
@@ -530,13 +530,13 @@ Proof.
     try rep_with_rew reached0 IHFUEL;
     try rep_eval idtac; eauto.
     des_hyp; simpl; eauto.
-    des_hyp.
+    do 2 des_hyp.
     des_hyp; try clar_eval.
     repeat des_goal;
     try rep_with_rew reached2 reach_myself;
     try rep_with_rew reached1 IHFUEL;
     try rep_eval idtac; eauto.
-    des_hyp; simpl; eauto.
+    des_hyp; simpl; eauto. 
     des_hyp; try clar_eval.
     repeat des_goal;
     try rep_with_rew reached2 IHFUEL;
@@ -569,7 +569,7 @@ Proof.
     try rep_with_rew reached0 IHFUEL;
     try rep_eval idtac; eauto.
     des_hyp; simpl; eauto.
-    des_hyp.
+    do 2 des_hyp.
     des_hyp; try clar_eval.
     repeat des_goal; try right;
     try rep_with_rew reached2 reach_myself;
@@ -699,7 +699,7 @@ Proof.
       destruct SPLIT as [[?|?]|?]; eauto;
       right; rewrite HINT1'; simpl; eauto);
     separate_reach_tac cf IHFUEL HINT2 HINT2' RR RR';
-    des_hyp; try des_goal; des_hyp;
+    des_hyp; try des_goal; first [do 2 des_hyp | des_hyp];
     try (destruct RR' as [? [? [? RR']]]; subst; try des_hyp);
     try match goal with
     | |- context [project ?C ?s] =>
@@ -748,7 +748,7 @@ Proof.
     try destruct SPLIT as [?|[[?|?]|?]];
     try rewrite HINT1';
     simpl in *; eauto; try contradict;
-    try destruct ev;
+    try (destruct ev as [ev C_f]; destruct ev);
     separate_reach_tac cf IHFUEL HINT2 HINT2' RR RR';
     des_hyp; des_goal; try contradict;
     try (destruct RR' as [? [? [? RR']]]; subst; des_hyp);

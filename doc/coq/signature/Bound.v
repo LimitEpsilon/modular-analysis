@@ -15,8 +15,7 @@ Definition time_bound_m `{TotalOrder T} m t :=
 
 Definition time_bound_v `{TotalOrder T} v t :=
   match v with
-  | Fun _ _ C 
-  | Func _ _ _ C => time_bound_C C t
+  | Closure _ C => time_bound_C C t
   end.
 
 Definition time_bound_V `{TotalOrder T} V t :=
@@ -373,7 +372,6 @@ Proof.
   | _ : leb (tick ?C ?m ?t ?x ?v) _ = true |- _ =>
     lebt (tick C m t x v)
   end.
-  lebt t_a. lebt t_f. lebt t0. eauto.
   lebt t_a. lebt t_f. lebt t0. eauto.
   lebt t_a. lebt t_f. lebt t0. eauto.
 Qed.

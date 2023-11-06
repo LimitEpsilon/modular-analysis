@@ -197,20 +197,6 @@ Proof.
     apply (IHm nseen (c :: seen)).
     ii. exploit NSEEN; eauto.
     ii. des_hyp; clarify.
-  - rewrite Inb_eq in *.
-    rewrite in_app_iff in *.
-    rewrite <- Inb_eq in *.
-    des. rw. apply IHm. ii. exploit NSEEN; eauto.
-    ii. des_hyp; clarify.
-    exploit NSEEN; eauto. rewrite t_refl. clarify.
-  - rewrite Inb_neq in *.
-    assert (~In c seen /\ ~In c nseen).
-    { split; ii; eauto; apply GDES; rewrite in_app_iff; eauto. }
-    des. rewrite <- Inb_neq in *.
-    rw. f_equal.
-    apply (IHm nseen (c :: seen)).
-    ii. exploit NSEEN; eauto.
-    ii. des_hyp; clarify.
 Qed.
 
 Lemma trans_m_lift

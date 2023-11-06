@@ -75,22 +75,16 @@ Lemma e_var_equiv `{TotalOrder T} `{TotalOrder TT} :
   exists Cv',
     addr_x C' x = Some (f addr) /\
     match v with
-    | Fun xv ev Cv => 
-      read m' (f addr) = Some (Fun xv ev Cv') /\
-      iso (Ctx Cv) m (Ctx Cv') m' f f'
-    | Func Mv sv ev Cv => 
-      read m' (f addr) = Some (Func Mv sv ev Cv') /\
+    | Closure ev Cv => 
+      read m' (f addr) = Some (Closure ev Cv') /\
       iso (Ctx Cv) m (Ctx Cv') m' f f'
     end.
 Proof.
   ii. destruct ISO as [ISO ISO'].
-  destruct v as [xv ev | Mv sv ev];
+  destruct v as [ev Cv];
   match goal with
-  | _ : read _ _ = Some (Fun ?xv ?ev ?Cv) |- _ =>
-    exploit (ISO (Px x addr (Pv (v_fn xv ev) Pnil)));
-    s; repeat rw
-  | _ : read _ _ = Some (Func ?Mv ?sv ?ev ?Cv) |- _ =>
-    exploit (ISO (Px x addr (Pv (v_ft Mv sv ev) Pnil)));
+  | _ : read _ _ = Some (Closure ?ev ?Cv) |- _ =>
+    exploit (ISO (Px x addr (Pv ev Pnil)));
     s; repeat rw
   end;
   match goal with
@@ -100,25 +94,13 @@ Proof.
     eexists; do 2 (split; eauto)
   | _ => split; eauto; eexists; split; eauto; s; eauto
   end; split; ii.
-  - exploit (ISO (Px x addr (Pv (v_fn x0 e) p))).
+  - exploit (ISO (Px x addr (Pv e p))).
     s. repeat rw. split; eauto.
     eexists. split; eauto. s. eauto.
     s. repeat rrw.
     ii; ss; repeat des_hyp; des; clarify.
     des; eauto.
-  - exploit (ISO' (Px x (f addr) (Pv (v_fn x0 e) p'))).
-    s. repeat rw. split; eauto.
-    eexists. split; eauto. s. eauto.
-    s. repeat rw.
-    ii; ss; repeat des_hyp; des; clarify.
-    des; eauto.
-  - exploit (ISO (Px x addr (Pv (v_ft M s e) p))).
-    s. repeat rw. split; eauto.
-    eexists. split; eauto. s. eauto.
-    s. repeat rrw.
-    ii; ss; repeat des_hyp; des; clarify.
-    des; eauto.
-  - exploit (ISO' (Px x (f addr) (Pv (v_ft M s e) p'))).
+  - exploit (ISO' (Px x (f addr) (Pv e p'))).
     s. repeat rw. split; eauto.
     eexists. split; eauto. s. eauto.
     s. repeat rw.
@@ -223,30 +205,13 @@ Proof.
     + repeat rewrite t_refl. rewrite eqb_ID_eq in *. clarify.
       destruct p; ii; ss. repeat rewrite t_refl in *.
       des; des_hyp; des; clarify.
-      exploit (vpath_root_bound p (Ctx C0) m (t0 !-> Fun x2 e0 C0; m)); eauto.
+      exploit (vpath_root_bound p (Ctx C0) m (t0 !-> Closure e0 C0; m)); eauto.
       ii. s. rw; eauto.
       intros RR. rewrite <- RR in *.
       exploit (pmap_root_bound p (Ctx C0) m f (fun t' => if eqb t' t0 then t_up' else f t') t);
       eauto. ii. rewrite eqb_comm. rw; eauto.
       intros RR'. rewrite RR'.
-      destruct EQUIVv1 as [EQv EQv'].
-      exploit EQv; eauto. ii; des.
-      exploit (pmap_root_bound (pmap f p) (Ctx C1) m' f' (fun t' => if eqb t' t_up' then t0 else f' t')); eauto.
-      ii. rewrite eqb_comm. rw; eauto. rw. ii. rw.
-      repeat (split; eauto).
-      eexists. split. reflexivity. s. split. eauto.
-      erewrite <- vpath_root_bound; eauto.
-      ii. s. rw; eauto.
-    + repeat rewrite t_refl. rewrite eqb_ID_eq in *. clarify.
-      destruct p; ii; ss. repeat rewrite t_refl in *.
-      des; des_hyp; des; clarify.
-      exploit (vpath_root_bound p (Ctx C0) m (t0 !-> Func M0 s0 e0 C0; m)); eauto.
-      ii. s. rw; eauto.
-      intros RR. rewrite <- RR in *.
-      exploit (pmap_root_bound p (Ctx C0) m f (fun t' => if eqb t' t0 then t_up' else f t') t);
-      eauto. ii. rewrite eqb_comm. rw; eauto.
-      intros RR'. rewrite RR'.
-      destruct EQUIVv2 as [EQv EQv'].
+      destruct EQUIVv0 as [EQv EQv'].
       exploit EQv; eauto. ii; des.
       exploit (pmap_root_bound (pmap f p) (Ctx C1) m' f' (fun t' => if eqb t' t_up' then t0 else f' t')); eauto.
       ii. rewrite eqb_comm. rw; eauto. rw. ii. rw.
@@ -256,26 +221,7 @@ Proof.
       ii. s. rw; eauto.
     + exploit (time_bound_addr C x0); eauto. rw.
       ii. destruct EQUIVC as [EQC EQC'].
-      exploit (vpath_root_bound p (Ptr t0) m (t_up !-> Fun x2 e0 C0; m)); eauto.
-      ii. s. rw; eauto. intros RR.
-      rewrite <- RR in *.
-      exploit (EQC (Px x0 t0 p)); eauto.
-      s. rw. eauto.
-      ii; ss; repeat des_hyp; des; clarify.
-      rewrite eqb_comm. rw; eauto.
-      exploit (pmap_root_bound p (Ptr t0) m f (fun t' => if eqb t' t_up then t_up' else f t')); eauto.
-      ii. rewrite eqb_comm. rw; eauto.
-      ii. rw.
-      exploit (time_bound_addr C' x0); eauto. rw. rw.
-      ii. rewrite eqb_comm. rw; eauto.
-      exploit (pmap_root_bound (pmap f p) (Ptr (f t0)) m' f' (fun t' => if eqb t' t_up' then t_up else f' t')); eauto.
-      ii. s. rewrite eqb_comm. rw; eauto. ii. rw. rw.
-      repeat (split; eauto).
-      erewrite <- vpath_root_bound; eauto.
-      ii. s. rw; eauto.
-    + exploit (time_bound_addr C x0); eauto. rw.
-      ii. destruct EQUIVC as [EQC EQC'].
-      exploit (vpath_root_bound p (Ptr t0) m (t_up !-> Func M0 s0 e0 C0; m)); eauto.
+      exploit (vpath_root_bound p (Ptr t0) m (t_up !-> Closure e0 C0; m)); eauto.
       ii. s. rw; eauto. intros RR.
       rewrite <- RR in *.
       exploit (EQC (Px x0 t0 p)); eauto.
@@ -294,25 +240,7 @@ Proof.
       ii. s. rw; eauto.
     + exploit (time_bound_ctx_M C M); eauto. rw.
       ii. destruct EQUIVC as [EQC EQC'].
-      exploit (vpath_root_bound p (Ctx d) m (t_up !-> Fun x1 e0 C0; m)); eauto.
-      ii. s. rw; eauto. intros RR.
-      rewrite <- RR in *.
-      exploit (EQC (PM M p)); eauto.
-      s. rw. eauto.
-      ii; ss; repeat des_hyp; des; clarify.
-      exploit (pmap_root_bound p (Ctx d) m f (fun t' => if eqb t' t_up then t_up' else f t')); eauto.
-      ii. rewrite eqb_comm. rw; eauto.
-      ii. rw.
-      exploit (time_bound_ctx_M C' M); eauto. rw.
-      ii.
-      exploit (pmap_root_bound (pmap f p) (Ctx d0) m' f' (fun t' => if eqb t' t_up' then t_up else f' t')); eauto.
-      ii. s. rewrite eqb_comm. rw; eauto. ii. rw. rw.
-      repeat (split; eauto).
-      erewrite <- vpath_root_bound; eauto.
-      ii. s. rw; eauto.
-    + exploit (time_bound_ctx_M C M); eauto. rw.
-      ii. destruct EQUIVC as [EQC EQC'].
-      exploit (vpath_root_bound p (Ctx d) m (t_up !-> Func M1 s0 e0 C0; m)); eauto.
+      exploit (vpath_root_bound p (Ctx d) m (t_up !-> Closure e0 C0; m)); eauto.
       ii. s. rw; eauto. intros RR.
       rewrite <- RR in *.
       exploit (EQC (PM M p)); eauto.
@@ -334,30 +262,13 @@ Proof.
     + repeat rewrite t_refl. rewrite eqb_ID_eq in *. clarify.
       destruct p'; ii; ss. repeat rewrite t_refl in *.
       des; des_hyp; des; clarify.
-      exploit (vpath_root_bound p' (Ctx C1) m' (t0 !-> Fun x2 e0 C1; m')); eauto.
+      exploit (vpath_root_bound p' (Ctx C1) m' (t0 !-> Closure e0 C1; m')); eauto.
       ii. s. rw; eauto.
       intros RR. rewrite <- RR in *.
       exploit (pmap_root_bound p' (Ctx C1) m' f' (fun t' => if eqb t' t0 then t_up else f' t') t');
       eauto. ii. rewrite eqb_comm. rw; eauto.
       intros RR'. rewrite RR'.
-      destruct EQUIVv1 as [EQv EQv'].
-      exploit EQv'; eauto. ii; des.
-      exploit (pmap_root_bound (pmap f' p') (Ctx C0) m f (fun t' => if eqb t' t_up then t0 else f t')); eauto.
-      ii. rewrite eqb_comm. rw; eauto. rw. ii. rw.
-      repeat (split; eauto).
-      eexists. split. reflexivity. s. split. eauto.
-      erewrite <- vpath_root_bound; eauto.
-      ii. s. rw; eauto.
-    + repeat rewrite t_refl. rewrite eqb_ID_eq in *. clarify.
-      destruct p'; ii; ss. repeat rewrite t_refl in *.
-      des; des_hyp; des; clarify.
-      exploit (vpath_root_bound p' (Ctx C1) m' (t0 !-> Func M0 s0 e0 C1; m')); eauto.
-      ii. s. rw; eauto.
-      intros RR. rewrite <- RR in *.
-      exploit (pmap_root_bound p' (Ctx C1) m' f' (fun t' => if eqb t' t0 then t_up else f' t') t');
-      eauto. ii. rewrite eqb_comm. rw; eauto.
-      intros RR'. rewrite RR'.
-      destruct EQUIVv2 as [EQv EQv'].
+      destruct EQUIVv0 as [EQv EQv'].
       exploit EQv'; eauto. ii; des.
       exploit (pmap_root_bound (pmap f' p') (Ctx C0) m f (fun t' => if eqb t' t_up then t0 else f t')); eauto.
       ii. rewrite eqb_comm. rw; eauto. rw. ii. rw.
@@ -367,26 +278,7 @@ Proof.
       ii. s. rw; eauto.
     + exploit (time_bound_addr C' x0); eauto. rw.
       ii. destruct EQUIVC as [EQC EQC'].
-      exploit (vpath_root_bound p' (Ptr t0) m' (t_up' !-> Fun x2 e0 C1; m')); eauto.
-      ii. s. rw; eauto. intros RR.
-      rewrite <- RR in *.
-      exploit (EQC' (Px x0 t0 p')); eauto.
-      s. rw. eauto.
-      ii; ss; repeat des_hyp; des; clarify.
-      rewrite eqb_comm. rw; eauto.
-      exploit (pmap_root_bound p' (Ptr t0) m' f' (fun t' => if eqb t' t_up' then t_up else f' t')); eauto.
-      ii. rewrite eqb_comm. rw; eauto.
-      ii. rw.
-      exploit (time_bound_addr C x0); eauto. rw. rw.
-      ii. rewrite eqb_comm. rw; eauto.
-      exploit (pmap_root_bound (pmap f' p') (Ptr (f' t0)) m f (fun t' => if eqb t' t_up then t_up' else f t')); eauto.
-      ii. s. rewrite eqb_comm. rw; eauto. ii. rw. rw.
-      repeat (split; eauto).
-      erewrite <- vpath_root_bound; eauto.
-      ii. s. rw; eauto.
-    + exploit (time_bound_addr C' x0); eauto. rw.
-      ii. destruct EQUIVC as [EQC EQC'].
-      exploit (vpath_root_bound p' (Ptr t0) m' (t_up' !-> Func M0 s0 e0 C1; m')); eauto.
+      exploit (vpath_root_bound p' (Ptr t0) m' (t_up' !-> Closure e0 C1; m')); eauto.
       ii. s. rw; eauto. intros RR.
       rewrite <- RR in *.
       exploit (EQC' (Px x0 t0 p')); eauto.
@@ -405,25 +297,7 @@ Proof.
       ii. s. rw; eauto.
     + exploit (time_bound_ctx_M C' M); eauto. rw.
       ii. destruct EQUIVC as [EQC EQC'].
-      exploit (vpath_root_bound p' (Ctx d) m' (t_up' !-> Fun x1 e0 C1; m')); eauto.
-      ii. s. rw; eauto. intros RR.
-      rewrite <- RR in *.
-      exploit (EQC' (PM M p')); eauto.
-      s. rw. eauto.
-      ii; ss; repeat des_hyp; des; clarify.
-      exploit (pmap_root_bound p' (Ctx d) m' f' (fun t' => if eqb t' t_up' then t_up else f' t')); eauto.
-      ii. rewrite eqb_comm. rw; eauto.
-      ii. rw.
-      exploit (time_bound_ctx_M C M); eauto. rw.
-      ii.
-      exploit (pmap_root_bound (pmap f' p') (Ctx d0) m f (fun t' => if eqb t' t_up then t_up' else f t')); eauto.
-      ii. s. rewrite eqb_comm. rw; eauto. ii. rw. rw.
-      repeat (split; eauto).
-      erewrite <- vpath_root_bound; eauto.
-      ii. s. rw; eauto.
-    + exploit (time_bound_ctx_M C' M); eauto. rw.
-      ii. destruct EQUIVC as [EQC EQC'].
-      exploit (vpath_root_bound p' (Ctx d) m' (t_up' !-> Func M1 s0 e0 C1; m')); eauto.
+      exploit (vpath_root_bound p' (Ctx d) m' (t_up' !-> Closure e0 C1; m')); eauto.
       ii. s. rw; eauto. intros RR.
       rewrite <- RR in *.
       exploit (EQC' (PM M p')); eauto.
@@ -758,7 +632,7 @@ Proof.
     all: try solve [eapply extend_iso_equiv with (t := t0); eauto].
     all: ii; des; repeat des_hyp; des; clarify; gen_time_bound TT.
     all:match goal with
-    | E1 : @step ?TT _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Fun ?x ?e ?Cv)) ?m' ?t'),
+    | E1 : @step ?TT _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Closure (v_fn ?x ?e) ?Cv)) ?m' ?t'),
       E2 : @step ?TT _ _ _ (Cf _ ?C ?m' ?t') (Rs (EVal ?v) ?m'' ?t''),
       ISO : iso _ ?m_up _ _ ?f ?f' |-
       context [iso (Ctx (dy_binde ?x ?t_up ?Cv')) (?t_up !-> ?v'; ?m_up) _ _ _ _] =>
@@ -812,9 +686,9 @@ Proof.
     end.
     all: try solve [eapply extend_iso_equiv with (t := t0); eauto].
     all: ii; des; repeat des_hyp; des; clarify; gen_time_bound TT.
-    exploit (equiv_project s C_v mv m_a _); eauto; ii; des.
+    exploit (equiv_project s_M C_v mv m_a _); eauto; ii; des.
     all:match goal with
-    | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Func ?M ?s ?e ?Cv)) ?m' ?t'),
+    | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Closure (v_ft ?M ?s ?e) ?Cv)) ?m' ?t'),
       E2 : @step _ _ _ _ (Cf _ ?C ?m' ?t') (Rs (MVal ?mv) ?m'' ?t''),
       PROJ : project ?mv ?s = Some ?Cs,
       ISO : iso _ _ _ ?m'' ?f ?f' |- _ =>
@@ -856,7 +730,7 @@ Proof.
     all: try solve [eapply extend_iso_equiv with (t := t0); eauto].
     all: ii; des; repeat des_hyp; des; clarify; gen_time_bound TT.
     all:match goal with
-    | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Fun ?x ?e ?Cv)) ?m' ?t'),
+    | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Closure (v_fn ?x ?e) ?Cv)) ?m' ?t'),
       E2 : @step _ _ _ _ (Cf _ ?C ?m' ?t') (Rs (EVal ?v) ?m'' ?t''),
       ISO : iso _ ?m_up _ _ ?f ?f',
       E3 : @step _ _ _ _ (Cf _ (dy_binde ?x ?t_up ?Cv') (?t_up !-> ?v'; ?m_up) _) _ |- _ =>
@@ -880,7 +754,7 @@ Proof.
     | |- iso _ _ _ _ _ _ => eapply extend_iso_equiv with (t := t_f) (t' := t); eauto
     end.
     all: ii; match goal with
-    | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Fun ?x ?e ?Cv)) ?m' ?t'),
+    | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Closure (v_fn ?x ?e) ?Cv)) ?m' ?t'),
       E2 : @step _ _ _ _ (Cf _ ?C ?m' ?t') (Rs (EVal ?v) ?m'' ?t''),
       ISO : iso _ (?t_up !-> ?v'; ?m_up) (Ctx ?C_up') ?m_up' ?f ?f',
       E3 : @step _ _ _ _ (Cf _ (dy_binde ?x ?t_up ?Cv') (?t_up !-> ?v'; ?m_up) _) _ |- _ =>
@@ -923,9 +797,9 @@ Proof.
     end.
     all: try solve [eapply extend_iso_equiv with (t := t0); eauto].
     all: ii; des; repeat des_hyp; des; clarify; gen_time_bound TT.
-    all: exploit (equiv_project s C_v mv m_a _); eauto; ii; des.
+    all: exploit (equiv_project s_M C_v mv m_a _); eauto; ii; des.
     all: match goal with
-    | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Func ?M ?s ?e ?Cv)) ?m' ?t'),
+    | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Closure (v_ft ?M ?s ?e) ?Cv)) ?m' ?t'),
       E2 : @step _ _ _ _ (Cf _ ?C ?m' ?t') (Rs (MVal ?mv) ?m'' ?t''),
       PROJ : project ?mv ?s = Some ?Cs,
       BD : time_bound_ρ (Rs (MVal ?mv) _ ?t_v),
@@ -1021,7 +895,7 @@ Proof.
     all: try solve [eapply extend_iso_equiv with (t := t0); eauto].
     all: ii; des; repeat des_hyp; des; clarify; gen_time_bound TT.
     all:match goal with
-    | E1 : @step ?TT _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Fun ?x ?e ?Cv)) ?m' ?t'),
+    | E1 : @step ?TT _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Closure (v_fn ?x ?e) ?Cv)) ?m' ?t'),
       E2 : @step ?TT _ _ _ (Cf _ ?C ?m' ?t') (Rs (EVal ?v) ?m'' ?t''),
       ISO : iso _ ?m_up _ _ ?f ?f' |-
       context [iso (Ctx (dy_binde ?x ?t_up ?Cv')) (?t_up !-> ?v'; ?m_up) _ _ _ _] =>
@@ -1075,9 +949,9 @@ Proof.
     end.
     all: try solve [eapply extend_iso_equiv with (t := t0); eauto].
     all: ii; des; repeat des_hyp; des; clarify; gen_time_bound TT.
-    exploit (equiv_project s0 C_v mv m_a _); eauto; ii; des.
+    exploit (equiv_project s_M C_v mv m_a _); eauto; ii; des.
     all:match goal with
-    | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Func ?M ?s ?e ?Cv)) ?m' ?t'),
+    | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Closure (v_ft ?M ?s ?e) ?Cv)) ?m' ?t'),
       E2 : @step _ _ _ _ (Cf _ ?C ?m' ?t') (Rs (MVal ?mv) ?m'' ?t''),
       PROJ : project ?mv ?s = Some ?Cs,
       ISO : iso _ _ _ ?m'' ?f ?f' |- _ =>
@@ -1119,7 +993,7 @@ Proof.
     all: try solve [eapply extend_iso_equiv with (t := t0); eauto].
     all: ii; des; repeat des_hyp; des; clarify; gen_time_bound TT.
     all:match goal with
-    | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Fun ?x ?e ?Cv)) ?m' ?t'),
+    | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Closure (v_fn ?x ?e) ?Cv)) ?m' ?t'),
       E2 : @step _ _ _ _ (Cf _ ?C ?m' ?t') (Rs (EVal ?v) ?m'' ?t''),
       ISO : iso _ ?m_up _ _ ?f ?f',
       E3 : @step _ _ _ _ (Cf _ (dy_binde ?x ?t_up ?Cv') (?t_up !-> ?v'; ?m_up) _) _ |- _ =>
@@ -1143,7 +1017,7 @@ Proof.
     | |- iso _ _ _ _ _ _ => eapply extend_iso_equiv with (t := t_f) (t' := t); eauto
     end.
     all: ii; match goal with
-    | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Fun ?x ?e ?Cv)) ?m' ?t'),
+    | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Closure (v_fn ?x ?e) ?Cv)) ?m' ?t'),
       E2 : @step _ _ _ _ (Cf _ ?C ?m' ?t') (Rs (EVal ?v) ?m'' ?t''),
       ISO : iso _ (?t_up !-> ?v'; ?m_up) (Ctx ?C_up') ?m_up' ?f ?f',
       E3 : @step _ _ _ _ (Cf _ (dy_binde ?x ?t_up ?Cv') (?t_up !-> ?v'; ?m_up) _) _ |- _ =>
@@ -1231,9 +1105,9 @@ Proof.
     end.
     all: try solve [eapply extend_iso_equiv with (t := t0); eauto].
     all: ii; des; repeat des_hyp; des; clarify; gen_time_bound TT.
-    all: exploit (equiv_project s0 C_v mv m_a _); eauto; ii; des.
+    all: exploit (equiv_project s_M C_v mv m_a _); eauto; ii; des.
     all: match goal with
-    | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Func ?M ?s ?e ?Cv)) ?m' ?t'),
+    | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs (EVal (Closure (v_ft ?M ?s ?e) ?Cv)) ?m' ?t'),
       E2 : @step _ _ _ _ (Cf _ ?C ?m' ?t') (Rs (MVal ?mv) ?m'' ?t''),
       PROJ : project ?mv ?s = Some ?Cs,
       BD : time_bound_ρ (Rs (MVal ?mv) _ ?t_v),

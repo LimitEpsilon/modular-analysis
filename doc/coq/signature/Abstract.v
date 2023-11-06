@@ -16,38 +16,38 @@ Inductive step `{time T} : (config T) -> (config T) -> Prop :=
     : step (Cf (e_var x) C m t) (Rs (EVal v) m t)
 
   | Fn x e C m t
-    : step (Cf (e_lam x e) C m t) (Rs (EVal (Fun x e C)) m t)
+    : step (Cf (e_lam x e) C m t) (Rs (EVal (Closure (v_fn x e) C)) m t)
   
   | EAppL e1 e2 C m t
     : step (Cf (e_app e1 e2) C m t) (Cf e1 C m t)
 
   | FnEAppR e1 e2 C m t x e C_f m_f t_f
-    (FN : step (Cf e1 C m t) (Rs (EVal (Fun x e C_f)) m_f t_f))
+    (FN : step (Cf e1 C m t) (Rs (EVal (Closure (v_fn x e) C_f)) m_f t_f))
     : step (Cf (e_app e1 e2) C m t) (Cf e2 C m_f t_f)
 
   | FtEAppR e1 e2 C m t M s_M e C_f m_f t_f
-    (FT : step (Cf e1 C m t) (Rs (EVal (Func M s_M e C_f)) m_f t_f))
+    (FT : step (Cf e1 C m t) (Rs (EVal (Closure (v_ft M s_M e) C_f)) m_f t_f))
     : step (Cf (e_app e1 e2) C m t) (Cf e2 C m_f t_f)
   
   | FnEAppBody e1 e2 C m t x e C_f m_f t_f v m_a t_a
-    (FN : step (Cf e1 C m t) (Rs (EVal (Fun x e C_f)) m_f t_f))
+    (FN : step (Cf e1 C m t) (Rs (EVal (Closure (v_fn x e) C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (EVal v) m_a t_a))
     : step (Cf (e_app e1 e2) C m t) (Cf e (dy_binde x (tick C m_a t_a x v) C_f) ((tick C m_a t_a x v) !-> v; m_a) (tick C m_a t_a x v))
 
   | FtEAppBody e1 e2 C m t M s_M e C_f m_f t_f C_v m_a t_a C_M
-    (FT : step (Cf e1 C m t) (Rs (EVal (Func M s_M e C_f)) m_f t_f))
+    (FT : step (Cf e1 C m t) (Rs (EVal (Closure (v_ft M s_M e) C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (MVal C_v) m_a t_a))
     (PROJ : project C_v s_M = Some C_M)
     : step (Cf (e_app e1 e2) C m t) (Cf e (dy_bindm M C_M C_f) m_a t_a)
   
   | FnEApp e1 e2 C m t x e C_f m_f t_f v m_a t_a v' m' t'
-    (FN : step (Cf e1 C m t) (Rs (EVal (Fun x e C_f)) m_f t_f))
+    (FN : step (Cf e1 C m t) (Rs (EVal (Closure (v_fn x e) C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (EVal v) m_a t_a))
     (BODY : step (Cf e (dy_binde x (tick C m_a t_a x v) C_f) ((tick C m_a t_a x v) !-> v; m_a) (tick C m_a t_a x v)) (Rs (EVal v') m' t'))
     : step (Cf (e_app e1 e2) C m t) (Rs (EVal v') m' t')
   
   | FtEApp e1 e2 C m t M s_M e C_f m_f t_f C_v m_a t_a C_M v' m' t'
-    (FN : step (Cf e1 C m t) (Rs (EVal (Func M s_M e C_f)) m_f t_f))
+    (FN : step (Cf e1 C m t) (Rs (EVal (Closure (v_ft M s_M e) C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (MVal C_v) m_a t_a))
     (PROJ : project C_v s_M = Some C_M)
     (BODY : step (Cf e (dy_bindm M C_M C_f) m_a t_a) (Rs (EVal v') m' t'))
@@ -73,39 +73,39 @@ Inductive step `{time T} : (config T) -> (config T) -> Prop :=
     : step (Cf (m_var M) C m t) (Rs (MVal (C_M[|C|])) m t)
   
   | Ft M e s_M C m t
-    : step (Cf (m_lam M s_M e) C m t) (Rs (EVal (Func M s_M e C)) m t)
+    : step (Cf (m_lam M s_M e) C m t) (Rs (EVal (Closure (v_ft M s_M e) C)) m t)
 
   | MAppL e1 e2 s C m t
     : step (Cf (m_app e1 e2 s) C m t) (Cf e1 C m t)
 
   | FnMAppR e1 e2 s C m t x e C_f m_f t_f
-    (FN : step (Cf e1 C m t) (Rs (EVal (Fun x e C_f)) m_f t_f))
+    (FN : step (Cf e1 C m t) (Rs (EVal (Closure (v_fn x e) C_f)) m_f t_f))
     : step (Cf (m_app e1 e2 s) C m t) (Cf e2 C m_f t_f)
 
   | FtMAppR e1 e2 s C m t M s_M e C_f m_f t_f
-    (FT : step (Cf e1 C m t) (Rs (EVal (Func M s_M e C_f)) m_f t_f))
+    (FT : step (Cf e1 C m t) (Rs (EVal (Closure (v_ft M s_M e) C_f)) m_f t_f))
     : step (Cf (m_app e1 e2 s) C m t) (Cf e2 C m_f t_f)
   
   | FnMAppBody e1 e2 s C m t x e C_f m_f t_f v m_a t_a
-    (FN : step (Cf e1 C m t) (Rs (EVal (Fun x e C_f)) m_f t_f))
+    (FN : step (Cf e1 C m t) (Rs (EVal (Closure (v_fn x e) C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (EVal v) m_a t_a))
     : step (Cf (m_app e1 e2 s) C m t) (Cf e (dy_binde x (tick C m_a t_a x v) C_f) ((tick C m_a t_a x v) !-> v; m_a) (tick C m_a t_a x v))
 
   | FtMAppBody e1 e2 s C m t M s_M e C_f m_f t_f C_v m_a t_a C_M
-    (FT : step (Cf e1 C m t) (Rs (EVal (Func M s_M e C_f)) m_f t_f))
+    (FT : step (Cf e1 C m t) (Rs (EVal (Closure (v_ft M s_M e) C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (MVal C_v) m_a t_a))
     (PROJ : project C_v s_M = Some C_M)
     : step (Cf (m_app e1 e2 s) C m t) (Cf e (dy_bindm M C_M C_f) m_a t_a)
   
   | FnMApp e1 e2 s C m t x e C_f m_f t_f v m_a t_a C' m' t' C_s
-    (FN : step (Cf e1 C m t) (Rs (EVal (Fun x e C_f)) m_f t_f))
+    (FN : step (Cf e1 C m t) (Rs (EVal (Closure (v_fn x e) C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (EVal v) m_a t_a))
     (BODY : step (Cf e (dy_binde x (tick C m_a t_a x v) C_f) ((tick C m_a t_a x v) !-> v; m_a) (tick C m_a t_a x v)) (Rs (MVal C') m' t'))
     (PROJs : project C' s = Some C_s)
     : step (Cf (m_app e1 e2 s) C m t) (Rs (MVal (C_s[|C|])) m' t')
   
   | FtMApp e1 e2 s C m t M s_M e C_f m_f t_f C_v m_a t_a C_M C' m' t' C_s
-    (FN : step (Cf e1 C m t) (Rs (EVal (Func M s_M e C_f)) m_f t_f))
+    (FN : step (Cf e1 C m t) (Rs (EVal (Closure (v_ft M s_M e) C_f)) m_f t_f))
     (ARG : step (Cf e2 C m_f t_f) (Rs (MVal C_v) m_a t_a))
     (PROJ : project C_v s_M = Some C_M)
     (BODY : step (Cf e (dy_bindm M C_M C_f) m_a t_a) (Rs (MVal C') m' t'))
@@ -169,10 +169,10 @@ Qed.
 Definition ctx_bound_m `{Eq T} ub (m : memory T) :=
   forall t v (INvl : In v (aread m t)),
     match v with
-    | Fun x e C_v =>
+    | Closure (v_fn x e) C_v =>
       forall sC (IN : In sC (snd (collect_ctx (dy_to_st C_v) (e_lam x e)))),
         In sC ub
-    | Func M s e C_v =>
+    | Closure (v_ft M s e) C_v =>
       forall sC (IN : In sC (snd (collect_ctx (dy_to_st C_v) (m_lam M s e)))),
         In sC ub
     end.
@@ -182,10 +182,10 @@ Definition ctx_bound_cf `{Eq T} ub (cf : config T) :=
   | Cf e C m t =>
     ctx_bound_m ub m /\
     forall sC (IN : In sC (snd (collect_ctx (dy_to_st C) e))), In sC ub
-  | Rs (EVal (Fun x e C)) m t =>
+  | Rs (EVal (Closure (v_fn x e) C)) m t =>
     ctx_bound_m ub m /\
     forall sC (IN : In sC (snd (collect_ctx (dy_to_st C) (e_lam x e)))), In sC ub
-  | Rs (EVal (Func M s e C)) m t =>
+  | Rs (EVal (Closure (v_ft M s e) C)) m t =>
     ctx_bound_m ub m /\
     forall sC (IN : In sC (snd (collect_ctx (dy_to_st C) (m_lam M s e)))), In sC ub
   | Rs (MVal C) m t =>
@@ -314,8 +314,8 @@ Qed.
 
 Definition collect_ctx_val `{time T} (v : expr_value T) :=
   match v with
-  | Fun x e C => snd (collect_ctx (dy_to_st C) (e_lam x e))
-  | Func M s e C => snd (collect_ctx (dy_to_st C) (m_lam M s e))
+  | Closure (v_fn x e) C => snd (collect_ctx (dy_to_st C) (e_lam x e))
+  | Closure (v_ft M s e) C => snd (collect_ctx (dy_to_st C) (m_lam M s e))
   end.
 
 Fixpoint collect_ctx_mem `{time T} (m : memory T) :=
@@ -330,7 +330,7 @@ Lemma finite_m_then_ctx_bound `{time T} :
 Proof.
   induction m; intros; simpl; red; intros.
   - des_goal; ss; ii; eauto.
-  - des_goal; ss; ii;
+  - repeat des_goal; ss; ii;
     repeat des_hyp; try destruct INvl; try destruct IN; subst;
     rewrite in_app_iff;
     match goal with
@@ -350,7 +350,7 @@ Proof.
   intros.
   eapply reach_ctx_bound; eauto.
   split; simpl; eauto.
-  red. intros addr [x body Cv | M s body Cv] INvl sC IN;
+  red. intros addr [[x body | M s body] Cv] INvl sC IN;
   rewrite in_app_iff; right;
   assert (ctx_bound_m (collect_ctx_mem m) m) as HINT;
   try (apply finite_m_then_ctx_bound; eauto);
@@ -366,13 +366,11 @@ Theorem abstract_sig_finite `{time T} e C m t:
     forall cf (REACH : {|(Cf e C m t) ~#>* cf|}),
     match cf with
     | Cf _ C m _ 
-    | Rs (EVal (Fun _ _ C)) m _
-    | Rs (EVal (Func _ _ _ C)) m _
+    | Rs (EVal (Closure _ C)) m _
     | Rs (MVal C) m _ =>
       (forall t v (IN : In v (aread m t)),
         match v with
-        | Fun _ _ C | Func _ _ _ C =>
-          In (dy_to_st C) X
+        | Closure _ C => In (dy_to_st C) X
         end) /\
       In (dy_to_st C) X
     end.
@@ -383,7 +381,7 @@ Proof.
   repeat des_hyp; des; clarify; split; ii;
   try match goal with
   | ACCESS : In ?v (aread ?m ?t), BOUND : context [aread] |- _ =>
-    specialize (BOUND t v ACCESS); des_hyp
+    specialize (BOUND t v ACCESS); repeat des_hyp
   end; eauto using collect_ctx_refl.
 Qed.
 
@@ -402,8 +400,8 @@ Fixpoint collect_expr (e : tm) :=
 Definition expr_bound_m `{Eq T} ub (m : memory T) :=
   forall t v (INvl : In v (aread m t)) ee
     (IN : match v with
-    | Fun x e _ => In ee (collect_expr (e_lam x e))
-    | Func M s e _ => In ee (collect_expr (m_lam M s e))
+    | Closure (v_fn x e) _ => In ee (collect_expr (e_lam x e))
+    | Closure (v_ft M s e) _ => In ee (collect_expr (m_lam M s e))
     end),
   In ee ub.
 
@@ -412,10 +410,10 @@ Definition expr_bound_cf `{Eq T} ub (cf : config T) :=
   | Cf e C m t =>
     expr_bound_m ub m /\
     forall ee (IN : In ee (collect_expr e)), In ee ub
-  | Rs (EVal (Fun x e C)) m t =>
+  | Rs (EVal (Closure (v_fn x e) C)) m t =>
     expr_bound_m ub m /\
     forall ee (IN : In ee (collect_expr (e_lam x e))), In ee ub
-  | Rs (EVal (Func M s e C)) m t =>
+  | Rs (EVal (Closure (v_ft M s e) C)) m t =>
     expr_bound_m ub m /\
     forall ee (IN : In ee (collect_expr (m_lam M s e))), In ee ub 
   | Rs (MVal C) m t =>
@@ -462,9 +460,9 @@ Qed.
 Fixpoint collect_expr_mem `{time T} (m : memory T) :=
   match m with
   | [] => []
-  | (_, Fun x e _) :: tl =>
+  | (_, Closure (v_fn x e) _) :: tl =>
     (collect_expr (e_lam x e)) ++ (collect_expr_mem tl)
-  | (_, Func M s e _) :: tl =>
+  | (_, Closure (v_ft M s e) _) :: tl =>
     (collect_expr (m_lam M s e)) ++ (collect_expr_mem tl)
   end.
 
@@ -504,7 +502,7 @@ Proof.
   intros.
   eapply reach_expr_bound; eauto.
   split; simpl; eauto.
-  red. intros addr [x body Cv | M s body Cv] INvl sC IN;
+  red. intros addr [[x body | M s body] Cv] INvl sC IN;
   rewrite in_app_iff; right;
   assert (expr_bound_m (collect_expr_mem m) m) as HINT;
   try (apply finite_m_then_expr_bound; eauto);
@@ -529,13 +527,13 @@ Theorem abstract_expr_finite `{time T} e C m t:
     end in
     (forall t v (IN : In v (aread m t)),
       match v with
-      | Fun x e _ => In (e_lam x e) X
-      | Func M s e _ => In (m_lam M s e) X
+      | Closure (v_fn x e) _ => In (e_lam x e) X
+      | Closure (v_ft M s e) _ => In (m_lam M s e) X
       end) /\
     match cf with
     | Cf e _ _ _ => In e X
-    | Rs (EVal (Fun x e _)) _ _ => In (e_lam x e) X
-    | Rs (EVal (Func M s e _)) _ _ => In (m_lam M s e) X
+    | Rs (EVal (Closure (v_fn x e) _)) _ _ => In (e_lam x e) X
+    | Rs (EVal (Closure (v_ft M s e) _)) _ _ => In (m_lam M s e) X
     | Rs (MVal C) m _ => True
     end.
 Proof.
@@ -545,6 +543,6 @@ Proof.
   repeat des_hyp; des; clarify; split; ii;
   try match goal with
   | ACCESS : In ?v (aread ?m ?t), BOUND : context [aread] |- _ =>
-    specialize (BOUND t v ACCESS); des_hyp
+    specialize (BOUND t v ACCESS); repeat des_hyp
   end; eauto using collect_expr_refl.
 Qed.

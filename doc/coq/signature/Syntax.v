@@ -60,7 +60,8 @@ Qed.
 #[export] Instance Eqst : Eq st_ctx := { eqb:= eqb_st; eqb_eq := eqb_st_eq; }.
 
 Ltac solve_eqb eqb_mine :=
-  assert (eqb_mine = eqb); eauto; rw.
+  let RR := fresh "RR" in
+  assert (eqb_mine = eqb) as RR; eauto; rewrite RR; clear RR.
 
 Lemma eqb_st_neq : forall s s', eqb_st s s' = false <-> s <> s'.
 Proof. solve_eqb eqb_st. exact eqb_neq. Qed.
@@ -123,6 +124,33 @@ Inductive value :=
   | v_fn (x : ID) (e : tm)
   | v_ft (M : ID) (s : st_ctx) (e : tm)
 .
+
+Definition eq_val (v v' : value) :=
+  match v, v' with
+  | v_fn x e, v_fn x' e' => eqb x x' && eqb e e'
+  | v_ft M s e, v_ft M' s' e' => eqb M M' && eqb s s' && eqb e e'
+  | _, _ => false
+  end.
+
+Lemma eq_val_eq :
+  forall v v', eq_val v v' = true <-> v = v'.
+Proof.
+  ii. unfold eq_val.
+  repeat des_goal; repeat des_hyp;
+  try rewrite eqb_ID_eq in *; clarify.
+  all:try rewrite eqb_tm_eq.
+  all:try rewrite eqb_ID_neq in *.
+  all:try rewrite eqb_st_eq in *.
+  all:try rewrite eqb_st_neq in *.
+  all:split; ii; clarify.
+Qed.
+
+#[export] Instance EqVal : Eq value :=
+  { eqb := eq_val; eqb_eq := eq_val_eq; }.
+
+Lemma eq_val_neq :
+  forall v v', eq_val v v' = false <-> v <> v'.
+Proof. solve_eqb eq_val. exact eqb_neq. Qed.
 
 Fixpoint st_ctx_M (C : st_ctx) (M : ID) :=
   match C with
@@ -335,12 +363,10 @@ Qed.
 
 (* More semantic domains *)
 Inductive expr_value T :=
-  | Fun (x : ID) (e : tm) (C : dy_ctx T)
-  | Func (M : ID) (s : st_ctx) (e : tm) (C : dy_ctx T)
+  | Closure (e : value) (C : dy_ctx T)
 .
 
-Arguments Fun {T}.
-Arguments Func {T}.
+Arguments Closure {T}.
 
 Inductive dy_value T :=
   | EVal (ev : expr_value T)
@@ -412,8 +438,7 @@ Fixpoint supp_C {T} (C : dy_ctx T) (t : T) :=
 
 Definition supp_v {T} (v : expr_value T) :=
   match v with
-  | Fun _ _ C
-  | Func _ _ _ C => supp_C C
+  | Closure _ C => supp_C C
   end.
 
 Definition supp_V {T} (V : dy_value T) :=
@@ -525,10 +550,8 @@ Fixpoint valid_path {T} `{Eq T}
   | Pv v tl, Ptr t =>
     exists ev, Some ev = read m t /\
     match ev with
-    | Fun x e Cv =>
-      v = v_fn x e /\ valid_path (Ctx Cv) m tl
-    | Func M s e Cv =>
-      v = v_ft M s e /\ valid_path (Ctx Cv) m tl
+    | Closure e Cv =>
+      v = e /\ valid_path (Ctx Cv) m tl
     end
   | _, _ => False
   end.
@@ -550,12 +573,8 @@ Definition equiv {T T'} `{Eq T} `{Eq T'}
   match V, V' with
   | MVal C, MVal C' =>
     iso (Ctx C) m (Ctx C') m' f f'
-  | EVal (Fun x e C), EVal (Fun x' e' C') =>
-    x = x' /\ e = e' /\
-    iso (Ctx C) m (Ctx C') m' f f'
-  | EVal (Func M s e C), EVal (Func M' s' e' C') =>
-    M = M' /\ s = s' /\ e = e' /\
-    iso (Ctx C) m (Ctx C') m' f f'
+  | EVal (Closure e C), EVal (Closure e' C') =>
+    e = e' /\ iso (Ctx C) m (Ctx C') m' f f'
   | _, _ => False
   end.
 
@@ -581,10 +600,8 @@ Fixpoint avalid_path {T} `{Eq T}
   | Pv v tl, Ptr t =>
     exists ev, In ev (aread m t) /\
     match ev with
-    | Fun x e Cv =>
-      v = v_fn x e /\ avalid_path (Ctx Cv) m tl
-    | Func M s e Cv =>
-      v = v_ft M s e /\ avalid_path (Ctx Cv) m tl
+    | Closure e Cv =>
+      v = e /\ avalid_path (Ctx Cv) m tl
     end
   | _, _ => False
   end.
@@ -609,20 +626,14 @@ Definition aIso {T T'} `{Eq T} `{Eq T'}
   (forall t v (REACH : areachable r m t) (IN : In v (aread m t)),
     exists v', In v' (aread m' (f t)) /\
       match v, v' with
-      | Fun x e C, Fun x' e' C' =>
-        x = x' /\ e = e' /\ aiso (Ctx C) [] (Ctx C') [] f f'
-      | Func M s e C, Func M' s' e' C' =>
-        M = M' /\ s = s' /\ e = e' /\ aiso (Ctx C) [] (Ctx C') [] f f'
-      | _, _ => False
+      | Closure e C, Closure e' C' =>
+        e = e' /\ aiso (Ctx C) [] (Ctx C') [] f f'
       end) /\
   (forall t' v' (REACH : areachable r' m' t') (IN : In v' (aread m' t')),
     exists v, In v (aread m (f' t')) /\
       match v, v' with
-      | Fun x e C, Fun x' e' C' =>
-        x = x' /\ e = e' /\ aiso (Ctx C) [] (Ctx C') [] f f'
-      | Func M s e C, Func M' s' e' C' =>
-        M = M' /\ s = s' /\ e = e' /\ aiso (Ctx C) [] (Ctx C') [] f f'
-      | _, _ => False
+      | Closure e C, Closure e' C' =>
+        e = e' /\ aiso (Ctx C) [] (Ctx C') [] f f'
       end)
 .
   
@@ -631,11 +642,8 @@ Definition aequiv {T T'} `{Eq T} `{Eq T'}
   match V, V' with
   | MVal C, MVal C' =>
     exists f f', aIso (Ctx C) m (Ctx C') m' f f'
-  | EVal (Fun x e C), EVal (Fun x' e' C') =>
-    x = x' /\ e = e' /\
-    exists f f', aIso (Ctx C) m (Ctx C') m' f f'
-  | EVal (Func M s e C), EVal (Func M' s' e' C') =>
-    M = M' /\ s = s' /\ e = e' /\
+  | EVal (Closure e C), EVal (Closure e' C') =>
+    e = e' /\
     exists f f', aIso (Ctx C) m (Ctx C') m' f f'
   | _, _ => False
   end.
@@ -654,8 +662,7 @@ Fixpoint trans_C {T T'} (α : T -> T') (C : dy_ctx T) :=
 
 Definition trans_v {T T'} (α : T -> T') (v : expr_value T) :=
   match v with
-  | Fun x e C => Fun x e (trans_C α C)
-  | Func M s e C => Func M s e (trans_C α C)
+  | Closure e C => Closure e (trans_C α C)
   end.
 
 Definition trans_V {T T'} (α : T -> T') (V : dy_value T) :=
@@ -966,6 +973,27 @@ Qed.
 #[export] Instance EqC {T} `{Eq T} : `{Eq (dy_ctx T)} := 
   { eqb := eqb_C; eqb_eq := eqb_C_eq; }.
 
+Definition eq_root {T} `{Eq T} (r1 r2 : root T) :=
+  match r1, r2 with
+  | Ptr t1, Ptr t2 => eqb t1 t2
+  | Ctx C1, Ctx C2 => eqb C1 C2
+  | _, _ => false
+  end.
+
+Lemma eq_root_eq {T} `{Eq T} :
+  forall (r r' : root T),
+  eq_root r r' = true <-> r = r'.
+Proof.
+  intros; split; intros EQ; unfold eq_root in *;
+  repeat des_goal; repeat des_hyp;
+  try rewrite eqb_eq in *;
+  try rewrite eqb_C_eq in *; 
+  clarify.
+Qed.
+
+#[export] Instance EqRoot {T} `{Eq T} : `{Eq (root T)} :=
+  { eqb := eq_root; eqb_eq := eq_root_eq; }.
+
 Lemma eq_C_st_eq {T} eqb (C1 C2 : dy_ctx T) :
   eq_C eqb C1 C2 = true -> dy_to_st C1 = dy_to_st C2.
 Proof.
@@ -1005,14 +1033,12 @@ Fixpoint delete {T} eqb (Cout Cin : dy_ctx T) :=
 
 Definition inject_v {T} `{Eq T} (Cout : dy_ctx T) (v : expr_value T) :=
   match v with
-  | Fun x t C => Fun x t (C [|Cout|])
-  | Func M s t C => Func M s t (C [|Cout|])
+  | Closure t C => Closure t (C [|Cout|])
   end.
 
 Definition delete_v {T} eqb (Cout : dy_ctx T) (v : expr_value T) :=
   match v with
-  | Fun x t C => Fun x t (delete eqb Cout C)
-  | Func M s t C => Func M s t (delete eqb Cout C)
+  | Closure t C => Closure t (delete eqb Cout C)
   end.
 
 Lemma inject_level_inc {T} (Cout Cin : dy_ctx T) :
@@ -1226,14 +1252,12 @@ Fixpoint filter_ctx_af {BT AT} (C : dy_ctx (link BT AT)) :=
 
 Definition filter_v_bf {BT AT} (v : expr_value (link BT AT)) :=
   match v with
-  | Fun x e C => Fun x e (filter_ctx_bf C)
-  | Func M s e C => Func M s e (filter_ctx_bf C)
+  | Closure e C => Closure e (filter_ctx_bf C)
   end.
 
 Definition filter_v_af {BT AT} (v : expr_value (link BT AT)) :=
   match v with
-  | Fun x e C => Fun x e (filter_ctx_af C)
-  | Func M s e C => Func M s e (filter_ctx_af C)
+  | Closure e C => Closure e (filter_ctx_af C)
   end.
 
 Fixpoint filter_mem_bf {BT AT} (mem : memory (link BT AT)) :=
@@ -1259,8 +1283,7 @@ Fixpoint lift_ctx_bf {BT AT} C : dy_ctx (link BT AT) :=
 
 Definition lift_v_bf {BT AT} v : expr_value (link BT AT) :=
   match v with
-  | Fun x e C => Fun x e (lift_ctx_bf C)
-  | Func M s e C => Func M s e (lift_ctx_bf C)
+  | Closure e C => Closure e (lift_ctx_bf C)
   end.
 
 Fixpoint lift_mem_bf {BT AT} m : memory (link BT AT) :=
@@ -1278,8 +1301,7 @@ Fixpoint lift_ctx_af {BT AT} C : dy_ctx (link BT AT) :=
 
 Definition lift_v_af {BT AT} v : expr_value (link BT AT) :=
   match v with
-  | Fun x e C => Fun x e (lift_ctx_af C)
-  | Func M s e C => Func M s e (lift_ctx_af C)
+  | Closure e C => Closure e (lift_ctx_af C)
   end.
 
 Fixpoint lift_mem_af {BT AT} m : memory (link BT AT) :=
@@ -1393,10 +1415,8 @@ Definition link_mem `{Eq BT} `{Eq AT}
 Fixpoint map_m {T1 T2} (f : T1 -> T2) (m : memory T1) :=
   match m with
   | [] => []
-  | (t, Fun x e C) :: tl =>
-    (f t, Fun x e (trans_C f C)) :: map_m f tl
-  | (t, Func M s e C) :: tl =>
-    (f t, Func M s e (trans_C f C)) :: map_m f tl
+  | (t, Closure e C) :: tl =>
+    (f t, Closure e (trans_C f C)) :: map_m f tl
   end.
 
 Lemma inject_ctx_mem_app `{Eq T} :
@@ -1536,9 +1556,6 @@ Proof.
   - rewrite delete_inject_eq; eauto.
     rewrite filter_lift_eq_af.
     unfold link_mem in *. rewrite IHamem; eauto.
-  - rewrite delete_inject_eq; eauto.
-    rewrite filter_lift_eq_af.
-    unfold link_mem in *. rewrite IHamem; eauto.
 Qed.
 
 Lemma link_update_m_eq `{Eq BT} `{Eq AT} (Cout : dy_ctx BT):
@@ -1589,10 +1606,8 @@ Definition inject_cf `{Eq BT} `{Eq AT} (Cout : dy_ctx BT) (bmem : memory BT) (cf
     let m := link_mem bmem Cout m in
     let t := AF t in
     match V with
-    | EVal (Fun x e C) =>
-      Rs (EVal (Fun x e ((lift_ctx_af C)[|(lift_ctx_bf Cout)|]))) m t
-    | EVal (Func M s e C) =>
-      Rs (EVal (Func M s e ((lift_ctx_af C)[|(lift_ctx_bf Cout)|]))) m t  
+    | EVal (Closure e C) =>
+      Rs (EVal (Closure e ((lift_ctx_af C)[|(lift_ctx_bf Cout)|]))) m t
     | MVal C =>
       Rs (MVal ((lift_ctx_af C)[|(lift_ctx_bf Cout)|])) m t
     end
