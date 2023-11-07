@@ -43,12 +43,12 @@ Ltac solve_leb1 :=
   | H : time_bound_m ?m ?c, _ : supp_m ?m ?a |- leb ?a ?b = true =>
     lazymatch b with
     | c => apply H
-    | _ => apply leb_trans with (t' := b)
+    | _ => apply leb_trans with (t' := c)
     end
   | H : time_bound_C ?C ?c, _ : supp_C ?C ?a |- leb ?a ?b = true =>
     lazymatch b with
     | c => apply H
-    | _ => apply leb_trans with (t' := b)
+    | _ => apply leb_trans with (t' := c)
     end
   end.
 
@@ -372,8 +372,7 @@ Proof.
   | _ : leb (tick ?C ?m ?t ?x ?v) _ = true |- _ =>
     lebt (tick C m t x v)
   end.
-  lebt t_a. lebt t_f. lebt t0. eauto.
-  lebt t_a. lebt t_f. lebt t0. eauto.
+  all:solve_leb.
 Qed.
 
 Ltac gen_time_bound T :=

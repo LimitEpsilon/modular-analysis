@@ -1267,7 +1267,7 @@ These two properties ensure that if we find a $\Abs{S}_1$ such that ${\Abs{S}_1}
 In this section, we assume a pair of semantics using $(\Time,\le,\ATime,\A\alpha)$ and $(\Time',\le',\A{\Time'},\A{\alpha'})$.
 
 We first define what it means for two states $s\in\State$ and $s'\in\State'$ to be equivalent.
-Recall that $s=(\ctx,\mem,t)$ and $s'=(\ctx',\mem',t')$ for some contexts $\ctx,\ctx'$, some memories $\mem,\mem'$, and some times $t,t'$.
+Recall that $s\texteq{let}(\ctx,\mem,t)$ and $s'\texteq{let}(\ctx',\mem',t')$ for some contexts $\ctx,\ctx'$, some memories $\mem,\mem'$, and some times $t,t'$.
 The choice of $t$ and $t'$ is ``not special'' in the sense that as long as they are more recent than the contexts and memories, $\tick$ will continue producing fresh addresses.
 Thus, the notion of equivalence is defined by how $\ctx$ and $\mem$ components ``look the same''.
 
@@ -1435,7 +1435,7 @@ This is natural, since if an abstract address that concretizes to a finite set c
 This constraint is not as restrictive as it seems, as widely used abstractions such as \emph{k}-CFA already satisfy this criterion.
 
 \subsection{How to Utilize Equivalence}
-Here is a general outline that utilize abstract equivalence and abstract linking to overapproximate any initial state.
+Here is a general outline that utilize abstract equivalence and abstract linking to overapproximate any initial state $\Abs{S}$.
 The goal is to overapproximate something equivalent to $\sembracket{e}\gamma(\Abs{S})$, when all abstract timestamps in $\Abs{S}$ correspond to infinitely many concrete timestamps.
 \begin{description}
   \item[Step 1] Choose a finite set $\A\Time_2$ and a function $\A\tick_2\in\A\Time_2\rightarrow\A\Time_2$.
@@ -1481,7 +1481,7 @@ Note that signatures are shaped exactly like the environments used to define the
 During execution, the bindings from the dynamically computed environments are \emph{projected} onto the signatures.
 
 In Coq, we formalized the instrumented operational semantics for this language, along with a reference interpreter proven to be equivalent with the operational semantics.
-Using this formalism, we ported all proofs from the simple language, except proofs about equivalence.
+Using this formalism, we ported all proofs from the simple language with minimal effort.
 
 \subsubsection{Supporting Multiple Evaluation Orders}
 \begin{figure}[h!]

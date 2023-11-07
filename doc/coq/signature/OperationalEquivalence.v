@@ -761,9 +761,8 @@ Proof.
       exploit (IHEVAL3 _ _ _ _ _ _ (t_up !-> v'; m_up) t_up C_up' m_up' (tick C m'' t'' x v) f f');
       eauto
     end.
-    all: try (split; ii; ss; des; clarify; do 5 solve_leb1).
-    all: try solve [apply leb_refl | lebt t; eauto].
-    all: ii; des; repeat des_hyp; des; clarify;
+    split; ii; ss; des; clarify; solve_leb.
+    ii; des; repeat des_hyp; des; clarify;
     match goal with
     | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs _ ?m' ?t'),
       E2 : @step _ _ _ _ (Cf _ ?C ?m' ?t') _,
@@ -810,8 +809,7 @@ Proof.
       exploit (IHEVAL3 _ _ _ _ _ _ m_up _ (dy_bindm M Cs Cv) m'' t'' f f');
       eauto
     end.
-    all:try (split; ii; ss; des; try do 5 solve_leb1;
-      solve [apply leb_refl | lebt t; eauto]).
+    split; ii; ss; des; solve_leb.
     all:try match goal with
     | |- iso _ _ _ _ _ _ =>
       eapply update_M_equiv; s; eauto;
@@ -1024,11 +1022,10 @@ Proof.
       exploit (IHEVAL3 _ _ _ _ _ _ (t_up !-> v'; m_up) t_up C_up' m_up' (tick C m'' t'' x v) f f');
       eauto
     end.
-    all: try (split; ii; ss; des; clarify; do 5 solve_leb1).
-    all: try solve [apply leb_refl | lebt t; eauto].
-    all: ii; des; repeat des_hyp; des; clarify.
-    all: exploit (equiv_project s C' mv m' _); eauto; ii; des.
-    all: match goal with
+    split; ii; ss; des; clarify; solve_leb.
+    ii; des; repeat des_hyp; des; clarify.
+    exploit (equiv_project s C' mv m' _); eauto; ii; des.
+    match goal with
     | E1 : @step _ _ _ _ (Cf _ ?C ?m ?t) (Rs _ ?m' ?t'),
       E2 : @step _ _ _ _ (Cf _ ?C ?m' ?t') _,
       E3 : @step _ _ _ _ _ (Rs (MVal ?mv) ?m'' ?t''),
@@ -1069,8 +1066,7 @@ Proof.
       eapply extend_iso_equiv with (t := t0) (t' := t'0) (f := f) (f' := f');
       eauto
     | |- _ /\ _ =>
-      split; ii; ss; repeat des_hyp; des; clarify;
-      do 5 solve_leb1; try apply leb_refl; lebt t; eauto
+      split; ii; ss; repeat des_hyp; des; clarify; solve_leb; eauto
     | _ => ii;
       repeat rw;
       try match goal with
@@ -1118,8 +1114,7 @@ Proof.
       exploit (IHEVAL3 _ _ _ _ _ _ m_up _ (dy_bindm M Cs Cv) m'' t'' f f');
       eauto
     end.
-    all:try (split; ii; ss; des; try do 5 solve_leb1;
-      solve [apply leb_refl | lebt t; eauto]).
+    split; ii; ss; des; solve_leb.
     all:try match goal with
     | |- iso _ _ _ _ _ _ =>
       eapply update_M_equiv; s; eauto;
@@ -1169,8 +1164,7 @@ Proof.
     end.
     all: try match goal with
     | |- _ /\ _ =>
-      split; ii; ss; repeat des_hyp; des; clarify;
-      do 5 solve_leb1; try apply leb_refl; lebt t; eauto
+      split; ii; ss; repeat des_hyp; des; clarify; solve_leb
     | _ => ii; repeat rrw;
       solve [reflexivity | rw; solve_leb]
     end.
