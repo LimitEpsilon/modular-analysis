@@ -1593,7 +1593,7 @@ and the order on $\Time$ is given by the lexicographic order, with respect to so
 With this ordering, $\tick$ always produces strictly larger timestamps.
 
 Then the $\A\tick$ function corresponding to \emph{k}-CFA may be given as:
-\[\A\tick(\A\ctx,\_,(\_,l),x,\_)\triangleq(x,\lfloor|\A\ctx|\cons l\rfloor_k)\qquad\A\alpha(n,x,l)\triangleq(x,\lfloor l\rfloor_k)\]
+\[\A\tick(\A\ctx,\_,\_,x,\_)\triangleq(x,\lfloor|\A\ctx|\cons\lceil\A\ctx\rceil\rfloor_k)\qquad\A\alpha(n,x,l)\triangleq(x,\lfloor l\rfloor_k)\]
 when $\lfloor\cdot\rfloor_k$ takes the $k$ top elements of a list.
 It can be shown that $\A\alpha\circ\tick=\A\tick\circ\A\alpha$, thus \emph{k}-CFA is a sound abstraction.
 Also, since each abstract timestamp corresponds to infinitely many concrete timestamps, the lemma for abstract equivalence can be applied as well.
