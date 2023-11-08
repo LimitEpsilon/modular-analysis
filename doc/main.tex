@@ -1435,22 +1435,21 @@ This is natural, since if an abstract address that concretizes to a finite set c
 This constraint is not as restrictive as it seems, as widely used abstractions such as \emph{k}-CFA already satisfy this criterion.
 
 \subsection{How to Utilize Equivalence}
-Here is a general outline that utilize abstract equivalence and abstract linking to overapproximate any initial state $\Abs{S}$.
+Here is a general outline that utilize abstract equivalence and abstract linking to overapproximate any initial state given by $\Abs{S}$.
 The goal is to overapproximate something equivalent to $\sembracket{e}\gamma(\Abs{S})$, when all abstract timestamps in $\Abs{S}$ correspond to infinitely many concrete timestamps.
 \begin{description}
   \item[Step 1] Choose a finite set $\A\Time_2$ and a function $\A\tick_2\in\A\Time_2\rightarrow\A\Time_2$.
   \item[Step 2] Assume an initial condition $\Abs{S}_2$ and compute $\Abs{\sembracket{e}}\Abs{S}_2$.
   \item[Step 3] Choose a finite set $\A\Time_1$ and $\A\tick_1\in\A\Time_1\rightarrow\A\Time_1$.
-  \item[Step 4] Find a $\Abs{S}_1$ such that $\Abs{S}_1\Abs\rhd\Abs{S}_2$ is equivalent to some \emph{superset} $\ovbar{\Abs{S}}$ of $\Abs{S}$.
+  \item[Step 4] Find a $\Abs{S}_1$ such that $\Abs{S}_1\Abs\rhd\Abs{S}_2$ is equivalent to $\Abs{S}$.
   \item[Result] Then $\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2$ overapproximates an equivalent superset of $\sembracket{e}\gamma(\Abs{S})$.
 \end{description}
 $\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2$ overapproximates an equivalent superset of $\sembracket{e}\gamma(\Abs{S})$, since if we let:
-\[\Time_{\semlink}\triangleq(\ATime_1+\ATime_2)\times\mathbb{Z}\quad\tick_{\semlink}(\A{t},n)\triangleq(\A\tick_{\semlink}(\A{t}),n+1)\quad\A\alpha_{\semlink}(\A{t},n)\triangleq\A{t}\]
+\[\Time_{\semlink}\triangleq\mathbb{Z}\times(\ATime_1+\ATime_2)\qquad\tick_{\semlink}(n,\A{t})\triangleq(n+1,\A\tick_{\semlink}(\A{t}))\qquad\A\alpha_{\semlink}(n,\A{t})\triangleq\A{t}\]
 we have a concrete time $\Time_{\semlink}$ that is connected to $\ATime_1+\ATime_2$ by $\A\alpha_{\semlink}$ such that all abstract timestamps correspond to infinitely many concrete timestamps.
 Thus:
 \begin{align*}
-  \sembracket{e}\gamma(\Abs{S}) & \subseteq\sembracket{e}\gamma(\ovbar{\Abs{S}})                               & (\because\Abs{S}\subseteq\ovbar{\Abs{S}}\text{ and }\gamma\text{ monotonic}) \\
-                                & \equivalent\sembracket{e}\gamma_{\semlink}(\Abs{S}_1\Abs\rhd\Abs{S}_2)       & (\because\gamma,\semarrow\text{ preserves equivalence})                      \\
+  \sembracket{e}\gamma(\Abs{S}) & \equivalent\sembracket{e}\gamma_{\semlink}(\Abs{S}_1\Abs\rhd\Abs{S}_2)       & (\because\gamma,\semarrow\text{ preserves equivalence})                      \\
                                 & \subseteq\gamma_{\semlink}(\Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_2)) & (\because\text{Soundness})                                                   \\
                                 & =\gamma_{\semlink}(\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2)       & (\because\text{Abstract advance})
 \end{align*}
@@ -1476,12 +1475,33 @@ In Figure \ref{fig:extsyntax}, we introduce the syntax for a variant of the modu
 We say that modules are first-class, since functions may return modules and functors may return closures.
 
 To support functors, we added signatures $s\in\Sig$ to enforce static scoping.
-That is, we preserve the property that we know what variables are in scope before execution, from the syntax of the program.
-Note that signatures are shaped exactly like the environments used to define the operational semantics previously, except that bindings for $x$ are omitted.
-During execution, the bindings from the dynamically computed environments are \emph{projected} onto the signatures.
+That is, we preserve the property that the syntax of the program makes obvious all variables in scope.
+Note that signatures are shaped exactly like the environments used to define the operational semantics, except that timestamps for $x$ are omitted.
+During execution, the timestamps from the dynamically computed environments are \emph{projected} onto the signatures.
 
 In Coq, we formalized the instrumented operational semantics for this language, along with a reference interpreter proven to be equivalent with the operational semantics.
-Using this formalism, we ported all proofs from the simple language with minimal effort.
+Also, we defined an injection operator between $s_1\texteq{let}(\ctx_1,\mem_1,t_1)\in\State_1$ and $o_2\texteq{let}(V_2,\mem_2,t_2)\in\Outcome_2$ that \emph{preserves} the operational semantics:
+\[
+  \begin{array}{cc}
+    \inject{\ctx_{1}}{V_{2}}\triangleq
+    \begin{cases}
+      \ctx_1                                            & V_{2}=[]                               \\
+      (x, t)\cons\inject{\ctx_{1}}{\ctx}                & V_{2}=(x,t)\cons \ctx                  \\
+      (\modid, \ctx)\cons\inject{\ctx_{1}}{\ctx'}       & V_{2}=(\modid,\ctx)\cons \ctx'         \\
+      \langle\lambda x.e,\inject{\ctx_1}{\ctx_2}\rangle & V_{2}=\langle\lambda x.e,\ctx_2\rangle
+    \end{cases} &
+    \begin{array}{l}
+      \inject{\ctx_1}{\mem_2}\triangleq
+      \displaystyle\bigcup_{t\in\mathsf{dom}(\mem_2)}\{t\mapsto\inject{\ctx_1}{\mem_2(t)}\} \\ \\
+      \inject{s_1}{o_2}\triangleq
+      (\inject{\ctx_1}{V_2},\mem_1\cup\inject{\ctx_1}{\mem_2},t_2)
+    \end{array}
+  \end{array}
+\]
+Compared to the definition for the simple module language, note that $\ctx_1$ is not injected into bindings for modules.
+This is because all modules are constrained by the \emph{signatures} that are annotated in the functors, thus the shape of the bound modules must not change.
+
+Using this formalism, we ported \emph{all} proofs from the simple language with minimal effort.
 
 \subsubsection{Supporting Multiple Evaluation Orders}
 \begin{figure}[h!]
@@ -1514,11 +1534,11 @@ Using this formalism, we ported all proofs from the simple language with minimal
   \caption{Extension of the instrumented operational semantics to allow non-deterministic evaluation order.}
   \label{fig:cbvorder}
 \end{figure}
-We note that according to the operational semantics, the amount of information that is cached depends on whether an open term is on the \emph{left} or the \emph{right}.
+We note that according to the operational semantics, the amount of information that is cached depends on whether an open term is on the \emph{left} side or the \emph{right} side of an application.
 In languages like OCaml, where the order of evaluation is deliberately non-deterministic, this behavior is undesirable.
 Intuitively, results of ``sensible'' programs must not depend on whether the function or the argument is evaluated first.
 
-To address this, we suggest that the operational semantics be extended to support non-deterministic evaluation orders, as in Figure \ref{fig:cbvorder}.
+To address this, we suggest that the \emph{operational semantics} be extended to support non-deterministic evaluation orders, as in Figure \ref{fig:cbvorder}.
 By adding the same rules both in the concrete and abstract semantics, we believe it will be simple to obtain the same lemmas and theorems.
 
 \subsection{Extending the Precision}
@@ -1558,19 +1578,22 @@ Thus, the type of $\tick$ is essential to improving the precision.
 Taking this to the extreme, we may choose the type $\State\times\ExprVar\times\Value\rightarrow\Time$, as illustrated in Figure \ref{fig:highprecision}.
 
 Allowing the $\tick$ function to generate timestamps depending on the state of execution complicates linking.
-To justify that all theoretical results still hold after extending $\tick$, the type of $\tick$ in the Coq mechanization is exactly as in Figure \ref{fig:highprecision}.
+To justify that all theoretical results still hold after extending $\tick$, the type of $\tick$ in the Coq mechanization was chosen to be exactly as in Figure \ref{fig:highprecision}.
 
 Using this extension, we may recover well-known analysis techniques such as \emph{k}-CFA.
 Note that the notion of \emph{call-site} corresponds to the \emph{context} $\ctx$ at the function application site.
 Thus, the concrete $\tick$ function may be defined as:
-\[\tick(\ctx,\_,(l,\_),x,\_)\triangleq(|\ctx|\cons l, x)\]
-when $|\cdot|:\Ctx\rightarrow\Sig$ removes the timestamps from the dynamic context.
-To be thorough, the total order on $\Time=(\Sig)^*\times\ExprVar$ is defined as the lexicographic order.
-Also, the order on $(\Sig)^*$ is given as the lexicographic order of the \emph{reverse} of the list, with respect to some arbitrary total order on $\Sig$.
+\[\Time\triangleq\mathbb{Z}\times\ExprVar\times\Sig^*\qquad\tick(\ctx,\_,(n,\_,\_),x,\_)\triangleq(n+1,x,|\ctx|\cons\lceil\ctx\rceil)\]
+when $|\cdot|:\Ctx\rightarrow\Sig$ and $\lceil\cdot\rceil:\Ctx\rightarrow\Sig^*$ are given by:
+\begin{align*}
+  |[]|           & \triangleq [] &  &  & |(x,\_)\cons\ctx|                & \triangleq x\cons|\ctx| &  &  & |(\modid,\ctx)\cons\ctx'|        & \triangleq(\modid,|\ctx|)\cons|\ctx'| \\
+  \lceil[]\rceil & \triangleq [] &  &  & \lceil(x,(\_,\_,l))\cons\_\rceil & \triangleq l            &  &  & \lceil(\modid,\_)\cons\ctx\rceil & \triangleq\lceil\ctx\rceil
+\end{align*}
+and the order on $\Time$ is given by the lexicographic order, with respect to some total order on $\ExprVar$ and $\Sig^*$.
 With this ordering, $\tick$ always produces strictly larger timestamps.
 
 Then the $\A\tick$ function corresponding to \emph{k}-CFA may be given as:
-\[\A\tick(\A\ctx,\_,(l,\_),x,\_)\triangleq(\lfloor|\A\ctx|\cons l\rfloor_k, x)\quad\A\alpha(l,x)\triangleq(\lfloor l\rfloor_k,x)\]
+\[\A\tick(\A\ctx,\_,(\_,l),x,\_)\triangleq(x,\lfloor|\A\ctx|\cons l\rfloor_k)\qquad\A\alpha(n,x,l)\triangleq(x,\lfloor l\rfloor_k)\]
 when $\lfloor\cdot\rfloor_k$ takes the $k$ top elements of a list.
 It can be shown that $\A\alpha\circ\tick=\A\tick\circ\A\alpha$, thus \emph{k}-CFA is a sound abstraction.
 Also, since each abstract timestamp corresponds to infinitely many concrete timestamps, the lemma for abstract equivalence can be applied as well.
