@@ -46,6 +46,9 @@ signature/ConcretEquivalence.vos signature/ConcretEquivalence.vok signature/Conc
 signature/Concrete.vo signature/Concrete.glob signature/Concrete.v.beautified signature/Concrete.required_vo: signature/Concrete.v signature/Syntax.vo
 signature/Concrete.vio: signature/Concrete.v signature/Syntax.vio
 signature/Concrete.vos signature/Concrete.vok signature/Concrete.required_vos: signature/Concrete.v signature/Syntax.vos
+signature/Example.vo signature/Example.glob signature/Example.v.beautified signature/Example.required_vo: signature/Example.v signature/Concrete.vo
+signature/Example.vio: signature/Example.v signature/Concrete.vio
+signature/Example.vos signature/Example.vok signature/Example.required_vos: signature/Example.v signature/Concrete.vos
 signature/Linking.vo signature/Linking.glob signature/Linking.v.beautified signature/Linking.required_vo: signature/Linking.v signature/Concrete.vo
 signature/Linking.vio: signature/Linking.v signature/Concrete.vio
 signature/Linking.vos signature/Linking.vok signature/Linking.required_vos: signature/Linking.v signature/Concrete.vos

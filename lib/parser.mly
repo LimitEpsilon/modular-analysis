@@ -5,10 +5,10 @@ open Syntax
 %token <string> ID
 %token IN
 %token EQUAL
-%token LET
+%token LET FIX
 %token LP RP
 %token EOF
-%right LP ID LAMBDA LET
+%right LP ID LAMBDA LET FIX
 
 %start program
 %type <tm> program
@@ -27,5 +27,6 @@ atom :
     | LP exp RP { $2 }
     | LAMBDA ID DOT exp %prec LP{ Lam ($2, $4) }
     | LET ID EQUAL exp IN exp %prec LP{ App (Lam ($2, $6), $4) }
+    | FIX ID ID EQUAL exp IN exp %prec LP{ LetRec ($2, $3, $5, $7) }
     ;
 %%

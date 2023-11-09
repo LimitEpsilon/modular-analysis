@@ -2,6 +2,7 @@ type tm =
   | EVar of string
   | Lam of string * tm
   | App of tm * tm
+  | LetRec of string * string * tm * tm
   | Link of tm * tm
   | Empty
   | MVar of string
@@ -16,6 +17,8 @@ let rec string_of_tm e =
     "\\" ^ x ^ "." ^ string_of_tm e
   | App (e1, e2) ->
     "(" ^ string_of_tm e1 ^ ") (" ^ string_of_tm e2 ^ ")"
+  | LetRec (f, x, e1, e2) ->
+    "(fix " ^ f ^ " " ^ x ^ "=" ^ string_of_tm e1 ^ "\nin " ^ string_of_tm e2 ^ ")"
   | Link (e1, e2) ->
     "(" ^ string_of_tm e1 ^ ")!(" ^ string_of_tm e2 ^ ")"
   | Empty -> "ε"
@@ -62,11 +65,11 @@ let rec string_of_stx (s : stx) =
   | Sbinde (x, s) -> "\\" ^ x ^ "." ^ string_of_stx s
   | Sbindm (m, sm, s) -> "\\" ^ m ^ ":" ^ string_of_stx sm ^ "." ^ string_of_stx s
 
-let rec plugin (cout : 't ctx) (cin : 't ctx) =
-  match cout with
-  | Chole -> cin
-  | Cbinde (x, tx, c') -> Cbinde (x, tx, plugin c' cin)
-  | Cbindm (m, cm, c') -> Cbindm (m, cm, plugin c' cin)
+let rec inject (cout : 't ctx) (cin : 't ctx) =
+  match cin with
+  | Chole -> cout
+  | Cbinde (x, tx, c') -> Cbinde (x, tx, inject cout c')
+  | Cbindm (m, cm, c') -> Cbindm (m, inject cout cm, inject cout c')
  
 let rec level (c : 't ctx) =
   match c with
@@ -88,36 +91,3 @@ let rec ctx_M (c : 't ctx) (m : string) =
   | Cbinde (_, _, c') -> ctx_M c' m
   | Cbindm (m', cm', c') ->
     if m = m' then (Some cm') else ctx_M c' m
-
-let rec map_inject (cout : 't ctx) (cin : 't ctx) =
-  match cin with
-  | Chole -> Chole
-  | Cbinde (x, t, c') -> Cbinde (x, t, map_inject cout c')
-  | Cbindm (m, c', c'') -> Cbindm (m, plugin cout (map_inject cout c'), map_inject cout c'')
-  
-let inject_ctx (cout : 't ctx) (cin : 't ctx) =
-  plugin cout (map_inject cout cin)
-
-let rec delete_prefix (cout : 't ctx) (cin : 't ctx) =
-  match cout, cin with
-  | Chole, cin -> cin
-  | Cbinde (x, t, cout'), Cbinde(x', t', cin') ->
-    if x = x' && t = t' then
-      delete_prefix cout' cin'
-    else cin
-  | Cbindm (m, cout', cout''), Cbindm (m', cin', cin'') ->
-    if m = m' && cout' = cin' then
-      delete_prefix cout'' cin''
-    else cin
-  | _, _ -> cin
-
-let rec delete_map (cout : 't ctx) (cin : 't ctx) =
-  match cin with
-  | Chole -> Chole
-  | Cbinde (x, t, c') ->
-    Cbinde (x, t, delete_map cout c')
-  | Cbindm (m, c', c'') ->
-    Cbindm (m, delete_map cout (delete_prefix cout c'), delete_map cout c'')
-
-let delete_ctx (cout : 't ctx) (cin : 't ctx) =
-  delete_map cout (delete_prefix cout cin)

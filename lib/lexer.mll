@@ -8,6 +8,7 @@
         [
         ("let", LET);
         ("in", IN);
+        ("fix", FIX);
         ]
 }
 
@@ -21,8 +22,6 @@ rule start =
      | "(*" { comment_depth :=1;
               comment lexbuf;
               start lexbuf }
-     | "let" { LET }
-     | "in" { IN }
      | id { let id = Lexing.lexeme lexbuf
             in try Hashtbl.find keyword_tbl id
                with _ -> ID id
