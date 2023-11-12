@@ -629,7 +629,7 @@ Thus, we can define $\rhd$ that injects a \emph{set} of contexts $C$ into an sub
 \end{definition}
 
 Thus we reach the main theorem that allows ``fractional closures'' to be soundly defined:
-\begin{theorem}[Advance]
+\begin{theorem}[Advance]\label{thm:advance}
   For all $e\in\Expr$ and $C_1,C_2\subseteq\Ctx$,
   \[\sembracket{e}(C_1\rhd C_2)=C_1\semlink\sembracket{e}C_2\]
 \end{theorem}
@@ -651,6 +651,25 @@ Thus we reach the main theorem that allows ``fractional closures'' to be soundly
   Since $X_B\subseteq X_A$ and $X_A\subseteq X_B$, we have that $X_A=X_B$.
 \end{proof}
 
+How does Theorem \ref{thm:advance} fit in with \emph{modular} analysis?
+Consider the linked expression $\link{e_1}{e_2}$.
+According to the operational semantics, first the module $e_1$ is evaluated, then the expression $e_2$ is evaluated under the exported context.
+Theorem \ref{thm:advance} tells us that $e_2$ may be executed \emph{in advance} before what it will be linked with is known.
+That is, $e_1$ and $e_2$ can be analyzed separately, and the cached analysis result of $e_2$ can be filled in later with what $e_1$ exports.
+
+To express this intuition formally, we first need to view a cache $A\subseteq\Sigma$ as a function that relates an expression $e$ with what $e$ evaluates to under $A$.
+Thus, we may write:
+\[A(e)\triangleq\{V|(e,\_)\semarrow V\in A\}\]
+Then we have:
+\begin{corollary} For all $e_1,e_2\in\Expr$ and $C,C_1,C_2\subseteq\Ctx$, we have:
+  \[(\sembracket{\link{e_1}{e_2}}C)(e_2)=(C_1\semlink\sembracket{e_2}C_2)(e_2)\]
+  when $C_1\rhd C_2=(\sembracket{e_1}C)(e_1)$.
+\end{corollary}
+For the trivial case when $C_2=\{[]\}$, we have:
+\begin{corollary} For all $e_1,e_2\in\Expr$ and $C\subseteq\Ctx$, we have:
+  \[(\sembracket{\link{e_1}{e_2}}C)(e_2)=((\sembracket{e_1}C)(e_1)\semlink\sembracket{e_2}\mt)(e_2)\]
+  when $\mt=\{[]\}$.
+\end{corollary}
 \subsection{Skeleton of a Static Analysis}
 We require a CPO $\Abs{\Trace}$ that is Galois connected with $\Trace$:
 \[\Trace=\pset(\Sigma)\galois{\alpha}{\gamma}\Abs{\Trace}\]
@@ -669,12 +688,12 @@ Then we can soundly approximate fractional specifications by:
                                & \subseteq \gamma(\alpha(C_1))\semlink\gamma(\Abs{\sembracket{e}}\alpha(C_2)) & (\because\text{id}\subseteq\gamma\circ\alpha\text{ and monotonicity of }\semlink)                               \\
                                & \subseteq\gamma(\alpha(C_1)\Abs\semlink\Abs{\sembracket{e}}\alpha(C_2))      & (\because\semlink\circ(\gamma,\gamma)\subseteq\gamma\circ\Abs\semlink)
 \end{align*}
-\section{Instrumented Semantics}
+\section{Instrumented Semantics for Easy Abstraction}
 All that is left is to present an abstraction for the semantics in the previous section.
 We need to abstract $C\subseteq\Ctx$ to finitely compute an overapproximation.
 However, devising such an abstraction is not immediately obvious.
 
-The problem is that closures bound in $\sigma\in\Ctx$ again contain contexts.
+The problem is that closures bound in $\ctx\in\Ctx$ again contain contexts.
 To break this recursive structure, we employ the common technique of introducing addresses and a memory.
 Thus, we extend the operational semantics of the previous section to a sematics that involve choosing a \emph{time} domain $\Time$ to use as addresses.
 
@@ -879,7 +898,6 @@ That is, when we write:
     \right\}
   \]
 \end{definition}
-and
 \begin{definition}[Collecting semantics]
   Given $e\in\Expr$ and $S\subseteq\State$, define:
   \[
@@ -977,7 +995,18 @@ Thus we can define $\rhd$ and $\semlink$ that satisfies the desired property.
     \sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2
   \]
 \end{theorem}
-
+Using the advance theorem, we may draw the same conclusions that lead to modular analysis in the previous section.
+Again, we view $A\subseteq\Sigma$ as a function that relates an expression $e$ with the \emph{outcomes} of $e$ under $A$.
+\[A(e)\triangleq\{o|(e,\_)\semarrow o\in A\}\]
+Then we have:
+\begin{corollary} For all $e_1,e_2\in\Expr$ and $S,S_1,S_2\subseteq\State$, we have:
+  \[(\sembracket{\link{e_1}{e_2}}S)(e_2)=(S_1\semlink\sembracket{e_2}S_2)(e_2)\]
+  when $S_1\rhd S_2=(\sembracket{e_1}S)(e_1)$.
+\end{corollary}
+\begin{corollary} For all $e_1,e_2\in\Expr$ and $S\subseteq\State$, we have:
+  \[(\sembracket{\link{e_1}{e_2}}S)(e_2)=((\sembracket{e_1}S)(e_1)\semlink\sembracket{e_2}\mt)(e_2)\]
+  when $\mt=\{([],\{\},0)\}$.
+\end{corollary}
 \section{Abstracting the Instrumented Semantics}
 \subsection{Abstract Semantics}
 \begin{figure}[h!]
@@ -1151,7 +1180,7 @@ Thus, the only part in the configuration that makes computations infinite is the
 
 Therefore, we may show that finitizing $\A\Time$ is enough to guarantee termination.
 \begin{theorem}[Finiteness]\label{thm:absfinite}
-  For all $e\in\Expr$, if $\A\Time$ and $\Abs{S}\subseteq\A\State$ is finite, $\Abs{\sembracket{e}}\Abs{S}$ is finite.
+  For all $e\in\Expr$, if $\:\A\Time$ and $\Abs{S}\subseteq\A\State$ is finite, $\Abs{\sembracket{e}}\Abs{S}$ is finite.
 \end{theorem}
 \begin{proof}[Sketch]
   Given $\A{s}\in\Abs{S}$, we want to prove that there is some finite set $X$ satisfying:
@@ -1178,7 +1207,7 @@ Moreover, we need to define how the auxiliary abstraction functions $\A\alpha_1$
   \end{cases}
 \]
 \begin{notation*}
-  All sets with the subscript $i(i=1,2)$ is assumed to be using $\Time_i$ as timestamps, and all sets with the subscript $\semlink$ is assumed to be using $\Time_{\semlink}$ as timestamps.
+  All sets with the subscript $i(i=1,2)$ is assumed to be using $\A\Time_i$ as timestamps, and all sets with the subscript $\semlink$ is assumed to be using $\A\Time_{\semlink}$ as timestamps.
 \end{notation*}
 Then we can define different versions of semantic operators.
 \begin{definition}[Versions of $\A\semarrow$, $\Abs\Step$]$\:$
@@ -1193,7 +1222,7 @@ Then we can define different versions of semantic operators.
 We define injection and linking in the abstract semantics in the same way as the concrete semantics.
 Only the definition of $\inject{\A{\ctx}_1}{\A\mem_2}$ has to be adapted to account for the fact that $\A\mem_2(\A{t})$ is now a \emph{set} of closures.
 This means that $\inject{\A{\ctx}_1}{\A\mem_2}$ must be defined as:
-\[\inject{\A{\ctx}_1}{\A\mem_2}\triangleq\lambda\A{t}.\{\inject{\A{\ctx}_1}{\A{v}_2}|\A{v}_2\in\A\mem_2(\A{t})\}\]
+\[\inject{\A{\ctx}_1}{\A\mem_2}\triangleq\lambda\A{t}.\{\inject{\A{\ctx}_1}{\A{v}_2}|\A{v}_2\in\A\mem_2(\A{t})\}\text{ when }\inject{\A\ctx_1}{\A{v}_2}\text{ is the same as concrete injection}\]
 Then we can show that:
 \begin{lemma}[Injection Preserves $\A\semarrow$]\label{lem:injpresaval}
   For all $\A{s}_1\in\A\State_1$, $\A\config_2\in\A\Config_2$, $\A\rightst\in\A\Right_2$,
@@ -1216,7 +1245,7 @@ and thus we can define:
   \]
 \end{definition}
 so that the \emph{best possible result} is achieved:
-\begin{theorem}[Abstract Advance]
+\begin{theorem}[Abstract Advance]\label{thm:absadvance}
   For all $e\in\Expr$ and $\Abs{S}_1\subseteq\A\State_1$, $\Abs{S}_2\subseteq\A\State_2$,
   \[
     \Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_2)=\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2
@@ -1227,10 +1256,10 @@ so that the \emph{best possible result} is achieved:
   \[S_1\semlink\sembracket{e}S_2\subseteq\gamma_{\semlink}(\alpha_1(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha_2(S_2))\]
 \end{corollary}
 \begin{proof}
-  First, we prove $\alpha_{\semlink}(\inject{s_1}{r_2})=\inject{\alpha_1(s_1)}{\alpha_2(r_2)}$(\texttt{Sound.v}). Then:
+  First, we have that $\alpha_{\semlink}(\inject{s_1}{r_2})=\inject{\alpha_1(s_1)}{\alpha_2(r_2)}$(proven in Coq). Then:
   \begin{align*}
     S_1\semlink\sembracket{e}S_2 & =\sembracket{e}(S_1\rhd S_2)                                                   & (\because\text{Advance})                                                    \\
-                                 & \subseteq\gamma_{\semlink}(\Abs{\sembracket{e}}\alpha_{\semlink}(S_1\rhd S_2)) & (\because\text{Galois connection})                                          \\
+                                 & \subseteq\gamma_{\semlink}(\Abs{\sembracket{e}}\alpha_{\semlink}(S_1\rhd S_2)) & (\because\text{Soundness})                                          \\
                                  & =\gamma_{\semlink}(\Abs{\sembracket{e}}(\alpha_1(S_1)\Abs\rhd\alpha_2(S_2)))   & (\because\alpha_{\semlink}(S_1\rhd A_2)=\alpha_1(S_1)\Abs\rhd\alpha_2(A_2)) \\
                                  & =\gamma_{\semlink}(\alpha_1(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha_2(S_2)) & (\because\text{Abstract advance})
   \end{align*}
@@ -1244,10 +1273,8 @@ In the factorial example, $e$ is the client code that adds $100!$ to \texttt{M.x
 By separately analyzing $\Abs{\sembracket{e}}\alpha_2(S_2)$ and linking $\alpha_1(S_1)$, we overapproximate $\sembracket{e}(S_1\rhd S_2)$.
 But what is this $S_1\rhd S_2$ that is given as the initial state to $e$?
 
-The concrete execution that is being modelled is that of the \emph{linked} program $e_{\synlink}$ under the initial state $\mt\texteq{let}\{([],\{\},0)\}$.
-When $e_\synlink$ is executing under $\mt$, $e$ starts evaluation under what
-  {\small\[(\text{\texttt{let M = }}e_1\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{let F = }}e_2\text{\texttt{ in }}\varepsilon)\]}%
-evaluates to.
+The concrete execution that is being modelled is that of the \emph{linked} program under the initial state $\mt\texteq{let}\{([],\{\},0)\}$.
+When the linked program is executing under $\mt$, the client code starts evaluation under what \texttt{M} linked with \texttt{F} exports.
 Call this $S$.
 We expect that $S_1\rhd S_2=S$.
 However, this is not true, since $S$ uses only one time domain, yet $S_1\rhd S_2$ uses two versions.
@@ -1274,24 +1301,26 @@ Thus, the notion of equivalence is defined by how $\ctx$ and $\mem$ components `
 Note that information in $\ctx$ and $\mem$ is only accessed through a sequence of names $x$ and $\modid$.
 Thus, one may imagine access ``paths'' with names on the edges and reachable timestamps on the vertices as representing the way that $(\ctx,\mem)$ is \emph{viewed}.
 Also, given a $\varphi\in\Time\rightarrow\Time'$, we can define how access paths that use timestamps in $\Time$ are translated to access paths in $\Time'$.
-\begin{center}
-  \begin{tabular}{rclrcrcl}
-    $p$ & $\rightarrow$ & $\epsilon$                   & empty path     & $\qquad$ & $\varphi(\epsilon)$                   & \hspace{-2em} & $\triangleq\epsilon$                              \\
-        & $|$           & $\xrightarrow{x}t\:p$        & address access & $\qquad$ & $\varphi(\xrightarrow{x}t\:p)$        & \hspace{-2em} & $\triangleq\xrightarrow{x}\varphi(t)\:\varphi(p)$ \\
-        & $|$           & $\xrightarrow{\modid}p$      & module access  & $\qquad$ & $\varphi(\xrightarrow{\modid}p)$      & \hspace{-2em} & $\triangleq\xrightarrow{\modid}\varphi(p)$        \\
-        & $|$           & $\xrightarrow{\lambda x.e}p$ & value access   & $\qquad$ & $\varphi(\xrightarrow{\lambda x.e}p)$ & \hspace{-2em} & $\triangleq\xrightarrow{\lambda x.e}\varphi(p)$
-  \end{tabular}
-\end{center}
 
 From now on, we shall write $\Path$ for the set of access paths that use timestamps in $\Time$, and $\Path'$ for the set of access paths that use timestamps in $\Time'$.
 Then given an access path, we can define a predicate $\valid\in(\Ctx+\Time)\times\Mem\times\Path\rightarrow\mathsf{Prop}$.
 $\valid(r,\mem,p)$ is true iff starting from $r$, all accesses edges in $p$ are valid.
 Likewise, we can define a predicate $\A\valid\in(\A\Ctx+\A\Time)\times\A\Mem\times\A\Path\rightarrow\mathsf{Prop}$.
 $\A\valid(\A{r},\A\mem,\A{p})$ is true iff starting from $\A{r}$, all access edges in $\A{p}$ are valid.
-The definitions for $\valid$, $\A\valid$ are given in Figure \ref{fig:valid}.
+All definitions related to access paths are given in Figure \ref{fig:valid}.
 \begin{figure}[t!]
   \centering
-  \begin{minipage}{0.4\linewidth}
+  \begin{tabular}{rclr}
+    $p$                                   & $\rightarrow$ & $\epsilon$                              \\
+                                          & $|$           & $\xrightarrow{x}t\:p$                   \\
+                                          & $|$           & $\xrightarrow{\modid}p$                 \\
+                                          & $|$           & $\xrightarrow{\lambda x.e}p$            \\
+    $\varphi(\epsilon)$                   & $\triangleq$  & $\epsilon$                              \\
+    $\varphi(\xrightarrow{x}t\:p)$        & $\triangleq$  & $\xrightarrow{x}\varphi(t)\:\varphi(p)$ \\
+    $\varphi(\xrightarrow{M}p)$           & $\triangleq$  & $\xrightarrow{M}\varphi(p)$             \\
+    $\varphi(\xrightarrow{\lambda x.e}p)$ & $\triangleq$  & $\xrightarrow{\lambda x.e}\varphi(p)$
+  \end{tabular}
+  \begin{minipage}{0.3\linewidth}
     \footnotesize
     \[
       \begin{prooftree}
@@ -1320,7 +1349,7 @@ The definitions for $\valid$, $\A\valid$ are given in Figure \ref{fig:valid}.
       \end{prooftree}
     \]
   \end{minipage}
-  \begin{minipage}{0.4\linewidth}
+  \begin{minipage}{0.3\linewidth}
     \footnotesize
     \[
       \begin{prooftree}
@@ -1349,7 +1378,7 @@ The definitions for $\valid$, $\A\valid$ are given in Figure \ref{fig:valid}.
       \end{prooftree}
     \]
   \end{minipage}
-  \caption{Definitions for the $\valid$ and $\A\valid$ predicates.}
+  \caption{Definitions for access paths. Given from the left are: the syntax of access paths, the translation of timestamps, the $\valid$ predicate, and the $\A\valid$ predicate.}
   \label{fig:valid}
 \end{figure}
 
@@ -1449,8 +1478,8 @@ $\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2$ overapproximates an equival
 we have a concrete time $\Time_{\semlink}$ that is connected to $\ATime_1+\ATime_2$ by $\A\alpha_{\semlink}$ such that all abstract timestamps correspond to infinitely many concrete timestamps.
 Thus:
 \begin{align*}
-  \sembracket{e}\gamma(\Abs{S}) & \equivalent\sembracket{e}\gamma_{\semlink}(\Abs{S}_1\Abs\rhd\Abs{S}_2)       & (\because\gamma,\semarrow\text{ preserves equivalence})                      \\
-                                & \subseteq\gamma_{\semlink}(\Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_2)) & (\because\text{Soundness})                                                   \\
+  \sembracket{e}\gamma(\Abs{S}) & \equivalent\sembracket{e}\gamma_{\semlink}(\Abs{S}_1\Abs\rhd\Abs{S}_2)       & (\because\gamma,\semarrow\text{ preserves equivalence}) \\
+                                & \subseteq\gamma_{\semlink}(\Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_2)) & (\because\text{Soundness})                              \\
                                 & =\gamma_{\semlink}(\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2)       & (\because\text{Abstract advance})
 \end{align*}
 \section{Extensions}
@@ -1480,27 +1509,7 @@ Note that signatures are shaped exactly like the environments used to define the
 During execution, the timestamps from the dynamically computed environments are \emph{projected} onto the signatures.
 
 In Coq, we formalized the instrumented operational semantics for this language, along with a reference interpreter proven to be equivalent with the operational semantics.
-Also, we defined an injection operator between $s_1\texteq{let}(\ctx_1,\mem_1,t_1)\in\State_1$ and $o_2\texteq{let}(V_2,\mem_2,t_2)\in\Outcome_2$ that \emph{preserves} the operational semantics:
-\[
-  \begin{array}{cc}
-    \inject{\ctx_{1}}{V_{2}}\triangleq
-    \begin{cases}
-      \ctx_1                                            & V_{2}=[]                               \\
-      (x, t)\cons\inject{\ctx_{1}}{\ctx}                & V_{2}=(x,t)\cons \ctx                  \\
-      (\modid, \ctx)\cons\inject{\ctx_{1}}{\ctx'}       & V_{2}=(\modid,\ctx)\cons \ctx'         \\
-      \langle\lambda x.e,\inject{\ctx_1}{\ctx_2}\rangle & V_{2}=\langle\lambda x.e,\ctx_2\rangle
-    \end{cases} &
-    \begin{array}{l}
-      \inject{\ctx_1}{\mem_2}\triangleq
-      \displaystyle\bigcup_{t\in\mathsf{dom}(\mem_2)}\{t\mapsto\inject{\ctx_1}{\mem_2(t)}\} \\ \\
-      \inject{s_1}{o_2}\triangleq
-      (\inject{\ctx_1}{V_2},\mem_1\cup\inject{\ctx_1}{\mem_2},t_2)
-    \end{array}
-  \end{array}
-\]
-Compared to the definition for the simple module language, note that $\ctx_1$ is not injected into bindings for modules.
-This is because all modules are constrained by the \emph{signatures} that are annotated in the functors, thus the shape of the bound modules must not change.
-
+Also, we defined an injection operator between $s_1\texteq{let}(\ctx_1,\mem_1,t_1)\in\State_1$ and $o_2\texteq{let}(V_2,\mem_2,t_2)\in\Outcome_2$ that \emph{preserves} the operational semantics.
 Using this formalism, we ported \emph{all} proofs from the simple language with minimal effort.
 
 \subsubsection{Supporting Multiple Evaluation Orders}
@@ -1557,7 +1566,7 @@ By adding the same rules both in the concrete and abstract semantics, we believe
           (e_{2}, \ctx, \mem_{\lambda}, t_{\lambda})
           \semarrow
           (v, \mem_{a}, t_{a})                                                               \\
-          t'=\tick(\sigma,\mem_{a},t_{a},x,v)                                                \\
+          t'=\tick(\ctx,\mem_{a},t_{a},x,v)                                                  \\
           (e_{\lambda}, (x, t')\cons \ctx_{\lambda}, \mem_{a}[t'\mapsto v], t')
           \semarrow
           (v', \mem',t'')

@@ -892,12 +892,20 @@ Section InterpExample.
     | Resolved V m t _ => Some (V, m, t) 
     | _ => None 
     end.
-  Example eval_assoc : ev1 = ev2. reflexivity. Qed.
+  
+  Example eval_assoc : ev1 = ev2.
+  Proof.
+    vm_compute. reflexivity.
+  Qed.
 
-  Compute eval linked1 ([||]) [] 0 [] 5.
+  Example display : eval linked1 ([||]) [] 0 [] 5 = Error [].
   (*(dy_bindm F
       (dy_binde fact 2 (dy_bindm M (dy_binde x 1 ([| |])) ([| |])))
       (dy_bindm M (dy_binde x 1 ([| |])) ([| |])))
     [(2, Closure x (e_var x) (dy_bindm M (dy_binde x 1 ([| |])) ([| |])));
      (1, Closure x (e_var x) ([| |]))]*)
+  Proof.
+    vm_compute.
+  Abort.
+
 End InterpExample.

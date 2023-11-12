@@ -19,10 +19,11 @@ let church_is0 = \z.z (\zx.false) true in
 fix church_eq e1 = \e2.
   church_is0 e1
     (church_is0 e2 true false)
-    (\eta.church_eq (pred e1) (pred e2) eta) in
+    (church_is0 e2 false
+      (\eta.church_eq (pred e1) (pred e2) eta)) in
 
 (* multiplication distributes over addition *)
 church_eq
   (mult church2 (plus church1 church3))
-  (plus (mult church2 church1) (plus church2 church3))
+  (plus (mult church2 church1) (mult church2 church3))
   church0
