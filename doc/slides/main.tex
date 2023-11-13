@@ -13,21 +13,24 @@
 \UseTblrLibrary{counter}
 
 %%% Math settings
-\usepackage{amssymb,amsmath,amsthm,mathtools} % Before unicode-math
+\usepackage{amsmath,amsthm,amssymb,mathtools} % Before unicode-math
 \usepackage[math-style=TeX,bold-style=TeX]{unicode-math}
 \theoremstyle{definition}
 \newtheorem*{definition*}{Definition}
 \newtheorem*{lemma*}{Lemma}
 \newtheorem*{theorem*}{Theorem}
+\newtheorem*{corollary*}{Corollary}
+\newtheorem*{notation*}{Notation}
 
 %%% Font settings
 \setmainfont{Libertinus Serif}
 \setmathfont{Libertinus Math} % Before set*hangulfont
-\setmathfont{TeX Gyre Pagella Math}[range={\lbrace,\rbrace},Scale=1.1]
+\setmathfont{TeX Gyre Pagella Math}[range={\lbrace,\rbrace,\checkmark},Scale=1.1]
 \setmainhangulfont{Noto Serif CJK KR}
 \setsanshangulfont[BoldFont={* Bold}]{KoPubWorld Dotum.ttf}
 
 %%% PL constructs
+\usepackage{galois}
 \usepackage{ebproof}
 \ebproofset{left label template=\textsc{[\inserttext]}}
 \ebproofset{center=false}
@@ -37,9 +40,6 @@
 \DeclareTextFontCommand{\textfallback}{\fallbackfont}
 \usepackage{newunicodechar}
 \newunicodechar{⩴}{\textfallback{⩴}}
-
-\usepackage{simplebnf}
-\RenewDocumentCommand\SimpleBNFDefEq{}{\ensuremath{⩴}}
 
 %%% Custom commands
 \newcommand*{\vbar}{|}
@@ -91,7 +91,7 @@
 \newcommand*{\mt}{\mathsf{emp}}
 \newcommand*{\valid}{\checkmark}
 \newcommand*{\Path}{\mathsf{Path}}
-\newcommand*{\equivalent}{\sim}
+\newcommand*{\equivalent}{\cong}
 
 \newcommand*{\doubleplus}{\ensuremath{\mathbin{+\mkern-3mu+}}}
 \newcommand*{\project}{\text{\texttt{:>} }}
@@ -108,13 +108,14 @@
 %%%%%%%%%%%%%%%%%%%%%
 %  Beamer Settings  %
 %%%%%%%%%%%%%%%%%%%%%
-\usetheme[numbering=fraction,progressbar=frametitle]{metropolis}
+\usetheme[numbering=fraction,progressbar=none]{metropolis}
 \useoutertheme[subsection=false]{miniframes}
 \usecolortheme{rose}
 
 \setbeamertemplate{itemize item}[square]
 \setbeamertemplate{itemize subitem}[triangle]
 \setbeamertemplate{itemize subsubitem}[circle]
+\setbeamertemplate{headline}{}
 
 \usepackage{listings}
 \definecolor{dkgreen}{rgb}{0,0.6,0}
@@ -230,9 +231,9 @@
 \usepackage{adjustbox}
 \newcommand{\cfbox}[1]{\adjustbox{cfbox=#1}}
 
-\title{프로그램 조각별 따로분석의 이론적 틀}
-\author{이준협}
-\date{2023년 11월 3일}
+\title{A Simple Abstract Interpretation Framework for Modular Analysis}
+\author{Joonhyup Lee, Kwangkeun Yi}
+\date{Nov. 16, 2023}
 \institute{ROPAS{@}SNU}
 
 \titlegraphic{%
@@ -249,8 +250,8 @@
 \begin{document}
 \maketitle
 \begin{frame}[c,fragile]
-  \frametitle{풀고자 한 문제}
-  프로그램 전체를 분석하지 않고, 일부만 미리 분석해놓고 싶다!
+  \frametitle{Problem Formulation}
+  How do we formalize analyzing program fragments (exporting modules \& the main expression) \emph{in advance}?
 
   \begin{tabular}{ccc}
     \begin{minipage}{0.3\linewidth}
@@ -281,32 +282,21 @@ Include F
   \end{tabular}
 
   \begin{itemize}
-    \item \texttt{F}에 대한 가정만 가지고 분석 ($100!+$?)
-    \item 이후 \texttt{M}에 대한 정보를 끼워넣음.
+    \item Analyze with only \texttt{F} assumed ($100!+$?)
+    \item Then link \texttt{M} afterwards.
   \end{itemize}
 
   \pause
   \begin{center}
-    \fbox{가정이 부족한 분석?}
-
-    \fbox{분석 결과의 재사용?}
+    \fbox{How to design separate, modular analysis, then link?}
   \end{center}
 \end{frame}
-\begin{frame}[c]
-  \frametitle{목표}
-  부족했던 것: \textbf{의미구조 정의}부터 자연스럽게 따로분석이 이끌어지는 틀
-  \begin{enumerate}
-    \item 프로그램의 실행의미가 실제 \textbf{실행기}의 동작과 가깝고,
-    \item 분석 디자이너가 신경 쓸 것이 많이 없는,
-    \item 그러나 \textbf{정밀성}을 임의로 조절할 수 있는 틀, 그리고 안전성 증명.
-  \end{enumerate}
-\end{frame}
-\begin{frame}{목차}
+\begin{frame}{Table of Contents}
   \tableofcontents
 \end{frame}
-\section{모듈이 있는 언어}
+\section{A model language : call-by-value \texorpdfstring{$\lambda$}{a} calculus with modules}
 \begin{frame}[c]
-  \frametitle{겉모습}
+  \frametitle{Syntax}
   \begin{figure}[h!]
     \centering
     \begin{tabular}{rrcll}
@@ -321,7 +311,7 @@ Include F
   \end{figure}
 \end{frame}
 \begin{frame}[c]
-  \frametitle{의미구조 부품들}
+  \frametitle{Semantic Domains}
   \begin{figure}[h!]
     \footnotesize
     \centering
@@ -338,7 +328,7 @@ Include F
   \end{figure}
 \end{frame}
 \begin{frame}[c]
-  \frametitle{실행 의미구조 ($\lambda$ 부분)}
+  \frametitle{Operational Semantics (call-by-value $\lambda$ calculus)}
   \begin{figure}[t!]
     \scriptsize
     \begin{flushright}
@@ -428,7 +418,7 @@ Include F
   \end{figure}
 \end{frame}
 \begin{frame}[c]
-  \frametitle{실행 의미구조 (모듈 부분)}
+  \frametitle{Operational Semantics (modules)}
   \begin{figure}[h!]
     \centering
     \scriptsize
@@ -537,7 +527,7 @@ Include F
   \end{figure}
 \end{frame}
 \begin{frame}[c]
-  \frametitle{실행 의미구조 (링킹 부분)}
+  \frametitle{Operational Semantics (linking)}
   \begin{figure}[h!]
     \centering
     \scriptsize
@@ -586,57 +576,9 @@ Include F
     \]
   \end{figure}
 \end{frame}
+\section{Collecting Semantics \& Modularity}
 \begin{frame}[c]
-  \frametitle{미리 실행시켜도 문제 없다}
-  \begin{lemma*}[Injection Preserves $\semarrow$]\label{lem:injpreseval}
-    $\forall\config\in\Config$, $\rightst\in\Right$, $\ctx\in\Ctx$,
-    $\config\semarrow\rightst\Rightarrow\inject{\ctx}{\config}\semarrow\inject{\ctx}{\rightst}$
-  \end{lemma*}
-
-  \pause
-
-  {\footnotesize
-    \[
-      \inject{\ctx_{1}}{r_{2}}\triangleq
-      \begin{cases}
-        \ctx_1                                                         & r_{2}=[]                           \\
-        (x, \inject{\ctx_1}{v})\cons\inject{\ctx_{1}}{\ctx}            & r_{2}=(x,v)\cons \ctx              \\
-        (\modid, \inject{\ctx_{1}}{\ctx})\cons\inject{\ctx_{1}}{\ctx'} & r_{2}=(\modid,\ctx)\cons \ctx'     \\
-        \langle\lambda x.e,\inject{\ctx_1}{\ctx}\rangle                & r_2=\langle\lambda x.e,\ctx\rangle \\
-        (e,\inject{\ctx_1}{\ctx})                                      & r_2 = (e, \ctx)
-      \end{cases}
-    \]}%
-  일 때.
-\end{frame}
-%\begin{frame}[c,fragile]
-%  \frametitle{예시}
-%  \begin{tcolorbox}[sidebyside, sidebyside align=top, fontupper=\scriptsize, fontlower=\scriptsize]
-%    \begin{lstlisting}[basicstyle=\ttfamily,escapeinside={/*}{*/}]
-%(* A.ml *)
-%let true x y = x
-%
-%(* main.ml *)
-%open A
-%let id x = x
-%;;
-%id true
-%\end{lstlisting}
-%    \tcblower
-%    \begin{lstlisting}[basicstyle=\ttfamily,escapeinside={/*}{*/}]
-%(* In our language *)
-%(let A =
-%  let true = \x.\y.x in/* $\varepsilon$ */
-%in/* $\varepsilon$ */)/* $\semlink$ */
-%  (A/* $\semlink$ */
-%    ((let id = \x.x
-%    in/* $\varepsilon$ */)/* $\semlink$ */
-%      (id true)))
-%\end{lstlisting}
-%  \end{tcolorbox}
-%\end{frame}
-\section{의미구조끼리 합치기}
-\begin{frame}[c]
-  \frametitle{모듬 의미구조}
+  \frametitle{Collecting Semantics}
   \[\Sigma\triangleq\Right\:+\:\semarrow\qquad\Trace\triangleq\pset(\Sigma)\]
   \begin{definition*}[Transfer function]
     Given $A\subseteq\Sigma$, define:
@@ -658,7 +600,20 @@ Include F
   \end{definition*}
 \end{frame}
 \begin{frame}[c]
-  \frametitle{합치기}
+  \frametitle{Modularity}
+  \begin{theorem*}[Modularity]
+    For all $e_1,e_2\in\Expr$ and $C,C_1,C_2\subseteq\Ctx$, we have:
+    \[\sembracket{\link{e_1}{e_2}}C=C_1\semlink\sembracket{e_2}C_2\]
+    where $C_1\rhd C_2=\sembracket{e_1}C$.
+  \end{theorem*}
+  $\sembracket{e_1}C$ (export) and $\sembracket{e_2}C_2$ (client) are separate
+\end{frame}
+\begin{frame}[c]
+  \frametitle{The Modularity Theorem Hinges on the Advance Lemma}
+  \begin{lemma*}[Advance]
+    For all $e\in\Expr$ and $C_1,C_2\subseteq\Ctx$, $\sembracket{e}(C_1\rhd C_2)=C_1\semlink\sembracket{e}C_2$.
+  \end{lemma*}
+  Where:
   \begin{definition*}[Injection]
     For $C\subseteq\Ctx$ and $A\subseteq\Sigma$, define:
     \[C\rhd A\triangleq\{\inject{\ctx}{\rightst}|\ctx\in C,\rightst\in A\}\cup\{\inject{\ctx}{\config}\semarrow\inject{\ctx}{\rightst}|\ctx\in C,\config\semarrow\rightst\in A\}\]
@@ -669,122 +624,656 @@ Include F
   \end{definition*}
 \end{frame}
 \begin{frame}[c]
-  \frametitle{잘 합쳐진다}
-  \begin{theorem}[Advance]
-    For all $e\in\Expr$ and $C_1,C_2\subseteq\Ctx$,
-    \[\sembracket{e}(C_1\rhd C_2)=C_1\semlink\sembracket{e}C_2\]
-  \end{theorem}
-\end{frame}
-\begin{frame}[c]
-  \frametitle{따로분석이란?}
-  { \footnotesize
-    \begin{align*}
-      e_1          & \triangleq\text{\texttt{let x = 1 in }}\varepsilon                                                                                                   \\
-                   & (\text{module \texttt{M}})                                                                                                                           \\
-      e_2          & \triangleq\text{\texttt{let fact = fix }}\lambda\text{\texttt{fact.}}\lambda\text{\texttt{n.if0 n 1 (* n (fact (- n 1))) in }}\varepsilon            \\
-                   & (\text{module \texttt{F}})                                                                                                                           \\
-      e            & \triangleq(\text{\texttt{+ (F}}\synlink\text{\texttt{fact 100) (M}}\synlink\text{\texttt{x)}})                                                       \\
-                   & (\text{client code})                                                                                                                                 \\
-      e_{\synlink} & \triangleq(\text{\texttt{let M = }}e_1\text{\texttt{ in }}\varepsilon)\synlink(\text{\texttt{let F = }}e_2\text{\texttt{ in }}\varepsilon)\synlink e \\
-                   & (\text{whole program after linking})
-    \end{align*}}%
+  \frametitle{Injection}
+  \begin{lemma*}[Injection Preserves $\semarrow$]\label{lem:injpreseval}
+    $\forall\config\in\Config$, $\rightst\in\Right$, $\ctx\in\Ctx$,
+    $\config\semarrow\rightst\Rightarrow\inject{\ctx}{\config}\semarrow\inject{\ctx}{\rightst}$
+  \end{lemma*}
 
+  Where:
+    {\footnotesize
+      \[
+        \inject{\ctx_{1}}{r_{2}}\triangleq
+        \begin{cases}
+          \ctx_1                                                         & r_{2}=[]                           \\
+          (x, \inject{\ctx_1}{v})\cons\inject{\ctx_{1}}{\ctx}            & r_{2}=(x,v)\cons \ctx              \\
+          (\modid, \inject{\ctx_{1}}{\ctx})\cons\inject{\ctx_{1}}{\ctx'} & r_{2}=(\modid,\ctx)\cons \ctx'     \\
+          \langle\lambda x.e,\inject{\ctx_1}{\ctx}\rangle                & r_2=\langle\lambda x.e,\ctx\rangle \\
+          (e,\inject{\ctx_1}{\ctx})                                      & r_2 = (e, \ctx)
+        \end{cases}
+      \]}%
 \end{frame}
 \begin{frame}[c]
-  \frametitle{따로분석이란?}
-  분석 목표: $e_{\synlink}$ 실행 중 $e$가 어떤 환경 아래에서 어떻게 동작할 것인가?
-  \begin{align*}
-    \sigma_2 & \triangleq[(\mathtt{F},[(\mathtt{fact},\langle\text{body of \texttt{fact}}\rangle)])] \\
-    \sigma_1 & \triangleq[(\mathtt{M},[(\mathtt{x},1)])]
-  \end{align*}
-  가정: 적어도 $\sigma_2$는 있을 것이다: $\sembracket{e}\{\sigma_2\}$를 근사.
-
-  실제: $\underbrace{\{\inject{\sigma_1}{\sigma_2}\}\text{에서 실행되었다}}_{\onslide<2->e_\synlink\text{ 분석하는 중에 }e\text{를 만나면}}$: $\{\sigma_1\}\semlink\sembracket{e}\{\sigma_2\}$를 근사.
+  \frametitle{A Trivial Case}
+  For the trivial case when $C_2=\{[]\}$, we have:
+  \begin{corollary*} For all $e_1,e_2\in\Expr$ and $C\subseteq\Ctx$, we have:
+    \[\sembracket{\link{e_1}{e_2}}C=(\sembracket{e_1}C)\semlink\sembracket{e_2}\mt\]
+    where $\mt=\{[]\}$.
+  \end{corollary*}
 \end{frame}
-\section{분석을 위한 의미구조}
 \begin{frame}[c]
-  \frametitle{$\Time$와 $\tick$}
-  실행의미는 $\Time$(Time)이라는 집합과 $\tick$이라는 함수로 매개화되어있다.
+  \frametitle{Skeleton for Static Analysis}
+  Require $\Abs{\Trace},\Abs{\Step},\Abs{\rhd}$:
+  \[\Trace=\pset(\Sigma)\galois{\alpha}{\gamma}\Abs{\Trace}\]
+  \[\Step\circ\gamma\subseteq\gamma\circ\Abs\Step\qquad\rhd\circ(\gamma,\gamma)\subseteq\gamma\circ\Abs\rhd\]
+  Define:
+  \[\Abs{\sembracket{e}}\Abs{C}\triangleq\lfp(\lambda\Abs{X}.\Abs\Step(\Abs{X})\Abs\cup\alpha\{(e,\ctx)|\ctx\in\gamma\Abs{C}\})\]
+  \[\Abs{C}\Abs\semlink\Abs{A}\triangleq\lfp(\lambda\Abs{X}.\Abs\Step(\Abs{X})\Abs\cup(\Abs{C}\Abs\rhd\Abs{A}))\]
+  So that:
+  \[\sembracket{e}\circ\gamma\subseteq\gamma\circ\Abs{\sembracket{e}}\qquad\semlink\circ(\gamma,\gamma)\subseteq\gamma\circ\Abs\semlink\]
+\end{frame}
+\section{Instrumented Collecting Semantics \& Modularity}
+\begin{frame}[c]
+  \frametitle{Semantic Domains}
+  \begin{figure}[h!]
+    \footnotesize
+    \centering
+    \begin{tabular}{rrcll}
+      Time                         & $t$        & $\in$         & $\Time$                                                  \\
+      Environment/Context          & $\ctx$     & $\in$         & $\Ctx$                                                   \\
+      Value of expressions         & $v$        & $\in$         & $\Value \triangleq\ExprVar\times\Expr\times\Ctx$         \\
+      Value of expressions/modules & $V$        & $\in$         & $\Value+\Ctx$                                            \\
+      Memory                       & $\mem$     & $\in$         & $\Mem \triangleq \fin{\Time}{\Value}$                    \\
+      State                        & $s$        & $\in$         & $\State \triangleq \Ctx\times\Mem\times\Time$            \\
+      Outcome                      & $o$        & $\in$         & $\Outcome \triangleq (\Value+\Ctx)\times\Mem\times\Time$ \\
+      Configuration (left)         & $\config$  & $\in$         & $\Config\triangleq\Expr\times\State$                     \\
+      Configuration (right)        & $\rightst$ & $\in$         & $\Right\triangleq\Config+\Outcome$                       \\
+      Context                      & $\ctx$     & $\rightarrow$ & []                                                       \\
+                                   &            & $\vbar$       & $(x,t)\cons \ctx$                                        \\
+                                   &            & $\vbar$       & $(\modid,\ctx)\cons \ctx$                                \\
+      Value of expressions         & $v$        & $\rightarrow$ & $\langle \lambda x.e, \ctx \rangle$\end{tabular}
+  \end{figure}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{$\Time$ and $\tick$}
+  Parametrized by choice of the set $\Time$(Time) and the function $\tick$.
   \begin{itemize}
-    \item $\Time$: 실행중 프로그램 지점을 구별해줌, 메모리 주소로도 쓰임.
-    \item $\tick$: 현재 환경을 받아서, 증가된(지금껏 안 쓰인) 시간을 줌.
+    \item $\Time$: Timestamps for program states, used as addresses.
+    \item $\tick$: Produces fresh timestamps.
   \end{itemize}
-
-  {\footnotesize\[
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, \ctx, \mem, t)
-          \semarrow
-          (\langle\lambda x.e_{\lambda}, \ctx_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
-          (e_{2}, \ctx, \mem_{\lambda}, t_{\lambda})
-          \semarrow
-          (v, \mem_{a}, t_{a})                                                               \\
-          (e_{\lambda}, (x, \tick(t_{a}))\cons \ctx_{\lambda}, \mem_{a}[\tick(t_{a})\mapsto v], \tick(t_a))
-          \semarrow
-          (v', \mem',t')
-        \end{matrix}
-      }
-      \infer[left label={App}]1{
-      (e_{1}\:e_{2}, \ctx, \mem, t)
-      \semarrow
-      (v', \mem',t')
-      }
-    \end{prooftree}
-  \]}
+  Freshness: \emph{total order} on $\Time$
+  \[t < \tick(t)\]
+  \[\State\triangleq\{(\ctx,\mem,t)|\ctx\le t\text{ and }\mem\le t\}\]
+  \[\Outcome\triangleq\{(V,\mem,t)|V\le t\text{ and }\mem\le t\}\]
 \end{frame}
 \begin{frame}[c]
-  \frametitle{분석}
-  요구사항: $\A\alpha:\Time\rightarrow\A\Time$
-  \begin{enumerate}
-    \item $\A\tick\circ\A\alpha=\A\alpha\circ\tick$인 $\A\tick$ 사용.
-    \item $\forall\A{t}:\alpha^{-1}(\A{t})$는 무한집합.
-  \end{enumerate}
-  {\footnotesize\[
-    \begin{prooftree}
-      \hypo{\A{t_x}=\A{\ctx}(x)}
-      \hypo{\A{v}\in\A\mem(\A{t_x})}
-      \infer[left label=ExprID]2{
-      (x, \A{\ctx}, \A\mem, \A{t})
-      \A\semarrow
-      (\A{v}, \A\mem, \A{t})
-      }
-    \end{prooftree}
-  \]
+  \frametitle{Operational Semantics (1/2)}
+  \begin{figure}[t!]
+    \scriptsize
+    \begin{flushright}
+      \fbox{$(e,\ctx,\mem,t)\semarrow(V,\mem',t')\text{ or }(e',\ctx',\mem',t')$}
+    \end{flushright}
+    \centering
+    \vspace{0pt} % -0.75em}
+    \[
+      \begin{prooftree}
+        \hypo{t_{x}={\ctx}(x)}
+        \hypo{v=\mem(t_{x})}
+        \infer[left label=ExprID]2{
+        (x, \ctx, \mem, t)
+        \semarrow
+        (v, \mem, t)
+        }
+      \end{prooftree}\qquad
+      \begin{prooftree}
+        \infer[left label=Fn]0{
+        (\lambda x.e, \ctx, \mem, t)
+        \semarrow
+        (\langle\lambda x.e, \ctx\rangle, \mem, t)
+        }
+      \end{prooftree}
+    \]
+    \[
+      \begin{prooftree}
+        \hypo{
+          \begin{matrix}
+            (e_{1}, \ctx, \mem, t)
+            \semarrow
+            (\langle\lambda x.e_{\lambda}, \ctx_{\lambda}\rangle, \mem_{\lambda}, t_{\lambda}) \\
+            (e_{2}, \ctx, \mem_{\lambda}, t_{\lambda})
+            \semarrow
+            (v, \mem_{a}, t_{a})                                                               \\
+            (e_{\lambda}, (x, \tick(t_{a}))\cons \ctx_{\lambda}, \mem_{a}[\tick(t_{a})\mapsto v], \tick(t_a))
+            \semarrow
+            (v', \mem',t')
+          \end{matrix}
+        }
+        \infer[left label={App}]1{
+        (e_{1}\:e_{2}, \ctx, \mem, t)
+        \semarrow
+        (v', \mem',t')
+        }
+      \end{prooftree}
+    \]
+    \[
+      \begin{prooftree}
+        \hypo{
+          \begin{matrix}
+            (e_{1}, \ctx, \mem, t)
+            \semarrow
+            (\ctx', \mem', t') \\
+            (e_{2}, \ctx', \mem', t')
+            \semarrow
+            (V, \mem'', t'')
+          \end{matrix}
+        }
+        \infer[left label=Link]1{
+        (\link{e_{1}}{e_{2}}, \ctx, \mem, t)
+        \semarrow
+        (V, \mem'', t'')
+        }
+      \end{prooftree}\qquad
+      \begin{prooftree}
+        \infer[left label=Empty]0{
+        (\varepsilon, \ctx, \mem, t)
+        \semarrow
+        (\ctx, \mem, t)
+        }
+      \end{prooftree}
+    \]
+  \end{figure}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Operational Semantics (2/2)}
+  \begin{figure}[h!]
+    \scriptsize
+    \begin{flushright}
+      \fbox{$(e,\ctx,\mem,t)\semarrow(V,\mem',t')\text{ or }(e',\ctx',\mem',t')$}
+    \end{flushright}
+    \centering
+    \[
+      \begin{prooftree}
+        \hypo{\ctx'={\ctx}(\modid)}
+        \infer[left label=ModID]1{
+        (\modid, \ctx, \mem, t)
+        \semarrow
+        (\ctx', \mem, t)
+        }
+      \end{prooftree}
+    \]
+    \[
+      \begin{prooftree}
+        \hypo{
+          \begin{matrix}
+            (e_{1}, \ctx, \mem, t)
+            \semarrow
+            (v, \mem', t') \\
+            (e_{2}, (x, \tick(t'))\cons \ctx, \mem'[\tick(t')\mapsto v], \tick(t'))
+            \semarrow
+            (\ctx', \mem'', t'')
+          \end{matrix}
+        }
+        \infer[left label=LetE]1{
+        (\mathtt{let}\:x\:e_1\:e_2, \ctx, \mem, t)
+        \semarrow
+        (\ctx', \mem'', t'')
+        }
+      \end{prooftree}
+    \]
+    \[
+      \begin{prooftree}
+        \hypo{
+          \begin{matrix}
+            (e_{1}, \ctx, \mem, t)
+            \semarrow
+            (\ctx', \mem', t') \\
+            (e_{2}, (\modid, \ctx')\cons \ctx, \mem', t')
+            \semarrow
+            (\ctx'', \mem'', t'')
+          \end{matrix}
+        }
+        \infer[left label=LetM]1{
+        (\mathtt{let}\:\modid\:e_{1}\:e_{2}, \ctx, \mem, t)
+        \semarrow
+        (\ctx'', \mem'', t'')
+        }
+      \end{prooftree}
+    \]
+  \end{figure}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Collecting Semantics}
+  \[\Sigma\triangleq\Right\:+\:\semarrow\qquad\Trace\triangleq\pset(\Sigma)\]
+  \begin{definition*}[Transfer function]
+    Given $A\subseteq \Sigma$, define
+    \[
+      \mathsf{Step}(A)\triangleq
+      \left\{\config\semarrow\rightst, \rightst\middle|
+      \begin{prooftree}[center=true]
+        \hypo{A'}\infer1{\config\semarrow\rightst}
+      \end{prooftree}\text{ and }
+      A'\subseteq A\text{ and }\config\in A
+      \right\}
+    \]
+  \end{definition*}
+  \begin{definition*}[Collecting semantics]
+    Given $e\in\Expr$ and $S\subseteq\State$, define:
+    \[
+      \sembracket{e}S\triangleq\lfp(\lambda X.\mathsf{Step}(X)\cup\{(e,s)|s\in S\})
+    \]
+  \end{definition*}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Linking Timestamps}
   \[
-    \begin{prooftree}
-      \hypo{
-        \begin{matrix}
-          (e_{1}, \A{\ctx}, \A\mem, \A{t})
-          \A\semarrow
-          (\langle\lambda x.e_{\lambda}, \A{\ctx}_{\lambda}\rangle, \A\mem_{\lambda}, \A{t_\lambda}) \\
-          (e_{2}, \A{\ctx}, \A\mem_{\lambda}, \A{t_\lambda})
-          \A\semarrow
-          (\A{v}, \A\mem_{a}, \A{t_a})                                                               \\
-          (e_{\lambda}, (x, \A\tick(\A{t_a}))\cons \A{\ctx}_{\lambda}, \A\mem_{a}[\A\tick(\A{t_a})\A\mapsto \A{v}], \A\tick(\A{t_a}))
-          \A\semarrow
-          (\A{v'}, \A{\mem'},\A{t'})
-        \end{matrix}
-      }
-      \infer[left label={App}]1{
-      (e_{1}\:e_{2}, \A{\ctx}, \A\mem, \A{t})
-      \A\semarrow
-      (\A{v'}, \A{\mem'},\A{t'})
-      }
-    \end{prooftree}
-  \]}
+    \Time_{\semlink}\triangleq\Time_1+\Time_2\quad
+    \le_{\semlink}\triangleq\text{lexicographic order}\quad
+    \tick_{\semlink}(t)\triangleq
+    \begin{cases}
+      \tick_1(t) & t\in\Time_1 \\
+      \tick_2(t) & t\in\Time_2
+    \end{cases}
+  \]
+
+  \begin{notation*}
+    All sets with the subscript $i(i=1,2)$ is assumed to be using $\Time_i$ as timestamps, and all sets with the subscript $\semlink$ is assumed to be using $\Time_{\semlink}$ as timestamps.
+  \end{notation*}
 \end{frame}
 \begin{frame}[c]
-  \frametitle{따로분석}
-  분석 방법: $\Abs{\sembracket{e}}\Abs{S}$ 어림잡기
-  \begin{enumerate}
-    \item 가정($\Abs{S}_2$)하고 분석($\Abs{\sembracket{e}}\Abs{S}_2$)하라
-    \item 가정이 성립($\prexists{\Abs{S}_1}\Abs\rhd\Abs{S}_2\Abs\equivalent\Abs{S}$)하면, 합쳐라($\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2$)
-  \end{enumerate}
+  \frametitle{Injection}
+  \begin{lemma*}[Injection Preserves $\semarrow$]
+    For all $s_1\in\State_1$, $\config_2\in\Config_2$, $\rightst_2\in\Right_2$,
+    \[\config_2\semarrow_2\rightst_2\Rightarrow\inject{s_1}{\config_2}\semarrow_{\semlink}\inject{s_1}{\rightst_2}\]
+  \end{lemma*}
+
+  Where:
+    {\footnotesize
+      \[
+        \begin{array}{cc}
+          \inject{\ctx_{1}}{V_{2}}\triangleq
+          \begin{cases}
+            \ctx_1                                                         & V_{2}=[]                               \\
+            (x, t)\cons\inject{\ctx_{1}}{\ctx}                             & V_{2}=(x,t)\cons \ctx                  \\
+            (\modid, \inject{\ctx_{1}}{\ctx})\cons\inject{\ctx_{1}}{\ctx'} & V_{2}=(\modid,\ctx)\cons \ctx'         \\
+            \langle\lambda x.e,\inject{\ctx_1}{\ctx_2}\rangle              & V_{2}=\langle\lambda x.e,\ctx_2\rangle
+          \end{cases} &
+          \begin{array}{l}
+            \inject{\ctx_1}{\mem_2}\triangleq
+            \displaystyle\bigcup_{t\in\mathsf{dom}(\mem_2)}\{t\mapsto\inject{\ctx_1}{\mem_2(t)}\} \\ \\
+            \inject{s_1}{o_2}\triangleq
+            (\inject{\ctx_1}{V_2},\mem_1\cup\inject{\ctx_1}{\mem_2},t_2)
+          \end{array}
+        \end{array}
+      \]}%
 \end{frame}
 \begin{frame}[c]
-  \centering\LARGE
-  감사합니다
+  \frametitle{Semantic Linking}
+  \begin{definition*}[Injection]
+    For $S_1\subseteq\State_1$ and $A_2\subseteq\Sigma_2$, define:
+    \begin{align*}
+      S_1\rhd A_2 \triangleq & \{\inject{s_1}{\rightst_2}|s_1\in S_1,\rightst_2\in A_2\}\cup                                                            \\
+                             & \{\inject{s_1}{\config_2}\semarrow_{\semlink}\inject{s_1}{\rightst_2}|s_1\in S_1,\config_2\semarrow_2\rightst_2\in A_2\}
+    \end{align*}
+  \end{definition*}
+  \begin{definition*}[Semantic Linking]
+    For $S_1\subseteq\State_1$ and $A_2\subseteq\Sigma_2$, define:
+    \[
+      S_1\semlink A_2\triangleq\lfp(\lambda X.\Step_{\semlink}(X)\cup(S_1\rhd A_2))
+    \]
+  \end{definition*}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Advance Lemma}
+  \begin{lemma*}[Advance]
+    For all $e\in\Expr$ and $S_1\subseteq\State_1$, $S_2\subseteq\State_2$,
+    \[
+      \sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2
+    \]
+  \end{lemma*}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{The Same Modularity Theorem}
+  \begin{theorem*}[Modularity]
+    For all $e_1,e_2\in\Expr$ and $S\subseteq\State,S_i\subseteq\State_i(i=1,2)$, we have:
+    \[\sembracket{\link{e_1}{e_2}}S\equivalent S_1\semlink\sembracket{e_2}S_2\]
+    where $S_1\rhd S_2\equivalent\sembracket{e_1}S$.
+  \end{theorem*}
+  Note, no longer: $\sembracket{\link{e_1}{e_2}}S=(\sembracket{e_1}S)\semlink\sembracket{e_2}\mt$
+
+  since $\underbrace{\sembracket{e_1}S\rhd\mt}_{\text{linked timestamp}}\neq\underbrace{\sembracket{e_1}S}_{\text{not linked}}$.
+  \begin{center}
+    \fbox{Need to replace $=$ with $\equivalent$}
+
+    \fbox{$\equivalent$: Defined later}
+  \end{center}
+\end{frame}
+\section{Abstracting the Instrumented Collecting Semantics \& Modular Analysis}
+\begin{frame}[c]
+  \frametitle{Semantic Domains}
+  \begin{figure}[h!]
+    \footnotesize
+    \centering
+    \begin{tabular}{rrcll}
+      Abstract Time                  & $\A{t}$        & $\in$         & $\A{\Time}$                                                                 \\
+      Environment/Context            & $\A{\ctx}$     & $\in$         & $\A{\Ctx}$                                                                  \\
+      Value of expressions           & $\A{v}$        & $\in$         & $\A{\Value} \triangleq \ExprVar\times\Expr\times\A{\Ctx}$                   \\
+      Value of expressions/modules   & $\A{V}$        & $\in$         & $\A{\Value}+\A{\Ctx}$                                                       \\
+      Abstract Memory                & $\A{\mem}$     & $\in$         & $\A{\Mem} \triangleq \fin{\A{\Time}}{\pset(\A{\Value})}$                    \\
+      Abstract State                 & $\A{s}$        & $\in$         & $\A{\State} \triangleq \A{\Ctx}\times\A{\Mem}\times\A{\Time}$               \\
+      Abstract outcome               & $\A{o}$        & $\in$         & $\A{\Outcome} \triangleq(\A{\Value}+\A{\Ctx})\times\A{\Mem}\times\A{\Time}$ \\
+      Abstract configuration (left)  & $\A{\config}$  & $\in$         & $\A{\Config}\triangleq\Expr\times\A{\State}$                                \\
+      Abstract configuration (right) & $\A{\rightst}$ & $\in$         & $\A{\Right}\triangleq\A{\Config}+\A{\Outcome}$                              \\
+      Context                        & $\A{\ctx}$     & $\rightarrow$ & []                                                                          \\
+                                     &                & $\vbar$       & $(x,\A{t})\cons \A{\ctx}$                                                   \\
+                                     &                & $\vbar$       & $(\modid,\A{\ctx})\cons \A{\ctx}$                                           \\
+      Value of expressions           & $\A{v}$        & $\rightarrow$ & $\langle \lambda x.e, \A{\ctx} \rangle$
+    \end{tabular}
+  \end{figure}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{$\Time$ and $\tick$}
+  Parametrized by choice of the set $\A\Time$(Time) and the function $\A\tick$.
+  \begin{itemize}
+    \item $\A\Time$: Timestamps for program states, used as addresses.
+    \item $\A\tick$: Satisfies $\A\alpha\circ\tick=\A\tick\circ\A\alpha$.
+  \end{itemize}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Operational Semantics (that differ from the concrete)}
+  \begin{figure}[t!]
+    \scriptsize
+    \begin{flushright}
+      \fbox{$(e,\A{\ctx},\A\mem,\A{t})\A\semarrow(\A{V},\A{\mem'},\A{t'})\text{ or }(e',\A{\ctx'},\A{\mem'},\A{t'})$}
+    \end{flushright}
+    \vspace{0pt} % -0.75em}
+    \[
+      \begin{prooftree}
+        \hypo{\A{t_x}=\A{\ctx}(x)}
+        \hypo{\A{v}\in\A\mem(\A{t_x})}
+        \infer[left label=ExprID]2{
+        (x, \A{\ctx}, \A\mem, \A{t})
+        \A\semarrow
+        (\A{v}, \A\mem, \A{t})
+        }
+      \end{prooftree}
+    \]
+    \[
+      \begin{prooftree}
+        \hypo{
+          \begin{matrix}
+            (e_{1}, \A{\ctx}, \A\mem, \A{t})
+            \A\semarrow
+            (\langle\lambda x.e_{\lambda}, \A{\ctx}_{\lambda}\rangle, \A\mem_{\lambda}, \A{t_\lambda}) \\
+            (e_{2}, \A{\ctx}, \A\mem_{\lambda}, \A{t_\lambda})
+            \A\semarrow
+            (\A{v}, \A\mem_{a}, \A{t_a})                                                               \\
+            (e_{\lambda}, (x, \A\tick(\A{t_a}))\cons \A{\ctx}_{\lambda}, \A\mem_{a}[\A\tick(\A{t_a})\A\mapsto \A{v}], \A\tick(\A{t_a}))
+            \A\semarrow
+            (\A{v'}, \A{\mem'},\A{t'})
+          \end{matrix}
+        }
+        \infer[left label={App}]1{
+        (e_{1}\:e_{2}, \A{\ctx}, \A\mem, \A{t})
+        \A\semarrow
+        (\A{v'}, \A{\mem'},\A{t'})
+        }
+      \end{prooftree}
+    \]
+    \[
+      \begin{prooftree}
+        \hypo{
+          \begin{matrix}
+            (e_{1}, \A{\ctx}, \A\mem, \A{t})
+            \A\semarrow
+            (\A{v}, \A{\mem'}, \A{t'}) \\
+            (e_{2}, (x, \A\tick(\A{t'}))\cons \A{\ctx}, \A{\mem'}[\A\tick(\A{t'})\A\mapsto \A{v}], \A\tick(\A{t'}))
+            \A\semarrow
+            (\A{\ctx'}, \A{\mem''}, \A{t''})
+          \end{matrix}
+        }
+        \infer[left label=LetE]1{
+        (\mathtt{let}\:x\:e_1\:e_2, \A{\ctx}, \A\mem, \A{t})
+        \A\semarrow
+        (\A{\ctx'}, \A{\mem''}, \A{t''})
+        }
+      \end{prooftree}
+    \]
+  \end{figure}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Abstraction and Concretization}
+  \[\A\Sigma\triangleq\A\Right\:+\:\A\semarrow\qquad\Abs{\Trace}\triangleq\pset(\A\Sigma)\]
+  \begin{definition*}
+    Define $\alpha:\Trace\rightarrow\Abs{\Trace}$ and $\gamma:\Abs{\Trace}\rightarrow \Trace$ by:
+    \begin{align*}
+      \alpha(A)       & \triangleq\{\A\alpha(\config)\asemarrow\A\alpha(\rightst)|\config\semarrow\rightst\in A\}\cup\{\A\alpha(\rightst)|\rightst\in A\}           \\
+      \gamma(\Abs{A}) & \triangleq\{\config\semarrow\rightst|\A\alpha(\config)\asemarrow\A\alpha(\rightst)\in\Abs{A}\}\cup\{\rightst|\A\alpha(\rightst)\in\Abs{A}\}
+    \end{align*}
+  \end{definition*}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Abstract Semantics}
+  \begin{definition*}[Abstract transfer function]
+    Given $\Abs{A}\subseteq\A{\Sigma}$, define:
+    \[
+      \Abs{\mathsf{Step}}(\Abs{A})\triangleq
+      \left\{\A\config\A\semarrow\A\rightst, \A\rightst\middle|
+      \begin{prooftree}[center=true]
+        \hypo{\Abs{A'}}\infer1{\A\config\A\semarrow\A\rightst}
+      \end{prooftree}\text{ and }
+      \Abs{A'}\subseteq \Abs{A}\text{ and }\A\config\in\Abs{A}
+      \right\}
+    \]
+  \end{definition*}
+  \begin{definition*}[Abstract semantics]
+    Given $e\in\Expr$ and $\Abs{S}\subseteq\A\State$, define:
+    \[
+      \Abs{\sembracket{e}}\Abs{S}\triangleq\lfp(\lambda \Abs{X}.\Abs{\mathsf{Step}}(\Abs{X})\cup\{(e,\A{s})|\A{s}\in \Abs{S}\})
+    \]
+  \end{definition*}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Soundness}
+  \begin{lemma*}[Galois Connection]
+    \[\Trace=\pset(\Sigma)\galois{\alpha}{\gamma}\Abs{\Trace}=\pset(\A\Sigma)\]
+  \end{lemma*}
+  \begin{lemma*}[Operational Soundness]\label{lem:opsound}
+    For all $\config\in\Config$ and $\rightst\in\Right$, $\config\semarrow\rightst\Rightarrow\A\alpha(\config)\A\semarrow\A\alpha(\rightst)$
+  \end{lemma*}
+  \begin{theorem*}[Soundness]
+    For all $e\in\Expr$, $\sembracket{e}\circ\gamma\subseteq\gamma\circ\Abs{\sembracket{e}}$
+  \end{theorem*}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Finiteness}
+  \begin{theorem*}[Finiteness]\label{thm:absfinite}
+    For all $e\in\Expr$, if $\A\Time$ and $\Abs{S}\subseteq\A\State$ is finite, $\Abs{\sembracket{e}}\Abs{S}$ is finite.
+  \end{theorem*}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Linking Timestamps}
+  \[
+    \A\Time_{\semlink}\triangleq\A\Time_1+\A\Time_2\quad
+    \A\tick_{\semlink}(\A{t})\triangleq
+    \begin{cases}
+      \A\tick_1(\A{t}) & \A{t}\in\A\Time_1 \\
+      \A\tick_2(\A{t}) & \A{t}\in\A\Time_2
+    \end{cases}\quad
+    \A\alpha_{\semlink}(t)\triangleq
+    \begin{cases}
+      \A\alpha_1(t) & t\in\Time_1 \\
+      \A\alpha_2(t) & t\in\Time_2
+    \end{cases}
+  \]
+  \begin{notation*}
+    All sets with the subscript $i(i=1,2)$ is assumed to be using $\A\Time_i$ as timestamps, and all sets with the subscript $\semlink$ is assumed to be using $\A\Time_{\semlink}$ as timestamps.
+  \end{notation*}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Injection}
+  \begin{lemma}[Injection Preserves $\A\semarrow$]\label{lem:injpresaval}
+    For all $\A{s}_1\in\A\State_1$, $\A\config_2\in\A\Config_2$, $\A\rightst\in\A\Right_2$,
+    \[\A\config_2\A\semarrow_2\A\rightst_2\Rightarrow\inject{\A{s}_1}{\A\config_2}\A\semarrow_{\semlink}\inject{\A{s}_1}{\A\rightst_2}\]
+  \end{lemma}
+
+  \[\inject{\A{\ctx}_1}{\A\mem_2}\triangleq\lambda\A{t}.\{\inject{\A{\ctx}_1}{\A{v}_2}|\A{v}_2\in\A\mem_2(\A{t})\}\]
+  Where $\inject{\A\ctx_1}{\A{v}_2}$ is the same as concrete injection.
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Semantic Linking}
+  \begin{definition*}[Abstract Injection]
+    For $\Abs{S}_1\subseteq\A\State_1$ and $\Abs{A}_2\subseteq\A{\Sigma}_2$, define:
+    \begin{align*}
+      \Abs{S}_1\Abs\rhd\Abs{A}_2\triangleq & \{\inject{\A{s}_1}{\A\rightst_2}|\A{s}_1\in\Abs{S}_1,\A\rightst_2\in\Abs{A}_2\}\cup                                                                        \\
+                                           & \{\inject{\A{s}_1}{\A\config_2}\A\semarrow_{\semlink}\inject{\A{s}_1}{\A\rightst_2}|\A{s}_1\in\Abs{S}_1,\A\config_2\A\semarrow_2\A\rightst_2\in\Abs{A}_2\}
+    \end{align*}
+  \end{definition*}
+  \begin{definition*}[Abstract Linking]
+    For $\Abs{S}_1\subseteq\A\State_1$ and $\Abs{A}_2\subseteq\A{\Sigma}_2$, define:
+    \[
+      \Abs{S}_1\Abs\semlink\Abs{A}_2\triangleq\lfp(\lambda\Abs{X}.\Abs\Step_{\semlink}(\Abs{X})\cup(\Abs{S}_1\Abs\rhd\Abs{A}_2))
+    \]
+  \end{definition*}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Advance Lemma}
+  \begin{lemma*}[Abstract Advance]\label{thm:absadvance}
+    For all $e\in\Expr$ and $\Abs{S}_1\subseteq\A\State_1$, $\Abs{S}_2\subseteq\A\State_2$,
+    \[
+      \Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_2)=\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2
+    \]
+  \end{lemma*}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Soundness}
+  \begin{corollary*}[Correctness of $\Abs{\semlink}$]
+    For all $e\in\Expr$ and $S_1\subseteq\State_1$, $S_2\subseteq\State_2$,
+    \[S_1\semlink\sembracket{e}S_2\subseteq\gamma_{\semlink}(\alpha_1(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha_2(S_2))\]
+  \end{corollary*}
+\end{frame}
+\section{Soundness Proof : Modular Analysis + Linking \texorpdfstring{$\equivalent$}{a} Monolithic Analysis}
+\begin{frame}[c]
+  \frametitle{Access Paths}
+  \scriptsize
+  \begin{columns}
+    \begin{column}{0.3\linewidth}
+      \begin{tabular}{|rcl|r}
+        \hline
+        $p$                                   & $\rightarrow$ & $\epsilon$                              \\
+                                              & $|$           & $\xrightarrow{x}t\:p$                   \\
+                                              & $|$           & $\xrightarrow{\modid}p$                 \\
+                                              & $|$           & $\xrightarrow{\lambda x.e}p$            \\
+        $\varphi(\epsilon)$                   & $\triangleq$  & $\epsilon$                              \\
+        $\varphi(\xrightarrow{x}t\:p)$        & $\triangleq$  & $\xrightarrow{x}\varphi(t)\:\varphi(p)$ \\
+        $\varphi(\xrightarrow{M}p)$           & $\triangleq$  & $\xrightarrow{M}\varphi(p)$             \\
+        $\varphi(\xrightarrow{\lambda x.e}p)$ & $\triangleq$  & $\xrightarrow{\lambda x.e}\varphi(p)$   \\
+        \hline
+      \end{tabular}
+    \end{column}
+    \begin{column}{0.05\linewidth}
+    \end{column}
+    \begin{column}{0.3\linewidth}
+      \scriptsize
+      \[
+        \begin{prooftree}
+          \infer0{\valid(\_,\mem,\epsilon)}
+        \end{prooftree}
+      \]
+      \[
+        \begin{prooftree}
+          \hypo{t=\ctx(x)\qquad\valid(t,\mem,p)}
+          \infer1{\valid(\ctx,\mem,\xrightarrow{x}t\:p)}
+        \end{prooftree}
+      \]
+      \[
+        \begin{prooftree}
+          \hypo{\ctx'=\ctx(\modid)\qquad\valid(\ctx',\mem,p)}
+          \infer1{\valid(\ctx,\mem,\xrightarrow{\modid}p)}
+        \end{prooftree}
+      \]
+      \[
+        \begin{prooftree}
+          \hypo{\langle\lambda x.e,{\ctx}\rangle=\mem(t)\qquad\valid(\ctx,\mem,p)}
+          \infer1{\valid(t,\mem,\xrightarrow{\lambda x.e}p)}
+        \end{prooftree}
+      \]
+    \end{column}
+    \begin{column}{0.3\linewidth}
+      \scriptsize
+      \[
+        \begin{prooftree}
+          \infer0{\A\valid(\_,\A\mem,\epsilon)}
+        \end{prooftree}
+      \]
+      \[
+        \begin{prooftree}
+          \hypo{\A{t}=\A\ctx(x)\qquad\A\valid(\A{t},\A\mem,\A{p})}
+          \infer1{\A\valid(\A\ctx,\A\mem,\xrightarrow{x}\A{t}\:\A{p})}
+        \end{prooftree}
+      \]
+      \[
+        \begin{prooftree}
+          \hypo{\A\ctx'=\A\ctx(\modid)\qquad\A\valid(\A\ctx',\A\mem,\A{p})}
+          \infer1{\A\valid(\A\ctx,\A\mem,\xrightarrow{\modid}\A{p})}
+        \end{prooftree}
+      \]
+      \[
+        \begin{prooftree}
+          \hypo{\langle\lambda x.e,{\A\ctx}\rangle\in\A\mem(\A{t})\qquad\A\valid(\A\ctx,\A\mem,\A{p})}
+          \infer1{\A\valid(\A{t},\A\mem,\xrightarrow{\lambda x.e}\A{p})}
+        \end{prooftree}
+      \]
+    \end{column}
+  \end{columns}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Equivalent Concrete States}
+  \begin{definition*}[Equivalent Concrete States: $\equivalent$]
+    Let $s=(\ctx,\mem,\_)\in\State$ and $s'=(\ctx',\mem',\_)\in\State'$.
+    $s\equivalent s'$ ($s$ is equivalent to $s'$) iff $\exists\varphi\in\Time\rightarrow\Time',\varphi'\in\Time'\rightarrow\Time:$
+    \begin{enumerate}
+      \item $\forall p\in\Path:\valid(\ctx,\mem,p)\Rightarrow(\valid(\ctx',\mem',\varphi(p))\land p=\varphi'(\varphi(p)))$
+      \item $\forall p'\in\Path':\valid(\ctx',\mem',p')\Rightarrow(\valid(\ctx,\mem,\varphi'(p'))\land p'=\varphi(\varphi'(p')))$
+    \end{enumerate}
+  \end{definition*}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Concretization Preserves Equivalence}
+  \begin{lemma*}[Concretization Preserves Equivalence]\label{lem:concreteqiuv}
+    Assume that each $\A{t},\A{t'}$ in $\ATime,\A{\Time'}$ corresponds to an infinite set of concrete timestamps.
+    Then for all $\Abs{S}\subseteq\AState$ and $\Abs{S'}\subseteq\A{\State'}$,
+    \[\Abs{S}\Abs\equivalent\Abs{S'}\Rightarrow\gamma(\Abs{S})\equivalent\gamma'(\Abs{S'})\]
+  \end{lemma*}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Evaluation Preserves Equivalence}
+  \begin{lemma*}[Evaluation Preserves Equivalence]
+    For all $\config\in\Config$, $\rightst\in\Right$, $\config'\in\Config'$,
+    \[\config\semarrow\rightst\text{ and }\config\equivalent\config'\Rightarrow\exists\rightst':\config'\semarrow\rightst'\text{ and }\rightst\equivalent\rightst'\]
+    Thus, if $S\subseteq\State$ and $S'\subseteq\State'$ are equivalent, $\sembracket{e}S\equivalent\sembracket{e}S'$.
+  \end{lemma*}
+\end{frame}
+\begin{frame}[c]
+  \frametitle{Soundness of Modular Analysis}
+  Given $\Abs{S}\subseteq\A\Sigma$,
+  if $\Abs{S}_1\Abs\rhd\Abs{S}_2\Abs\equivalent\Abs{S}$:
+  \begin{align*}
+    \sembracket{e}\gamma(\Abs{S}) & \equivalent\sembracket{e}\gamma_{\semlink}(\Abs{S}_1\Abs\rhd\Abs{S}_2)       & (\because\gamma,\semarrow\text{ preserves equivalence}) \\
+                                  & \subseteq\gamma_{\semlink}(\Abs{\sembracket{e}}(\Abs{S}_1\Abs\rhd\Abs{S}_2)) & (\because\text{Soundness})                              \\
+                                  & =\gamma_{\semlink}(\Abs{S}_1\Abs\semlink\Abs{\sembracket{e}}\Abs{S}_2)       & (\because\text{Abstract advance})
+  \end{align*}
+  Where $\gamma_{\semlink}$ is derived from:
+  \[\Time_{\semlink}\triangleq\mathbb{Z}\times(\ATime_1+\ATime_2)\qquad\tick_{\semlink}(n,\A{t})\triangleq(n+1,\A\tick_{\semlink}(\A{t}))\qquad\A\alpha_{\semlink}(n,\A{t})\triangleq\A{t}\]
+\end{frame}
+\section{Extension : Parametrized Modules (Functors)}
+\begin{frame}[c]
+  \frametitle{Syntax}
+  \begin{figure}[h!]
+    \footnotesize
+    \centering
+    \begin{tabular}{rrcll}
+      Identifiers & $x,\modid$ & $\in$         & $\ExprVar$                                                                                                    \\
+      Signature   & $s$        & $\in$         & $\Sig$                                                                                                        \\
+      Signature   & $s$        & $\rightarrow$ & $[]$ $\vbar$ $x\cons s$ $\vbar$ $(\modid,s)\cons s$                                                           \\
+      Expression  & $e$        & $\rightarrow$ & $x$ $\vbar$ $\lambda x.e$ $\vbar$ $e$ $e$                               & untyped $\lambda$-calculus          \\
+                  &            & $\vbar$       & $\modid$ $\vbar$ $\lambda\modid\project s.e$ $\vbar$ $(e\:e)\project s$ & module calculus, constrained by $s$ \\
+                  &            & $\vbar$       & $\link{e}{e}$                                                           & linked expression                   \\
+                  &            & $\vbar$       & $\varepsilon$                                                           & empty module
+    \end{tabular}
+  \end{figure}
+  \begin{center}
+    \fbox{The same theorems hold}
+  \end{center}
 \end{frame}
 \end{document}
 %%% Local Variables:

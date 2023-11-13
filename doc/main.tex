@@ -755,7 +755,7 @@ The \emph{type} of $\tick$ can be freely chosen, since it may choose to record a
       }
     \end{prooftree}
   \]
-
+  
   \[
     \begin{prooftree}
       \hypo{
@@ -995,18 +995,20 @@ Thus we can define $\rhd$ and $\semlink$ that satisfies the desired property.
     \sembracket{e}(S_1\rhd S_2)=S_1\semlink\sembracket{e}S_2
   \]
 \end{theorem}
-Using the advance theorem, we may draw the same conclusions that lead to modular analysis in the previous section.
+Using the advance theorem, we hope to draw the same conclusions that lead to modular analysis in the previous section.
 Again, we view $A\subseteq\Sigma$ as a function that relates an expression $e$ with the \emph{outcomes} of $e$ under $A$.
 \[A(e)\triangleq\{o|(e,\_)\semarrow o\in A\}\]
 Then we have:
-\begin{corollary} For all $e_1,e_2\in\Expr$ and $S,S_1,S_2\subseteq\State$, we have:
-  \[(\sembracket{\link{e_1}{e_2}}S)(e_2)=(S_1\semlink\sembracket{e_2}S_2)(e_2)\]
-  when $S_1\rhd S_2=(\sembracket{e_1}S)(e_1)$.
+\begin{corollary} For all $e_1,e_2\in\Expr$ and $S_{\semlink}\subseteq\State_{\semlink},S_1\subseteq\State_1,S_2\subseteq\State_2$, we have:
+  \[(\sembracket{\link{e_1}{e_2}}S_{\semlink})(e_2)=(S_1\semlink\sembracket{e_2}S_2)(e_2)\]
+  when $S_1\rhd S_2=(\sembracket{e_1}S_{\semlink})(e_1)$.
 \end{corollary}
-\begin{corollary} For all $e_1,e_2\in\Expr$ and $S\subseteq\State$, we have:
-  \[(\sembracket{\link{e_1}{e_2}}S)(e_2)=((\sembracket{e_1}S)(e_1)\semlink\sembracket{e_2}\mt)(e_2)\]
-  when $\mt=\{([],\{\},0)\}$.
-\end{corollary}
+However, we no longer can say that:
+\[(\sembracket{\link{e_1}{e_2}}S)(e_2)=((\sembracket{e_1}S)(e_1)\semlink\sembracket{e_2}\mt)(e_2)\]
+when $\mt=\{([],\{\},0)\}$ for some $0\in\Time$.
+This is because $(\sembracket{e_1}S)\rhd\mt$ uses two versions of timestamps, yet $(\sembracket{e_1}S)(e_1)$ uses only one.
+To reconcile the different times, we must replace equality with a weaker notion of equivalence.
+We shall define such a relation in Section \ref{sec:equiv}.
 \section{Abstracting the Instrumented Semantics}
 \subsection{Abstract Semantics}
 \begin{figure}[h!]
@@ -1264,7 +1266,7 @@ so that the \emph{best possible result} is achieved:
                                  & =\gamma_{\semlink}(\alpha_1(S_1)\Abs\semlink\Abs{\sembracket{e}}\alpha_2(S_2)) & (\because\text{Abstract advance})
   \end{align*}
 \end{proof}
-\section{Reconciling Linked Timestamps with Timestamps Before Linking}
+\section{Reconciling Linked Timestamps with Timestamps Before Linking}\label{sec:equiv}
 \subsection{Motivation}
 Now that we have defined abstract linking that overapproximates concrete linking, let us try to use it to analyze the factorial example.
 The theorem that we have to utilize is:
