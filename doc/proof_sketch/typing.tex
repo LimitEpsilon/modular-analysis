@@ -507,7 +507,7 @@ The definitions for types are in Figure \ref{fig:typdom} and the typing rules ar
     \\
     \textbf{Semantic Typing}                  &              &                                                                                                        & \fbox{$\Gamma\vDash e:\tau$ or $\Gamma\vDash e:\Gamma$} \\
     $\Gamma\vDash e:\tau$                     & $\triangleq$ & $\forall\ctx\in\CtxRel{\Gamma}:(e,\ctx)\in\ExprRel{\tau}$                                                                                                        \\
-    $\Gamma\vDash e:\Gamma'$                  & $\triangleq$ & $\forall\ctx\in\CtxRel{\Gamma}:(e,\ctx)\in\CtxRel{\Gamma'}$
+    $\Gamma\vDash e:\Gamma'$                  & $\triangleq$ & $\forall\ctx\in\CtxRel{\Gamma}:(e,\ctx)\in\ExprRel{\Gamma'}$
   \end{tabular}
 
   \vphantom{}
@@ -654,11 +654,11 @@ Then we can prove:
 \begin{figure}[h!]
   \centering
   \begin{tabular}{rrcll}
-    Environment/Context & $\ctx$ & $\in$         & $\Ctx$                                                                     \\
-    Value               & $v$    & $\in$         & $\Value \triangleq\Ctx+\ExprVar\times\Expr\times\Ctx$                      \\
-    Context             & $\ctx$ & $\rightarrow$ & $\bullet$                                             & empty stack        \\
-                        &        & $\vbar$       & $(x,v)\cons \ctx$                                     & expression binding \\
-    Value               & $v$    & $\rightarrow$ & $\ctx$                                                & module             \\
+    Environment/Context & $\ctx$ & $\in$         & $\Ctx$                                                                \\
+    Value               & $v$    & $\in$         & $\Value \triangleq\Ctx+\ExprVar\times\Expr\times\Ctx$                 \\
+    Context             & $\ctx$ & $\rightarrow$ & $\bullet$                                             & empty stack   \\
+                        &        & $\vbar$       & $(x,v)\cons \ctx$                                     & value binding \\
+    Value               & $v$    & $\rightarrow$ & $\ctx$                                                & module        \\
                         &        & $\vbar$       & $\langle \lambda x.e, \ctx \rangle$                   & closure
   \end{tabular}
   \caption{Definition of the semantic domains.}
@@ -766,7 +766,7 @@ The definitions for subtyping are in Figure \ref{fig:subtyping}.
     Types              & $\tau$   & $\rightarrow$ & $\Gamma$               & module type       \\
                        &          & $\vbar$       & $\tau\rightarrow\tau$  & function type     \\
     Typing Environment & $\Gamma$ & $\rightarrow$ & $\bullet$              & empty environment \\
-                       &          & $\vbar$       & $(x,\tau)\cons \Gamma$ & binding
+                       &          & $\vbar$       & $(x,\tau)\cons \Gamma$ & type binding
   \end{tabular}
   \caption{Definition of types.}
   \label{fig:exttypdom}
@@ -890,13 +890,13 @@ The definitions for subtyping are in Figure \ref{fig:subtyping}.
     \textbf{Value Relation}            &              &                                                                                                        & \fbox{$\ValRel{\tau}$}       \\
     $\ValRel{\bullet}$                 & $\triangleq$ & $\Ctx$                                                                                                                                \\
     $\ValRel{(x,\tau)\cons\Gamma}$     & $\triangleq$ & $\{\ctx|\ctx(x)\in\ValRel{\tau}\land(\ctx-x)\in\ValRel{\Gamma-x}\}$                                                                   \\
-    $\ValRel{\tau_1\rightarrow\tau_2}$ & $\triangleq$ & $\{\langle\lambda x.e,\ctx\rangle|\forall v\in\ValRel{\tau_1},(e,(x,v)\cons\ctx)\in\ExprRel{\tau_2}\}$                                \\
+    $\ValRel{\tau_1\rightarrow\tau_2}$ & $\triangleq$ & $\{\langle\lambda x.e,\ctx\rangle|\forall v\in\ValRel{\tau_1}:(e,(x,v)\cons\ctx)\in\ExprRel{\tau_2}\}$                                \\
     \\
     \textbf{Expression Relation}       &              &                                                                                                        & \fbox{$\ExprRel{\tau}$}      \\
     $\ExprRel{\tau}$                   & $\triangleq$ & $\{(e,\ctx)|\exists v\in\ValRel{\tau}:(e,\ctx)\semarrow v\}$                                                                          \\
     \\
     \textbf{Semantic Typing}           &              &                                                                                                        & \fbox{$\Gamma\vDash e:\tau$} \\
-    $\Gamma\vDash e:\tau$              & $\triangleq$ & $\forall\ctx\in\CtxRel{\Gamma}:(e,\ctx)\in\ExprRel{\tau}$
+    $\Gamma\vDash e:\tau$              & $\triangleq$ & $\forall\ctx\in\ValRel{\Gamma}:(e,\ctx)\in\ExprRel{\tau}$
   \end{tabular}
 
   \vphantom{}
@@ -939,11 +939,9 @@ First we define the syntax for type constraints.
 
 Next we define the type access operation $\Gamma(x)$:
 \begin{align*}
-  \bullet(x)              & \triangleq\bot                        \\
-  ((x,\tau)\cons\_)(x)    & \triangleq\tau                        \\
-  ((x',\_)\cons\Gamma)(x) & \triangleq\Gamma(x) \qquad (x'\neq x) \\
-  (\alpha.p)(x)           & \triangleq\alpha.px                   \\
-  ([].p)(x)               & \triangleq[].px
+  \bullet(x)              & \triangleq\bot      &                      &  & (\alpha.p)(x) & \triangleq\alpha.px \\
+  ((x,\tau)\cons\_)(x)    & \triangleq\tau      &                      &  & ([].p)(x)     & \triangleq[].px     \\
+  ((x',\_)\cons\Gamma)(x) & \triangleq\Gamma(x) & \text{when }x'\neq x
 \end{align*}
 
 Now we can define the constraint generation algorithm $V(\Gamma,e,\alpha)$.
@@ -969,30 +967,31 @@ Also note that we write $\alpha$ for $\alpha.\epsilon$ as well.
 
 We want to prove that the constraint generation algorithm is correct.
 
-First, for $\external\in\TyEnv$, define the access operation $\external.p$ (which may fail):
+First, for $\tau\in\Type$, define the access operation $\tau.p$ (which may fail):
 \begin{align*}
-  \external.\epsilon & \triangleq\external &  &  & \external.px & \triangleq(\external.p)(x)
+  \tau.\epsilon & \triangleq\tau &  &  & \tau.px & \triangleq(\tau.p)(x)\quad\text{when }\tau\in\TyEnv &  &  & \tau.px & \triangleq\bot\quad\text{when }\tau\not\in\TyEnv
 \end{align*}
-and define the injection operations $\Gamma[\external]$ and $\tau[\external]$:
+and define the injection operation $\tau[\external]$:
 \begin{align*}
-  (\bullet)[\external]  & \triangleq\bullet  &  &  & ((x,\tau)\cons\Gamma)[\external] & \triangleq(x,\tau[\external])\cons\Gamma[\external] \\
-  (\alpha.p)[\external] & \triangleq\alpha.p &  &  & ([].p)[\external]                & \triangleq\external.p
+  (\bullet)[\external]                 & \triangleq\bullet                                       &  &  & ((x,\tau)\cons\Gamma)[\external] & \triangleq(x,\tau[\external])\cons\Gamma[\external] \\
+  (\alpha.p)[\external]                & \triangleq\alpha.p                                      &  &  & ([].p)[\external]                & \triangleq\external.p                               \\
+  (\tau_1\rightarrow\tau_2)[\external] & \triangleq\tau_1[\external]\rightarrow\tau_2[\external]
 \end{align*}
 
 Let $\Subst\triangleq\fin{\TyVar}{\Type}$ be the set of substitutions.
 For $S\in\Subst$, define:
 \begin{align*}
-  S\bullet    & \triangleq\bullet  &                                                                 &  & S(\tau_1\rightarrow\tau_2) & \triangleq S\tau_1\rightarrow S\tau_2                                        \\
-  S(\alpha.p) & \triangleq\alpha.p & \text{when }\alpha\not\in dom(S)                                &  & S(\alpha.p)                & \triangleq \Gamma.p                   & \text{when }\alpha\mapsto\Gamma\in S \\
-  S(\alpha.p) & \triangleq\bot     & \text{when }\alpha\mapsto\tau\in S\text{ and }\tau\not\in\TyEnv &  & S([].p)                    & \triangleq [].p
+  S\bullet    & \triangleq\bullet  &                                  &  & S(\tau_1\rightarrow\tau_2) & \triangleq S\tau_1\rightarrow S\tau_2                                      \\
+  S(\alpha.p) & \triangleq\alpha.p & \text{when }\alpha\not\in dom(S) &  & S(\alpha.p)                & \triangleq \tau.p                     & \text{when }\alpha\mapsto\tau\in S \\
+  S([].p)     & \triangleq [].p
 \end{align*}
 Define:
 \begin{align*}
-  (S,\external)\vDash U\triangleq & \forall(\tau_1\A{=}\tau_2)\in U:(S\tau_1)[\external]= (S\tau_2)[\external]    \\
-                                  & \text{and}                                                                    \\
+  (S,\external)\vDash U\triangleq & \forall(\tau_1\A{=}\tau_2)\in U:(S\tau_1)[\external]= (S\tau_2)[\external]\text{ and} \\
                                   & \forall(\tau_1\A{\le}\tau_2)\in U:(S\tau_1)[\external]\le(S\tau_2)[\external]
 \end{align*}
-where subtyping between type variables are defined as...(Work in Progress)
+where subtyping rules are the same as Figure \ref{fig:subtyping} and the rules for type variables $\alpha.p$ and external types $[].p$ are:
+\[\alpha.p\le\alpha.p\qquad[].p\le[].p\qquad\text{reflexivity}\]
 
 Then we can show that:
 \begin{clm}[Correnctness of $V$]
@@ -1009,9 +1008,10 @@ Note that by including $[].p$ in type environments, we can naturally generate co
 Also, by injection, we can utilize constraints generated \emph{in advance} to obtain constraints generated from a more informed environment.
 We extend injection to the output of the constraint-generating algorithm:
 \begin{align*}
-  \bot[\external] & \triangleq\bot                                                                                                                                                                                  \\
-  U[\external]    & \triangleq\{\tau_1[\external]\A{=}\tau_2[\external]|(\tau_1\A{=}\tau_2)\in U\}\cup\{\tau_1[\external]\A{\le}\tau_2[\external]|(\tau_1\A{\le}\tau_2)\in U\} & \text{when all injections succeed} \\
-  U[\external]    & \triangleq\bot                                                                                                                                             & \text{when injection fails}
+  \bot[\external] \triangleq & \bot                                                                                                          \\
+  U[\external]    \triangleq & \{\tau_1[\external]\A{=}\tau_2[\external]|(\tau_1\A{=}\tau_2)\in U\}\cup                                      \\
+                             & \{\tau_1[\external]\A{\le}\tau_2[\external]|(\tau_1\A{\le}\tau_2)\in U\} & \text{when all injections succeed} \\
+  U[\external]    \triangleq & \bot                                                                     & \text{when injection fails}
 \end{align*}
 Then we can prove:
 \begin{clm}[Advance]
