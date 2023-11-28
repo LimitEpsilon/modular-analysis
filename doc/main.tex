@@ -189,8 +189,9 @@
 \newcommand*{\filter}{\mathsf{filter}}
 \newcommand*{\Let}{\mathtt{let}}
 
-\title{A Syntax-Guided Framework for Modular Analysis}
+\title{A Simple Abstract Interpretation Framework for Modular Analysis}
 \author{Joonhyup Lee}
+\author{Kwangkeun Yi}
 \begin{document}
 \maketitle
 \section{Introduction}
@@ -549,7 +550,7 @@ The relation $\semarrow$ is unorthodox in that unlike normal big-step operaional
 Why it is defined as such is because defining a \emph{collecting semantics} becomes much simpler.
 
 \subsection{Collecting Semantics}
-To define a semantics that is computable, we must formulate the collecting semantics as a least fixed point of a monotonic function that maps an element of some CPO $\Trace$ to $\Trace$, when:
+To define a semantics that is computable, we must formulate the collecting semantics as a least fixed point of a monotonic function that maps an element of some CPO $\Trace$ to $\Trace$, where:
 \[\Sigma\triangleq\Right\:+\:\semarrow\qquad\Trace\triangleq\pset(\Sigma)\]
 The semantics of an expression $e$ starting from initial states in $C\subseteq\Ctx$ is the collection of $\config\semarrow\rightst$ and $\rightst$ derivable from initial configurations $(e,\ctx)$ with $\ctx\in C$.
 Defining the transfer function is straightforward from the definition of the transition relation.
@@ -668,7 +669,7 @@ Then we have:
 For the trivial case when $C_2=\{[]\}$, we have:
 \begin{corollary} For all $e_1,e_2\in\Expr$ and $C\subseteq\Ctx$, we have:
   \[(\sembracket{\link{e_1}{e_2}}C)(e_2)=((\sembracket{e_1}C)(e_1)\semlink\sembracket{e_2}\mt)(e_2)\]
-  when $\mt=\{[]\}$.
+  where $\mt=\{[]\}$.
 \end{corollary}
 \subsection{Skeleton of a Static Analysis}
 We require a CPO $\Abs{\Trace}$ that is Galois connected with $\Trace$:
@@ -860,7 +861,7 @@ The \emph{type} of $\tick$ can be freely chosen, since it may choose to record a
 An excerpt of the instrumented operational semantics is given in Figure \ref{fig:concreach}.
 One must first note that there is a problem with the definition of $\semarrow$ as it is.
 There are no restrictions on $\tick$ and the states $(\ctx,\mem,t)$, thus a write to the address $\tick(t)$ may overwrite an existing value that may be used for future computations.
-Thus, $\tick(t)\not\in\mathsf{supp}(\ctx,\mem)$ must be guaranteed, when $\mathsf{supp}(\ctx,\mem)$ is the set of timestamps reachable from $(\ctx,\mem)$.
+Thus, $\tick(t)\not\in\mathsf{supp}(\ctx,\mem)$ must be guaranteed, where $\mathsf{supp}(\ctx,\mem)$ is the set of timestamps reachable from $(\ctx,\mem)$.
 To enforce this invariant upon all \emph{valid} concrete executions defined by the relation $\semarrow$, we enforce that there be a \emph{total order} on $\Time$.
 Then our criteria can be guaranteed by first enforcing that $\ctx\le t$ and $\mem\le t$, where $\ctx\le t$ means that all timestamps in $\ctx$ are bound by $t$, and $\mem\le t$ means that all timestamps allocated in the memory are bound by $t$.
 
@@ -1005,7 +1006,7 @@ Then we have:
 \end{corollary}
 However, we no longer can say that:
 \[(\sembracket{\link{e_1}{e_2}}S)(e_2)=((\sembracket{e_1}S)(e_1)\semlink\sembracket{e_2}\mt)(e_2)\]
-when $\mt=\{([],\{\},0)\}$ for some $0\in\Time$.
+where $\mt=\{([],\{\},0)\}$ for some $0\in\Time$.
 This is because $(\sembracket{e_1}S)\rhd\mt$ uses two versions of timestamps, yet $(\sembracket{e_1}S)(e_1)$ uses only one.
 To reconcile the different times, we must replace equality with a weaker notion of equivalence.
 We shall define such a relation in Section \ref{sec:equiv}.
@@ -1174,7 +1175,7 @@ Then we can prove that:
 Now we can say that $\Abs{\sembracket{e}}\alpha(S)$ is a sound abstraction of $\sembracket{e}S$.
 However, how can we make $\Abs{\sembracket{e}}\alpha(S)$ finitely computable?
 
-Observe that even for infinite computations such as $\omega\:\omega$ when $\omega=\lambda x.x\:x$,
+Observe that even for infinite computations such as $\omega\omega$ where $\omega=\lambda x.xx$,
 the shape of the \emph{context} is limited.
 Each time an application occurs, a new address is allocated in the memory and that address is pushed into the context.
 For the term $\omega\:\omega$, the context that is being modified is \emph{always} the empty context $[]$ that was stored in the memory as a closure $\langle\lambda x.x\:x,[]\rangle$.
@@ -1224,7 +1225,7 @@ Then we can define different versions of semantic operators.
 We define injection and linking in the abstract semantics in the same way as the concrete semantics.
 Only the definition of $\inject{\A{\ctx}_1}{\A\mem_2}$ has to be adapted to account for the fact that $\A\mem_2(\A{t})$ is now a \emph{set} of closures.
 This means that $\inject{\A{\ctx}_1}{\A\mem_2}$ must be defined as:
-\[\inject{\A{\ctx}_1}{\A\mem_2}\triangleq\lambda\A{t}.\{\inject{\A{\ctx}_1}{\A{v}_2}|\A{v}_2\in\A\mem_2(\A{t})\}\text{ when }\inject{\A\ctx_1}{\A{v}_2}\text{ is the same as concrete injection}\]
+\[\inject{\A{\ctx}_1}{\A\mem_2}\triangleq\lambda\A{t}.\{\inject{\A{\ctx}_1}{\A{v}_2}|\A{v}_2\in\A\mem_2(\A{t})\}\text{ where }\inject{\A\ctx_1}{\A{v}_2}\text{ is the same as concrete injection}\]
 Then we can show that:
 \begin{lemma}[Injection Preserves $\A\semarrow$]\label{lem:injpresaval}
   For all $\A{s}_1\in\A\State_1$, $\A\config_2\in\A\Config_2$, $\A\rightst\in\A\Right_2$,
@@ -1605,7 +1606,7 @@ With this ordering, $\tick$ always produces strictly larger timestamps.
 
 Then the $\A\tick$ function corresponding to \emph{k}-CFA may be given as:
 \[\A\tick(\A\ctx,\_,\_,x,\_)\triangleq(x,\lfloor|\A\ctx|\cons\lceil\A\ctx\rceil\rfloor_k)\qquad\A\alpha(n,x,l)\triangleq(x,\lfloor l\rfloor_k)\]
-when $\lfloor\cdot\rfloor_k$ takes the $k$ top elements of a list.
+where $\lfloor\cdot\rfloor_k$ takes the $k$ top elements of a list.
 It can be shown that $\A\alpha\circ\tick=\A\tick\circ\A\alpha$, thus \emph{k}-CFA is a sound abstraction.
 Also, since each abstract timestamp corresponds to infinitely many concrete timestamps, the lemma for abstract equivalence can be applied as well.
 

@@ -14,6 +14,27 @@ Definition eqb_ID_neq := String.eqb_neq.
 Lemma ID_refl : forall x, eqb_ID x x = true.
 Proof. intros; apply eqb_ID_eq; eauto. Qed.
 
+(*
+Inductive mod_tm :=
+  | m_empty
+  | m_var (M : ID)
+  | m_lete (x : ID) (e : expr_tm) (m : mod_tm)
+  | m_letm (M : ID) (m1 : mod_tm) (m2 : mod_tm)
+  | m_link (m1 : mod_tm) (m2 : mod_tm)
+
+with expr_tm :=
+  | e_var (x : ID)
+  | e_lam (x : ID) (e : expr_tm)
+  | e_app (e1 : expr_tm) (e2 : expr_tm)
+  | e_link (m : mod_tm) (e : expr_tm)
+.
+
+Scheme expr_ind_mut := Induction for expr_tm Sort Prop
+with mod_ind_mut := Induction for mod_tm Sort Prop.
+
+Combined Scheme tm_ind from expr_ind_mut, mod_ind_mut.
+*)
+
 Inductive tm :=
   | e_var (x : ID)
   | e_lam (x : ID) (e : tm)
@@ -243,11 +264,7 @@ Lemma mod_is_static_none : forall {T} (dC : dy_ctx T) (M : ID),
   (ctx_M dC M = None <-> st_ctx_M (dy_to_st dC) M = None).
 Proof. 
   intros. repeat split; induction dC; simpl; eauto;
-  repeat des_goal; eauto;
-  match goal with
-  | _ => let H := fresh "H" in intro H; inversion H
-  | _ => idtac
-  end.
+  repeat des_goal; clarify; eauto.
 Qed.
 
 Lemma mod_is_static_some : forall {T} (dC : dy_ctx T) (M : ID),

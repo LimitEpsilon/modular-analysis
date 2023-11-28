@@ -359,8 +359,7 @@ Proof.
   | |- time_bound_m ?m ?t => 
     first [assumption |
     apply time_bound_tick; simpl; assumption]
-  end;
-  try solve [apply leb_refl | lebt t_a | lebt t'].
+  end; try solve [solve_leb].
   all:try match goal with
   | PROJ : project ?C ?s_M = _,
     BD : time_bound_C ?C ?t |- _ =>
