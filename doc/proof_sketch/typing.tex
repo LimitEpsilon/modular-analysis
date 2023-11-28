@@ -233,8 +233,8 @@
                 &            & $\vbar$       & $\link{e}{e}$                                          & linked expression            \\
                 &            & $\vbar$       & $\varepsilon$                                          & empty module                 \\
                 &            & $\vbar$       & $\modid$                                               & module identifier            \\
-                &            & $\vbar$       & $\Lete$ $x$ $e$ $e$                                    & binding expression           \\
-                &            & $\vbar$       & $\Letm$ $\modid$ $e$ $e$                               & binding module               \\
+                &            & $\vbar$       & $\Lete$ $x$ $e$ $e$                                    & value binding                \\
+                &            & $\vbar$       & $\Letm$ $\modid$ $e$ $e$                               & module binding               \\
   \end{tabular}
   \caption{Abstract syntax of the simple module language.}
   \label{fig:syntax}
@@ -385,11 +385,11 @@ The definitions for types are in Figure \ref{fig:typdom} and the typing rules ar
 \begin{figure}[h!]
   \centering
   \begin{tabular}{rrcll}
-    Types              & $\tau$   & $\rightarrow$ & $\iota$                       & unit type          \\
-                       &          & $\vbar$       & $\tau\rightarrow\tau$         & function type      \\
-    Typing Environment & $\Gamma$ & $\rightarrow$ & $\bullet$                     & empty environment  \\
-                       &          & $\vbar$       & $(x,\tau)\cons \Gamma$        & expression binding \\
-                       &          & $\vbar$       & $(\modid,\Gamma)\cons \Gamma$ & module binding
+    Types            & $\tau$   & $\rightarrow$ & $\iota$                       & unit type          \\
+                     &          & $\vbar$       & $\tau\rightarrow\tau$         & function type      \\
+    Type Environment & $\Gamma$ & $\rightarrow$ & $\bullet$                     & empty environment  \\
+                     &          & $\vbar$       & $(x,\tau)\cons \Gamma$        & expression binding \\
+                     &          & $\vbar$       & $(\modid,\Gamma)\cons \Gamma$ & module binding
   \end{tabular}
   \caption{Definition of types.}
   \label{fig:typdom}
@@ -486,7 +486,7 @@ The definitions for types are in Figure \ref{fig:typdom} and the typing rules ar
 \subsection{Type Safety}
 \begin{clm}[Type Safety]
   For all $e\in\Expr$, if $\bullet\vdash e:\tau$ for some $\tau$, then there exists some $v\in\Value$ such that $(e,\bullet)\semarrow v$.
-  Likewise, if $\bullet\vdash e:\Gamma$ for some $\Gamma$, then there exists some $\ctx'\in\Ctx$ such that $(e,\ctx)\Downarrow\ctx'$.
+  Likewise, if $\bullet\vdash e:\Gamma$ for some $\Gamma$, then there exists some $\ctx\in\Ctx$ such that $(e,\bullet)\Downarrow\ctx$.
 \end{clm}
 \begin{proof}[Proof sketch]
   We prove this through unary logical relations and induction on the typing judgment.
@@ -494,7 +494,7 @@ The definitions for types are in Figure \ref{fig:typdom} and the typing rules ar
   \begin{tabular}{rclr}
     \textbf{Value Relation}                   &              &                                                                                                        & \fbox{$\ValRel{\tau}$}                                  \\
     $\ValRel{\iota}$                          & $\triangleq$ & $\{()\}$                                                                                                                                                         \\
-    $\ValRel{\tau_1\rightarrow\tau_2}$        & $\triangleq$ & $\{\langle\lambda x.e,\ctx\rangle|\forall v\in\ValRel{\tau_1},(e,(x,v)\cons\ctx)\in\ExprRel{\tau_2}\}$                                                           \\
+    $\ValRel{\tau_1\rightarrow\tau_2}$        & $\triangleq$ & $\{\langle\lambda x.e,\ctx\rangle|\forall v\in\ValRel{\tau_1}:(e,(x,v)\cons\ctx)\in\ExprRel{\tau_2}\}$                                                           \\
     \\
     \textbf{Expression Relation}              &              &                                                                                                        & \fbox{$\ExprRel{\tau}$ or $\ExprRel{\Gamma}$}           \\
     $\ExprRel{\tau}$                          & $\triangleq$ & $\{(e,\ctx)|\exists v\in\ValRel{\tau}:(e,\ctx)\semarrow v\}$                                                                                                     \\
@@ -645,7 +645,7 @@ Then we can prove:
     Expression  & $e$ & $\rightarrow$ & $x$ $\vbar$ $\lambda x.e$ $\vbar$ $e$ $e$ & $\lambda$-calculus \\
                 &     & $\vbar$       & $\link{e}{e}$                             & linked expression  \\
                 &     & $\vbar$       & $\varepsilon$                             & empty module       \\
-                &     & $\vbar$       & $\Lete$ $x$ $e$ $e$                       & exported binding
+                &     & $\vbar$       & $\Lete$ $x$ $e$ $e$                       & value binding
   \end{tabular}
   \caption{Abstract syntax of the language where modules are first-class.}
   \label{fig:extsyntax}
@@ -658,7 +658,7 @@ Then we can prove:
     Value               & $v$    & $\in$         & $\Value \triangleq\Ctx+\ExprVar\times\Expr\times\Ctx$                      \\
     Context             & $\ctx$ & $\rightarrow$ & $\bullet$                                             & empty stack        \\
                         &        & $\vbar$       & $(x,v)\cons \ctx$                                     & expression binding \\
-    Value               & $v$    & $\rightarrow$ & $\ctx$                                                & unit               \\
+    Value               & $v$    & $\rightarrow$ & $\ctx$                                                & module             \\
                         &        & $\vbar$       & $\langle \lambda x.e, \ctx \rangle$                   & closure
   \end{tabular}
   \caption{Definition of the semantic domains.}
