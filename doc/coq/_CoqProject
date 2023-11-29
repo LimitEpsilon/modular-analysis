@@ -5,3 +5,5 @@ basics
 simple
 -R signature Signature
 signature
+-R typing Typing
+typing

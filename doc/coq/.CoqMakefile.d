@@ -61,3 +61,6 @@ signature/Sound.vos signature/Sound.vok signature/Sound.required_vos: signature/
 signature/Syntax.vo signature/Syntax.glob signature/Syntax.v.beautified signature/Syntax.required_vo: signature/Syntax.v basics/Basics.vo
 signature/Syntax.vio: signature/Syntax.v basics/Basics.vio
 signature/Syntax.vos signature/Syntax.vok signature/Syntax.required_vos: signature/Syntax.v basics/Basics.vos
+typing/typing.vo typing/typing.glob typing/typing.v.beautified typing/typing.required_vo: typing/typing.v basics/Basics.vo
+typing/typing.vio: typing/typing.v basics/Basics.vio
+typing/typing.vos typing/typing.vok typing/typing.required_vos: typing/typing.v basics/Basics.vos
