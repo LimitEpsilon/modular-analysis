@@ -946,10 +946,10 @@ Next we define the type access operation $\tau(x)$:
 \end{align*}
 
 Now we can define the constraint generation algorithm $V(\Gamma,e,\alpha)$.
-Note that the \textbf{let} $U$ \texttt{=} $\_$ \textbf{in} $\_$ notation returns $\bot$ if the right hand side is not a set of type constraints.
+Note that the \textbf{let} $U$ \texttt{=} $\_$ \textbf{in} $\_$ notation returns $\bot$ if the right hand side is $\bot$.
 Also note that we write $\alpha$ for $\alpha.\epsilon$ as well.
 
-\begin{flushright}\fbox{$V(\Gamma,e,\alpha)=U\text{ or }\bot$}\end{flushright}
+\begin{flushright}\fbox{$V(\Gamma,e,\alpha)=U$}\end{flushright}
 \hspace{-2.5em}
 \begin{tabular}{rclrcl}
   $V(\Gamma,\varepsilon,\alpha)$ & $\triangleq$ & $\{\alpha\A{=}\bullet\}$                                                             & $V(\Gamma,\link{e_1}{e_2},\alpha)$         & $\triangleq$ & \textbf{let} $\alpha_1$ \texttt{=} \textit{fresh} \textbf{in}                       \\
