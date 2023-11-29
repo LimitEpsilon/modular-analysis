@@ -243,12 +243,12 @@
 \begin{figure}[h!]
   \centering
   \begin{tabular}{rrcll}
-    Environment/Context  & $\ctx$ & $\in$         & $\Ctx$                                                                       \\
-    Value of expressions & $v$    & $\in$         & $\Value \triangleq\{()\}+\ExprVar\times\Expr\times\Ctx$                      \\
-    Context              & $\ctx$ & $\rightarrow$ & $\bullet$                                               & empty stack        \\
-                         &        & $\vbar$       & $(x,v)\cons \ctx$                                       & expression binding \\
-                         &        & $\vbar$       & $(\modid,\ctx)\cons \ctx$                               & module binding     \\
-    Value of expressions & $v$    & $\rightarrow$ & $()$                                                    & unit               \\
+    Environment/Context  & $\ctx$ & $\in$         & $\Ctx$                                                                   \\
+    Value of expressions & $v$    & $\in$         & $\Value \triangleq\{()\}+\ExprVar\times\Expr\times\Ctx$                  \\
+    Context              & $\ctx$ & $\rightarrow$ & $\bullet$                                               & empty stack    \\
+                         &        & $\vbar$       & $(x,v)\cons \ctx$                                       & value binding  \\
+                         &        & $\vbar$       & $(\modid,\ctx)\cons \ctx$                               & module binding \\
+    Value of expressions & $v$    & $\rightarrow$ & $()$                                                    & unit           \\
                          &        & $\vbar$       & $\langle \lambda x.e, \ctx \rangle$                     & closure
   \end{tabular}
   \caption{Definition of the semantic domains.}
@@ -384,10 +384,10 @@ The definitions for types are in Figure \ref{fig:typdom} and the typing rules ar
 \begin{figure}[h!]
   \centering
   \begin{tabular}{rrcll}
-    Types            & $\tau$   & $\rightarrow$ & $\iota$                       & unit type          \\
-                     &          & $\vbar$       & $\tau\rightarrow\tau$         & function type      \\
-    Type Environment & $\Gamma$ & $\rightarrow$ & $\bullet$                     & empty environment  \\
-                     &          & $\vbar$       & $(x,\tau)\cons \Gamma$        & expression binding \\
+    Types            & $\tau$   & $\rightarrow$ & $\iota$                       & unit type         \\
+                     &          & $\vbar$       & $\tau\rightarrow\tau$         & function type     \\
+    Type Environment & $\Gamma$ & $\rightarrow$ & $\bullet$                     & empty environment \\
+                     &          & $\vbar$       & $(x,\tau)\cons \Gamma$        & value binding     \\
                      &          & $\vbar$       & $(\modid,\Gamma)\cons \Gamma$ & module binding
   \end{tabular}
   \caption{Definition of types.}
@@ -538,7 +538,7 @@ First we define the syntax for type constraints.
                        &          & $\vbar$       & $\alpha$                         & type variables                        \\
                        &          & $\vbar$       & $[].p.x$                         & types from the external environment   \\
     Type Environment   & $\Gamma$ & $\rightarrow$ & $\bullet$                        & empty environment                     \\
-                       &          & $\vbar$       & $(x,\tau)\cons \Gamma$           & expression binding                    \\
+                       &          & $\vbar$       & $(x,\tau)\cons \Gamma$           & value binding                         \\
                        &          & $\vbar$       & $(\modid,\Gamma)\cons \Gamma$    & module binding                        \\
                        &          & $\vbar$       & $[].p$                           & modules from the external environment \\
     Type Constraint    & $u$      & $\rightarrow$ & $\tau\A{=}\tau$                  & equality constraint                   \\
@@ -628,8 +628,11 @@ We extend injection to the output of the constraint-generating algorithm:
 \end{align*}
 Then we can prove:
 \begin{clm}[Advance]
-  For $e\in\Expr$, $\Gamma,\external\in\TyEnv$, $\alpha\in\TyVar$:
-  \[V(\Gamma[\external],e,\alpha)=V(\Gamma,e,\alpha)[\external]\]
+  For $e\in\Expr$, $m\in\Module$, $\Gamma,\external\in\TyEnv$, $\alpha\in\TyVar$:
+  \begin{align*}
+    V_1(\Gamma[\external],e,\alpha) & =V_1(\Gamma,e,\alpha)[\external] \\
+    V_2(\Gamma[\external],m)        & =V_2(\Gamma,m)[\external]
+  \end{align*}
 \end{clm}
 \begin{proof}[Proof sketch]
   Structural induction on $\Gamma$.
@@ -652,11 +655,11 @@ Then we can prove:
 \begin{figure}[h!]
   \centering
   \begin{tabular}{rrcll}
-    Environment/Context & $\ctx$ & $\in$         & $\Ctx$                                                                \\
-    Value               & $v$    & $\in$         & $\Value \triangleq\Ctx+\ExprVar\times\Expr\times\Ctx$                 \\
-    Context             & $\ctx$ & $\rightarrow$ & $\bullet$                                             & empty stack   \\
-                        &        & $\vbar$       & $(x,v)\cons \ctx$                                     & value binding \\
-    Value               & $v$    & $\rightarrow$ & $\ctx$                                                & module        \\
+    Environment/Context & $\ctx$ & $\in$         & $\Ctx$                                                                   \\
+    Value               & $v$    & $\in$         & $\Value \triangleq\Ctx+\ExprVar\times\Expr\times\Ctx$                    \\
+    Context             & $\ctx$ & $\rightarrow$ & $\bullet$                                             & empty stack      \\
+                        &        & $\vbar$       & $(x,v)\cons \ctx$                                     & value binding    \\
+    Value               & $v$    & $\rightarrow$ & $\ctx$                                                & exported context \\
                         &        & $\vbar$       & $\langle \lambda x.e, \ctx \rangle$                   & closure
   \end{tabular}
   \caption{Definition of the semantic domains.}
