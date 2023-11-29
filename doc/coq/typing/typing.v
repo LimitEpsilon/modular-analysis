@@ -13,7 +13,7 @@ Inductive tm :=
 
 Inductive env :=
   | Mt
-  | Vind (x : string) (v : value) (σ : env)
+  | VBind (x : string) (v : value) (σ : env)
 
 with value :=
   | Ctx (σ : env)
@@ -27,7 +27,7 @@ Combined Scheme ctx_ind from env_ind_mut, value_ind_mut.
 
 Inductive tyenv :=
   | Nil
-  | Bind (x : string) (A : ty) (Γ : tyenv)
+  | TBind (x : string) (A : ty) (Γ : tyenv)
 
 with ty :=
   | Env (Γ : tyenv)
@@ -42,7 +42,7 @@ Combined Scheme type_ind from tyenv_ind_mut, ty_ind_mut.
 Fixpoint tyenv_size Γ :=
   match Γ with
   | Nil => 1
-  | Bind _ A Γ' => ty_size A + tyenv_size Γ'
+  | TBind _ A Γ' => ty_size A + tyenv_size Γ'
   end
 
 with ty_size A :=
@@ -67,16 +67,16 @@ Proof. apply size_positive. Qed.
 Fixpoint read (Γ : tyenv) (x : string) :=
   match Γ with
   | Nil => None
-  | Bind x' τ Γ' =>
+  | TBind x' τ Γ' =>
     if String.eqb x x' then Some τ else read Γ' x
   end.
 
 Fixpoint remove (Γ : tyenv) (x : string) :=
   match Γ with
   | Nil => Nil
-  | Bind x' τ Γ' =>
+  | TBind x' τ Γ' =>
     let Γ' := remove Γ' x in
-    if String.eqb x x' then Γ' else Bind x' τ Γ'
+    if String.eqb x x' then Γ' else TBind x' τ Γ'
   end.
 
 Lemma read_size_dec Γ :
@@ -109,7 +109,7 @@ Qed.
 
 Equations subtype (A B : ty) : Prop by wf (ty_size A + ty_size B) :=
   subtype (Env Nil) (Env Nil) := True;
-  subtype (Env Γ) (Env (Bind x' A' Γ')) :=
+  subtype (Env Γ) (Env (TBind x' A' Γ')) :=
     subtype (Env (remove Γ x')) (Env Γ') /\
     match read Γ x' as r return read Γ x' = r -> Prop with 
     | None => fun _ => True
@@ -175,7 +175,7 @@ Next Obligation. t. Qed.
 Next Obligation. t. Qed.
 
 Lemma simp_subtype_env Γ x' A' Γ' :
-  subtype (Env Γ) (Env (Bind x' A' Γ')) =
+  subtype (Env Γ) (Env (TBind x' A' Γ')) =
   (subtype (Env (remove Γ x')) (Env Γ') /\
   match read Γ x' with 
   | None => True
@@ -194,7 +194,7 @@ Inductive type_case : Set :=
 Fixpoint fetch (σ : env) x :=
   match σ with
   | Mt => None
-  | Vind x' v σ' =>
+  | VBind x' v σ' =>
     if String.eqb x x' then Some v else fetch σ' x
   end.
 
@@ -208,7 +208,7 @@ Inductive eval : tm * env -> value -> Prop :=
   | EApp e1 e2 σ x e σ' v v'
   (FN : eval (e1, σ) (Closure x e σ'))
   (ARG : eval (e2, σ) v)
-  (BODY : eval (e, Vind x v σ') v')
+  (BODY : eval (e, VBind x v σ') v')
   : eval (App e1 e2, σ) v'
 
   | ELink e1 e2 σ σ' v
@@ -221,8 +221,8 @@ Inductive eval : tm * env -> value -> Prop :=
 
   | EVal x e1 e2 σ v σ'
   (VAL : eval (e1, σ) v)
-  (MOD : eval (e2, Vind x v σ) (Ctx σ'))
-  : eval (Val x e1 e2, σ) (Ctx (Vind x v σ'))
+  (MOD : eval (e2, VBind x v σ) (Ctx σ'))
+  : eval (Val x e1 e2, σ) (Ctx (VBind x v σ'))
 .
 
 #[local] Hint Constructors eval : core.
@@ -232,7 +232,7 @@ Inductive typing (Γ : tyenv) : tm -> ty -> Prop :=
   : typing Γ (Var x) A
 
   | TLam x e A B
-  (FN : typing (Bind x A Γ) e B)
+  (FN : typing (TBind x A Γ) e B)
   : typing Γ (Lam x e) (Fun A B)
 
   | TApp e1 e2 A B C
@@ -248,8 +248,8 @@ Inductive typing (Γ : tyenv) : tm -> ty -> Prop :=
 
   | TVal x e1 e2 A Γ'
   (VAL : typing Γ e1 A)
-  (MOD : typing (Bind x A Γ) e2 (Env Γ'))
-  : typing Γ (Val x e1 e2) (Env (Bind x A Γ'))
+  (MOD : typing (TBind x A Γ) e2 (Env Γ'))
+  : typing Γ (Val x e1 e2) (Env (TBind x A Γ'))
 .
 
 #[local] Hint Constructors typing : core.
@@ -263,7 +263,7 @@ Definition mut_measure (c : type_case) (A : ty) : nat :=
 Equations type_interp (c : type_case) (t : ty) (v : match c with val_case => value | expr_case => tm * env end) : Prop by wf (mut_measure c t) := {
   type_interp val_case (Env Nil) v :=
     match v with | Ctx _ => True | _ => False end;
-  type_interp val_case (Env (Bind x A Γ)) v :=
+  type_interp val_case (Env (TBind x A Γ)) v :=
     match v with
     | Ctx σ =>
       match fetch σ x with
@@ -276,7 +276,7 @@ Equations type_interp (c : type_case) (t : ty) (v : match c with val_case => val
     match v with
     | Closure x e σ =>
       forall v' (GOOD : type_interp val_case A v'),
-        type_interp expr_case B (e, Vind x v' σ)
+        type_interp expr_case B (e, VBind x v' σ)
     | _ => False
     end;
   type_interp expr_case A (e, σ) :=
@@ -576,7 +576,7 @@ Proof. eapply var_compatible_aux; eauto. Qed.
 Lemma env_bind_compatible Γ A x v σ
   (Genv : type_interp val_case (Env Γ) (Ctx σ))
   (Gval : type_interp val_case A v) :
-  type_interp val_case (Env (Bind x A Γ)) (Ctx (Vind x v σ)).
+  type_interp val_case (Env (TBind x A Γ)) (Ctx (VBind x v σ)).
 Proof.
   simp type_interp.
   s. rewrite eqb_refl. split; eauto.
@@ -620,7 +620,7 @@ Proof.
   - exploit IHTYPE1; eauto. intros SEMTY1.
     simp type_interp in SEMTY1.
     destruct SEMTY1 as (v & SEMTY1 & EVAL1).
-    exploit (IHTYPE2 (Vind x v σ)).
+    exploit (IHTYPE2 (VBind x v σ)).
     apply env_bind_compatible; eauto.
     intros SEMTY2.
     simp type_interp in SEMTY2.
