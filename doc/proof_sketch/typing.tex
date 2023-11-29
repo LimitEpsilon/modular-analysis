@@ -214,6 +214,7 @@
 \newcommand*{\ValRel}[1]{\mathcal{V}\sembracket{#1}}
 \newcommand*{\ExprRel}[1]{\mathcal{E}\sembracket{#1}}
 \newcommand*{\CtxRel}[1]{\mathcal{C}\sembracket{#1}}
+\newcommand*{\ModRel}[1]{\mathcal{M}\sembracket{#1}}
 \newcommand*{\TyEnv}{\text{TyEnv}}
 \newcommand*{\TyVar}{\text{TyVar}}
 \newcommand*{\Type}{\text{Type}}
@@ -495,18 +496,20 @@ The definitions for types are in Figure \ref{fig:typdom} and the typing rules ar
     $\ValRel{\iota}$                          & $\triangleq$ & $\{()\}$                                                                                                                                                          \\
     $\ValRel{\tau_1\rightarrow\tau_2}$        & $\triangleq$ & $\{\langle\lambda x.e,\ctx\rangle|\forall v\in\ValRel{\tau_1}:(e,(x,v)\cons\ctx)\in\ExprRel{\tau_2}\}$                                                            \\
     \\
-    \textbf{Expression Relation}              &              &                                                                                                        & \fbox{$\ExprRel{\tau}$ and $\ExprRel{\Gamma}$}           \\
+    \textbf{Expression Relation}              &              &                                                                                                        & \fbox{$\ExprRel{\tau}$}                                  \\
     $\ExprRel{\tau}$                          & $\triangleq$ & $\{(e,\ctx)|\exists v\in\ValRel{\tau}:(e,\ctx)\semarrow v\}$                                                                                                      \\
-    $\ExprRel{\Gamma}$                        & $\triangleq$ & $\{(m,\ctx)|\exists \ctx'\in\CtxRel{\Gamma}:(m,\ctx)\semarrow \ctx'\}$                                                                                            \\
     \\
     \textbf{Context Relation}                 &              &                                                                                                        & \fbox{$\CtxRel{\Gamma}$}                                 \\
     $\CtxRel{\bullet}$                        & $\triangleq$ & $\{\bullet\}$                                                                                                                                                     \\
     $\CtxRel{(x,\tau_1)\cons\Gamma_2}$        & $\triangleq$ & $\{(x,v_1)\cons\ctx_2|v_1\in\ValRel{\tau_1}\land\ctx_2\in\CtxRel{\Gamma_2}\}$                                                                                     \\
     $\CtxRel{(\modid,\Gamma_1)\cons\Gamma_2}$ & $\triangleq$ & $\{(\modid,\ctx_1)\cons\ctx_2|\ctx_1\in\CtxRel{\Gamma_1}\land\ctx_2\in\CtxRel{\Gamma_2}\}$                                                                        \\
     \\
+    \textbf{Module Relation}                  &              &                                                                                                        & \fbox{$\ModRel{\Gamma}$}                                 \\
+    $\ModRel{\Gamma}$                         & $\triangleq$ & $\{(m,\ctx)|\exists\ctx'\in\CtxRel{\Gamma}:(m,\ctx)\semarrow\ctx'\}$                                                                                              \\
+    \\
     \textbf{Semantic Typing}                  &              &                                                                                                        & \fbox{$\Gamma\vDash e:\tau$ and $\Gamma\vDash m:\Gamma$} \\
     $\Gamma\vDash e:\tau$                     & $\triangleq$ & $\forall\ctx\in\CtxRel{\Gamma}:(e,\ctx)\in\ExprRel{\tau}$                                                                                                         \\
-    $\Gamma\vDash m:\Gamma'$                  & $\triangleq$ & $\forall\ctx\in\CtxRel{\Gamma}:(m,\ctx)\in\ExprRel{\Gamma'}$
+    $\Gamma\vDash m:\Gamma'$                  & $\triangleq$ & $\forall\ctx\in\CtxRel{\Gamma}:(m,\ctx)\in\ModRel{\Gamma'}$
   \end{tabular}
 
   \vphantom{}
@@ -906,7 +909,7 @@ The definitions for subtyping are in Figure \ref{fig:subtyping}.
   \[\Gamma\vdash e:\tau\Rightarrow\Gamma\vDash e:\tau\]
   by induction on $\vdash$.
 
-  For the base cases of $\bullet$, the proof is trivial.
+  For the base case of $\bullet$, the proof is trivial.
   For inductive cases, we need to show \emph{compatibility} lemmas.
   That is, we must show that the typing rules for syntactic typing hold for semantic typing as well.
   For this, we need the \emph{subtyping} lemma:
@@ -922,16 +925,16 @@ First we define the syntax for type constraints.
 \begin{figure}[h!]
   \centering
   \begin{tabular}{rrcll}
-    Type Variable      & $\alpha$ & $\in$         & $\TyVar$                                                              \\
-    Path               & $p$      & $\rightarrow$ & $\epsilon$                       & empty string                       \\
-                       &          & $\vbar$       & $p x$                            & concatenation with identifier      \\
-    Types              & $\tau$   & $\rightarrow$ & $\Gamma$ | $\tau\rightarrow\tau$ & module/function types              \\
-    Type Environment   & $\Gamma$ & $\rightarrow$ & $\bullet$                        & empty environment                  \\
-                       &          & $\vbar$       & $(x,\tau)\cons \Gamma$           & binding                            \\
-                       &          & $\vbar$       & $\alpha.p$                       & type variable                      \\
-                       &          & $\vbar$       & $[].p$                           & type from the external environment \\
-    Type Constraint    & $u$      & $\rightarrow$ & $\tau\A{=}\tau$                  & equality constraint                \\
-                       &          & $\vbar$       & $\tau\A{\le}\tau$                & subtyping constraint               \\
+    Type Variable      & $\alpha$ & $\in$         & $\TyVar$                                                               \\
+    Path               & $p$      & $\rightarrow$ & $\epsilon$                       & empty string                        \\
+                       &          & $\vbar$       & $p x$                            & concatenation with identifier       \\
+    Types              & $\tau$   & $\rightarrow$ & $\Gamma$ | $\tau\rightarrow\tau$ & module/function types               \\
+    Type Environment   & $\Gamma$ & $\rightarrow$ & $\bullet$                        & empty environment                   \\
+                       &          & $\vbar$       & $(x,\tau)\cons \Gamma$           & binding                             \\
+                       &          & $\vbar$       & $\alpha.p$                       & type variable                       \\
+                       &          & $\vbar$       & $[].p$                           & types from the external environment \\
+    Type Constraint    & $u$      & $\rightarrow$ & $\tau\A{=}\tau$                  & equality constraint                 \\
+                       &          & $\vbar$       & $\tau\A{\le}\tau$                & subtyping constraint                \\
     Set of Constraints & $U$      & $\subseteq$   & $\{u|u\text{ type constraint}\}$
   \end{tabular}
   \caption{Definition of type constraints.}
