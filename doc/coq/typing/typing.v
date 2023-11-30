@@ -247,6 +247,9 @@ Inductive typing (Γ : tyenv) : tm -> ty -> Prop :=
   (EXPR : typing Γ' e2 A)
   : typing Γ (Link e1 e2) A
 
+  | TEmpty
+  : typing Γ Empty (Env Nil)
+
   | TVal x e1 e2 A Γ'
   (VAL : typing Γ e1 A)
   (MOD : typing (TBind x A Γ) e2 (Env Γ'))
@@ -618,6 +621,7 @@ Proof.
     simp type_interp in SEMTY2.
     destruct SEMTY2 as (v & SEMTY2 & EVAL2).
     exists v. eauto.
+  - eexists; split; eauto. simp type_interp. eauto.
   - exploit IHTYPE1; eauto. intros SEMTY1.
     simp type_interp in SEMTY1.
     destruct SEMTY1 as (v & SEMTY1 & EVAL1).
