@@ -629,3 +629,10 @@ Proof.
     rewrite simp_interp_env in SEMTY2. des_hyp; clarify.
     eexists; split; eauto using env_bind_compatible.
 Qed.
+
+Corollary termination e A (TYPE : typing Nil e A) :
+  forall σ, exists v, eval (e, σ) v.
+Proof.
+  ii. exploit (type_safety _ _ _ _ σ); ii; eauto.
+  all:simp type_interp in *; des; eauto.
+Qed.
