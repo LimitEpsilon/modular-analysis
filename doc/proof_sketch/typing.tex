@@ -100,14 +100,14 @@
     literate=
     {\\forall}{{\color{dkgreen}{$\forall\;$}}}1
     {\\exists}{{$\exists\;$}}1
-    {\le -}{{$\leftarrow\;$}}1
+    {\ge -}{{$\geftarrow\;$}}1
     {=>}{{$\Rightarrow\;$}}1
     {==}{{\code{==}\;}}1
     {==>}{{\code{==>}\;}}1
     %    {:>}{{\code{:>}\;}}1
     {->}{{$\rightarrow\;$}}1
-    {\le ->}{{$\leftrightarrow\;$}}1
-    {\le ==}{{$\leq\;$}}1
+    {\ge ->}{{$\geftrightarrow\;$}}1
+    {\ge ==}{{$\geq\;$}}1
     {\#}{{$^\star$}}1 
     {\\o}{{$\circ\;$}}1 
     {\@}{{$\cdot$}}1 
@@ -801,7 +801,7 @@ The definitions for subtyping are in Figure \ref{fig:subtyping}.
         \begin{matrix}
           \Gamma\vdash e_1:\tau_1\rightarrow\tau \\
           \Gamma\vdash e_2:\tau_2                \\
-          \tau_1\le\tau_2
+          \tau_1\ge\tau_2
         \end{matrix}
       }
       \infer[left label={App}]1{
@@ -845,36 +845,36 @@ The definitions for subtyping are in Figure \ref{fig:subtyping}.
 \begin{figure}[h!]
   \footnotesize
   \begin{flushright}
-    \fbox{$\tau\le\tau$}
+    \fbox{$\tau\ge\tau$}
   \end{flushright}
   \centering
   \vspace{0pt} % -0.75em}
   \[
     \begin{prooftree}
       \infer[left label=Empty]0{
-      \bullet\le\bullet
+      \bullet\ge\bullet
       }
     \end{prooftree}\qquad
     \begin{prooftree}
       \hypo{
         \begin{matrix}
-          \Gamma(x)\le\tau \\
-          \Gamma-x\le\Gamma'
+          \Gamma(x)\ge\tau \\
+          \Gamma-x\ge\Gamma'
         \end{matrix}
       }
       \infer[left label=Bind]1{
-      \Gamma\le(x,\tau)\cons\Gamma'
+      \Gamma\ge(x,\tau)\cons\Gamma'
       }
     \end{prooftree}\qquad
     \begin{prooftree}
       \hypo{
         \begin{matrix}
-          \tau_2\le\tau_1 \\
-          \tau_1'\le\tau_2'
+          \tau_2\ge\tau_1 \\
+          \tau_1'\ge\tau_2'
         \end{matrix}
       }
       \infer[left label=Fn]1{
-      \tau_1\rightarrow\tau_1'\le
+      \tau_1\rightarrow\tau_1'\ge
       \tau_2\rightarrow\tau_2'
       }
     \end{prooftree}
@@ -913,7 +913,7 @@ The definitions for subtyping are in Figure \ref{fig:subtyping}.
   For inductive cases, we need to show \emph{compatibility} lemmas.
   That is, we must show that the typing rules for syntactic typing hold for semantic typing as well.
   For this, we need the \emph{subtyping} lemma:
-  \[\tau_1\le\tau_2\Rightarrow\ValRel{\tau_2}\subseteq\ValRel{\tau_1}\]
+  \[\tau_1\ge\tau_2\Rightarrow\ValRel{\tau_1}\supseteq\ValRel{\tau_2}\]
   Then by the inductive hypothesis and compatibility, the result follows.
 \end{proof}
 
@@ -934,7 +934,7 @@ First we define the syntax for type constraints.
                        &          & $\vbar$       & $\alpha.p$                       & type variable                       \\
                        &          & $\vbar$       & $[].p$                           & types from the external environment \\
     Type Constraint    & $u$      & $\rightarrow$ & $\tau\A{=}\tau$                  & equality constraint                 \\
-                       &          & $\vbar$       & $\tau\A{\le}\tau$                & subtyping constraint                \\
+                       &          & $\vbar$       & $\tau\A{\ge}\tau$                & subtyping constraint                \\
     Set of Constraints & $U$      & $\subseteq$   & $\{u|u\text{ type constraint}\}$
   \end{tabular}
   \caption{Definition of type constraints.}
@@ -964,7 +964,7 @@ Also note that we write $\alpha$ for $\alpha.\epsilon$ as well.
   $V(\Gamma,e_1\:e_2,\alpha)$    & $\triangleq$ & \textbf{let} $\alpha_1,\alpha_2,\alpha_3$ \texttt{=} \textit{fresh} \textbf{in}      &                                            &              & \textbf{let} $U_2$ \texttt{=} $V((x,\alpha_1)\cons\Gamma,e_2,\alpha_2)$ \textbf{in} \\
                                  &              & \textbf{let} $U_1$ \texttt{=} $V(\Gamma,e_1,\alpha_1)$ \textbf{in}                   &                                            &              & $\{\alpha\A{=}(x,\alpha_1)\cons\alpha_2\}\cup U_1\cup U_2$                          \\
                                  &              & \textbf{let} $U_2$ \texttt{=} $V(\Gamma,e_2,\alpha_2)$ \textbf{in}                                                                                                                                                                     \\
-                                 &              & $\{\alpha_1\A{=}\alpha_3\rightarrow\alpha,\alpha_3\A{\le}\alpha_2\}\cup U_1\cup U_2$
+                                 &              & $\{\alpha_1\A{=}\alpha_3\rightarrow\alpha,\alpha_3\A{\ge}\alpha_2\}\cup U_1\cup U_2$
 \end{tabular}
 
 \vphantom{}
@@ -992,7 +992,7 @@ For $S\in\Subst$, define:
 Define:
 \begin{align*}
   (S,\external)\vDash U\triangleq & \forall(\tau_1\A{=}\tau_2)\in U:(S\tau_1)[\external]= (S\tau_2)[\external]\text{ and} \\
-                                  & \forall(\tau_1\A{\le}\tau_2)\in U:(S\tau_1)[\external]\le(S\tau_2)[\external]
+                                  & \forall(\tau_1\A{\ge}\tau_2)\in U:(S\tau_1)[\external]\ge(S\tau_2)[\external]
 \end{align*}
 where subtyping rules are the same as Figure \ref{fig:subtyping} and subtyping between type variables are not defined.
 
@@ -1013,7 +1013,7 @@ We extend injection to the output of the constraint-generating algorithm:
 \begin{align*}
   \bot[\external] \triangleq & \bot                                                                                                          \\
   U[\external]    \triangleq & \{\tau_1[\external]\A{=}\tau_2[\external]|(\tau_1\A{=}\tau_2)\in U\}\cup                                      \\
-                             & \{\tau_1[\external]\A{\le}\tau_2[\external]|(\tau_1\A{\le}\tau_2)\in U\} & \text{when all injections succeed} \\
+                             & \{\tau_1[\external]\A{\ge}\tau_2[\external]|(\tau_1\A{\ge}\tau_2)\in U\} & \text{when all injections succeed} \\
   U[\external]    \triangleq & \bot                                                                     & \text{when injection fails}
 \end{align*}
 Then we can prove:

@@ -107,6 +107,7 @@ Proof.
   des_goal; ii; repeat rw; nia.
 Qed.
 
+(* subtype A B = A ≥ B *)
 Equations subtype (A B : ty) : Prop by wf (ty_size A + ty_size B) :=
   subtype (Env Nil) (Env Nil) := True;
   subtype (Env Γ) (Env (TBind x' A' Γ')) :=
@@ -499,7 +500,7 @@ Theorem subtype_trans A B C :
   subtype A B -> subtype B C -> subtype A C.
 Proof. ii. eapply subtype_trans_aux; eauto. Qed.
 
-(* A ≤ B => V[B] ⊆ V[A] *)
+(* A ≥ B => V[A] ⊇ V[B] *)
 Lemma subtype_subset_aux A B (SUB : subtype A B)
   n (IND : ty_size A + ty_size B <= n) :
   forall v (GOOD : type_interp val_case B v),
