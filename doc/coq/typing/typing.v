@@ -95,7 +95,7 @@ Lemma remove_size Γ x :
   | Some _ => tyenv_size (remove Γ x) < tyenv_size Γ
   end.
 Proof.
-  induction Γ; ii; ss; repeat des_goal; repeat des_hyp; clarify.
+  induction Γ; ii; ss; des_ifs; ss.
   all:first [nia | repeat rw; try reflexivity].
   specialize (ty_size_positive t). nia.
 Qed.
@@ -104,7 +104,7 @@ Lemma remove_size_dec Γ x :
   tyenv_size (remove Γ x) <= tyenv_size Γ.
 Proof.
   specialize (remove_size Γ x).
-  des_goal; ii; repeat rw; nia.
+  des_ifs; ii; repeat rw; nia.
 Qed.
 
 (* subtype A B = A ≥ B *)
@@ -123,10 +123,10 @@ Equations subtype (A B : ty) : Prop by wf (ty_size A + ty_size B) :=
 Ltac step :=
   match goal with
   | _ => nia
-  | _ => progress simpl in *
+  | _ => progress ss
   | |- _ -> _ => intros
-  | _ => des_hyp
   | _ => des_goal
+  | _ => des_hyp
   | H : Some _ = None |- _ => inversion H
   | H : None = Some _ |- _ => inversion H
   | H : Some ?A = Some ?B |- _ =>
@@ -310,11 +310,9 @@ Proof.
   ginduction Γ; ii; ss; repeat des_goal;
   repeat rewrite eqb_eq in *; 
   repeat rewrite eqb_neq in *;
-  clarify.
-  - rw. rewrite eqb_refl. eauto.
-  - rewrite <- eqb_neq in *. repeat rw. eauto.
-  - rw. rewrite eqb_refl. eauto.
-  - rewrite <- eqb_neq in *. repeat rw. eauto.
+  clarify;
+  solve [rw; rewrite eqb_refl; ss
+    | rewrite <- eqb_neq in *; repeat rw; ss].
 Qed.
 
 Lemma remove_comm Γ x x' :
@@ -630,7 +628,7 @@ Proof.
     intros SEMTY2.
     simp type_interp in SEMTY2.
     destruct SEMTY2 as (v' & SEMTY2 & EVAL2).
-    rewrite simp_interp_env in SEMTY2. des_hyp; clarify.
+    rewrite simp_interp_env in SEMTY2. des_ifs.
     eexists; split; eauto using env_bind_compatible.
 Qed.
 

@@ -893,7 +893,7 @@ The definitions for subtyping are in Figure \ref{fig:subtyping}.
   \begin{tabular}{rclr}
     \textbf{Value Relation}            &              &                                                                                                        & \fbox{$\ValRel{\tau}$}       \\
     $\ValRel{\bullet}$                 & $\triangleq$ & $\Ctx$                                                                                                                                \\
-    $\ValRel{(x,\tau)\cons\Gamma}$     & $\triangleq$ & $\{\ctx|\ctx(x)\in\ValRel{\tau}\land(\ctx-x)\in\ValRel{\Gamma-x}\}$                                                                   \\
+    $\ValRel{(x,\tau)\cons\Gamma}$     & $\triangleq$ & $\{\ctx|\ctx(x)\in\ValRel{\tau}\land\ctx\in\ValRel{\Gamma-x}\}$                                                                   \\
     $\ValRel{\tau_1\rightarrow\tau_2}$ & $\triangleq$ & $\{\langle\lambda x.e,\ctx\rangle|\forall v\in\ValRel{\tau_1}:(e,(x,v)\cons\ctx)\in\ExprRel{\tau_2}\}$                                \\
     \\
     \textbf{Expression Relation}       &              &                                                                                                        & \fbox{$\ExprRel{\tau}$}      \\

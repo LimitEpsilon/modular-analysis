@@ -1,0 +1,1119 @@
+%! TEX program = xelatex
+\documentclass{article}
+\usepackage{geometry}
+\geometry{
+  a4paper,
+  total={170mm,257mm},
+  left=20mm,
+  top=20mm,
+}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{kotex}
+\usepackage{csquotes}
+
+%%% Typesetting for listings
+\usepackage{listings}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{ltblue}{rgb}{0,0.4,0.4}
+\definecolor{dkviolet}{rgb}{0.3,0,0.5}
+
+%%% lstlisting coq style (inspired from a file of Assia Mahboubi)
+\lstdefinelanguage{Coq}{ 
+    % Anything betweeen $ becomes LaTeX math mode
+    mathescape=true,
+    % Comments may or not include Latex commands
+    texcl=false, 
+    % Vernacular commands
+    morekeywords=[1]{Section, Module, End, Require, Import, Export,
+        Variable, Variables, Parameter, Parameters, Axiom, Hypothesis,
+        Hypotheses, Notation, Local, Tactic, Reserved, Scope, Open, Close,
+        Bind, Delimit, Definition, Let, Ltac, Fixpoint, CoFixpoint, Add,
+        Morphism, Relation, Implicit, Arguments, Unset, Contextual,
+        Strict, Prenex, Implicits, Inductive, CoInductive, Record,
+        Structure, Canonical, Coercion, Context, Class, Global, Instance,
+        Program, Infix, Theorem, Lemma, Corollary, Proposition, Fact,
+        Remark, Example, Proof, Goal, Save, Qed, Defined, Hint, Resolve,
+        Rewrite, View, Search, Show, Print, Printing, All, Eval, Check,
+        Projections, inside, outside, Def},
+    % Gallina
+    morekeywords=[2]{forall, exists, exists2, fun, fix, cofix, struct,
+        match, with, end, as, in, return, let, if, is, then, else, for, of,
+        nosimpl, when},
+    % Sorts
+    morekeywords=[3]{Type, Prop, Set, true, false, option},
+    % Various tactics, some are std Coq subsumed by ssr, for the manual purpose
+    morekeywords=[4]{pose, set, move, case, elim, apply, clear, hnf,
+        intro, intros, generalize, rename, pattern, after, destruct,
+        induction, using, refine, inversion, injection, rewrite, congr,
+        unlock, compute, ring, field, fourier, replace, fold, unfold,
+        change, cutrewrite, simpl, have, suff, wlog, suffices, without,
+        loss, nat_norm, assert, cut, trivial, revert, bool_congr, nat_congr,
+        symmetry, transitivity, auto, split, left, right, autorewrite},
+    % Terminators
+    morekeywords=[5]{by, done, exact, reflexivity, tauto, romega, omega,
+        assumption, solve, contradiction, discriminate},
+    % Control
+    morekeywords=[6]{do, last, first, try, idtac, repeat},
+    % Comments delimiters, we do turn this off for the manual
+    morecomment=[s]{(*}{*)},
+    % Spaces are not displayed as a special character
+    showstringspaces=false,
+    % String delimiters
+    morestring=[b]",
+    morestring=[d],
+    % Size of tabulations
+    tabsize=3,
+    % Enables ASCII chars 128 to 255
+    extendedchars=false,
+    % Case sensitivity
+    sensitive=true,
+    % Automatic breaking of long lines
+    breaklines=false,
+    % Default style fors listings
+    basicstyle=\small,
+    % Position of captions is bottom
+    captionpos=b,
+    % flexible columns
+    columns=[l]flexible,
+    % Style for (listings') identifiers
+    identifierstyle={\ttfamily\color{black}},
+    % Style for declaration keywords
+    keywordstyle=[1]{\ttfamily\color{dkviolet}},
+    % Style for gallina keywords
+    keywordstyle=[2]{\ttfamily\color{dkgreen}},
+    % Style for sorts keywords
+    keywordstyle=[3]{\ttfamily\color{ltblue}},
+    % Style for tactics keywords
+    keywordstyle=[4]{\ttfamily\color{dkblue}},
+    % Style for terminators keywords
+    keywordstyle=[5]{\ttfamily\color{dkred}},
+    %Style for iterators
+    %keywordstyle=[6]{\ttfamily\color{dkpink}},
+    % Style for strings
+    stringstyle=\ttfamily,
+    % Style for comments
+    commentstyle={\ttfamily\color{dkgreen}},
+    %moredelim=**[is][\ttfamily\color{red}]{/&}{&/},
+    literate=
+    {\\forall}{{\color{dkgreen}{$\forall\;$}}}1
+    {\\exists}{{$\exists\;$}}1
+    {\ge -}{{$\geftarrow\;$}}1
+    {=>}{{$\Rightarrow\;$}}1
+    {==}{{\code{==}\;}}1
+    {==>}{{\code{==>}\;}}1
+    %    {:>}{{\code{:>}\;}}1
+    {->}{{$\rightarrow\;$}}1
+    {\ge ->}{{$\geftrightarrow\;$}}1
+    {\ge ==}{{$\geq\;$}}1
+    {\#}{{$^\star$}}1 
+    {\\o}{{$\circ\;$}}1 
+    {\@}{{$\cdot$}}1 
+    {\/\\}{{$\text{ and }\;$}}1
+    {\\\/}{{$\vee\;$}}1
+    {++}{{\code{++}}}1
+    {~}{{\ }}1
+    {\@\@}{{$@$}}1
+    {\\mapsto}{{$\mapsto\;$}}1
+    {\\hline}{{\rule{\linewidth}{0.5pt}}}1
+    %
+}[keywords,comments,strings]
+
+%%% Math settings
+\usepackage{amssymb,amsmath,amsthm,mathtools}
+\usepackage[math-style=TeX,bold-style=TeX]{unicode-math}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{example}{Example}[section]
+\newtheorem{lem}{Lemma}[section]
+\newtheorem{thm}{Theorem}[section]
+\newtheorem{cor}{Corollary}[section]
+\newtheorem{clm}{Claim}[section]
+
+%%% Font settings
+%\setmainfont{Libertinus Serif}
+%\setsansfont{Libertinus Sans}[Scale=MatchUppercase]
+%\setmonofont{JuliaMono}[Scale=MatchLowercase]
+%\setmainhangulfont{Noto Serif CJK KR}
+%\setmonohangulfont{D2Coding}
+
+%%% PL constructs
+\usepackage{galois}
+\usepackage{ebproof}
+\ebproofset{left label template=\textsc{[\inserttext]}}
+\ebproofset{center=false}
+
+%%% Custom commands
+\newcommand*{\vbar}{|}
+\newcommand*{\finto}{\xrightarrow{\text{\textrm{fin}}}}
+\newcommand*{\istype}{\mathrel{⩴}}
+\newcommand*{\ortype}{\mathrel{|}}
+\newcommand*{\cons}{::}
+\newcommand*{\pset}{\mathscr{P}}
+
+\def\ovbarw{1.2mu}
+\def\ovbarh{1}
+\newcommand*{\ovbar}[1]{\mkern \ovbarw\overline{\mkern-\ovbarw{\smash{#1}\scalebox{1}[\ovbarh]{\vphantom{i}}}\mkern-\ovbarw}\mkern \ovbarw}
+\newcommand*{\A}[1]{\overset{{\,_{\mbox{\Large .}}}}{#1}}
+\newcommand*{\Abs}[1]{{#1}^{\#}}
+\newcommand*{\Expr}{\text{Expr}}
+\newcommand*{\ExprVar}{\text{Var}}
+\newcommand*{\Module}{\text{Module}}
+\newcommand*{\ModVar}{\text{ModVar}}
+\newcommand*{\modid}{d}
+\newcommand*{\Time}{\mathbb{T}}
+\newcommand*{\Addr}{\text{Addr}}
+\newcommand*{\ATime}{\A{\Time}}
+\newcommand*{\Ctx}{\text{Ctx}}
+\newcommand*{\ctx}{\sigma}
+\newcommand*{\Value}{\text{Val}}
+\newcommand*{\Mem}{\text{Heap}}
+\newcommand*{\Left}{\text{Left}}
+\newcommand*{\Right}{\text{Right}}
+\newcommand*{\Sig}{\text{Sig}}
+\newcommand*{\mem}{h}
+\newcommand*{\AMem}{\A{\text{Heap}}}
+\newcommand*{\Config}{\text{Config}}
+\newcommand*{\State}{\text{State}}
+\newcommand*{\Outcome}{\text{Outcome}}
+\newcommand*{\AState}{\A{\text{State}}}
+\newcommand*{\Result}{\text{Result}}
+\newcommand*{\AResult}{\A{\text{Result}}}
+\newcommand*{\Tick}{\text{Tick}}
+\newcommand*{\Judge}{\text{Judge}}
+\newcommand*{\lfp}{\mathsf{lfp}}
+\newcommand*{\Step}{\mathsf{Step}}
+\newcommand*{\Eval}{\mathsf{Eval}}
+\newcommand*{\semarrow}{\hookrightarrow}
+\newcommand*{\asemarrow}{\A{\rightsquigarrow}}
+\newcommand*{\synlink}{\rtimes}
+\newcommand*{\semlink}{\mathbin{\rotatebox[origin=c]{180}{$\propto$}}}
+\newcommand*{\link}[2]{{#1}\rtimes{#2}}
+\newcommand*{\mt}{\mathsf{emp}}
+\newcommand*{\valid}{\checkmark}
+\newcommand*{\Path}{\text{Path}}
+\newcommand*{\equivalent}{\equiv}
+
+\newcommand*{\doubleplus}{\ensuremath{\mathbin{+\mkern-3mu+}}}
+\newcommand*{\project}{\text{\texttt{:>} }}
+\newcommand*{\sembracket}[1]{\lBrack{#1}\rBrack}
+\newcommand*{\fin}[2]{{#1}\xrightarrow{\text{fin}}{#2}}
+\newcommand*{\addr}{\mathsf{addr}}
+\newcommand*{\tick}{\mathsf{tick}}
+\newcommand*{\fresh}{\mathsf{fresh}}
+\newcommand*{\modctx}{\mathsf{ctx}}
+\newcommand*{\inject}[2]{{#2}\langle{#1}\rangle}
+\newcommand*{\Lete}{\mathtt{val}}
+\newcommand*{\Letm}{\mathtt{mod}}
+
+\newcommand*{\ValRel}[1]{\mathcal{V}\sembracket{#1}}
+\newcommand*{\ExprRel}[1]{\mathcal{E}\sembracket{#1}}
+\newcommand*{\CtxRel}[1]{\mathcal{C}\sembracket{#1}}
+\newcommand*{\ModRel}[1]{\mathcal{M}\sembracket{#1}}
+\newcommand*{\TyEnv}{\text{TyEnv}}
+\newcommand*{\TyVar}{\text{TyVar}}
+\newcommand*{\Type}{\text{Type}}
+\newcommand*{\Subst}{\text{Subst}}
+\newcommand*{\external}{\Gamma_{\text{ext}}}
+
+\title{Control Flow Analysis as an Instance for Modular Analysis}
+\author{Joonhyup Lee}
+\begin{document}
+\maketitle
+\section{0CFA for the Simple Module Language}
+\begin{figure}[htb]
+  \centering
+  \begin{tabular}{rrcll}
+    Identifiers & $x,\modid$ & $\in$         & $\ExprVar$                                                             \\
+    Expression  & $e$        & $\rightarrow$ & $x$ $\vbar$ $\lambda x.e$ $\vbar$ $e$ $e$ & untyped $\lambda$-calculus \\
+                &            & $\vbar$       & $\link{m}{e}$                             & linked expression          \\
+    Module      & $m$        & $\rightarrow$ & $\varepsilon$                             & empty module               \\
+                &            & $\vbar$       & $\modid$                                  & module identifier          \\
+                &            & $\vbar$       & $\Lete$ $x$ $e$ $m$                       & value binding              \\
+                &            & $\vbar$       & $\Letm$ $\modid$ $m$ $m$                  & module binding             \\
+  \end{tabular}
+  \caption{Abstract syntax of the simple module language.}
+  \label{fig:syntax}
+\end{figure}
+\subsection{Instrumented Operational Semantics}
+\begin{figure}[h!]
+  \centering
+  \begin{tabular}{rrcll}
+    Timestamp            & $t$    & $\in$         & $\Time$                                                          \\
+    Address              & $\ell$ & $\in$         & $\Addr\triangleq\mathbb{N}\times\Time$                           \\
+    Environment/Context  & $\ctx$ & $\in$         & $\Ctx\triangleq\fin{\ExprVar}{\Addr+\Ctx}$                       \\
+    Value of expressions & $v$    & $\in$         & $\Value\triangleq\ExprVar\times\Expr\times\Ctx$                  \\
+    Heap                 & $\mem$ & $\in$         & $\Mem\triangleq\fin{\Addr}{\Value}$                              \\
+    State                & $s$    & $\in$         & $\State\triangleq\Ctx\times\Mem$                                 \\
+    Context              & $\ctx$ & $\rightarrow$ & $\bullet$                                       & empty stack    \\
+                         &        & $\vbar$       & $(x,\ell)\cons \ctx$                            & value binding  \\
+                         &        & $\vbar$       & $(\modid,\ctx)\cons \ctx$                       & module binding \\
+    Value of expressions & $v$    & $\rightarrow$ & $\langle \lambda x.e, \ctx \rangle$             & closure
+  \end{tabular}
+  \caption{Definition of the semantic domains.}
+  \label{fig:simpdom}
+\end{figure}
+
+\begin{figure}[h!]
+  \footnotesize
+  \begin{flushright}
+    \fbox{$(e,s)\Downarrow (v,\mem)$ and $(m,s)\Downarrow (\ctx,\mem)$}
+  \end{flushright}
+  \centering
+  \vspace{0pt} % -0.75em}
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          \ell=\ctx(x) \\
+          v=\mem(\ell)
+        \end{matrix}}
+      \infer[left label=ExprID]1{
+      (x, \ctx,\mem)
+      \Downarrow
+      (v,\mem)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \infer[left label=Fn]0{
+      (\lambda x.e, \ctx,\mem)
+      \Downarrow
+      (\langle\lambda x.e, \ctx\rangle,\mem)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \ctx, \mem)
+          \Downarrow
+          (\langle\lambda x.e, \ctx_{\lambda}\rangle,\mem_\lambda) \\
+          (e_{2}, \ctx, \mem_\lambda)
+          \Downarrow
+          (v, \mem_a)                                              \\
+          (e, (x, \ell)\cons \ctx_{\lambda}, \mem_a[\ell\mapsto v])
+          \Downarrow
+          (v', \mem')
+        \end{matrix}
+      }
+      \hypo{
+        \begin{matrix}
+          n\in\fresh(\mem_a) \\
+          t=\tick(x)         \\
+          \ell=(n,t)
+        \end{matrix}
+      }
+      \infer[left label={App}]2{
+      (e_{1}\:e_{2}, \ctx, \mem)
+      \Downarrow
+      (v', \mem')
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (m_{1}, \ctx, \mem)
+          \Downarrow
+          (\ctx', \mem') \\
+          (e_{2}, \ctx', \mem')
+          \Downarrow
+          (v',\mem'')
+        \end{matrix}
+      }
+      \infer[left label=Link]1{
+      (\link{m_{1}}{e_{2}}, \ctx, \mem)
+      \Downarrow
+      (v',\mem'')
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \infer[left label=Empty]0{
+      (\varepsilon, \ctx, \mem)
+      \Downarrow
+      (\bullet, \mem)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{\ctx'=\ctx(\modid)}
+      \infer[left label=ModID]1{
+      (\modid, \ctx, \mem)
+      \Downarrow
+      (\ctx', \mem)
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \ctx, \mem)
+          \Downarrow
+          (v, \mem') \\
+          (m_{2}, (x, \ell)\cons \ctx, \mem'[\ell\mapsto v])
+          \Downarrow
+          (\ctx', \mem'')
+        \end{matrix}
+      }
+      \hypo{
+        \begin{matrix}
+          n\in\fresh(\mem') \\
+          t=\tick(x)        \\
+          \ell=(n,t)
+        \end{matrix}
+      }
+      \infer[left label=LetE]2{
+      (\Lete\:x\:e_1\:m_2, \ctx, \mem)
+      \Downarrow
+      ((x,\ell)\cons\ctx', \mem'')
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (m_{1}, \ctx, \mem)
+          \Downarrow
+          (\ctx', \mem') \\
+          (m_{2}, (\modid, \ctx')\cons \ctx, \mem')
+          \Downarrow
+          (\ctx'', \mem'')
+        \end{matrix}
+      }
+      \infer[left label=LetM]1{
+      (\Letm\:\modid\:m_{1}\:m_{2}, \ctx, \mem)
+      \Downarrow
+      ((\modid,\ctx')\cons\ctx'', \mem'')
+      }
+    \end{prooftree}
+  \]
+  \caption{The big-step operational semantics.}
+  \label{fig:simpeval}
+\end{figure}
+\subsection{Adding Intermediate Transitions}
+\begin{figure}[h!]
+  \footnotesize
+  \begin{flushright}
+    \fbox{$(e\text{ or }m,s)\semarrow (e\text{ or }m,s)$}
+  \end{flushright}
+  \centering
+  \vspace{0pt} % -0.75em}
+  \[
+    \begin{prooftree}
+      \infer[left label={AppL}]0{
+      (e_{1}\:e_{2}, \ctx, \mem)
+      \semarrow
+      (e_{1}, \ctx, \mem)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \ctx, \mem)
+          \Downarrow
+          (\langle\lambda x.e, \ctx_{\lambda}\rangle,\mem_\lambda)
+        \end{matrix}
+      }
+      \infer[left label={AppR}]1{
+      (e_{1}\:e_{2}, \ctx, \mem)
+      \semarrow
+      (e_{2}, \ctx, \mem_\lambda)
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \ctx, \mem)
+          \Downarrow
+          (\langle\lambda x.e, \ctx_{\lambda}\rangle,\mem_\lambda) \\
+          (e_{2}, \ctx, \mem_\lambda)
+          \Downarrow
+          (v, \mem_a)
+        \end{matrix}
+      }
+      \hypo{
+        \begin{matrix}
+          n\in\fresh(\mem_a) \\
+          t=\tick(x)         \\
+          \ell=(n,t)
+        \end{matrix}
+      }
+      \infer[left label={AppBody}]2{
+      (e_{1}\:e_{2}, \ctx, \mem)
+      \semarrow
+      (e, (x, \ell)\cons \ctx_{\lambda}, \mem_a[\ell\mapsto v])
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \infer[left label=LinkL]0{
+      (\link{m_{1}}{e_{2}}, \ctx, \mem)
+      \semarrow
+      (m_{1}, \ctx, \mem)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (m_{1}, \ctx, \mem)
+          \Downarrow
+          (\ctx', \mem')
+        \end{matrix}
+      }
+      \infer[left label=LinkR]1{
+      (\link{m_{1}}{e_{2}}, \ctx, \mem)
+      \semarrow
+      (e_{2}, \ctx', \mem')
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \infer[left label=LetEL]0{
+      (\Lete\:x\:e_1\:m_2, \ctx, \mem)
+      \semarrow
+      (e_{1}, \ctx, \mem)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \ctx, \mem)
+          \Downarrow
+          (v, \mem')
+        \end{matrix}
+      }
+      \hypo{
+        \begin{matrix}
+          n\in\fresh(\mem') \\
+          t=\tick(x)        \\
+          \ell=(n,t)
+        \end{matrix}
+      }
+      \infer[left label=LetER]2{
+      (\Lete\:x\:e_1\:m_2, \ctx, \mem)
+      \semarrow
+      (m_{2}, (x, \ell)\cons \ctx, \mem'[\ell\mapsto v])
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \infer[left label=LetML]0{
+      (\Letm\:\modid\:m_{1}\:m_{2}, \ctx, \mem)
+      \semarrow
+      (m_{1}, \ctx, \mem)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (m_{1}, \ctx, \mem)
+          \Downarrow
+          (\ctx', \mem')
+        \end{matrix}
+      }
+      \infer[left label=LetMR]1{
+      (\Letm\:\modid\:m_{1}\:m_{2}, \ctx, \mem)
+      \semarrow
+      (m_{2}, (\modid, \ctx')\cons \ctx, \mem')
+      }
+    \end{prooftree}
+  \]
+  \caption{The transition relation for collecting all intermediate configurations.}
+  \label{fig:simpreach}
+\end{figure}
+
+\subsection{Collecting Semantics}
+\begin{figure}[h!]
+  \centering
+  \begin{tabular}{rrcll}
+    Configuration & $c$ & $\in$       & $\Config\triangleq(\Expr+\Module)\times\State$ \\
+    Result        & $r$ & $\in$       & $\Result\triangleq(\Value+\Ctx)\times\Mem$     \\
+    Judgements    & $J$ & $\subseteq$ & $\Judge\triangleq\Config\:+\Downarrow$
+  \end{tabular}
+  \caption{Definition of additional semantic domains for collecting semantics.}
+  \label{fig:coldom}
+\end{figure}
+\begin{align*}
+  \Eval(J)        & \triangleq
+  \left\{c\Downarrow r\middle|
+  \begin{prooftree}[center=true]
+    \hypo{P}\infer1{c\Downarrow r}
+  \end{prooftree}\text{ and }
+  P\subseteq J\text{ and }c\in J
+  \right\}                     \\
+  \Step(J)        & \triangleq
+  \left\{c'\middle|
+  \begin{prooftree}[center=true]
+    \hypo{P}\infer1{c\semarrow c'}
+  \end{prooftree}\text{ and }
+  P\subseteq J\text{ and }c\in J
+  \right\}                     \\
+  \sembracket{e}S & \triangleq
+  \lfp(\lambda X.\Step(X)\cup\Eval(X)\cup\{(e,s)|s\in S\})
+\end{align*}
+\subsection{Abstract Operational Semantics}
+\begin{figure}[h!]
+  \centering
+  \begin{tabular}{rrcll}
+    Abstract Context & $\A\ctx$ & $\in$         & $\A\Ctx\triangleq\fin{\ExprVar}{\Time+\A\Ctx}$                         \\
+    Abstract Value   & $\A{v}$  & $\in$         & $\A\Value\triangleq\ExprVar\times\Expr\times\A\Ctx$                    \\
+    Abstract Heap    & $\A\mem$ & $\in$         & $\A\Mem\triangleq\fin{\Time}{\pset(\A\Value)}$                         \\
+    Abstract State   & $\A{s}$  & $\in$         & $\A\State\triangleq\A\Ctx\times\A\Mem$                                 \\
+    Abstract Context & $\A\ctx$ & $\rightarrow$ & $\bullet$                                           & empty stack      \\
+                     &          & $\vbar$       & $(x,t)\cons \A\ctx$                                 & value binding    \\
+                     &          & $\vbar$       & $(\modid,\A\ctx)\cons \A\ctx$                       & module binding   \\
+    Abstract Value   & $\A{v}$  & $\rightarrow$ & $\langle \lambda x.e, \A\ctx \rangle$               & abstract closure
+  \end{tabular}
+  \caption{Definition of the abstract semantic domains.}
+  \label{fig:absdom}
+\end{figure}
+\begin{figure}[h!]
+  \footnotesize
+  \begin{flushright}
+    \fbox{$(e,\A{s})\A\Downarrow (\A{v},\A\mem)$ and $(m,\A{s})\A\Downarrow (\A\ctx,\A\mem)$}
+  \end{flushright}
+  \centering
+  \vspace{0pt} % -0.75em}
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          t=\A\ctx(x) \\
+          \A{v}\in\A\mem(t)
+        \end{matrix}}
+      \infer[left label=ExprID]1{
+      (x, \A\ctx,\A\mem)
+      \A\Downarrow
+      (\A{v},\A\mem)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \infer[left label=Fn]0{
+      (\lambda x.e, \A\ctx,\A\mem)
+      \A\Downarrow
+      (\langle\lambda x.e, \A\ctx\rangle,\A\mem)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \A\ctx, \A\mem)
+          \A\Downarrow
+          (\langle\lambda x.e, \A\ctx_{\lambda}\rangle,\A\mem_\lambda) \\
+          (e_{2}, \A\ctx, \A\mem_\lambda)
+          \A\Downarrow
+          (\A{v}, \A\mem_a)                                            \\
+          (e, (x, t)\cons \A\ctx_{\lambda}, \A\mem_a[t\A\mapsto\A{v}])
+          \A\Downarrow
+          (\A{v'}, \A{\mem'})
+        \end{matrix}
+      }
+      \hypo{
+        \begin{matrix}
+          t=\tick(x)
+        \end{matrix}
+      }
+      \infer[left label={App}]2{
+      (e_{1}\:e_{2}, \A\ctx, \A\mem)
+      \A\Downarrow
+      (\A{v'}, \A{\mem'})
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (m_{1}, \A\ctx, \A\mem)
+          \A\Downarrow
+          (\A{\ctx'}, \A{\mem'}) \\
+          (e_{2}, \A{\ctx'}, \A{\mem'})
+          \A\Downarrow
+          (\A{v'},\A{\mem''})
+        \end{matrix}
+      }
+      \infer[left label=Link]1{
+      (\link{m_{1}}{e_{2}}, \A\ctx, \A\mem)
+      \A\Downarrow
+      (\A{v'},\A{\mem''})
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \infer[left label=Empty]0{
+      (\varepsilon, \A\ctx, \A\mem)
+      \A\Downarrow
+      (\bullet, \A\mem)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{\A\ctx'=\A\ctx(\modid)}
+      \infer[left label=ModID]1{
+      (\modid, \A\ctx, \A\mem)
+      \A\Downarrow
+      (\A{\ctx'}, \A\mem)
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \A\ctx, \A\mem)
+          \A\Downarrow
+          (\A{v}, \A{\mem'}) \\
+          (m_{2}, (x, t)\cons \A\ctx, \A{\mem'}[t\A\mapsto\A{v}])
+          \A\Downarrow
+          (\A{\ctx'}, \A{\mem''})
+        \end{matrix}
+      }
+      \hypo{
+        \begin{matrix}
+          t=\tick(x)
+        \end{matrix}
+      }
+      \infer[left label=LetE]2{
+      (\Lete\:x\:e_1\:m_2, \A\ctx, \A\mem)
+      \A\Downarrow
+      ((x,t)\cons\A{\ctx'}, \A{\mem''})
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (m_{1}, \A{\ctx}, \A{\mem})
+          \A\Downarrow
+          (\A{\ctx'}, \A{\mem'}) \\
+          (m_{2}, (\modid, \A{\ctx'})\cons \A\ctx, \A{\mem'})
+          \A\Downarrow
+          (\A{\ctx''}, \A{\mem''})
+        \end{matrix}
+      }
+      \infer[left label=LetM]1{
+      (\Letm\:\modid\:m_{1}\:m_{2}, \A\ctx, \A\mem)
+      \A\Downarrow
+      ((\modid,\A{\ctx'})\cons\A{\ctx''}, \A{\mem''})
+      }
+    \end{prooftree}
+  \]
+  \caption{The big-step abstract operational semantics.}
+  \label{fig:abseval}
+\end{figure}
+\begin{figure}[h!]
+  \footnotesize
+  \begin{flushright}
+    \fbox{$(e\text{ or }m,\A{s})\A\semarrow (e\text{ or }m,\A{s})$}
+  \end{flushright}
+  \centering
+  \vspace{0pt} % -0.75em}
+  \[
+    \begin{prooftree}
+      \infer[left label={AppL}]0{
+      (e_{1}\:e_{2}, \A\ctx, \A\mem)
+      \A\semarrow
+      (e_{1}, \A\ctx, \A\mem)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \A\ctx, \A\mem)
+          \A\Downarrow
+          (\langle\lambda x.e, \A\ctx_{\lambda}\rangle,\A\mem_\lambda)
+        \end{matrix}
+      }
+      \infer[left label={AppR}]1{
+      (e_{1}\:e_{2}, \A\ctx, \A\mem)
+      \A\semarrow
+      (e_{2}, \A\ctx, \A\mem_\lambda)
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \A\ctx, \A\mem)
+          \A\Downarrow
+          (\langle\lambda x.e, \A\ctx_{\lambda}\rangle,\A\mem_\lambda) \\
+          (e_{2}, \A\ctx, \A\mem_\lambda)
+          \A\Downarrow
+          (\A{v}, \A\mem_a)
+        \end{matrix}
+      }
+      \hypo{
+        \begin{matrix}
+          t=\tick(x)
+        \end{matrix}
+      }
+      \infer[left label={AppBody}]2{
+      (e_{1}\:e_{2}, \A\ctx, \A\mem)
+      \A\semarrow
+      (e, (x, t)\cons \A\ctx_{\lambda}, \A\mem_a[t\A\mapsto\A{v}])
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \infer[left label=LinkL]0{
+      (\link{m_{1}}{e_{2}}, \A\ctx, \A\mem)
+      \A\semarrow
+      (m_{1}, \A\ctx, \A\mem)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (m_{1}, \A\ctx, \A\mem)
+          \A\Downarrow
+          (\A{\ctx'}, \A{\mem'})
+        \end{matrix}
+      }
+      \infer[left label=LinkR]1{
+      (\link{m_{1}}{e_{2}}, \A\ctx, \A\mem)
+      \A\semarrow
+      (e_{2}, \A{\ctx'}, \A{\mem'})
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \infer[left label=LetEL]0{
+      (\Lete\:x\:e_1\:m_2, \A\ctx, \A\mem)
+      \A\semarrow
+      (e_{1}, \A\ctx, \A\mem)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (e_{1}, \A\ctx, \A\mem)
+          \A\Downarrow
+          (\A{v}, \A{\mem'})
+        \end{matrix}
+      }
+      \hypo{
+        \begin{matrix}
+          t=\tick(x)
+        \end{matrix}
+      }
+      \infer[left label=LetER]2{
+      (\Lete\:x\:e_1\:m_2, \A\ctx, \A\mem)
+      \A\semarrow
+      (m_{2}, (x, t)\cons \A\ctx, \A{\mem'}[t\A\mapsto\A{v}])
+      }
+    \end{prooftree}
+  \]
+
+  \[
+    \begin{prooftree}
+      \infer[left label=LetML]0{
+      (\Letm\:\modid\:m_{1}\:m_{2}, \A\ctx, \A\mem)
+      \A\semarrow
+      (m_{1}, \A\ctx, \A\mem)
+      }
+    \end{prooftree}\qquad
+    \begin{prooftree}
+      \hypo{
+        \begin{matrix}
+          (m_{1}, \A\ctx, \A\mem)
+          \A\Downarrow
+          (\A{\ctx'}, \A{\mem'})
+        \end{matrix}
+      }
+      \infer[left label=LetMR]1{
+      (\Letm\:\modid\:m_{1}\:m_{2}, \A\ctx, \A\mem)
+      \A\semarrow
+      (m_{2}, (\modid, \A{\ctx'})\cons \A\ctx, \A{\mem'})
+      }
+    \end{prooftree}
+  \]
+  \caption{The abstract transition relation for collecting all intermediate configurations.}
+  \label{fig:absreach}
+\end{figure}
+\subsection{Abstract Semantics}
+\begin{figure}[h!]
+  \centering
+  \begin{tabular}{rrcll}
+    Abstract Configuration & $\A{c}$   & $\in$       & $\A\Config\triangleq(\Expr+\Module)\times\A\State$ \\
+    Abstract Result        & $\A{r}$   & $\in$       & $\A\Result\triangleq(\A\Value+\A\Ctx)\times\A\Mem$ \\
+    Abstract Judgements    & $\Abs{J}$ & $\subseteq$ & $\A\Judge\triangleq\A\Config\:+\A\Downarrow$
+  \end{tabular}
+  \caption{Definition of additional semantic domains for collecting semantics.}
+  \label{fig:abscoldom}
+\end{figure}
+\begin{align*}
+  \Abs\Eval(\Abs{J})          & \triangleq
+  \left\{\A{c}\A\Downarrow\A{r}\middle|
+  \begin{prooftree}[center=true]
+    \hypo{\Abs{P}}\infer1{\A{c}\A\Downarrow\A{r}}
+  \end{prooftree}\text{ and }
+  \Abs{P}\subseteq\Abs{J}\text{ and }\A{c}\in\Abs{J}
+  \right\}                                 \\
+  \Abs\Step(\Abs{J})          & \triangleq
+  \left\{\A{c'}\middle|
+  \begin{prooftree}[center=true]
+    \hypo{\Abs{P}}\infer1{\A{c}\A\semarrow\A{c'}}
+  \end{prooftree}\text{ and }
+  \Abs{P}\subseteq\Abs{J}\text{ and }\A{c}\in\Abs{J}
+  \right\}                                 \\
+  \Abs{\sembracket{e}}\Abs{S} & \triangleq
+  \lfp(\lambda \Abs{X}.\Abs\Step(\Abs{X})\cup\Abs\Eval(\Abs{X})\cup\{(e,\A{s})|\A{s}\in\Abs{S}\})
+\end{align*}
+\subsection{Galois Connection}
+\begin{align*}
+  |\bullet|                 & \triangleq\bullet                                  &  &  & |(x,(\_,t))\cons\ctx|            & \triangleq(x,t)\cons|\ctx|                 \\
+  |(\modid,\ctx)\cons\ctx'| & \triangleq(\modid,|\ctx|)\cons|\ctx'|              &  &  & |\langle\lambda x.e,\ctx\rangle| & \triangleq\langle\lambda x.e,|\ctx|\rangle \\
+  |\mem|                    & \triangleq\lambda t.\{|\mem(n,t)||n\in\mathbb{N}\} &  &  & |(\_,\_)|                        & \triangleq(|\_|,|\_|)
+\end{align*}
+\begin{lem}[Galois Connection]
+  \[\pset(\Judge)\galois{\alpha}{\gamma}\pset(\A\Judge)\]
+  where
+  \begin{align*}
+    \gamma(\Abs{D}) & \triangleq\{c||c|\in\Abs{D}\}\cup\{c\Downarrow r||c|\A\Downarrow|r|\in\Abs{D}\} \\
+    \alpha(D)       & \triangleq\{|c||c\in D\}\cup\{|c|\A\Downarrow|r||c\Downarrow r\in D\}
+  \end{align*}
+\end{lem}
+\subsection{Soundness}
+\begin{lem}[Operational Soundness]
+  \[c\Downarrow r\Rightarrow|c|\A\Downarrow|r|\]
+\end{lem}
+\begin{lem}[Soundness of $\Step$, $\Eval$]
+  \[\Step\circ\gamma\subseteq\gamma\circ\Abs\Step\qquad\Eval\circ\gamma\subseteq\gamma\circ\Abs\Eval\]
+\end{lem}
+\begin{thm}[Soundness]
+  \[\sembracket{e}\circ\gamma\subseteq\gamma\circ\Abs{\sembracket{e}}\]
+\end{thm}
+\subsection{0CFA}
+Instantiating
+\[\tick(x)\triangleq x\]
+leads to 0CFA.
+
+%\section{Equivalence}
+%The point of the instrumented semantics is that no matter what time domain $\Time$ you take, the concrete semantics stay \emph{equivalent}.
+%To formalize this, we define 
+%\begin{figure}[h!]
+%  \centering
+%  \begin{tabular}{rclr}
+%    $p$                                   & $\rightarrow$ & $\epsilon$                              \\
+%                                          & $|$           & $\xrightarrow{x}t\:p$                   \\
+%                                          & $|$           & $\xrightarrow{\modid}p$                 \\
+%                                          & $|$           & $\xrightarrow{\lambda x.e}p$            \\
+%    $\varphi(\epsilon)$                   & $\triangleq$  & $\epsilon$                              \\
+%    $\varphi(\xrightarrow{x}t\:p)$        & $\triangleq$  & $\xrightarrow{x}\varphi(t)\:\varphi(p)$ \\
+%    $\varphi(\xrightarrow{M}p)$           & $\triangleq$  & $\xrightarrow{M}\varphi(p)$             \\
+%    $\varphi(\xrightarrow{\lambda x.e}p)$ & $\triangleq$  & $\xrightarrow{\lambda x.e}\varphi(p)$
+%  \end{tabular}
+%  \begin{minipage}{0.3\linewidth}
+%    \footnotesize
+%    \[
+%      \begin{prooftree}
+%        \infer0{\valid(\_,\mem,\epsilon)}
+%      \end{prooftree}
+%    \]
+%
+%    \[
+%      \begin{prooftree}
+%        \hypo{t=\ctx(x)\qquad\valid(t,\mem,p)}
+%        \infer1{\valid(\ctx,\mem,\xrightarrow{x}t\:p)}
+%      \end{prooftree}
+%    \]
+%
+%    \[
+%      \begin{prooftree}
+%        \hypo{\ctx'=\ctx(\modid)\qquad\valid(\ctx',\mem,p)}
+%        \infer1{\valid(\ctx,\mem,\xrightarrow{\modid}p)}
+%      \end{prooftree}
+%    \]
+%
+%    \[
+%      \begin{prooftree}
+%        \hypo{\langle\lambda x.e,{\ctx}\rangle=\mem(t)\qquad\valid(\ctx,\mem,p)}
+%        \infer1{\valid(t,\mem,\xrightarrow{\lambda x.e}p)}
+%      \end{prooftree}
+%    \]
+%  \end{minipage}
+%  \begin{minipage}{0.3\linewidth}
+%    \footnotesize
+%    \[
+%      \begin{prooftree}
+%        \infer0{\A\valid(\_,\A\mem,\epsilon)}
+%      \end{prooftree}
+%    \]
+%
+%    \[
+%      \begin{prooftree}
+%        \hypo{\A{t}=\A\ctx(x)\qquad\A\valid(\A{t},\A\mem,\A{p})}
+%        \infer1{\A\valid(\A\ctx,\A\mem,\xrightarrow{x}\A{t}\:\A{p})}
+%      \end{prooftree}
+%    \]
+%
+%    \[
+%      \begin{prooftree}
+%        \hypo{\A\ctx'=\A\ctx(\modid)\qquad\A\valid(\A\ctx',\A\mem,\A{p})}
+%        \infer1{\A\valid(\A\ctx,\A\mem,\xrightarrow{\modid}\A{p})}
+%      \end{prooftree}
+%    \]
+%
+%    \[
+%      \begin{prooftree}
+%        \hypo{\langle\lambda x.e,{\A\ctx}\rangle\in\A\mem(\A{t})\qquad\A\valid(\A\ctx,\A\mem,\A{p})}
+%        \infer1{\A\valid(\A{t},\A\mem,\xrightarrow{\lambda x.e}\A{p})}
+%      \end{prooftree}
+%    \]
+%  \end{minipage}
+%  \caption{Definitions for access paths. Given from the left are: the syntax of access paths, the translation of timestamps, the $\valid$ predicate, and the $\A\valid$ predicate.}
+%  \label{fig:valid}
+%\end{figure}
+%\begin{definition}[Equivalent Concrete States: $\equivalent$]
+%  Let $s=(\ctx,\mem)\in\State$ and $s'=(\ctx',\mem')\in\State'$.
+%  $s\equivalent s'$ ($s$ is equivalent to $s'$) iff $\exists\varphi\in\Addr\rightarrow\Addr',\varphi'\in\Addr'\rightarrow\Addr:$
+%  \begin{enumerate}
+%    \item $\forall p\in\Path:\valid(\ctx,\mem,p)\Rightarrow(\valid(\ctx',\mem',\varphi(p))\land p=\varphi'(\varphi(p)))$
+%    \item $\forall p'\in\Path':\valid(\ctx',\mem',p')\Rightarrow(\valid(\ctx,\mem,\varphi'(p'))\land p'=\varphi(\varphi'(p')))$
+%  \end{enumerate}
+%\end{definition}
+%\begin{definition}[Weakly Equivalent Abstract States]\label{def:weakequiv}
+%  Let $\A{s}=(\A{\ctx},\A\mem)\in\AState$ and $\A{s'}=(\A{\ctx'},\A{\mem'})\in\A{\State'}$.
+%  $\A{s}$ is weakly equivalent to $\A{s'}$ iff $\exists\A\varphi\in\Time\rightarrow\Time',\A{\varphi'}\in\Time'\rightarrow\Time:$
+%  \begin{enumerate}
+%    \item $\forall\A{p}\in\A\Path:\A\valid(\A{\ctx},\A\mem,\A{p})\Rightarrow(\A\valid(\A{\ctx'},\A{\mem'},\A\varphi(\A{p}))\land\A{p}=\A{\varphi'}(\A\varphi(\A{p})))$
+%    \item $\forall\A{p'}\in\A{\Path'}:\A\valid(\A{\ctx'},\A{\mem'},\A{p'})\Rightarrow(\A\valid(\A{\ctx},\A{\mem},\A{\varphi'}(\A{p'}))\land\A{p'}=\A\varphi(\A{\varphi'}(\A{p'})))$
+%  \end{enumerate}
+%\end{definition}
+%The reason that the above definition is called ``weak equivalence'' is because it is not sufficient to guarantee equivalence after concretization.
+%Consider
+%\[
+%  \ctx=[(x,0)],\mem=\{0\mapsto\{\langle\lambda z.z,[(x,1)]\rangle,\langle\lambda z.z,[(y,2)]\rangle\},1\mapsto\{\langle\lambda z.z,[]\rangle\}\}
+%\]
+%and
+%\[
+%  \ctx'=[(x,0)],\mem'=\{0\mapsto\{\langle\lambda z.z,[(x,1);(y,2)]\rangle\},1\mapsto\{\langle\lambda z.z,[]\rangle\}\}
+%\]
+%They are weakly equivalent, yet their concretizations are not equivalent.
+%Thus, we need to strengthen the definition for abstract equivalence.
+%
+%Before going into the definition, we introduce some terminology.
+%First, we say that two states are \emph{weakly equivalent by} $\A\varphi,\A{\varphi'}$ when $\A\varphi,\A{\varphi'}$ are the functions that translate between abstract timestamps in Definition \ref{def:weakequiv}.
+%Second, we say that $\A{t}$ is \emph{reachable from} $\A{s}$ when there is some valid access path $\A{p}$ from $\A{s}$ containing $\A{t}$.
+%Now we actually give the definition:
+%\begin{definition}[Equivalent Abstract States: $\A\equivalent$]
+%  Let $\A{s}=(\_,\A\mem)\in\AState$ and $\A{s'}=(\_,\A{\mem'})\in\A{\State'}$.
+%  $\A{s}\A\equivalent\A{s'}$ ($\A{s}$ is equivalent to $\A{s'}$) iff $\exists\A\varphi\in\ATime\rightarrow\A{\Time'},\A{\varphi'}\in\A{\Time'}\rightarrow\ATime:$
+%  \begin{enumerate}
+%    \item $\A{s}$ and $\A{s'}$ are weakly equivalent by $\A\varphi,\A{\varphi'}$.
+%    \item For each $\A{t}$ reachable from $\A{s}$ and for each $\langle\lambda x.e,\A{\ctx}\rangle\in\A\mem(\A{t})$, $\langle\lambda x.e,\exists{\A{\ctx'}}\rangle\in\A{\mem'}(\A\varphi(\A{t}))$ such that $\A{\ctx}$, $\A{\ctx'}$ are weakly equivalent by $\A\varphi,\A{\varphi'}$ under the empty memory.
+%    \item The same holds for each $\A{t'}$ reachable from $\A{s'}$.
+%  \end{enumerate}
+%\end{definition}
+%
+%
+\section{Punching Holes}
+Punch holes in the abstract semantics and define injection/linking operators such that:
+\[\Abs{\sembracket{e}}(\Abs{S}\rhd S_H)\sqsubseteq\Abs{S}\semlink\sembracket{e}_H S_H\]
+The goal is to define:
+\begin{center}
+  \begin{tabular}{lr}
+    $\sembracket{\cdot}_H$ & semantics with holes \\
+    $S_H$                  & states with holes    \\
+    $\semlink$             & semantic linking     \\
+    $\rhd$                 & semantic injection
+  \end{tabular}
+\end{center}
+\subsection{States with Holes}
+First define:
+\[\ctx_H\in\Ctx_H\]
+by:
+\begin{center}
+  \begin{tabular}{rclr}
+    $\ctx_H$ & $\rightarrow$ & $[]$                          & hole           \\
+             & $\vbar$       & $\bullet$                     & empty stack    \\
+             & $\vbar$       & $(x,t)\cons \ctx_H$           & value binding  \\
+             & $\vbar$       & $(\modid,\ctx_H)\cons \ctx_H$ & module binding
+  \end{tabular}
+\end{center}
+and define:
+\[\Value_H\qquad\Mem_H\qquad\State_H\qquad\Config_H\qquad\Result_H\qquad\Judge_H\]
+accordingly.
+\subsection{Semantics with Holes}
+Define:
+\[\Downarrow_H\subseteq\Config_H\times\Result_H\qquad\semarrow_H\subseteq\Config_H\times\Config_H\]
+by using:
+\[\tick_H\in\ExprVar\rightarrow\Time_H\]
+where $\Time_H$ is some set chosen by the analysis designer.
+
+Define:
+\[\Step_H\in\pset(\Judge_H)\rightarrow\pset(\Judge_H)\qquad\Eval_H\in\pset(\Judge_H)\rightarrow\pset(\Judge_H)\]
+Define:
+\[\sembracket{e}_HS_H\triangleq\lfp(\lambda X_H.\Step_H(X)\cup\Eval_H(X)\cup\{(e,s_H)|s_H\in S_H\})\]
+\subsection{Injection}
+Define injection into a context with holes:
+\[\cdot[\cdot]:\Ctx_H\rightarrow\A\Ctx\rightarrow\A\Ctx_+\]
+where
+\[\A\Ctx_+\triangleq\fin{\ExprVar}{\Time+\Time_H}\]
+by:
+\begin{align*}
+  [][\A\ctx]                   & \triangleq\A\ctx                     &  &  & \bullet[\A\ctx]                           & \triangleq\bullet                                         \\
+  ((x,t)\cons\A\ctx_H)[\A\ctx] & \triangleq(x,t)\cons\A\ctx_H[\A\ctx] &  &  & ((\modid,\A\ctx_H)\cons\A\ctx_H')[\A\ctx] & \triangleq(\modid,\A\ctx_H[\A\ctx])\cons\A\ctx_H'[\A\ctx]
+\end{align*}
+Define injection into other domains where
+\[\qquad\A\Value_+\qquad\A\Mem_+\qquad\A\State_+\qquad\A\Config_+\qquad\A\Result_+\qquad\A\Judge_+\]
+are defined accordingly as domains that use $\Time+\Time_H$ for timestamps and $\tick_H$ for $\tick$ by:
+\begin{align*}
+  \langle\lambda x.e,\ctx_H\rangle[\A\ctx] & \triangleq\langle\lambda x.e,\ctx_H[\A\ctx]\rangle  &  &  & \mem_H[\A\ctx]                & \triangleq\lambda t_H.\{v_H[\A\ctx]|v_H\in\mem_H(t_H)\} \\
+  (\ctx_H,\mem_H)[(\A\ctx,\A\mem)]         & \triangleq(\ctx_H[\A\ctx],\A\mem\cup\mem_H[\A\ctx]) &  &  & (v_H,\mem_H)[(\A\ctx,\A\mem)] & \triangleq(v_H[\A\ctx],\A\mem\cup\mem_H[\A\ctx])        \\
+  (e,s_H)[\A{s}]                           & \triangleq (e,s_H[\A{s}])                           &  &  & (m,s_H)[\A{s}]                & \triangleq (m,s_H[\A{s}])
+\end{align*}
+
+Then we have:
+\begin{lem}[Preservation After Injection]
+  \[c_H\Downarrow_H r_H\Rightarrow c_H[\A{s}]\A\Downarrow r_H[\A{s}]\qquad c_H\semarrow_H c_H'\Rightarrow c_H[\A{s}]\A\semarrow c_H'[\A{s}]\]
+\end{lem}
+
+Define injection into set of states:
+\[\rhd:\pset(\A\State)\rightarrow\pset(\State_H)\rightarrow\pset(\A\State_+)\]
+by:
+\[\Abs{S}\rhd S_H\triangleq\{\ctx_H[\A\ctx]|\A\ctx\in\Abs{S},\ctx_H\in S_H\}\]
+
+\subsection{Linking}
+Define injection into set of judgements:
+\[\rhd:\pset(\A\State)\rightarrow\pset(\Judge_H)\rightarrow\pset(\A\Judge_+)\]
+by:
+\[\Abs{S}\rhd J_H\triangleq\{c_H[\A{s}]|\A{s}\in\Abs{S},c_H\in J_H\}\cup\{c_H[\A{s}]\A\Downarrow r_H[\A{s}]|\A{s}\in\Abs{S},c_H\Downarrow_H r_H\in J_H\}\]
+
+Define linking:
+\[\semlink:\pset(\A\State)\rightarrow\pset(\Judge_H)\rightarrow\pset(\A\Judge_+)\]
+by:
+\[\Abs{S}\semlink J_H\triangleq\lfp(\lambda\Abs{X}_+.\Abs{\Step}_+(\Abs{X}_+)\cup\Abs{\Eval}_+(\Abs{X}_+)\cup(\Abs{S}\rhd J_H))\]
+\begin{lem}[Advance]
+  \[\Abs{\sembracket{e}}(\Abs{S}\rhd S_H)=\Abs{S}\semlink\sembracket{e}_H S_H\]
+\end{lem}
+\subsection{Separate Modular Analysis}
+\begin{thm}[Separate Analysis]
+  Let $\mt\triangleq\{(\bullet,\varnothing)\}\subseteq\A\State$. Then:
+  \[(\Abs{\sembracket{\link{m}{e}}}\mt)|_{e}\Abs\cong(\Abs{S}\semlink\sembracket{e}_H S_H)|_{e}\]
+  when
+  \[(\Abs{\sembracket{m}}\mt)|_{m}\Abs\cong\Abs{S}\rhd S_H\]
+\end{thm}
+\end{document}
+%%% Local Variables: 
+%%% coding: utf-8
+%%% mode: latex
+%%% TeX-engine: xetex
+%%% End:
